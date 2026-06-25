@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Sprint%200%20In%20Progress-blue" />
+  <img src="https://img.shields.io/badge/status-Sprint%200%20Complete-brightgreen" />
   <img src="https://img.shields.io/badge/Node.js-20%2B-green" />
   <img src="https://img.shields.io/badge/TypeScript-Strict-blue" />
   <img src="https://img.shields.io/badge/Fastify-API%20Server-black" />
@@ -460,7 +460,7 @@ Project documentation is stored in the `docs` folder.
 
 ### Sprint 0 - Core Setup & Basic Gateway Flow
 
-Status: In progress
+Status: Completed
 
 * [x] Create GitHub repository.
 * [x] Set up npm workspaces.
@@ -477,8 +477,8 @@ Status: In progress
 * [x] Add project context docs.
 * [x] Add architecture overview.
 * [x] Add requirements document.
-* [ ] Improve README.
-* [ ] Add `.env.example`.
+* [x] Improve README.
+* [x] Add `.env.example`.
 
 ### Sprint 1 - API Gateway Core Features
 
@@ -566,6 +566,7 @@ Latest stable commits:
 3ae7802 refactor: split product service routes config and middlewares
 c0615fe docs: add project context handoff and progress logs
 71923ae docs: add architecture overview and requirements
+b5ee327 docs: add environment example
 ```
 
 ---
