@@ -44,9 +44,9 @@ PulseGate aims to solve the following problems:
 
 ## 5. Sprint 0 Goal
 
-Sprint 0 focuses on the smallest working system.
+Sprint 0 focused on the smallest working system.
 
-The goal is to prove this flow:
+The goal was to prove this flow:
 
 ```txt
 Client
@@ -55,7 +55,7 @@ Client
       -> Response
 ```
 
-Sprint 0 should not include complex infrastructure yet.
+Sprint 0 intentionally did not include complex infrastructure.
 
 Not included in Sprint 0:
 
@@ -71,6 +71,12 @@ Not included in Sprint 0:
 * OpenTelemetry
 * Admin Dashboard
 * Developer Portal
+
+Sprint 0 status:
+
+```txt
+Done
+```
 
 ## 6. Sprint 0 Functional Requirements
 
@@ -296,11 +302,12 @@ Required documentation:
 * `docs/architecture/overview.md`
 * `docs/sdlc/requirements.md`
 * Root `README.md`
+* `.env.example`
 
-Current status:
+Status:
 
 ```txt
-In progress
+Done
 ```
 
 ## 7. Sprint 0 Non-Functional Requirements
@@ -350,9 +357,9 @@ Acceptance criteria:
 
 * API Gateway separates config, routes, middlewares, and server startup.
 * Product Service separates config, routes, middlewares, and server startup.
-* `server.ts` should mainly create the app, register routes/middlewares, and start the server.
-* Business routes should live in `routes`.
-* Reusable request handling logic should live in `middlewares`.
+* `server.ts` mainly creates the app, registers routes/middlewares, and starts the server.
+* Business routes live in `routes`.
+* Reusable request handling logic lives in `middlewares`.
 
 Status:
 
@@ -400,7 +407,7 @@ Done
 
 ## 8. Current System Constraints
 
-Current Sprint 0 constraints:
+Current constraints after Sprint 0:
 
 * Product data is hard-coded.
 * No database is connected.
@@ -411,47 +418,229 @@ Current Sprint 0 constraints:
 * No metrics dashboard exists yet.
 * No tracing system exists yet.
 * API Gateway currently proxies only Product Service.
+* API Gateway does not yet normalize downstream service failures.
+* API Gateway does not yet apply request timeout to downstream calls.
 
-## 9. Future Functional Requirements
+## 9. Sprint 1 Goal
+
+Sprint 1 focuses on API Gateway core behavior.
+
+The goal is to make the Gateway more production-like before adding infrastructure.
+
+Sprint 1 should improve:
+
+* Downstream service error handling.
+* Request timeout handling.
+* Gateway route configuration foundation.
+* API key authentication.
+* JWT authentication later.
+* Unit tests.
+* Integration tests.
+
+Sprint 1 should still avoid:
+
+* Redis
+* Kafka
+* RabbitMQ
+* PostgreSQL
+* Prisma
+* Docker
+* Kubernetes
+* Prometheus
+* Grafana
+* OpenTelemetry
+
+## 10. Sprint 1 Functional Requirements
+
+### S1-FR-001: Normalize Downstream Service Errors
+
+API Gateway must return a clean and consistent error response when a downstream service is unavailable.
+
+Problem:
+
+Currently, if Product Service is down, `fetch` may throw a low-level error such as `fetch failed`.
+
+Expected behavior:
+
+* API Gateway should catch downstream connection errors.
+* API Gateway should not expose raw runtime errors to clients.
+* API Gateway should return a normalized error response.
+* Error response should include request ID.
+* Error response should identify the downstream service.
+* Error response should use a suitable HTTP status code.
+
+Expected response example:
+
+```json
+{
+  "error": {
+    "code": "DOWNSTREAM_SERVICE_UNAVAILABLE",
+    "message": "Product Service is currently unavailable",
+    "service": "product-service",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Suggested status code:
+
+```txt
+503 Service Unavailable
+```
+
+Status:
+
+```txt
+Planned
+```
+
+---
+
+### S1-FR-002: Add Downstream Request Timeout
+
+API Gateway must stop waiting if a downstream service takes too long to respond.
+
+Acceptance criteria:
+
+* Gateway request to Product Service has a timeout.
+* Timeout duration is configurable.
+* Timeout error returns a normalized error response.
+* Timeout response includes request ID.
+* Timeout response does not expose raw internal error details.
+
+Expected response example:
+
+```json
+{
+  "error": {
+    "code": "DOWNSTREAM_TIMEOUT",
+    "message": "Product Service did not respond in time",
+    "service": "product-service",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Suggested status code:
+
+```txt
+504 Gateway Timeout
+```
+
+Status:
+
+```txt
+Planned
+```
+
+---
+
+### S1-FR-003: Route Configuration Foundation
+
+API Gateway should move hard-coded downstream route information toward a route configuration structure.
+
+Acceptance criteria:
+
+* Product Service URL remains configurable.
+* Product route config is separated from route handler logic.
+* Future services can be added without rewriting Gateway core logic too much.
+* Route config should be simple in Sprint 1.
+
+Status:
+
+```txt
+Planned
+```
+
+---
+
+### S1-FR-004: API Key Authentication
+
+API Gateway should support basic API key authentication.
+
+Acceptance criteria:
+
+* API Gateway checks an API key from request headers.
+* Missing API key returns `401 Unauthorized`.
+* Invalid API key returns `403 Forbidden`.
+* Valid API key allows request to continue.
+* API key header name is configurable.
+* Sprint 1 may use a simple in-memory or environment-based API key list before database support exists.
+
+Possible header:
+
+```txt
+x-api-key
+```
+
+Status:
+
+```txt
+Planned
+```
+
+---
+
+### S1-FR-005: JWT Authentication
+
+API Gateway should support JWT authentication after API key authentication foundation is clear.
+
+Acceptance criteria:
+
+* API Gateway accepts Bearer token.
+* Missing token returns `401 Unauthorized`.
+* Invalid token returns `403 Forbidden`.
+* Valid token allows request to continue.
+* User context can be forwarded to downstream services later.
+
+Status:
+
+```txt
+Planned
+```
+
+---
+
+### S1-FR-006: Unit Tests
+
+The project should add basic unit tests.
+
+Acceptance criteria:
+
+* Request ID generation is tested.
+* Error response builder is tested.
+* Gateway utility functions are tested where applicable.
+* Tests can be run with an npm script.
+
+Status:
+
+```txt
+Planned
+```
+
+---
+
+### S1-FR-007: Integration Tests
+
+The project should add basic integration tests for the current flow.
+
+Acceptance criteria:
+
+* Test API Gateway `/health`.
+* Test Product Service `/health`.
+* Test Product Service `/products`.
+* Test API Gateway `/api/products`.
+* Test Gateway behavior when downstream service is unavailable.
+
+Status:
+
+```txt
+Planned
+```
+
+## 11. Future Functional Requirements
 
 These requirements are planned for later sprints.
-
-### Future FR: API Key Authentication
-
-API Gateway should validate API keys before forwarding requests.
-
-Planned features:
-
-* Generate API keys.
-* Store API keys.
-* Validate API keys from request headers.
-* Reject invalid API keys.
-
-Status:
-
-```txt
-Planned
-```
-
----
-
-### Future FR: JWT Authentication
-
-API Gateway should validate JWT access tokens.
-
-Planned features:
-
-* Validate Bearer token.
-* Reject missing or invalid token.
-* Forward user context to downstream services.
-
-Status:
-
-```txt
-Planned
-```
-
----
 
 ### Future FR: Rate Limiting
 
@@ -551,7 +740,7 @@ Status:
 Planned
 ```
 
-## 10. Current Test Commands
+## 12. Current Test Commands
 
 Run Product Service:
 
@@ -591,7 +780,7 @@ Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
 Invoke-RestMethod http://localhost:3000/api/products | ConvertTo-Json -Depth 10
 ```
 
-## 11. Sprint 0 Definition of Done
+## 13. Sprint 0 Definition of Done
 
 Sprint 0 is done when:
 
@@ -610,10 +799,25 @@ Sprint 0 is done when:
 * Architecture overview is created.
 * Requirements document is created.
 * README is updated.
+* `.env.example` is added.
 * Code is pushed to GitHub.
 
 Current Sprint 0 status:
 
 ```txt
-In progress
+Done
+```
+
+## 14. Next Sprint
+
+Next sprint:
+
+```txt
+Sprint 1 - API Gateway Core Features
+```
+
+Recommended first task:
+
+```txt
+Sprint 1 - Step 1: Normalize downstream service errors
 ```

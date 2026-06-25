@@ -4,13 +4,19 @@
 
 PulseGate - High-Traffic API Gateway & Observability Platform
 
-## Current Sprint
-
-Sprint 0 - Core Setup & Basic Gateway Flow
-
 ## Current Version
 
 v0.1.0
+
+## Current Status
+
+Sprint 0 is complete.
+
+The project is ready to move to:
+
+```txt
+Sprint 1 - API Gateway Core Features
+```
 
 ## Purpose of This File
 
@@ -22,7 +28,8 @@ When continuing this project in a new chat, provide this file first so the assis
 * What has already been completed.
 * What the current architecture is.
 * What coding style and learning workflow should be followed.
-* What the next step should be.
+* What the next sprint should be.
+* What should not be added too early.
 
 ---
 
@@ -33,7 +40,7 @@ The assistant should follow this workflow:
 1. Provide sample code step by step.
 2. Do not generate too much code at once.
 3. Explain the purpose of each file.
-4. Explain the important code blocks.
+4. Explain important code blocks.
 5. Explain the request flow after each feature.
 6. Let the user run and test the code.
 7. Review errors, logs, and code like a senior backend reviewer.
@@ -116,6 +123,16 @@ Currently used:
 * Fastify
 * npm workspaces
 
+Added in Sprint 0:
+
+* `.gitignore`
+* `.gitattributes`
+* `.env.example`
+* Project context documentation
+* Architecture documentation
+* Requirements documentation
+* GitHub-ready README
+
 Not added yet:
 
 * PostgreSQL
@@ -180,7 +197,9 @@ pulsegate/
 
   docs/
     architecture/
+      overview.md
     sdlc/
+      requirements.md
     project-context/
       CURRENT_PROGRESS.md
       DECISION_LOG.md
@@ -188,6 +207,7 @@ pulsegate/
 
   infra/
 
+  .env.example
   .gitattributes
   .gitignore
   package.json
@@ -304,6 +324,7 @@ Current flow:
 ```txt
 Client
   -> API Gateway creates or reuses x-request-id
+  -> API Gateway returns x-request-id in response header
   -> API Gateway sends x-request-id to Product Service
   -> Product Service reuses the same request ID
 ```
@@ -380,28 +401,16 @@ Invoke-RestMethod http://localhost:3000/api/products | ConvertTo-Json -Depth 10
 
 ---
 
-## Current Stable Commits
+## Completed in Sprint 0
 
-```txt
-5d247cc feat: setup basic gateway to product service flow
-207616a refactor: split api gateway routes config and middlewares
-3ae7802 refactor: split product service routes config and middlewares
-```
-
----
-
-## Current Status
-
-Sprint 0 Step 5 is complete.
-
-Completed:
+Sprint 0 completed:
 
 * GitHub repo created.
 * Local repo cloned.
 * npm workspaces configured.
 * TypeScript configured.
-* API Gateway running on port 3000.
-* Product Service running on port 3001.
+* API Gateway running on port `3000`.
+* Product Service running on port `3001`.
 * Gateway routes `/api/products` to Product Service `/products`.
 * Product Service returns mock product data.
 * Request ID propagation works.
@@ -411,27 +420,57 @@ Completed:
 * Product Service refactored into config, routes, and middlewares.
 * `npm run typecheck` passes.
 * `npm run build` passes.
+* Project context docs created.
+* Architecture overview created.
+* Requirements document created.
+* README improved as GitHub landing page.
+* `.env.example` added.
+* Sprint 0 README status finalized.
+
+---
+
+## Current Stable Commits
+
+```txt
+5d247cc feat: setup basic gateway to product service flow
+207616a refactor: split api gateway routes config and middlewares
+3ae7802 refactor: split product service routes config and middlewares
+c0615fe docs: add project context handoff and progress logs
+71923ae docs: add architecture overview and requirements
+009cc3d docs: improve readme landing page
+b5ee327 docs: add environment example
+fe9e5d2 docs: finalize sprint 0 readme status
+```
 
 ---
 
 ## Current Next Step
 
-Continue Sprint 0 Step 6.
-
-Remaining documentation tasks:
-
-* Create `docs/architecture/overview.md`.
-* Create `docs/sdlc/requirements.md`.
-* Improve root `README.md`.
-* Add `.env.example`.
-
-After Sprint 0 docs are complete, commit the documentation checkpoint.
-
-Recommended commit message:
+Start:
 
 ```txt
-docs: add project context handoff and progress logs
+Sprint 1 - API Gateway Core Features
 ```
+
+Recommended Sprint 1 order:
+
+1. Improve downstream service error handling.
+2. Add request timeout when Gateway calls Product Service.
+3. Add route configuration foundation.
+4. Add API key authentication.
+5. Add JWT authentication later.
+6. Add unit tests.
+7. Add integration tests.
+
+Recommended first Sprint 1 task:
+
+```txt
+Sprint 1 - Step 1: Normalize downstream service errors
+```
+
+Goal:
+
+When Product Service is down or returns an error, API Gateway should return a clean, consistent error response instead of a raw `fetch failed` or generic internal error.
 
 ---
 
@@ -439,7 +478,7 @@ docs: add project context handoff and progress logs
 
 Do not add complex infrastructure yet.
 
-Do not add these before Sprint 0 is complete:
+Do not add these before Gateway core features are stable:
 
 * Redis
 * Kafka
@@ -454,7 +493,7 @@ Do not add these before Sprint 0 is complete:
 * Admin Dashboard
 * Developer Portal
 
-The immediate goal is to keep the base system clean, understandable, and stable.
+The immediate goal is to make API Gateway behavior more production-like first.
 
 ---
 
@@ -463,7 +502,14 @@ The immediate goal is to keep the base system clean, understandable, and stable.
 When continuing from this file, the assistant should continue with:
 
 ```txt
-Sprint 0 - Step 6B: Create architecture overview and requirements documentation
+Sprint 1 - Step 1: Normalize downstream service errors
 ```
 
-The assistant should continue slowly, one file at a time.
+The assistant should continue slowly, one file or one small feature at a time.
+
+Before coding Sprint 1, the assistant should explain:
+
+* What problem the step solves.
+* What the expected behavior is.
+* What files will be changed.
+* How to test success and failure cases.

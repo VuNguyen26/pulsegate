@@ -12,6 +12,10 @@ Sprint 0 - Core Setup & Basic Gateway Flow
 
 v0.1.0
 
+## Sprint Status
+
+Sprint 0 is complete.
+
 ## Completed
 
 ### Repository Setup
@@ -23,6 +27,7 @@ v0.1.0
 * Basic monorepo structure created.
 * `.gitignore` added.
 * `.gitattributes` added.
+* `.env.example` added.
 
 ### API Gateway
 
@@ -45,6 +50,7 @@ Implemented:
 * Product proxy endpoint.
 * Request ID generation.
 * Request ID response header.
+* Request ID forwarding to Product Service.
 * JSON logger.
 * Basic 404 handler.
 * Basic 500 error handler.
@@ -94,6 +100,7 @@ Implemented:
 * Health check endpoint.
 * Products endpoint with mock data.
 * Request ID generation and reuse.
+* Request ID reuse from API Gateway.
 * JSON logger.
 * Basic 404 handler.
 * Basic 500 error handler.
@@ -129,10 +136,22 @@ apps/product-service/src/
 Client
   -> API Gateway :3000
     -> Product Service :3001
-      -> Response
+      -> Mock Product Response
 ```
 
 ## Main Test Commands
+
+Run Product Service:
+
+```powershell
+npm run dev:product
+```
+
+Run API Gateway:
+
+```powershell
+npm run dev:gateway
+```
 
 Test Product Service:
 
@@ -177,6 +196,20 @@ Latest validation:
 * Product Service `/products` passed.
 * API Gateway `/health` passed.
 * API Gateway `/api/products` passed.
+* Code pushed to GitHub.
+* Git working tree was clean after latest commit.
+
+## Documentation Status
+
+Completed documentation:
+
+* `README.md`
+* `.env.example`
+* `docs/project-context/CURRENT_PROGRESS.md`
+* `docs/project-context/DECISION_LOG.md`
+* `docs/project-context/AI_HANDOFF.md`
+* `docs/architecture/overview.md`
+* `docs/sdlc/requirements.md`
 
 ## Latest Stable Commits
 
@@ -184,13 +217,18 @@ Latest validation:
 5d247cc feat: setup basic gateway to product service flow
 207616a refactor: split api gateway routes config and middlewares
 3ae7802 refactor: split product service routes config and middlewares
+c0615fe docs: add project context handoff and progress logs
+71923ae docs: add architecture overview and requirements
+009cc3d docs: improve readme landing page
+b5ee327 docs: add environment example
+fe9e5d2 docs: finalize sprint 0 readme status
 ```
 
 ## Current Status
 
-Sprint 0 Step 5 is complete.
+Sprint 0 is complete.
 
-The project currently has a working local-first API Gateway flow:
+PulseGate currently has a stable local-first API Gateway foundation:
 
 ```txt
 Client
@@ -199,23 +237,49 @@ Client
       -> Mock product response
 ```
 
-## Next Steps
+The project is ready to move to Sprint 1.
 
-Continue Sprint 0 Step 6:
+## Next Sprint
 
-* Create `DECISION_LOG.md`.
-* Create `AI_HANDOFF.md`.
-* Create `docs/architecture/overview.md`.
-* Create `docs/sdlc/requirements.md`.
-* Improve root `README.md`.
-* Add `.env.example`.
+Sprint 1 - API Gateway Core Features
 
-Later sprints:
+Recommended Sprint 1 order:
 
-* Add API key authentication.
-* Add JWT authentication.
-* Add rate limiting.
-* Add Redis caching.
-* Add PostgreSQL and Prisma.
-* Add Docker Compose.
-* Add metrics and tracing.
+1. Improve downstream service error handling.
+2. Add request timeout when Gateway calls Product Service.
+3. Add route configuration foundation.
+4. Add API key authentication.
+5. Add JWT authentication later.
+6. Add unit tests.
+7. Add integration tests.
+
+## Do Not Add Yet
+
+Do not add these before Gateway core features are stable:
+
+* Redis
+* Kafka
+* RabbitMQ
+* PostgreSQL
+* Prisma
+* Docker
+* Kubernetes
+* Prometheus
+* Grafana
+* OpenTelemetry
+* Admin Dashboard
+* Developer Portal
+
+## Notes
+
+The project should continue with small, stable checkpoints.
+
+Each new feature should follow this workflow:
+
+1. Implement code in small steps.
+2. Explain purpose and request flow.
+3. Run local tests.
+4. Run `npm run typecheck`.
+5. Run `npm run build`.
+6. Commit after stable checkpoint.
+7. Update project context docs when needed.
