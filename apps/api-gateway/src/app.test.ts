@@ -238,4 +238,36 @@ describe("API Gateway app", () => {
 
     expect(response.headers["x-request-id"]).toBeDefined();
   });
+
+    it("should return 504 when downstream product service times out", async () => {
+    const abortError = new Error("The operation was aborted");
+    abortError.name = "AbortError";
+
+    const fetchMock = vi.fn().mockRejectedValue(abortError);
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/products",
+      headers: {
+        "x-api-key": "dev-api-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(504);
+
+    const body = response.json();
+
+    expect(body).toMatchObject({
+      error: {
+        code: "DOWNSTREAM_TIMEOUT",
+        message: "Product Service did not respond in time",
+        service: "product-service",
+        requestId: expect.any(String),
+      },
+    });
+
+    expect(response.headers["x-request-id"]).toBeDefined();
+  });
 });
