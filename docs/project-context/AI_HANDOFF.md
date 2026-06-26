@@ -14,22 +14,31 @@ Sprint 0 is complete.
 
 Sprint 1 is in progress.
 
-Completed Sprint 1 checkpoints:
+Completed Sprint 1 checkpoints so far:
 
 1. Normalize downstream service errors.
 2. Add downstream request timeout.
 3. Add downstream route configuration foundation.
 4. Add API key authentication.
+5. Add basic unit test setup.
+6. Add API key authentication unit tests.
+7. Add downstream service error unit tests.
+8. Add environment parsing unit tests.
+9. Prepare API Gateway app for integration tests.
+10. Add API key route integration tests.
+11. Add valid API key product route integration test.
+12. Add downstream failure integration tests.
+13. Add downstream timeout integration test.
 
 The project is currently ready to continue with:
 
 ```txt
-Sprint 1 - Step 5: Add basic unit test setup
+Sprint 1 - Step 14: JWT Authentication
 ```
 
 Recommended direction:
 
-Add a basic test foundation before adding JWT authentication, because the Gateway now has enough important logic that should be protected by tests.
+Add JWT authentication now that the Gateway core behavior is protected by unit and integration tests.
 
 ---
 
@@ -153,6 +162,7 @@ Currently used:
 * TypeScript
 * Fastify
 * npm workspaces
+* Vitest
 
 Added so far:
 
@@ -168,6 +178,9 @@ Added so far:
 * Downstream service error class
 * Downstream route configuration
 * API key authentication middleware
+* API Gateway app builder for integration tests
+* Unit tests
+* Integration tests
 
 Not added yet:
 
@@ -185,8 +198,7 @@ Not added yet:
 * Jaeger or Tempo
 * Loki
 * k6
-* Unit tests
-* Integration tests
+* JWT authentication
 * Admin Dashboard
 * Developer Portal
 
@@ -199,21 +211,28 @@ pulsegate/
   apps/
     api-gateway/
       src/
+        app.ts
+        app.test.ts
         config/
           downstream-routes.ts
           env.ts
+          env.test.ts
         errors/
           downstream-service-error.ts
+          downstream-service-error.test.ts
         middlewares/
           api-key-auth.middleware.ts
+          api-key-auth.middleware.test.ts
           error-handler.middleware.ts
           request-id.middleware.ts
+          request-id.middleware.test.ts
         routes/
           health.route.ts
           product-proxy.route.ts
         server.ts
       package.json
       tsconfig.json
+      vitest.config.ts
 
     product-service/
       src/
@@ -303,24 +322,33 @@ Current responsibilities:
 * Return `503 DOWNSTREAM_SERVICE_UNAVAILABLE` when Product Service is down.
 * Apply downstream request timeout.
 * Return `504 DOWNSTREAM_TIMEOUT` when Product Service is too slow.
+* Return `502 DOWNSTREAM_HTTP_ERROR` when Product Service returns 5xx.
+* Return `502 DOWNSTREAM_INVALID_RESPONSE` when Product Service returns invalid JSON.
 * Store downstream route information in a route config file.
 * Protect `/api/products` using API key authentication.
 * Return `401 API_KEY_MISSING` when API key is missing.
 * Return `403 API_KEY_INVALID` when API key is invalid.
+* Support automated integration tests using `buildApiGatewayApp()` and `app.inject()`.
 
 Current API Gateway structure:
 
 ```txt
 apps/api-gateway/src/
+  app.ts
+  app.test.ts
   config/
     downstream-routes.ts
     env.ts
+    env.test.ts
   errors/
     downstream-service-error.ts
+    downstream-service-error.test.ts
   middlewares/
     api-key-auth.middleware.ts
+    api-key-auth.middleware.test.ts
     error-handler.middleware.ts
     request-id.middleware.ts
+    request-id.middleware.test.ts
   routes/
     health.route.ts
     product-proxy.route.ts
@@ -398,6 +426,19 @@ Purpose:
 * Prepare for distributed tracing later.
 * Connect logs between Gateway and downstream services.
 
+Covered by tests:
+
+```txt
+apps/api-gateway/src/middlewares/request-id.middleware.test.ts
+```
+
+Current request ID unit tests:
+
+* Reuse `x-request-id` when the header is a non-empty string.
+* Use the first `x-request-id` when the header is an array.
+* Generate a new request ID when `x-request-id` is missing.
+* Generate a new request ID when `x-request-id` is an empty string.
+
 ---
 
 ## API Key Authentication Behavior
@@ -457,6 +498,23 @@ Expected invalid API key response:
 }
 ```
 
+Covered by tests:
+
+```txt
+apps/api-gateway/src/middlewares/api-key-auth.middleware.test.ts
+apps/api-gateway/src/app.test.ts
+```
+
+Current API key test coverage:
+
+* Missing API key returns `401 API_KEY_MISSING`.
+* Invalid API key returns `403 API_KEY_INVALID`.
+* Valid API key allows request to continue.
+* Valid API key as array header allows request to continue.
+* `/api/products` without API key returns `401`.
+* `/api/products` with invalid API key returns `403`.
+* `/api/products` with valid API key returns product data.
+
 ---
 
 ## Downstream Error Behavior
@@ -499,6 +557,167 @@ Expected status:
 504
 ```
 
+When Product Service returns an error status, API Gateway returns:
+
+```json
+{
+  "error": {
+    "code": "DOWNSTREAM_HTTP_ERROR",
+    "message": "Product Service returned an error",
+    "service": "product-service",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Expected status:
+
+```txt
+502
+```
+
+When Product Service returns invalid JSON, API Gateway returns:
+
+```json
+{
+  "error": {
+    "code": "DOWNSTREAM_INVALID_RESPONSE",
+    "message": "Product Service returned an invalid response",
+    "service": "product-service",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Expected status:
+
+```txt
+502
+```
+
+Covered by tests:
+
+```txt
+apps/api-gateway/src/errors/downstream-service-error.test.ts
+apps/api-gateway/src/app.test.ts
+```
+
+Current downstream test coverage:
+
+* `DownstreamServiceError` stores code, message, service, status code, and original error.
+* `isDownstreamServiceError()` identifies downstream errors correctly.
+* Product Service unavailable returns `503 DOWNSTREAM_SERVICE_UNAVAILABLE`.
+* Product Service returns 500 results in `502 DOWNSTREAM_HTTP_ERROR`.
+* Product Service invalid JSON results in `502 DOWNSTREAM_INVALID_RESPONSE`.
+* Product Service timeout results in `504 DOWNSTREAM_TIMEOUT`.
+
+---
+
+## Environment Configuration Behavior
+
+Current API Gateway env config includes:
+
+```txt
+PORT
+HOST
+PRODUCT_SERVICE_URL
+DOWNSTREAM_REQUEST_TIMEOUT_MS
+API_KEY_HEADER
+API_KEYS
+```
+
+Covered by tests:
+
+```txt
+apps/api-gateway/src/config/env.test.ts
+```
+
+Current env test coverage:
+
+* `readNumberEnv()` returns fallback when env value is missing.
+* `readNumberEnv()` parses valid number values.
+* `readNumberEnv()` returns fallback for non-number values.
+* `readNumberEnv()` returns fallback for zero.
+* `readNumberEnv()` returns fallback for negative values.
+* `readCsvEnv()` returns fallback when env value is missing.
+* `readCsvEnv()` parses comma-separated values.
+* `readCsvEnv()` trims spaces and removes empty values.
+* `readCsvEnv()` returns fallback when parsed values are empty.
+
+---
+
+## Automated Test Status
+
+Current test framework:
+
+```txt
+Vitest
+```
+
+Current test command:
+
+```powershell
+npm run test
+```
+
+Current test result:
+
+```txt
+5 test files passed
+30 tests passed
+```
+
+Current unit tests:
+
+```txt
+apps/api-gateway/src/middlewares/request-id.middleware.test.ts
+  -> 4 tests
+
+apps/api-gateway/src/middlewares/api-key-auth.middleware.test.ts
+  -> 4 tests
+
+apps/api-gateway/src/errors/downstream-service-error.test.ts
+  -> 5 tests
+
+apps/api-gateway/src/config/env.test.ts
+  -> 9 tests
+```
+
+Current integration tests:
+
+```txt
+apps/api-gateway/src/app.test.ts
+  -> 8 tests
+```
+
+Integration test coverage:
+
+```txt
+GET /health
+  -> 200 OK
+
+GET /api/products without API key
+  -> 401 API_KEY_MISSING
+
+GET /api/products with invalid API key
+  -> 403 API_KEY_INVALID
+
+GET /api/products with valid API key
+  -> 200 and product data
+
+GET /api/products with valid API key but downstream unavailable
+  -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
+
+GET /api/products with valid API key but downstream returns 500
+  -> 502 DOWNSTREAM_HTTP_ERROR
+
+GET /api/products with valid API key but downstream returns invalid JSON
+  -> 502 DOWNSTREAM_INVALID_RESPONSE
+
+GET /api/products with valid API key but downstream times out
+  -> 504 DOWNSTREAM_TIMEOUT
+```
+
 ---
 
 ## Current Commands
@@ -513,6 +732,12 @@ Run API Gateway:
 
 ```powershell
 npm run dev:gateway
+```
+
+Run automated tests:
+
+```powershell
+npm run test
 ```
 
 Typecheck:
@@ -665,6 +890,81 @@ Implemented:
 * `/api/products` protected by API key.
 * `/health` remains public.
 
+### Step 5: Add basic unit test setup
+
+Implemented:
+
+* Vitest.
+* Root `npm run test`.
+* API Gateway workspace test script.
+* `vitest.config.ts`.
+
+### Step 6: Add API key authentication unit tests
+
+Implemented:
+
+* Missing API key unit test.
+* Invalid API key unit test.
+* Valid API key unit test.
+* Header array API key unit test.
+
+### Step 7: Add downstream service error unit tests
+
+Implemented:
+
+* `DownstreamServiceError` property tests.
+* Original error storage test.
+* `isDownstreamServiceError()` tests.
+
+### Step 8: Add environment parsing unit tests
+
+Implemented:
+
+* `readNumberEnv()` tests.
+* `readCsvEnv()` tests.
+
+### Step 9: Prepare API Gateway app for integration tests
+
+Implemented:
+
+* `app.ts`.
+* `buildApiGatewayApp()`.
+* `server.ts` now only starts the server.
+* Integration tests can use `app.inject()` without opening port `3000`.
+
+### Step 10: Add API key route integration tests
+
+Implemented:
+
+* `/health` integration test.
+* `/api/products` missing API key integration test.
+* `/api/products` invalid API key integration test.
+
+### Step 11: Add valid API key product route integration test
+
+Implemented:
+
+* `/api/products` valid API key integration test.
+* Mocked `fetch`.
+* Verified downstream URL.
+* Verified `x-request-id` forwarding.
+* Verified `AbortSignal` is passed to `fetch`.
+
+### Step 12: Add downstream failure integration tests
+
+Implemented:
+
+* Downstream unavailable test.
+* Downstream HTTP error status test.
+* Downstream invalid JSON test.
+
+### Step 13: Add downstream timeout integration test
+
+Implemented:
+
+* Mocked `AbortError`.
+* Verified `504 DOWNSTREAM_TIMEOUT`.
+
 ---
 
 ## Current Stable Commits
@@ -682,6 +982,16 @@ f66d523 feat(gateway): normalize downstream service errors
 32af4ab feat(gateway): add downstream request timeout
 27f40bb refactor(gateway): add downstream route configuration
 940806f feat(gateway): add api key authentication
+04d616b docs: update sprint 1 progress context
+6c93cbe test(gateway): add basic unit test setup
+2b742d3 test(gateway): add api key auth unit tests
+7388dab test(gateway): add downstream error unit tests
+5023e36 test(gateway): add env parsing unit tests
+7f100de test(gateway): prepare app for integration tests
+056ed7a test(gateway): add api key route integration tests
+8fe5aae test(gateway): add valid api key product route integration test
+2fca28e test(gateway): add downstream failure integration tests
+10d512a test(gateway): add downstream timeout integration test
 ```
 
 ---
@@ -691,21 +1001,20 @@ f66d523 feat(gateway): normalize downstream service errors
 Recommended next step:
 
 ```txt
-Sprint 1 - Step 5: Add basic unit test setup
+Sprint 1 - Step 14: JWT Authentication
 ```
 
-Recommended next implementation order:
+Recommended JWT implementation order:
 
-1. Add basic unit test setup.
-2. Add tests for env parsing.
-3. Add tests for API key authentication.
-4. Add tests for downstream error helper.
-5. Add basic integration tests for Gateway routes.
-6. Add JWT authentication later.
+1. Add JWT configuration.
+2. Add JWT authentication middleware.
+3. Decide which route should require JWT.
+4. Add unit tests for JWT middleware.
+5. Add integration tests for JWT-protected route behavior.
 
 Reason:
 
-The Gateway now has important core logic. Adding tests before JWT will make later refactors safer.
+The Gateway now has important core logic and automated tests. JWT can be added more safely after this test foundation.
 
 ---
 
@@ -737,7 +1046,7 @@ The immediate goal is to make API Gateway behavior more production-like first.
 When continuing from this file, the assistant should continue with:
 
 ```txt
-Sprint 1 - Step 5: Add basic unit test setup
+Sprint 1 - Step 14: JWT Authentication
 ```
 
 The assistant should continue slowly, one file or one small feature at a time.
@@ -748,5 +1057,6 @@ Before coding the next step, the assistant should explain:
 * What the expected behavior is.
 * What files will be changed.
 * How to test success and failure cases.
+* Which unit tests and integration tests should be added.
 
 The assistant should not skip directly to Redis, Kafka, Docker, Kubernetes, Prometheus, Grafana, or OpenTelemetry yet.

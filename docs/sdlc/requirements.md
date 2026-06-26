@@ -355,9 +355,10 @@ The codebase must be organized clearly.
 
 Acceptance criteria:
 
-* API Gateway separates config, routes, middlewares, errors, and server startup.
+* API Gateway separates app building, config, routes, middlewares, errors, tests, and server startup.
 * Product Service separates config, routes, middlewares, and server startup.
-* `server.ts` mainly creates the app, registers routes/middlewares, and starts the server.
+* `app.ts` builds the API Gateway app and can be reused by integration tests.
+* `server.ts` mainly starts the server.
 * Business routes live in `routes`.
 * Reusable request handling logic lives in `middlewares`.
 * Reusable Gateway error types live in `errors`.
@@ -401,6 +402,27 @@ Acceptance criteria:
 * Request ID is propagated across services.
 * Error responses include request ID.
 * API Gateway forwards `x-request-id` to Product Service.
+* Integration tests verify request ID response header and downstream forwarding behavior.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+### NFR-006: Testability Foundation
+
+The project must support automated testing for Gateway core behavior.
+
+Acceptance criteria:
+
+* Test framework is installed.
+* Tests can be run with `npm run test`.
+* API Gateway can be tested without opening port `3000`.
+* API Gateway integration tests can use `app.inject()`.
+* Test output does not include unnecessary Fastify JSON logs.
 
 Status:
 
@@ -410,7 +432,7 @@ Done
 
 ## 8. Current System Constraints
 
-Current constraints after Sprint 1 Step 4:
+Current constraints after Sprint 1 Step 13:
 
 * Product data is hard-coded.
 * No database is connected.
@@ -426,8 +448,8 @@ Current constraints after Sprint 1 Step 4:
 * API Gateway now applies request timeout to downstream calls.
 * API Gateway now uses a simple downstream route configuration foundation.
 * API Gateway now supports simple environment-based API key authentication.
-* Unit tests are not added yet.
-* Integration tests are not added yet.
+* Unit tests are added for request ID, API key authentication, downstream errors, and env parsing.
+* Integration tests are added for API Gateway health, API key route protection, valid product proxy flow, and downstream failure behavior.
 
 ## 9. Sprint 1 Goal
 
@@ -470,11 +492,20 @@ Completed so far:
 2. Add downstream request timeout.
 3. Add route configuration foundation.
 4. Add API key authentication.
+5. Add basic unit test setup.
+6. Add API key authentication unit tests.
+7. Add downstream service error unit tests.
+8. Add environment parsing unit tests.
+9. Prepare API Gateway app for integration tests.
+10. Add API key route integration tests.
+11. Add valid API key product route integration test.
+12. Add downstream failure integration tests.
+13. Add downstream timeout integration test.
 
 Recommended next step:
 
 ```txt
-Sprint 1 - Step 5: Add basic unit test setup
+Sprint 1 - Step 14: JWT Authentication
 ```
 
 ## 10. Sprint 1 Functional Requirements
@@ -567,6 +598,7 @@ Implemented behavior:
 * API Gateway uses `AbortController` to cancel slow downstream requests.
 * Timeout defaults to `3000ms`.
 * Gateway returns `504 DOWNSTREAM_TIMEOUT`.
+* Integration test verifies `AbortError` is converted to `504 DOWNSTREAM_TIMEOUT`.
 
 Status:
 
@@ -656,6 +688,8 @@ Implemented behavior:
 * Invalid API key returns `403 API_KEY_INVALID`.
 * Valid API key allows request to continue to Product Service.
 * Default local API key is `dev-api-key`.
+* Unit tests cover missing, invalid, valid, and array header API key cases.
+* Integration tests cover missing, invalid, and valid API key route behavior.
 
 Status:
 
@@ -676,6 +710,9 @@ Acceptance criteria:
 * Invalid token returns `403 Forbidden`.
 * Valid token allows request to continue.
 * User context can be forwarded to downstream services later.
+* JWT configuration can be controlled through environment variables.
+* JWT behavior should be covered by unit tests.
+* JWT route behavior should be covered by integration tests.
 
 Status:
 
@@ -698,10 +735,36 @@ Acceptance criteria:
 * Gateway utility functions are tested where applicable.
 * Tests can be run with an npm script.
 
+Implemented behavior:
+
+* Vitest was added.
+* Root `npm run test` was added.
+* API Gateway workspace test script was added.
+* `apps/api-gateway/vitest.config.ts` was added.
+* Request ID middleware tests were added.
+* API key authentication middleware tests were added.
+* Downstream service error tests were added.
+* Environment parsing tests were added.
+
+Current unit test files:
+
+```txt
+apps/api-gateway/src/middlewares/request-id.middleware.test.ts
+apps/api-gateway/src/middlewares/api-key-auth.middleware.test.ts
+apps/api-gateway/src/errors/downstream-service-error.test.ts
+apps/api-gateway/src/config/env.test.ts
+```
+
+Current unit test count:
+
+```txt
+22 tests
+```
+
 Status:
 
 ```txt
-Planned
+Done
 ```
 
 ---
@@ -721,10 +784,72 @@ Acceptance criteria:
 * Test Gateway behavior when downstream service is unavailable.
 * Test Gateway behavior when downstream service times out.
 
+Implemented behavior:
+
+* API Gateway app builder was separated into `apps/api-gateway/src/app.ts`.
+* `server.ts` now only starts the server.
+* API Gateway integration tests use `app.inject()`.
+* `/health` integration test was added.
+* `/api/products` missing API key integration test was added.
+* `/api/products` invalid API key integration test was added.
+* `/api/products` valid API key integration test was added.
+* Product proxy integration test verifies downstream URL, `x-request-id` forwarding, and `AbortSignal`.
+* Downstream unavailable integration test was added.
+* Downstream HTTP error integration test was added.
+* Downstream invalid JSON integration test was added.
+* Downstream timeout integration test was added.
+
+Current integration test file:
+
+```txt
+apps/api-gateway/src/app.test.ts
+```
+
+Current integration test count:
+
+```txt
+8 tests
+```
+
+Current integration test coverage:
+
+```txt
+GET /health
+  -> 200 OK
+
+GET /api/products without API key
+  -> 401 API_KEY_MISSING
+
+GET /api/products with invalid API key
+  -> 403 API_KEY_INVALID
+
+GET /api/products with valid API key
+  -> 200 and product data
+
+GET /api/products with valid API key but downstream unavailable
+  -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
+
+GET /api/products with valid API key but downstream returns 500
+  -> 502 DOWNSTREAM_HTTP_ERROR
+
+GET /api/products with valid API key but downstream returns invalid JSON
+  -> 502 DOWNSTREAM_INVALID_RESPONSE
+
+GET /api/products with valid API key but downstream times out
+  -> 504 DOWNSTREAM_TIMEOUT
+```
+
+Current total automated test status:
+
+```txt
+5 test files passed
+30 tests passed
+```
+
 Status:
 
 ```txt
-Planned
+Done
 ```
 
 ## 11. Future Functional Requirements
@@ -843,6 +968,12 @@ Run API Gateway:
 npm run dev:gateway
 ```
 
+Run automated tests:
+
+```powershell
+npm run test
+```
+
 Typecheck:
 
 ```powershell
@@ -855,14 +986,14 @@ Build:
 npm run build
 ```
 
-Test Product Service:
+Test Product Service manually:
 
 ```powershell
 Invoke-RestMethod http://localhost:3001/health | ConvertTo-Json -Depth 10
 Invoke-RestMethod http://localhost:3001/products | ConvertTo-Json -Depth 10
 ```
 
-Test API Gateway health:
+Test API Gateway health manually:
 
 ```powershell
 Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
@@ -989,8 +1120,11 @@ Sprint 1 is partially done when:
 * API Gateway supports API key authentication.
 * API Gateway keeps `/health` public.
 * API Gateway protects `/api/products`.
-* Typecheck passes.
-* Build passes.
+* API Gateway has unit tests for request ID, env parsing, API key auth, and downstream errors.
+* API Gateway has integration tests for health, API key route behavior, product proxy success, downstream failure, and downstream timeout.
+* `npm run test` passes.
+* `npm run typecheck` passes.
+* `npm run build` passes.
 * Code is pushed to GitHub.
 
 Current Sprint 1 partial status:
@@ -1006,14 +1140,14 @@ S1-FR-001 Done
 S1-FR-002 Done
 S1-FR-003 Done
 S1-FR-004 Done
+S1-FR-006 Done
+S1-FR-007 Done
 ```
 
 Remaining Sprint 1 items:
 
 ```txt
 S1-FR-005 Planned
-S1-FR-006 Planned
-S1-FR-007 Planned
 ```
 
 ## 15. Next Step
@@ -1021,18 +1155,17 @@ S1-FR-007 Planned
 Recommended next step:
 
 ```txt
-Sprint 1 - Step 5: Add basic unit test setup
+Sprint 1 - Step 14: JWT Authentication
 ```
 
 Reason:
 
-The Gateway now has enough important behavior to justify adding tests before adding JWT authentication.
+The Gateway now has enough automated tests to safely add JWT authentication.
 
-Recommended next order:
+Recommended JWT implementation order:
 
-1. Add basic unit test setup.
-2. Add tests for request ID generation.
-3. Add tests for API key authentication.
-4. Add tests for downstream error helper.
-5. Add basic integration tests.
-6. Add JWT authentication later.
+1. Add JWT configuration.
+2. Add JWT authentication middleware.
+3. Decide which route should require JWT.
+4. Add unit tests for JWT middleware.
+5. Add integration tests for JWT-protected route behavior.
