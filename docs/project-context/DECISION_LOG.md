@@ -322,3 +322,324 @@ Current stable commits:
 Status:
 
 Accepted.
+
+---
+
+## 2026-06-26 - Normalize Downstream Service Errors
+
+Decision:
+
+API Gateway should normalize downstream service errors instead of exposing raw runtime errors to clients.
+
+Reason:
+
+* Raw errors such as `fetch failed` are not user-friendly.
+* Clients should receive consistent error responses.
+* Error responses should include request ID for debugging.
+* Gateway behavior should be production-oriented.
+* Downstream service failures should be clearly separated from Gateway internal errors.
+
+Implemented behavior:
+
+```txt
+Product Service unavailable
+  -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
+
+Product Service timeout
+  -> 504 DOWNSTREAM_TIMEOUT
+
+Product Service returns error status
+  -> 502 DOWNSTREAM_HTTP_ERROR
+
+Product Service returns invalid JSON
+  -> 502 DOWNSTREAM_INVALID_RESPONSE
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-26 - Add Downstream Request Timeout
+
+Decision:
+
+API Gateway should apply timeout when calling downstream services.
+
+Reason:
+
+* Gateway should not wait forever for slow downstream services.
+* Slow downstream services can block client requests.
+* Timeout behavior is a core production API Gateway feature.
+* Timeout response should be normalized and include request ID.
+
+Implementation:
+
+* Use `AbortController`.
+* Add `DOWNSTREAM_REQUEST_TIMEOUT_MS`.
+* Default timeout is `3000ms`.
+* Return `504 DOWNSTREAM_TIMEOUT` when downstream service is too slow.
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-26 - Add Downstream Route Configuration Foundation
+
+Decision:
+
+Move downstream route information into a route configuration file.
+
+Reason:
+
+* Avoid hard-coding downstream service details directly inside route handlers.
+* Make it easier to add more downstream services later.
+* Keep route handlers focused on request handling.
+* Prepare the Gateway for route-level configuration in later sprints.
+
+Implementation:
+
+```txt
+apps/api-gateway/src/config/downstream-routes.ts
+```
+
+Current configured route:
+
+```txt
+GET /api/products
+  -> Product Service
+  -> GET http://127.0.0.1:3001/products
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-26 - Use API Key Authentication for Protected Gateway Routes
+
+Decision:
+
+Protect `GET /api/products` with API key authentication.
+
+Reason:
+
+* API Gateway should support client/application-level authentication.
+* API key authentication is simpler than JWT and should be added first.
+* It prepares the Gateway for API management features.
+* API key authentication can later evolve into database-backed API clients.
+
+Current behavior:
+
+```txt
+Missing API key
+  -> 401 API_KEY_MISSING
+
+Invalid API key
+  -> 403 API_KEY_INVALID
+
+Valid API key
+  -> Continue to next middleware
+```
+
+Current default API key header:
+
+```txt
+x-api-key
+```
+
+Current default local API key:
+
+```txt
+dev-api-key
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-26 - Use Vitest for Unit and Integration Tests
+
+Decision:
+
+Use Vitest as the test framework for API Gateway tests.
+
+Reason:
+
+* Vitest works well with TypeScript and ESM.
+* It is simple to configure for the current project size.
+* It supports unit tests and integration-style tests.
+* It provides fast feedback for Gateway behavior.
+* It is lighter than setting up a more complex test framework too early.
+
+Current test command:
+
+```powershell
+npm run test
+```
+
+Current test status:
+
+```txt
+6 test files passed
+46 tests passed
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-26 - Separate API Gateway App Builder from Server Startup
+
+Decision:
+
+Separate API Gateway app creation into `app.ts` and keep `server.ts` focused on starting the server.
+
+Reason:
+
+* Integration tests should not need to open port `3000`.
+* Fastify `app.inject()` can test routes in memory.
+* Server startup and app construction should have separate responsibilities.
+* This makes the Gateway easier to test and maintain.
+
+Implementation:
+
+```txt
+apps/api-gateway/src/app.ts
+  -> buildApiGatewayApp()
+
+apps/api-gateway/src/server.ts
+  -> app.listen()
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-26 - Use JWT Authentication After API Key Authentication
+
+Decision:
+
+Add JWT authentication after API key authentication.
+
+Reason:
+
+* API key identifies the client/application.
+* JWT identifies the user/session.
+* API Gateway should support both client-level and user-level authentication.
+* Adding JWT after API key keeps the learning path clear and incremental.
+
+Current protected route behavior:
+
+```txt
+GET /api/products
+  -> Requires x-api-key
+  -> Requires Authorization: Bearer <jwt-token>
+```
+
+Current behavior:
+
+```txt
+Missing JWT
+  -> 401 JWT_TOKEN_MISSING
+
+Invalid JWT
+  -> 403 JWT_TOKEN_INVALID
+
+Valid JWT
+  -> Continue to Product Service
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-26 - Use jose for JWT Signing and Verification
+
+Decision:
+
+Use `jose` for JWT signing and verification.
+
+Reason:
+
+* `jose` works well with ESM and TypeScript.
+* It supports JWT verification with issuer, audience, expiration, and signature checks.
+* It is suitable for production-style JWT handling.
+* It avoids implementing JWT verification manually.
+
+Current JWT configuration:
+
+```txt
+JWT_SECRET
+JWT_ISSUER
+JWT_AUDIENCE
+JWT_EXPIRES_IN_SECONDS
+```
+
+Current validation checks:
+
+```txt
+Signature
+Issuer
+Audience
+Expiration
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-26 - Keep Sprint 2 Focused on Gateway Traffic Protection
+
+Decision:
+
+Sprint 2 should focus on Gateway traffic protection before adding infrastructure.
+
+Reason:
+
+* Gateway core authentication and downstream behavior are now stable.
+* Rate limiting and traffic protection are natural next API Gateway features.
+* Redis can be added later after in-memory behavior is understood.
+* Docker, Kafka, PostgreSQL, Prometheus, and OpenTelemetry should still wait until core Gateway behavior is stronger.
+
+Recommended Sprint 2 order:
+
+```txt
+1. In-memory rate limiting foundation
+2. Route-level rate limit configuration
+3. Request size limit
+4. Basic security headers
+5. Route-level auth configuration refinement
+6. Automated tests for traffic protection behavior
+```
+
+Not included yet:
+
+* Redis
+* Kafka
+* RabbitMQ
+* PostgreSQL
+* Prisma
+* Docker
+* Kubernetes
+* Prometheus
+* Grafana
+* OpenTelemetry
+
+Status:
+
+Accepted.

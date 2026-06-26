@@ -432,42 +432,44 @@ Done
 
 ## 8. Current System Constraints
 
-Current constraints after Sprint 1 Step 13:
+Current constraints after Sprint 1 completion:
 
 * Product data is hard-coded.
 * No database is connected.
 * API key authentication exists for `GET /api/products`.
-* JWT authentication does not exist yet.
+* JWT authentication exists for `GET /api/products`.
 * No rate limiting exists yet.
 * No caching exists yet.
 * No Docker setup exists yet.
 * No metrics dashboard exists yet.
 * No tracing system exists yet.
 * API Gateway currently proxies only Product Service.
-* API Gateway now normalizes downstream service failures.
-* API Gateway now applies request timeout to downstream calls.
-* API Gateway now uses a simple downstream route configuration foundation.
-* API Gateway now supports simple environment-based API key authentication.
-* Unit tests are added for request ID, API key authentication, downstream errors, and env parsing.
-* Integration tests are added for API Gateway health, API key route protection, valid product proxy flow, and downstream failure behavior.
+* API Gateway normalizes downstream service failures.
+* API Gateway applies request timeout to downstream calls.
+* API Gateway uses a simple downstream route configuration foundation.
+* API Gateway supports environment-based API key authentication.
+* API Gateway supports JWT authentication using `jose`.
+* Unit tests are added for request ID, API key authentication, JWT authentication, downstream errors, and env parsing.
+* Integration tests are added for API Gateway health, API key route protection, JWT route protection, valid product proxy flow, downstream failures, and downstream timeout behavior.
 
 ## 9. Sprint 1 Goal
 
-Sprint 1 focuses on API Gateway core behavior.
+Sprint 1 focused on API Gateway core behavior.
 
-The goal is to make the Gateway more production-like before adding infrastructure.
+The goal was to make the Gateway more production-like before adding infrastructure.
 
-Sprint 1 should improve:
+Sprint 1 improved:
 
 * Downstream service error handling.
 * Request timeout handling.
 * Gateway route configuration foundation.
 * API key authentication.
-* JWT authentication later.
+* JWT authentication.
 * Unit tests.
 * Integration tests.
+* Manual validation for protected route behavior.
 
-Sprint 1 should still avoid:
+Sprint 1 still intentionally avoided:
 
 * Redis
 * Kafka
@@ -483,10 +485,10 @@ Sprint 1 should still avoid:
 Sprint 1 current status:
 
 ```txt
-In Progress
+Done
 ```
 
-Completed so far:
+Completed Sprint 1 checkpoints:
 
 1. Normalize downstream service errors.
 2. Add downstream request timeout.
@@ -501,11 +503,16 @@ Completed so far:
 11. Add valid API key product route integration test.
 12. Add downstream failure integration tests.
 13. Add downstream timeout integration test.
+14. Add JWT configuration.
+15. Add JWT authentication middleware.
+16. Add JWT authentication unit tests.
+17. Protect Product route with API key and JWT.
+18. Manually validate API key and JWT protected route.
 
-Recommended next step:
+Recommended next sprint:
 
 ```txt
-Sprint 1 - Step 14: JWT Authentication
+Sprint 2 - Gateway Traffic Protection
 ```
 
 ## 10. Sprint 1 Functional Requirements
@@ -686,7 +693,7 @@ Implemented behavior:
 * `GET /health` remains public.
 * Missing API key returns `401 API_KEY_MISSING`.
 * Invalid API key returns `403 API_KEY_INVALID`.
-* Valid API key allows request to continue to Product Service.
+* Valid API key allows request to continue to JWT authentication.
 * Default local API key is `dev-api-key`.
 * Unit tests cover missing, invalid, valid, and array header API key cases.
 * Integration tests cover missing, invalid, and valid API key route behavior.
@@ -714,10 +721,54 @@ Acceptance criteria:
 * JWT behavior should be covered by unit tests.
 * JWT route behavior should be covered by integration tests.
 
+Expected missing JWT response:
+
+```json
+{
+  "error": {
+    "code": "JWT_TOKEN_MISSING",
+    "message": "Bearer token is required",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Expected invalid JWT response:
+
+```json
+{
+  "error": {
+    "code": "JWT_TOKEN_INVALID",
+    "message": "Bearer token is invalid",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Implemented behavior:
+
+* `JWT_SECRET` was added.
+* `JWT_ISSUER` was added.
+* `JWT_AUDIENCE` was added.
+* `JWT_EXPIRES_IN_SECONDS` was added.
+* `jose` dependency was added.
+* `jwt-auth.middleware.ts` was added.
+* `extractBearerToken()` was added.
+* `verifyJwtToken()` was added.
+* `request.jwtPayload` is attached after successful verification.
+* Missing Bearer token returns `401 JWT_TOKEN_MISSING`.
+* Invalid Bearer token returns `403 JWT_TOKEN_INVALID`.
+* Valid Bearer token allows request to continue.
+* JWT validation checks signature, issuer, audience, and expiration.
+* `GET /api/products` is protected by both API key and JWT.
+* Unit tests cover Bearer token extraction, token verification, missing token, invalid token, and valid token behavior.
+* Integration tests cover missing JWT, invalid JWT, and valid JWT route behavior.
+* Manual validation was completed with PowerShell.
+
 Status:
 
 ```txt
-Planned
+Done
 ```
 
 ---
@@ -731,6 +782,7 @@ Acceptance criteria:
 * Request ID generation is tested.
 * Environment parsing is tested where applicable.
 * API key authentication behavior is tested.
+* JWT authentication behavior is tested.
 * Downstream error helper is tested.
 * Gateway utility functions are tested where applicable.
 * Tests can be run with an npm script.
@@ -743,6 +795,7 @@ Implemented behavior:
 * `apps/api-gateway/vitest.config.ts` was added.
 * Request ID middleware tests were added.
 * API key authentication middleware tests were added.
+* JWT authentication middleware tests were added.
 * Downstream service error tests were added.
 * Environment parsing tests were added.
 
@@ -751,6 +804,7 @@ Current unit test files:
 ```txt
 apps/api-gateway/src/middlewares/request-id.middleware.test.ts
 apps/api-gateway/src/middlewares/api-key-auth.middleware.test.ts
+apps/api-gateway/src/middlewares/jwt-auth.middleware.test.ts
 apps/api-gateway/src/errors/downstream-service-error.test.ts
 apps/api-gateway/src/config/env.test.ts
 ```
@@ -758,7 +812,7 @@ apps/api-gateway/src/config/env.test.ts
 Current unit test count:
 
 ```txt
-22 tests
+36 tests
 ```
 
 Status:
@@ -776,12 +830,14 @@ The project should add basic integration tests for the current flow.
 Acceptance criteria:
 
 * Test API Gateway `/health`.
-* Test Product Service `/health`.
-* Test Product Service `/products`.
-* Test API Gateway `/api/products` with valid API key.
-* Test API Gateway `/api/products` without API key.
+* Test API Gateway `/api/products` with missing API key.
 * Test API Gateway `/api/products` with invalid API key.
+* Test API Gateway `/api/products` with valid API key but missing JWT.
+* Test API Gateway `/api/products` with valid API key but invalid JWT.
+* Test API Gateway `/api/products` with valid API key and valid JWT.
 * Test Gateway behavior when downstream service is unavailable.
+* Test Gateway behavior when downstream service returns an error status.
+* Test Gateway behavior when downstream service returns invalid JSON.
 * Test Gateway behavior when downstream service times out.
 
 Implemented behavior:
@@ -792,7 +848,9 @@ Implemented behavior:
 * `/health` integration test was added.
 * `/api/products` missing API key integration test was added.
 * `/api/products` invalid API key integration test was added.
-* `/api/products` valid API key integration test was added.
+* `/api/products` missing JWT integration test was added.
+* `/api/products` invalid JWT integration test was added.
+* `/api/products` valid API key and valid JWT integration test was added.
 * Product proxy integration test verifies downstream URL, `x-request-id` forwarding, and `AbortSignal`.
 * Downstream unavailable integration test was added.
 * Downstream HTTP error integration test was added.
@@ -808,7 +866,7 @@ apps/api-gateway/src/app.test.ts
 Current integration test count:
 
 ```txt
-8 tests
+10 tests
 ```
 
 Current integration test coverage:
@@ -823,27 +881,33 @@ GET /api/products without API key
 GET /api/products with invalid API key
   -> 403 API_KEY_INVALID
 
-GET /api/products with valid API key
+GET /api/products with valid API key but missing JWT
+  -> 401 JWT_TOKEN_MISSING
+
+GET /api/products with valid API key but invalid JWT
+  -> 403 JWT_TOKEN_INVALID
+
+GET /api/products with valid API key and valid JWT
   -> 200 and product data
 
-GET /api/products with valid API key but downstream unavailable
+GET /api/products with valid API key and valid JWT but downstream unavailable
   -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
 
-GET /api/products with valid API key but downstream returns 500
+GET /api/products with valid API key and valid JWT but downstream returns 500
   -> 502 DOWNSTREAM_HTTP_ERROR
 
-GET /api/products with valid API key but downstream returns invalid JSON
+GET /api/products with valid API key and valid JWT but downstream returns invalid JSON
   -> 502 DOWNSTREAM_INVALID_RESPONSE
 
-GET /api/products with valid API key but downstream times out
+GET /api/products with valid API key and valid JWT but downstream times out
   -> 504 DOWNSTREAM_TIMEOUT
 ```
 
 Current total automated test status:
 
 ```txt
-5 test files passed
-30 tests passed
+6 test files passed
+46 tests passed
 ```
 
 Status:
@@ -864,7 +928,7 @@ Planned features:
 
 * Limit requests by IP.
 * Limit requests by API key.
-* Store counters in Redis.
+* Store counters in Redis later.
 * Return `429 Too Many Requests`.
 
 Status:
@@ -999,11 +1063,20 @@ Test API Gateway health manually:
 Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
 ```
 
-Test API Gateway products with valid API key:
+Create local development JWT token:
+
+```powershell
+$token = node --input-type=module -e "import { SignJWT } from 'jose'; const secretKey = new TextEncoder().encode('local-dev-jwt-secret-change-me'); const expiresAt = Math.floor(Date.now() / 1000) + 900; const token = await new SignJWT({ role: 'user' }).setProtectedHeader({ alg: 'HS256' }).setSubject('user_123').setIssuer('pulsegate-api-gateway').setAudience('pulsegate-clients').setExpirationTime(expiresAt).sign(secretKey); console.log(token);"
+```
+
+Test API Gateway products with valid API key and valid JWT:
 
 ```powershell
 Invoke-RestMethod http://localhost:3000/api/products `
-  -Headers @{ "x-api-key" = "dev-api-key" } |
+  -Headers @{
+    "x-api-key" = "dev-api-key"
+    "authorization" = "Bearer $token"
+  } |
   ConvertTo-Json -Depth 10
 ```
 
@@ -1031,7 +1104,7 @@ try {
 }
 ```
 
-Test Product Service unavailable:
+Test missing JWT:
 
 ```powershell
 try {
@@ -1044,23 +1117,20 @@ try {
 }
 ```
 
-Expected unavailable response:
+Test invalid JWT:
 
-```json
-{
-  "error": {
-    "code": "DOWNSTREAM_SERVICE_UNAVAILABLE",
-    "message": "Product Service is currently unavailable",
-    "service": "product-service",
-    "requestId": "example-request-id"
-  }
+```powershell
+try {
+  Invoke-RestMethod http://localhost:3000/api/products `
+    -Headers @{
+      "x-api-key" = "dev-api-key"
+      "authorization" = "Bearer invalid-token"
+    } |
+    ConvertTo-Json -Depth 10
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
 }
-```
-
-Expected status:
-
-```txt
-503
 ```
 
 Expected products response:
@@ -1110,27 +1180,29 @@ Current Sprint 0 status:
 Done
 ```
 
-## 14. Sprint 1 Current Definition of Done
+## 14. Sprint 1 Definition of Done
 
-Sprint 1 is partially done when:
+Sprint 1 is done when:
 
 * API Gateway normalizes downstream service errors.
 * API Gateway applies request timeout to Product Service calls.
 * API Gateway has downstream route configuration foundation.
 * API Gateway supports API key authentication.
+* API Gateway supports JWT authentication.
 * API Gateway keeps `/health` public.
-* API Gateway protects `/api/products`.
-* API Gateway has unit tests for request ID, env parsing, API key auth, and downstream errors.
-* API Gateway has integration tests for health, API key route behavior, product proxy success, downstream failure, and downstream timeout.
+* API Gateway protects `/api/products` with API key and JWT.
+* API Gateway has unit tests for request ID, env parsing, API key auth, JWT auth, and downstream errors.
+* API Gateway has integration tests for health, API key route behavior, JWT route behavior, product proxy success, downstream failure, and downstream timeout.
+* Manual validation confirms API key and JWT protected route behavior.
 * `npm run test` passes.
 * `npm run typecheck` passes.
 * `npm run build` passes.
 * Code is pushed to GitHub.
 
-Current Sprint 1 partial status:
+Current Sprint 1 status:
 
 ```txt
-In Progress
+Done
 ```
 
 Completed Sprint 1 items:
@@ -1140,14 +1212,9 @@ S1-FR-001 Done
 S1-FR-002 Done
 S1-FR-003 Done
 S1-FR-004 Done
+S1-FR-005 Done
 S1-FR-006 Done
 S1-FR-007 Done
-```
-
-Remaining Sprint 1 items:
-
-```txt
-S1-FR-005 Planned
 ```
 
 ## 15. Next Step
@@ -1155,17 +1222,18 @@ S1-FR-005 Planned
 Recommended next step:
 
 ```txt
-Sprint 1 - Step 14: JWT Authentication
+Sprint 2 - Gateway Traffic Protection
 ```
 
 Reason:
 
-The Gateway now has enough automated tests to safely add JWT authentication.
+The Gateway now has authentication, downstream routing, downstream timeout handling, normalized error handling, and automated tests. The next useful production-like feature is traffic protection.
 
-Recommended JWT implementation order:
+Recommended Sprint 2 order:
 
-1. Add JWT configuration.
-2. Add JWT authentication middleware.
-3. Decide which route should require JWT.
-4. Add unit tests for JWT middleware.
-5. Add integration tests for JWT-protected route behavior.
+1. Add in-memory rate limiting foundation.
+2. Add route-level rate limit configuration.
+3. Add request size limit.
+4. Add basic security headers.
+5. Add route-level auth configuration refinement.
+6. Add automated tests for traffic protection behavior.

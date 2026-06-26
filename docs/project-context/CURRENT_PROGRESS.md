@@ -10,17 +10,15 @@ Sprint 1 - API Gateway Core Features
 
 ## Current Version
 
-v0.2.0-in-progress
+v0.2.0
 
 ## Sprint Status
 
-Sprint 1 is in progress.
+Sprint 1 is complete.
 
 Sprint 0 is complete.
 
-Sprint 1 has completed the main API Gateway core feature checkpoints and the initial test foundation.
-
-Completed Sprint 1 checkpoints so far:
+Sprint 1 completed the API Gateway core feature foundation:
 
 1. Normalize downstream service errors.
 2. Add downstream request timeout.
@@ -35,6 +33,11 @@ Completed Sprint 1 checkpoints so far:
 11. Add valid API key product route integration test.
 12. Add downstream failure integration tests.
 13. Add downstream timeout integration test.
+14. Add JWT configuration.
+15. Add JWT authentication middleware.
+16. Add JWT authentication unit tests.
+17. Protect Product route with API key and JWT.
+18. Manually validate API key and JWT protected route.
 
 ## Completed
 
@@ -87,6 +90,10 @@ Implemented:
 * API key authentication middleware.
 * Configurable API key header through `API_KEY_HEADER`.
 * Local development API key list through `API_KEYS`.
+* JWT configuration.
+* JWT authentication middleware.
+* JWT validation using `jose`.
+* Protected Product route with API key and JWT.
 * Vitest unit test setup.
 * API Gateway integration tests using `app.inject()`.
 
@@ -105,6 +112,7 @@ GET /health
 
 GET /api/products
   -> Requires API key
+  -> Requires JWT Bearer token
 ```
 
 Current API key header:
@@ -117,6 +125,21 @@ Default local development API key:
 
 ```txt
 dev-api-key
+```
+
+Current JWT header:
+
+```txt
+Authorization: Bearer <jwt-token>
+```
+
+Default local JWT configuration:
+
+```txt
+JWT_SECRET=local-dev-jwt-secret-change-me
+JWT_ISSUER=pulsegate-api-gateway
+JWT_AUDIENCE=pulsegate-clients
+JWT_EXPIRES_IN_SECONDS=900
 ```
 
 Current structure:
@@ -136,6 +159,8 @@ apps/api-gateway/src/
     api-key-auth.middleware.ts
     api-key-auth.middleware.test.ts
     error-handler.middleware.ts
+    jwt-auth.middleware.ts
+    jwt-auth.middleware.test.ts
     request-id.middleware.ts
     request-id.middleware.test.ts
   routes/
@@ -201,6 +226,7 @@ Client
   -> API Gateway :3000
     -> Request ID handling
     -> API key check for protected routes
+    -> JWT Bearer token check for protected routes
     -> Downstream route configuration
     -> Product Service :3001
       -> Mock Product Response
@@ -217,9 +243,15 @@ Client
       -> If invalid:
         -> 403 API_KEY_INVALID
       -> If valid:
-        -> API Gateway calls Product Service
-          -> GET http://127.0.0.1:3001/products
-        -> Product Service returns mock product data
+        -> API Gateway checks Authorization Bearer token
+          -> If missing:
+            -> 401 JWT_TOKEN_MISSING
+          -> If invalid:
+            -> 403 JWT_TOKEN_INVALID
+          -> If valid:
+            -> API Gateway calls Product Service
+              -> GET http://127.0.0.1:3001/products
+            -> Product Service returns mock product data
     -> API Gateway returns response to Client
 ```
 
@@ -227,7 +259,7 @@ Current downstream failure flow:
 
 ```txt
 Client
-  -> GET http://localhost:3000/api/products with valid API key
+  -> GET http://localhost:3000/api/products with valid API key and valid JWT
     -> API Gateway calls Product Service
       -> If Product Service is unavailable:
         -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
@@ -284,11 +316,20 @@ Test API Gateway health:
 Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
 ```
 
-Test API Gateway products with valid API key:
+Create local development JWT token:
+
+```powershell
+$token = node --input-type=module -e "import { SignJWT } from 'jose'; const secretKey = new TextEncoder().encode('local-dev-jwt-secret-change-me'); const expiresAt = Math.floor(Date.now() / 1000) + 900; const token = await new SignJWT({ role: 'user' }).setProtectedHeader({ alg: 'HS256' }).setSubject('user_123').setIssuer('pulsegate-api-gateway').setAudience('pulsegate-clients').setExpirationTime(expiresAt).sign(secretKey); console.log(token);"
+```
+
+Test API Gateway products with valid API key and valid JWT:
 
 ```powershell
 Invoke-RestMethod http://localhost:3000/api/products `
-  -Headers @{ "x-api-key" = "dev-api-key" } |
+  -Headers @{
+    "x-api-key" = "dev-api-key"
+    "authorization" = "Bearer $token"
+  } |
   ConvertTo-Json -Depth 10
 ```
 
@@ -352,7 +393,72 @@ Expected status:
 403
 ```
 
-Expected products response with valid API key:
+Test missing JWT token:
+
+```powershell
+try {
+  Invoke-RestMethod http://localhost:3000/api/products `
+    -Headers @{ "x-api-key" = "dev-api-key" } |
+    ConvertTo-Json -Depth 10
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+```
+
+Expected missing JWT response:
+
+```json
+{
+  "error": {
+    "code": "JWT_TOKEN_MISSING",
+    "message": "Bearer token is required",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Expected status:
+
+```txt
+401
+```
+
+Test invalid JWT token:
+
+```powershell
+try {
+  Invoke-RestMethod http://localhost:3000/api/products `
+    -Headers @{
+      "x-api-key" = "dev-api-key"
+      "authorization" = "Bearer invalid-token"
+    } |
+    ConvertTo-Json -Depth 10
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+```
+
+Expected invalid JWT response:
+
+```json
+{
+  "error": {
+    "code": "JWT_TOKEN_INVALID",
+    "message": "Bearer token is invalid",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Expected status:
+
+```txt
+403
+```
+
+Expected products response with valid API key and valid JWT:
 
 ```json
 {
@@ -369,6 +475,65 @@ Expected products response with valid API key:
     }
   ]
 }
+```
+
+## Authentication Behavior
+
+### API Key Authentication
+
+Protected route:
+
+```txt
+GET /api/products
+```
+
+Current behavior:
+
+```txt
+Missing API key
+  -> 401 API_KEY_MISSING
+
+Invalid API key
+  -> 403 API_KEY_INVALID
+
+Valid API key
+  -> Continue to JWT authentication
+```
+
+### JWT Authentication
+
+Protected route:
+
+```txt
+GET /api/products
+```
+
+Current behavior:
+
+```txt
+Missing Bearer token
+  -> 401 JWT_TOKEN_MISSING
+
+Invalid Bearer token
+  -> 403 JWT_TOKEN_INVALID
+
+Valid Bearer token
+  -> Continue to Product Service
+```
+
+JWT validation checks:
+
+```txt
+Signature
+Issuer
+Audience
+Expiration
+```
+
+JWT payload is attached to:
+
+```txt
+request.jwtPayload
 ```
 
 ## Downstream Error Behavior
@@ -466,8 +631,8 @@ npm run test
 Current test result:
 
 ```txt
-5 test files passed
-30 tests passed
+6 test files passed
+46 tests passed
 ```
 
 Current unit tests:
@@ -479,18 +644,21 @@ apps/api-gateway/src/middlewares/request-id.middleware.test.ts
 apps/api-gateway/src/middlewares/api-key-auth.middleware.test.ts
   -> 4 tests
 
+apps/api-gateway/src/middlewares/jwt-auth.middleware.test.ts
+  -> 9 tests
+
 apps/api-gateway/src/errors/downstream-service-error.test.ts
   -> 5 tests
 
 apps/api-gateway/src/config/env.test.ts
-  -> 9 tests
+  -> 14 tests
 ```
 
 Current integration tests:
 
 ```txt
 apps/api-gateway/src/app.test.ts
-  -> 8 tests
+  -> 10 tests
 ```
 
 Integration test coverage:
@@ -505,19 +673,25 @@ GET /api/products without API key
 GET /api/products with invalid API key
   -> 403 API_KEY_INVALID
 
-GET /api/products with valid API key
+GET /api/products with valid API key but missing JWT
+  -> 401 JWT_TOKEN_MISSING
+
+GET /api/products with valid API key but invalid JWT
+  -> 403 JWT_TOKEN_INVALID
+
+GET /api/products with valid API key and valid JWT
   -> 200 and product data
 
-GET /api/products with valid API key but downstream unavailable
+GET /api/products with valid API key and valid JWT but downstream unavailable
   -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
 
-GET /api/products with valid API key but downstream returns 500
+GET /api/products with valid API key and valid JWT but downstream returns 500
   -> 502 DOWNSTREAM_HTTP_ERROR
 
-GET /api/products with valid API key but downstream returns invalid JSON
+GET /api/products with valid API key and valid JWT but downstream returns invalid JSON
   -> 502 DOWNSTREAM_INVALID_RESPONSE
 
-GET /api/products with valid API key but downstream times out
+GET /api/products with valid API key and valid JWT but downstream times out
   -> 504 DOWNSTREAM_TIMEOUT
 ```
 
@@ -531,12 +705,14 @@ Latest validation:
 * Product Service `/health` passed.
 * Product Service `/products` passed.
 * API Gateway `/health` passed without API key.
-* API Gateway `/api/products` passed with valid API key.
 * API Gateway `/api/products` returned `401 API_KEY_MISSING` without API key.
 * API Gateway `/api/products` returned `403 API_KEY_INVALID` with invalid API key.
+* API Gateway `/api/products` returned `401 JWT_TOKEN_MISSING` with valid API key but missing JWT.
+* API Gateway `/api/products` returned `403 JWT_TOKEN_INVALID` with valid API key but invalid JWT.
+* API Gateway `/api/products` passed with valid API key and valid JWT.
 * API Gateway `/api/products` returned `503 DOWNSTREAM_SERVICE_UNAVAILABLE` when Product Service was down.
 * API Gateway `/api/products` returned `504 DOWNSTREAM_TIMEOUT` when Product Service was intentionally delayed.
-* Automated integration tests cover downstream unavailable, downstream HTTP error, invalid JSON, and timeout behavior.
+* Automated integration tests cover API key authentication, JWT authentication, downstream unavailable, downstream HTTP error, invalid JSON, and timeout behavior.
 * Code pushed to GitHub.
 * Git working tree was clean after latest commit.
 
@@ -577,13 +753,17 @@ f66d523 feat(gateway): normalize downstream service errors
 8fe5aae test(gateway): add valid api key product route integration test
 2fca28e test(gateway): add downstream failure integration tests
 10d512a test(gateway): add downstream timeout integration test
+82672c6 feat(gateway): add jwt configuration
+ad0a9fd feat(gateway): add jwt authentication middleware
+9cc8e88 test(gateway): add jwt auth unit tests
+c233071 feat(gateway): protect product route with jwt
 ```
 
 ## Current Status
 
 Sprint 0 is complete.
 
-Sprint 1 is in progress.
+Sprint 1 is complete.
 
 PulseGate currently has a stable local-first API Gateway foundation with production-oriented Gateway behavior and automated tests:
 
@@ -592,6 +772,7 @@ Client
   -> API Gateway
     -> Request ID handling
     -> API key authentication for protected routes
+    -> JWT authentication for protected routes
     -> Downstream route configuration
     -> Downstream timeout handling
     -> Normalized downstream error handling
@@ -618,36 +799,44 @@ Client
 13. Add valid API key product route integration test.
 14. Add downstream failure integration tests.
 15. Add downstream timeout integration test.
+16. Add JWT configuration.
+17. Add JWT authentication middleware.
+18. Add JWT authentication unit tests.
+19. Protect Product route with API key and JWT.
+20. Manually validate API key and JWT protected route.
 
 ### Remaining
 
-1. JWT authentication.
-2. Optional extra integration tests.
-3. Sprint 1 documentation finalization.
+No remaining Sprint 1 implementation tasks.
+
+Sprint 1 documentation finalization is in progress.
 
 ## Recommended Next Step
 
 Recommended next step:
 
 ```txt
-Sprint 1 - Step 14: JWT Authentication
+Sprint 1 - Final Documentation Update
 ```
 
-Reason:
+After final documentation update, the project can move to:
 
-The Gateway now has enough unit and integration test coverage to safely add JWT authentication.
+```txt
+Sprint 2 - Gateway Traffic Protection
+```
 
-Recommended JWT implementation order:
+Recommended Sprint 2 direction:
 
-1. Add JWT configuration.
-2. Add JWT authentication middleware.
-3. Decide which route should require JWT.
-4. Add unit tests for JWT middleware.
-5. Add integration tests for JWT-protected route behavior.
+1. Add in-memory rate limiting foundation.
+2. Add route-level rate limit configuration.
+3. Add request size limit.
+4. Add basic security headers.
+5. Add route-level auth configuration refinement.
+6. Add automated tests for traffic protection behavior.
 
 ## Do Not Add Yet
 
-Do not add these before Gateway core features and tests are stable:
+Do not add these before Gateway traffic protection features are stable:
 
 * Redis
 * Kafka
