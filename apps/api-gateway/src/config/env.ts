@@ -1,4 +1,4 @@
-function readNumberEnv(name: string, fallback: number): number {
+export function readNumberEnv(name: string, fallback: number): number {
   const rawValue = process.env[name];
 
   if (!rawValue) {
@@ -14,7 +14,7 @@ function readNumberEnv(name: string, fallback: number): number {
   return parsedValue;
 }
 
-function readCsvEnv(name: string, fallback: string[]): string[] {
+export function readCsvEnv(name: string, fallback: string[]): string[] {
   const rawValue = process.env[name];
 
   if (!rawValue) {
