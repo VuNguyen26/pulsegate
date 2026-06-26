@@ -15,12 +15,12 @@ app.addHook("onRequest", async (request, reply) => {
   reply.header("x-request-id", request.id);
 });
 
+registerErrorHandlers(app);
+
 const start = async () => {
   try {
     await app.register(healthRoute);
     await app.register(productProxyRoute);
-
-    registerErrorHandlers(app);
 
     await app.listen({
       port: env.PORT,
