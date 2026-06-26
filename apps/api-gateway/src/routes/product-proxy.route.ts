@@ -1,21 +1,23 @@
 import type { FastifyInstance } from "fastify";
 
-import { env } from "../config/env.js";
+import { productProductsRouteConfig } from "../config/downstream-routes.js";
 import { DownstreamServiceError } from "../errors/downstream-service-error.js";
 
 export async function productProxyRoute(app: FastifyInstance): Promise<void> {
-  app.get("/api/products", async (request, reply) => {
+  const routeConfig = productProductsRouteConfig;
+
+  app.get(routeConfig.gatewayPath, async (request, reply) => {
     const controller = new AbortController();
 
     const timeout = setTimeout(() => {
       controller.abort();
-    }, env.DOWNSTREAM_REQUEST_TIMEOUT_MS);
+    }, routeConfig.timeoutMs);
 
     let response: Response;
 
     try {
-      response = await fetch(`${env.PRODUCT_SERVICE_URL}/products`, {
-        method: "GET",
+      response = await fetch(routeConfig.downstreamUrl, {
+        method: routeConfig.method,
         headers: {
           "x-request-id": request.id,
         },
@@ -26,7 +28,7 @@ export async function productProxyRoute(app: FastifyInstance): Promise<void> {
         throw new DownstreamServiceError({
           code: "DOWNSTREAM_TIMEOUT",
           message: "Product Service did not respond in time",
-          service: "product-service",
+          service: routeConfig.serviceName,
           statusCode: 504,
           originalError: error,
         });
@@ -35,7 +37,7 @@ export async function productProxyRoute(app: FastifyInstance): Promise<void> {
       throw new DownstreamServiceError({
         code: "DOWNSTREAM_SERVICE_UNAVAILABLE",
         message: "Product Service is currently unavailable",
-        service: "product-service",
+        service: routeConfig.serviceName,
         statusCode: 503,
         originalError: error,
       });
@@ -47,7 +49,7 @@ export async function productProxyRoute(app: FastifyInstance): Promise<void> {
       throw new DownstreamServiceError({
         code: "DOWNSTREAM_HTTP_ERROR",
         message: "Product Service returned an error",
-        service: "product-service",
+        service: routeConfig.serviceName,
         statusCode: response.status >= 500 ? 502 : response.status,
       });
     }
@@ -60,7 +62,7 @@ export async function productProxyRoute(app: FastifyInstance): Promise<void> {
       throw new DownstreamServiceError({
         code: "DOWNSTREAM_INVALID_RESPONSE",
         message: "Product Service returned an invalid response",
-        service: "product-service",
+        service: routeConfig.serviceName,
         statusCode: 502,
         originalError: error,
       });
