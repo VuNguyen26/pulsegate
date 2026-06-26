@@ -1,9 +1,37 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { SignJWT } from "jose";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildApiGatewayApp } from "./app.js";
+import { env } from "./config/env.js";
 
 let app: FastifyInstance;
+
+async function createValidJwtToken(): Promise<string> {
+  const secretKey = new TextEncoder().encode(env.JWT_SECRET);
+  const expiresAt = Math.floor(Date.now() / 1000) + env.JWT_EXPIRES_IN_SECONDS;
+
+  return new SignJWT({
+    role: "user",
+  })
+    .setProtectedHeader({
+      alg: "HS256",
+    })
+    .setSubject("user_123")
+    .setIssuer(env.JWT_ISSUER)
+    .setAudience(env.JWT_AUDIENCE)
+    .setExpirationTime(expiresAt)
+    .sign(secretKey);
+}
+
+async function createValidAuthHeaders(): Promise<Record<string, string>> {
+  const token = await createValidJwtToken();
+
+  return {
+    "x-api-key": "dev-api-key",
+    authorization: `Bearer ${token}`,
+  };
+}
 
 beforeEach(async () => {
   app = await buildApiGatewayApp({
@@ -78,7 +106,56 @@ describe("API Gateway app", () => {
     expect(response.headers["x-request-id"]).toBeDefined();
   });
 
-  it("should return products when API key is valid", async () => {
+  it("should return 401 when JWT token is missing for product proxy route", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/products",
+      headers: {
+        "x-api-key": "dev-api-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+
+    const body = response.json();
+
+    expect(body).toMatchObject({
+      error: {
+        code: "JWT_TOKEN_MISSING",
+        message: "Bearer token is required",
+        requestId: expect.any(String),
+      },
+    });
+
+    expect(response.headers["x-request-id"]).toBeDefined();
+  });
+
+  it("should return 403 when JWT token is invalid for product proxy route", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/products",
+      headers: {
+        "x-api-key": "dev-api-key",
+        authorization: "Bearer invalid-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+
+    const body = response.json();
+
+    expect(body).toMatchObject({
+      error: {
+        code: "JWT_TOKEN_INVALID",
+        message: "Bearer token is invalid",
+        requestId: expect.any(String),
+      },
+    });
+
+    expect(response.headers["x-request-id"]).toBeDefined();
+  });
+
+  it("should return products when API key and JWT token are valid", async () => {
     const mockProductsResponse = {
       data: [
         {
@@ -108,9 +185,7 @@ describe("API Gateway app", () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/products",
-      headers: {
-        "x-api-key": "dev-api-key",
-      },
+      headers: await createValidAuthHeaders(),
     });
 
     expect(response.statusCode).toBe(200);
@@ -131,7 +206,7 @@ describe("API Gateway app", () => {
     expect(response.headers["x-request-id"]).toBeDefined();
   });
 
-    it("should return 503 when downstream product service is unavailable", async () => {
+  it("should return 503 when downstream product service is unavailable", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("fetch failed"));
 
     vi.stubGlobal("fetch", fetchMock);
@@ -139,9 +214,7 @@ describe("API Gateway app", () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/products",
-      headers: {
-        "x-api-key": "dev-api-key",
-      },
+      headers: await createValidAuthHeaders(),
     });
 
     expect(response.statusCode).toBe(503);
@@ -182,9 +255,7 @@ describe("API Gateway app", () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/products",
-      headers: {
-        "x-api-key": "dev-api-key",
-      },
+      headers: await createValidAuthHeaders(),
     });
 
     expect(response.statusCode).toBe(502);
@@ -218,9 +289,7 @@ describe("API Gateway app", () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/products",
-      headers: {
-        "x-api-key": "dev-api-key",
-      },
+      headers: await createValidAuthHeaders(),
     });
 
     expect(response.statusCode).toBe(502);
@@ -239,7 +308,7 @@ describe("API Gateway app", () => {
     expect(response.headers["x-request-id"]).toBeDefined();
   });
 
-    it("should return 504 when downstream product service times out", async () => {
+  it("should return 504 when downstream product service times out", async () => {
     const abortError = new Error("The operation was aborted");
     abortError.name = "AbortError";
 
@@ -250,9 +319,7 @@ describe("API Gateway app", () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/products",
-      headers: {
-        "x-api-key": "dev-api-key",
-      },
+      headers: await createValidAuthHeaders(),
     });
 
     expect(response.statusCode).toBe(504);

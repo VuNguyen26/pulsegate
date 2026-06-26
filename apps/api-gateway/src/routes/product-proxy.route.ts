@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { productProductsRouteConfig } from "../config/downstream-routes.js";
 import { DownstreamServiceError } from "../errors/downstream-service-error.js";
 import { apiKeyAuthMiddleware } from "../middlewares/api-key-auth.middleware.js";
+import { jwtAuthMiddleware } from "../middlewares/jwt-auth.middleware.js";
 
 export async function productProxyRoute(app: FastifyInstance): Promise<void> {
   const routeConfig = productProductsRouteConfig;
@@ -10,7 +11,7 @@ export async function productProxyRoute(app: FastifyInstance): Promise<void> {
   app.get(
     routeConfig.gatewayPath,
     {
-      preHandler: apiKeyAuthMiddleware,
+      preHandler: [apiKeyAuthMiddleware, jwtAuthMiddleware],
     },
     async (request, reply) => {
       const controller = new AbortController();
