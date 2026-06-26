@@ -355,11 +355,13 @@ The codebase must be organized clearly.
 
 Acceptance criteria:
 
-* API Gateway separates config, routes, middlewares, and server startup.
+* API Gateway separates config, routes, middlewares, errors, and server startup.
 * Product Service separates config, routes, middlewares, and server startup.
 * `server.ts` mainly creates the app, registers routes/middlewares, and starts the server.
 * Business routes live in `routes`.
 * Reusable request handling logic lives in `middlewares`.
+* Reusable Gateway error types live in `errors`.
+* Downstream route information lives in `config/downstream-routes.ts`.
 
 Status:
 
@@ -398,6 +400,7 @@ Acceptance criteria:
 * Request ID exists.
 * Request ID is propagated across services.
 * Error responses include request ID.
+* API Gateway forwards `x-request-id` to Product Service.
 
 Status:
 
@@ -407,19 +410,24 @@ Done
 
 ## 8. Current System Constraints
 
-Current constraints after Sprint 0:
+Current constraints after Sprint 1 Step 4:
 
 * Product data is hard-coded.
 * No database is connected.
-* No authentication exists yet.
+* API key authentication exists for `GET /api/products`.
+* JWT authentication does not exist yet.
 * No rate limiting exists yet.
 * No caching exists yet.
 * No Docker setup exists yet.
 * No metrics dashboard exists yet.
 * No tracing system exists yet.
 * API Gateway currently proxies only Product Service.
-* API Gateway does not yet normalize downstream service failures.
-* API Gateway does not yet apply request timeout to downstream calls.
+* API Gateway now normalizes downstream service failures.
+* API Gateway now applies request timeout to downstream calls.
+* API Gateway now uses a simple downstream route configuration foundation.
+* API Gateway now supports simple environment-based API key authentication.
+* Unit tests are not added yet.
+* Integration tests are not added yet.
 
 ## 9. Sprint 1 Goal
 
@@ -450,6 +458,25 @@ Sprint 1 should still avoid:
 * Grafana
 * OpenTelemetry
 
+Sprint 1 current status:
+
+```txt
+In Progress
+```
+
+Completed so far:
+
+1. Normalize downstream service errors.
+2. Add downstream request timeout.
+3. Add route configuration foundation.
+4. Add API key authentication.
+
+Recommended next step:
+
+```txt
+Sprint 1 - Step 5: Add basic unit test setup
+```
+
 ## 10. Sprint 1 Functional Requirements
 
 ### S1-FR-001: Normalize Downstream Service Errors
@@ -458,7 +485,7 @@ API Gateway must return a clean and consistent error response when a downstream 
 
 Problem:
 
-Currently, if Product Service is down, `fetch` may throw a low-level error such as `fetch failed`.
+If Product Service is down, `fetch` may throw a low-level error such as `fetch failed`.
 
 Expected behavior:
 
@@ -488,10 +515,17 @@ Suggested status code:
 503 Service Unavailable
 ```
 
+Implemented behavior:
+
+* `DownstreamServiceError` was added.
+* Product proxy route catches downstream connection failures.
+* Gateway returns normalized downstream error response.
+* Raw `fetch failed` is not exposed to clients.
+
 Status:
 
 ```txt
-Planned
+Done
 ```
 
 ---
@@ -527,10 +561,17 @@ Suggested status code:
 504 Gateway Timeout
 ```
 
+Implemented behavior:
+
+* `DOWNSTREAM_REQUEST_TIMEOUT_MS` was added.
+* API Gateway uses `AbortController` to cancel slow downstream requests.
+* Timeout defaults to `3000ms`.
+* Gateway returns `504 DOWNSTREAM_TIMEOUT`.
+
 Status:
 
 ```txt
-Planned
+Done
 ```
 
 ---
@@ -546,10 +587,17 @@ Acceptance criteria:
 * Future services can be added without rewriting Gateway core logic too much.
 * Route config should be simple in Sprint 1.
 
+Implemented behavior:
+
+* `apps/api-gateway/src/config/downstream-routes.ts` was added.
+* `DownstreamRouteConfig` was added.
+* Product proxy route now reads Gateway path, downstream URL, service name, method, and timeout from route config.
+* Product proxy route no longer directly hard-codes all downstream details.
+
 Status:
 
 ```txt
-Planned
+Done
 ```
 
 ---
@@ -573,10 +621,46 @@ Possible header:
 x-api-key
 ```
 
+Expected missing API key response:
+
+```json
+{
+  "error": {
+    "code": "API_KEY_MISSING",
+    "message": "API key is required",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Expected invalid API key response:
+
+```json
+{
+  "error": {
+    "code": "API_KEY_INVALID",
+    "message": "API key is invalid",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Implemented behavior:
+
+* `API_KEY_HEADER` was added.
+* `API_KEYS` was added.
+* `api-key-auth.middleware.ts` was added.
+* `GET /api/products` is protected by API key authentication.
+* `GET /health` remains public.
+* Missing API key returns `401 API_KEY_MISSING`.
+* Invalid API key returns `403 API_KEY_INVALID`.
+* Valid API key allows request to continue to Product Service.
+* Default local API key is `dev-api-key`.
+
 Status:
 
 ```txt
-Planned
+Done
 ```
 
 ---
@@ -608,7 +692,9 @@ The project should add basic unit tests.
 Acceptance criteria:
 
 * Request ID generation is tested.
-* Error response builder is tested.
+* Environment parsing is tested where applicable.
+* API key authentication behavior is tested.
+* Downstream error helper is tested.
 * Gateway utility functions are tested where applicable.
 * Tests can be run with an npm script.
 
@@ -629,8 +715,11 @@ Acceptance criteria:
 * Test API Gateway `/health`.
 * Test Product Service `/health`.
 * Test Product Service `/products`.
-* Test API Gateway `/api/products`.
+* Test API Gateway `/api/products` with valid API key.
+* Test API Gateway `/api/products` without API key.
+* Test API Gateway `/api/products` with invalid API key.
 * Test Gateway behavior when downstream service is unavailable.
+* Test Gateway behavior when downstream service times out.
 
 Status:
 
@@ -773,11 +862,93 @@ Invoke-RestMethod http://localhost:3001/health | ConvertTo-Json -Depth 10
 Invoke-RestMethod http://localhost:3001/products | ConvertTo-Json -Depth 10
 ```
 
-Test API Gateway:
+Test API Gateway health:
 
 ```powershell
 Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
-Invoke-RestMethod http://localhost:3000/api/products | ConvertTo-Json -Depth 10
+```
+
+Test API Gateway products with valid API key:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/api/products `
+  -Headers @{ "x-api-key" = "dev-api-key" } |
+  ConvertTo-Json -Depth 10
+```
+
+Test missing API key:
+
+```powershell
+try {
+  Invoke-RestMethod http://localhost:3000/api/products | ConvertTo-Json -Depth 10
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+```
+
+Test invalid API key:
+
+```powershell
+try {
+  Invoke-RestMethod http://localhost:3000/api/products `
+    -Headers @{ "x-api-key" = "wrong-key" } |
+    ConvertTo-Json -Depth 10
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+```
+
+Test Product Service unavailable:
+
+```powershell
+try {
+  Invoke-RestMethod http://localhost:3000/api/products `
+    -Headers @{ "x-api-key" = "dev-api-key" } |
+    ConvertTo-Json -Depth 10
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+```
+
+Expected unavailable response:
+
+```json
+{
+  "error": {
+    "code": "DOWNSTREAM_SERVICE_UNAVAILABLE",
+    "message": "Product Service is currently unavailable",
+    "service": "product-service",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Expected status:
+
+```txt
+503
+```
+
+Expected products response:
+
+```json
+{
+  "data": [
+    {
+      "id": "prod_001",
+      "name": "Mechanical Keyboard",
+      "price": 120
+    },
+    {
+      "id": "prod_002",
+      "name": "Gaming Mouse",
+      "price": 45
+    }
+  ]
+}
 ```
 
 ## 13. Sprint 0 Definition of Done
@@ -808,16 +979,60 @@ Current Sprint 0 status:
 Done
 ```
 
-## 14. Next Sprint
+## 14. Sprint 1 Current Definition of Done
 
-Next sprint:
+Sprint 1 is partially done when:
+
+* API Gateway normalizes downstream service errors.
+* API Gateway applies request timeout to Product Service calls.
+* API Gateway has downstream route configuration foundation.
+* API Gateway supports API key authentication.
+* API Gateway keeps `/health` public.
+* API Gateway protects `/api/products`.
+* Typecheck passes.
+* Build passes.
+* Code is pushed to GitHub.
+
+Current Sprint 1 partial status:
 
 ```txt
-Sprint 1 - API Gateway Core Features
+In Progress
 ```
 
-Recommended first task:
+Completed Sprint 1 items:
 
 ```txt
-Sprint 1 - Step 1: Normalize downstream service errors
+S1-FR-001 Done
+S1-FR-002 Done
+S1-FR-003 Done
+S1-FR-004 Done
 ```
+
+Remaining Sprint 1 items:
+
+```txt
+S1-FR-005 Planned
+S1-FR-006 Planned
+S1-FR-007 Planned
+```
+
+## 15. Next Step
+
+Recommended next step:
+
+```txt
+Sprint 1 - Step 5: Add basic unit test setup
+```
+
+Reason:
+
+The Gateway now has enough important behavior to justify adding tests before adding JWT authentication.
+
+Recommended next order:
+
+1. Add basic unit test setup.
+2. Add tests for request ID generation.
+3. Add tests for API key authentication.
+4. Add tests for downstream error helper.
+5. Add basic integration tests.
+6. Add JWT authentication later.

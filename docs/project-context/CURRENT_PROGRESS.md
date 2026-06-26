@@ -6,15 +6,24 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Sprint
 
-Sprint 0 - Core Setup & Basic Gateway Flow
+Sprint 1 - API Gateway Core Features
 
 ## Current Version
 
-v0.1.0
+v0.2.0-in-progress
 
 ## Sprint Status
 
+Sprint 1 is in progress.
+
 Sprint 0 is complete.
+
+Sprint 1 has completed the first four Gateway core feature checkpoints:
+
+1. Normalize downstream service errors.
+2. Add downstream request timeout.
+3. Add downstream route configuration foundation.
+4. Add API key authentication.
 
 ## Completed
 
@@ -57,6 +66,13 @@ Implemented:
 * Config separated into `config/env.ts`.
 * Routes separated into `routes`.
 * Middlewares separated into `middlewares`.
+* Normalized downstream service errors.
+* Downstream request timeout using `AbortController`.
+* Configurable downstream request timeout through `DOWNSTREAM_REQUEST_TIMEOUT_MS`.
+* Downstream route configuration foundation.
+* API key authentication middleware.
+* Configurable API key header through `API_KEY_HEADER`.
+* Local development API key list through `API_KEYS`.
 
 Current endpoints:
 
@@ -65,13 +81,39 @@ GET /health
 GET /api/products
 ```
 
+Current route protection:
+
+```txt
+GET /health
+  -> Public
+
+GET /api/products
+  -> Requires API key
+```
+
+Current API key header:
+
+```txt
+x-api-key
+```
+
+Default local development API key:
+
+```txt
+dev-api-key
+```
+
 Current structure:
 
 ```txt
 apps/api-gateway/src/
   config/
+    downstream-routes.ts
     env.ts
+  errors/
+    downstream-service-error.ts
   middlewares/
+    api-key-auth.middleware.ts
     error-handler.middleware.ts
     request-id.middleware.ts
   routes/
@@ -135,8 +177,24 @@ apps/product-service/src/
 ```txt
 Client
   -> API Gateway :3000
-    -> Product Service :3001
-      -> Mock Product Response
+    -> API key check for protected routes
+      -> Product Service :3001
+        -> Mock Product Response
+```
+
+Current product request flow:
+
+```txt
+Client
+  -> GET http://localhost:3000/api/products
+    -> API Gateway checks x-api-key
+      -> If missing: 401 API_KEY_MISSING
+      -> If invalid: 403 API_KEY_INVALID
+      -> If valid:
+        -> API Gateway calls Product Service
+          -> GET http://127.0.0.1:3001/products
+        -> Product Service returns mock product data
+    -> API Gateway returns response to Client
 ```
 
 ## Main Test Commands
@@ -153,6 +211,18 @@ Run API Gateway:
 npm run dev:gateway
 ```
 
+Typecheck:
+
+```powershell
+npm run typecheck
+```
+
+Build:
+
+```powershell
+npm run build
+```
+
 Test Product Service:
 
 ```powershell
@@ -160,14 +230,81 @@ Invoke-RestMethod http://localhost:3001/health | ConvertTo-Json -Depth 10
 Invoke-RestMethod http://localhost:3001/products | ConvertTo-Json -Depth 10
 ```
 
-Test API Gateway:
+Test API Gateway health:
 
 ```powershell
 Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
-Invoke-RestMethod http://localhost:3000/api/products | ConvertTo-Json -Depth 10
 ```
 
-Expected products response:
+Test API Gateway products with valid API key:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/api/products `
+  -Headers @{ "x-api-key" = "dev-api-key" } |
+  ConvertTo-Json -Depth 10
+```
+
+Test missing API key:
+
+```powershell
+try {
+  Invoke-RestMethod http://localhost:3000/api/products | ConvertTo-Json -Depth 10
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+```
+
+Expected missing API key response:
+
+```json
+{
+  "error": {
+    "code": "API_KEY_MISSING",
+    "message": "API key is required",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Expected status:
+
+```txt
+401
+```
+
+Test invalid API key:
+
+```powershell
+try {
+  Invoke-RestMethod http://localhost:3000/api/products `
+    -Headers @{ "x-api-key" = "wrong-key" } |
+    ConvertTo-Json -Depth 10
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+```
+
+Expected invalid API key response:
+
+```json
+{
+  "error": {
+    "code": "API_KEY_INVALID",
+    "message": "API key is invalid",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Expected status:
+
+```txt
+403
+```
+
+Expected products response with valid API key:
 
 ```json
 {
@@ -186,6 +323,46 @@ Expected products response:
 }
 ```
 
+## Downstream Error Behavior
+
+When Product Service is unavailable, API Gateway returns:
+
+```json
+{
+  "error": {
+    "code": "DOWNSTREAM_SERVICE_UNAVAILABLE",
+    "message": "Product Service is currently unavailable",
+    "service": "product-service",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Expected status:
+
+```txt
+503
+```
+
+When Product Service is too slow, API Gateway returns:
+
+```json
+{
+  "error": {
+    "code": "DOWNSTREAM_TIMEOUT",
+    "message": "Product Service did not respond in time",
+    "service": "product-service",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Expected status:
+
+```txt
+504
+```
+
 ## Validation Status
 
 Latest validation:
@@ -194,8 +371,12 @@ Latest validation:
 * `npm run build` passed.
 * Product Service `/health` passed.
 * Product Service `/products` passed.
-* API Gateway `/health` passed.
-* API Gateway `/api/products` passed.
+* API Gateway `/health` passed without API key.
+* API Gateway `/api/products` passed with valid API key.
+* API Gateway `/api/products` returned `401 API_KEY_MISSING` without API key.
+* API Gateway `/api/products` returned `403 API_KEY_INVALID` with invalid API key.
+* API Gateway `/api/products` returned `503 DOWNSTREAM_SERVICE_UNAVAILABLE` when Product Service was down.
+* API Gateway `/api/products` returned `504 DOWNSTREAM_TIMEOUT` when Product Service was intentionally delayed.
 * Code pushed to GitHub.
 * Git working tree was clean after latest commit.
 
@@ -222,40 +403,72 @@ c0615fe docs: add project context handoff and progress logs
 009cc3d docs: improve readme landing page
 b5ee327 docs: add environment example
 fe9e5d2 docs: finalize sprint 0 readme status
+f66d523 feat(gateway): normalize downstream service errors
+32af4ab feat(gateway): add downstream request timeout
+27f40bb refactor(gateway): add downstream route configuration
+940806f feat(gateway): add api key authentication
 ```
 
 ## Current Status
 
 Sprint 0 is complete.
 
-PulseGate currently has a stable local-first API Gateway foundation:
+Sprint 1 is in progress.
+
+PulseGate currently has a stable local-first API Gateway foundation with basic production-oriented Gateway behavior:
 
 ```txt
 Client
   -> API Gateway
+    -> Request ID handling
+    -> API key authentication for protected routes
+    -> Downstream route configuration
+    -> Downstream timeout handling
+    -> Normalized downstream error handling
     -> Product Service
       -> Mock product response
 ```
 
-The project is ready to move to Sprint 1.
+## Sprint 1 Progress
 
-## Next Sprint
+### Done
 
-Sprint 1 - API Gateway Core Features
-
-Recommended Sprint 1 order:
-
-1. Improve downstream service error handling.
-2. Add request timeout when Gateway calls Product Service.
+1. Normalize downstream service errors.
+2. Add downstream request timeout.
 3. Add route configuration foundation.
 4. Add API key authentication.
-5. Add JWT authentication later.
-6. Add unit tests.
-7. Add integration tests.
+
+### Remaining
+
+1. JWT authentication later.
+2. Unit tests.
+3. Integration tests.
+
+## Recommended Next Step
+
+Recommended next step:
+
+```txt
+Sprint 1 - Step 5: Add basic unit test setup
+```
+
+Reason:
+
+The Gateway now has enough core logic to justify adding tests before adding more authentication complexity.
+
+Important logic that should be protected by tests:
+
+* Environment parsing.
+* API key authentication.
+* Downstream error response behavior.
+* Request ID behavior.
+* Gateway proxy behavior.
+
+JWT authentication can be added later after the test foundation is in place.
 
 ## Do Not Add Yet
 
-Do not add these before Gateway core features are stable:
+Do not add these before Gateway core features and tests are stable:
 
 * Redis
 * Kafka
@@ -283,3 +496,13 @@ Each new feature should follow this workflow:
 5. Run `npm run build`.
 6. Commit after stable checkpoint.
 7. Update project context docs when needed.
+
+Current preferred development style:
+
+* Code sample first.
+* Explain each file.
+* Explain the request flow.
+* Test manually.
+* Run typecheck and build.
+* Commit only after a stable checkpoint.
+* Push after each stable commit.
