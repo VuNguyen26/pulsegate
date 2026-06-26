@@ -1,13 +1,15 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { readCsvEnv, readNumberEnv } from "./env.js";
+import { readCsvEnv, readNumberEnv, readStringEnv } from "./env.js";
 
 const TEST_NUMBER_ENV = "TEST_NUMBER_ENV";
 const TEST_CSV_ENV = "TEST_CSV_ENV";
+const TEST_STRING_ENV = "TEST_STRING_ENV";
 
 afterEach(() => {
   delete process.env[TEST_NUMBER_ENV];
   delete process.env[TEST_CSV_ENV];
+  delete process.env[TEST_STRING_ENV];
 });
 
 describe("readNumberEnv", () => {
@@ -79,5 +81,45 @@ describe("readCsvEnv", () => {
     const value = readCsvEnv(TEST_CSV_ENV, ["dev-api-key"]);
 
     expect(value).toEqual(["dev-api-key"]);
+  });
+});
+
+describe("readStringEnv", () => {
+  it("should return fallback when env value is missing", () => {
+    const value = readStringEnv(TEST_STRING_ENV, "fallback-value");
+
+    expect(value).toBe("fallback-value");
+  });
+
+  it("should return env value when env value is valid", () => {
+    process.env[TEST_STRING_ENV] = "custom-value";
+
+    const value = readStringEnv(TEST_STRING_ENV, "fallback-value");
+
+    expect(value).toBe("custom-value");
+  });
+
+  it("should trim env value", () => {
+    process.env[TEST_STRING_ENV] = "  custom-value  ";
+
+    const value = readStringEnv(TEST_STRING_ENV, "fallback-value");
+
+    expect(value).toBe("custom-value");
+  });
+
+  it("should return fallback when env value is an empty string", () => {
+    process.env[TEST_STRING_ENV] = "";
+
+    const value = readStringEnv(TEST_STRING_ENV, "fallback-value");
+
+    expect(value).toBe("fallback-value");
+  });
+
+  it("should return fallback when env value only contains spaces", () => {
+    process.env[TEST_STRING_ENV] = "     ";
+
+    const value = readStringEnv(TEST_STRING_ENV, "fallback-value");
+
+    expect(value).toBe("fallback-value");
   });
 });
