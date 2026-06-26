@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 
 import { buildApiGatewayApp } from "./app.js";
@@ -12,6 +12,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.unstubAllGlobals();
   await app.close();
 });
 
@@ -73,6 +74,59 @@ describe("API Gateway app", () => {
         requestId: expect.any(String),
       },
     });
+
+    expect(response.headers["x-request-id"]).toBeDefined();
+  });
+
+  it("should return products when API key is valid", async () => {
+    const mockProductsResponse = {
+      data: [
+        {
+          id: "prod_001",
+          name: "Mechanical Keyboard",
+          price: 120,
+        },
+        {
+          id: "prod_002",
+          name: "Gaming Mouse",
+          price: 45,
+        },
+      ],
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(mockProductsResponse), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      })
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/products",
+      headers: {
+        "x-api-key": "dev-api-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(mockProductsResponse);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:3001/products",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          "x-request-id": expect.any(String),
+        }),
+        signal: expect.any(AbortSignal),
+      })
+    );
 
     expect(response.headers["x-request-id"]).toBeDefined();
   });
