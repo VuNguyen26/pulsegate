@@ -5,6 +5,12 @@ import { DownstreamServiceError } from "../errors/downstream-service-error.js";
 
 export async function productProxyRoute(app: FastifyInstance): Promise<void> {
   app.get("/api/products", async (request, reply) => {
+    const controller = new AbortController();
+
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, env.DOWNSTREAM_REQUEST_TIMEOUT_MS);
+
     let response: Response;
 
     try {
@@ -13,8 +19,19 @@ export async function productProxyRoute(app: FastifyInstance): Promise<void> {
         headers: {
           "x-request-id": request.id,
         },
+        signal: controller.signal,
       });
     } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new DownstreamServiceError({
+          code: "DOWNSTREAM_TIMEOUT",
+          message: "Product Service did not respond in time",
+          service: "product-service",
+          statusCode: 504,
+          originalError: error,
+        });
+      }
+
       throw new DownstreamServiceError({
         code: "DOWNSTREAM_SERVICE_UNAVAILABLE",
         message: "Product Service is currently unavailable",
@@ -22,6 +39,8 @@ export async function productProxyRoute(app: FastifyInstance): Promise<void> {
         statusCode: 503,
         originalError: error,
       });
+    } finally {
+      clearTimeout(timeout);
     }
 
     if (!response.ok) {
