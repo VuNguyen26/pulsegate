@@ -130,4 +130,112 @@ describe("API Gateway app", () => {
 
     expect(response.headers["x-request-id"]).toBeDefined();
   });
+
+    it("should return 503 when downstream product service is unavailable", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("fetch failed"));
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/products",
+      headers: {
+        "x-api-key": "dev-api-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(503);
+
+    const body = response.json();
+
+    expect(body).toMatchObject({
+      error: {
+        code: "DOWNSTREAM_SERVICE_UNAVAILABLE",
+        message: "Product Service is currently unavailable",
+        service: "product-service",
+        requestId: expect.any(String),
+      },
+    });
+
+    expect(response.headers["x-request-id"]).toBeDefined();
+  });
+
+  it("should return 502 when downstream product service returns an error status", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            message: "Product Service internal error",
+          },
+        }),
+        {
+          status: 500,
+          headers: {
+            "content-type": "application/json",
+          },
+        }
+      )
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/products",
+      headers: {
+        "x-api-key": "dev-api-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(502);
+
+    const body = response.json();
+
+    expect(body).toMatchObject({
+      error: {
+        code: "DOWNSTREAM_HTTP_ERROR",
+        message: "Product Service returned an error",
+        service: "product-service",
+        requestId: expect.any(String),
+      },
+    });
+
+    expect(response.headers["x-request-id"]).toBeDefined();
+  });
+
+  it("should return 502 when downstream product service returns invalid JSON", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("not-json-response", {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      })
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/products",
+      headers: {
+        "x-api-key": "dev-api-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(502);
+
+    const body = response.json();
+
+    expect(body).toMatchObject({
+      error: {
+        code: "DOWNSTREAM_INVALID_RESPONSE",
+        message: "Product Service returned an invalid response",
+        service: "product-service",
+        requestId: expect.any(String),
+      },
+    });
+
+    expect(response.headers["x-request-id"]).toBeDefined();
+  });
 });
