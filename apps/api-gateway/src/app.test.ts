@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApiGatewayApp } from "./app.js";
 import { env } from "./config/env.js";
 
+import { securityHeaders } from "./middlewares/security-headers.middleware.js";
+
 let app: FastifyInstance;
 
 async function createValidJwtToken(): Promise<string> {
@@ -59,6 +61,9 @@ describe("API Gateway app", () => {
     expect(body.status).toBe("ok");
     expect(typeof body.timestamp).toBe("string");
     expect(response.headers["x-request-id"]).toBeDefined();
+        for (const [headerName, headerValue] of Object.entries(securityHeaders)) {
+      expect(response.headers[headerName]).toBe(headerValue);
+    }
   });
 
     it("should return 413 when request body is too large", async () => {
