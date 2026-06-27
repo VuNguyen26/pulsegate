@@ -2,12 +2,18 @@ import { env } from "./env.js";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+export type RouteRateLimitConfig = {
+  limit: number;
+  windowMs: number;
+};
+
 export type DownstreamRouteConfig = {
   serviceName: string;
   gatewayPath: string;
   downstreamUrl: string;
   method: HttpMethod;
   timeoutMs: number;
+  rateLimit: RouteRateLimitConfig;
 };
 
 export const productProductsRouteConfig: DownstreamRouteConfig = {
@@ -16,4 +22,8 @@ export const productProductsRouteConfig: DownstreamRouteConfig = {
   downstreamUrl: `${env.PRODUCT_SERVICE_URL}/products`,
   method: "GET",
   timeoutMs: env.DOWNSTREAM_REQUEST_TIMEOUT_MS,
+  rateLimit: {
+    limit: 5,
+    windowMs: 60_000,
+  },
 };

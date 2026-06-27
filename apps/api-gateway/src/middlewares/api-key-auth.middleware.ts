@@ -6,6 +6,12 @@ import type {
 
 import { env } from "../config/env.js";
 
+declare module "fastify" {
+  interface FastifyRequest {
+    apiKey?: string;
+  }
+}
+
 function getHeaderValue(
   request: FastifyRequest,
   headerName: string
@@ -51,6 +57,8 @@ export function apiKeyAuthMiddleware(
     });
     return;
   }
+
+  request.apiKey = apiKey;
 
   done();
 }

@@ -204,6 +204,71 @@ describe("API Gateway app", () => {
     );
 
     expect(response.headers["x-request-id"]).toBeDefined();
+    expect(response.headers["x-ratelimit-limit"]).toBe("5");
+    expect(response.headers["x-ratelimit-remaining"]).toBe("4");
+    expect(response.headers["x-ratelimit-reset"]).toBeDefined();
+  });
+
+    it("should return 429 when product route rate limit is exceeded", async () => {
+    const mockProductsResponse = {
+      data: [
+        {
+          id: "prod_001",
+          name: "Mechanical Keyboard",
+          price: 120,
+        },
+      ],
+    };
+
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(mockProductsResponse), {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      )
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const headers = await createValidAuthHeaders();
+
+    for (let index = 0; index < 5; index += 1) {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/products",
+        headers,
+      });
+
+      expect(response.statusCode).toBe(200);
+    }
+
+    const blockedResponse = await app.inject({
+      method: "GET",
+      url: "/api/products",
+      headers,
+    });
+
+    expect(blockedResponse.statusCode).toBe(429);
+    expect(blockedResponse.headers["x-ratelimit-limit"]).toBe("5");
+    expect(blockedResponse.headers["x-ratelimit-remaining"]).toBe("0");
+    expect(blockedResponse.headers["x-ratelimit-reset"]).toBeDefined();
+    expect(blockedResponse.headers["retry-after"]).toBeDefined();
+
+    const body = blockedResponse.json();
+
+    expect(body).toMatchObject({
+      error: {
+        code: "TOO_MANY_REQUESTS",
+        message: "Too many requests. Please try again later.",
+        requestId: expect.any(String),
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(blockedResponse.headers["x-request-id"]).toBeDefined();
   });
 
   it("should return 503 when downstream product service is unavailable", async () => {
