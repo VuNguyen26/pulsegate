@@ -69,4 +69,12 @@ export const env = {
   JWT_ISSUER: readStringEnv("JWT_ISSUER", "pulsegate-api-gateway"),
   JWT_AUDIENCE: readStringEnv("JWT_AUDIENCE", "pulsegate-clients"),
   JWT_EXPIRES_IN_SECONDS: readNumberEnv("JWT_EXPIRES_IN_SECONDS", 900),
+  PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS: readNumberEnv(
+    "PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS",
+    5
+  ),
+  PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS: readNumberEnv(
+    "PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS",
+    60_000
+  ),
 };

@@ -23,7 +23,7 @@ export const productProductsRouteConfig: DownstreamRouteConfig = {
   method: "GET",
   timeoutMs: env.DOWNSTREAM_REQUEST_TIMEOUT_MS,
   rateLimit: {
-    limit: 5,
-    windowMs: 60_000,
+    limit: env.PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS,
+    windowMs: env.PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS,
   },
 };
