@@ -77,4 +77,5 @@ export const env = {
     "PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS",
     60_000
   ),
+  MAX_REQUEST_BODY_BYTES: readNumberEnv("MAX_REQUEST_BODY_BYTES", 1_048_576),
 };

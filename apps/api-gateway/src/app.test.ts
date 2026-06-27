@@ -61,6 +61,34 @@ describe("API Gateway app", () => {
     expect(response.headers["x-request-id"]).toBeDefined();
   });
 
+    it("should return 413 when request body is too large", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/products",
+      headers: {
+        "content-length": "1048577",
+        "content-type": "application/json",
+      },
+      payload: {
+        message: "this body is too large",
+      },
+    });
+
+    expect(response.statusCode).toBe(413);
+
+    const body = response.json();
+
+    expect(body).toMatchObject({
+      error: {
+        code: "REQUEST_BODY_TOO_LARGE",
+        message: "Request body is too large",
+        requestId: expect.any(String),
+      },
+    });
+
+    expect(response.headers["x-request-id"]).toBeDefined();
+  });
+
   it("should return 401 when API key is missing for product proxy route", async () => {
     const response = await app.inject({
       method: "GET",
