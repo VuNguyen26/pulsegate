@@ -9,15 +9,16 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Sprint%201%20Complete-brightgreen" />
-  <img src="https://img.shields.io/badge/version-v0.2.0-blue" />
-  <img src="https://img.shields.io/badge/tests-46%20passing-brightgreen" />
+  <img src="https://img.shields.io/badge/status-Sprint%202%20Complete-brightgreen" />
+  <img src="https://img.shields.io/badge/version-v0.3.0-blue" />
+  <img src="https://img.shields.io/badge/tests-71%20passing-brightgreen" />
   <img src="https://img.shields.io/badge/typecheck-passing-brightgreen" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
   <img src="https://img.shields.io/badge/Node.js-20%2B-green" />
   <img src="https://img.shields.io/badge/TypeScript-strict-blue" />
   <img src="https://img.shields.io/badge/Fastify-API%20Gateway-black" />
   <img src="https://img.shields.io/badge/Auth-API%20Key%20%2B%20JWT-purple" />
+  <img src="https://img.shields.io/badge/Traffic%20Protection-Rate%20Limit%20%2B%20Size%20Limit-orange" />
   <img src="https://img.shields.io/badge/License-MIT-lightgrey" />
 </p>
 
@@ -33,7 +34,7 @@
 * Apigee
 * AWS API Gateway
 
-The project is designed to demonstrate backend engineering skills around API routing, microservice communication, authentication, request tracing, error handling, testing, observability, scalability, and production-oriented system design.
+The project is designed to demonstrate backend engineering skills around API routing, microservice communication, authentication, traffic protection, request tracing, error handling, testing, observability, scalability, and production-oriented system design.
 
 PulseGate starts small and grows step by step.
 
@@ -43,7 +44,10 @@ Current stable flow:
 Client
   -> API Gateway :3000
     -> Request ID handling
+    -> Basic security headers
+    -> Request size limit
     -> API key authentication
+    -> In-memory rate limiting
     -> JWT authentication
     -> Downstream route configuration
     -> Downstream timeout handling
@@ -55,28 +59,29 @@ Client
 Current version:
 
 ```txt
-v0.2.0
+v0.3.0
 ```
 
 Current sprint status:
 
 ```txt
-Sprint 1 - Complete
+Sprint 2 - Complete
 ```
 
 ---
 
 ## Project Status
 
-| Area            | Status                                                                                     | Notes                                    |
-| --------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------- |
-| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                      | Core setup and basic Gateway flow        |
-| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                      | API Gateway core features                |
-| Current Version | ![v0.2.0](https://img.shields.io/badge/version-v0.2.0-blue)                                | Stable local-first Gateway foundation    |
-| Automated Tests | ![46 Passing](https://img.shields.io/badge/tests-46%20passing-brightgreen)                 | Unit and integration tests               |
-| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)                     | TypeScript validation passes             |
-| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)                         | Production build passes                  |
-| Next Sprint     | ![Sprint 2](https://img.shields.io/badge/Sprint%202-Gateway%20Traffic%20Protection-orange) | Traffic protection before infrastructure |
+| Area            | Status                                                                                                  | Notes                                      |
+| --------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                                   | Core setup and basic Gateway flow          |
+| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                                   | API Gateway core features                  |
+| Sprint 2        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                                   | Gateway traffic protection                 |
+| Current Version | ![v0.3.0](https://img.shields.io/badge/version-v0.3.0-blue)                                             | Traffic-protected local Gateway foundation |
+| Automated Tests | ![71 Passing](https://img.shields.io/badge/tests-71%20passing-brightgreen)                              | Unit and integration tests                 |
+| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)                                  | TypeScript validation passes               |
+| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)                                      | Production build passes                    |
+| Next Sprint     | ![Sprint 3](https://img.shields.io/badge/Sprint%203-Data%20%26%20Infrastructure%20Foundation-lightgrey) | Data and infrastructure foundation         |
 
 ---
 
@@ -91,6 +96,8 @@ Long-term goals:
 * Route requests to the correct backend service.
 * Validate API keys and JWT tokens.
 * Apply rate limiting to protect services.
+* Add request size protection.
+* Add security headers.
 * Add Redis caching to reduce backend load.
 * Log requests with request IDs.
 * Expose metrics for monitoring.
@@ -144,6 +151,18 @@ Long-term goals:
 | Integration tests using Fastify `app.inject()`                                              | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
 | Manual validation for API key and JWT protected routes                                      | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
 
+### Sprint 2 - Gateway Traffic Protection
+
+| Feature                                   | Status                                                        | Notes                                    |
+| ----------------------------------------- | ------------------------------------------------------------- | ---------------------------------------- |
+| In-memory rate limiting foundation        | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Behavior first before Redis              |
+| Route-level rate limit configuration      | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Per-route traffic rules                  |
+| Rate limit response behavior              | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Returns `429 TOO_MANY_REQUESTS`          |
+| Request size limit                        | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Protects Gateway from oversized payloads |
+| Basic security headers                    | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Adds safer HTTP response defaults        |
+| Route-level auth configuration refinement | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Moves auth requirements closer to config |
+| Traffic protection tests                  | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Unit and integration tests               |
+
 ---
 
 ## Current Architecture
@@ -152,8 +171,11 @@ Long-term goals:
 flowchart LR
     Client[Client / API Consumer] --> Gateway[PulseGate API Gateway<br/>Port 3000]
     Gateway --> ReqId[Request ID Middleware]
-    ReqId --> ApiKey[API Key Authentication]
-    ApiKey --> Jwt[JWT Authentication]
+    ReqId --> SecurityHeaders[Security Headers Middleware]
+    SecurityHeaders --> SizeLimit[Request Size Limit]
+    SizeLimit --> ApiKey[API Key Authentication]
+    ApiKey --> RateLimit[In-Memory Rate Limiting]
+    RateLimit --> Jwt[JWT Authentication]
     Jwt --> RouteConfig[Downstream Route Config]
     RouteConfig --> Product[Product Service<br/>Port 3001]
     Product --> Response[Mock Product Response]
@@ -170,9 +192,13 @@ GET http://localhost:3000/api/products
 Client
   -> API Gateway
     -> Create or reuse x-request-id
+    -> Add security headers
+    -> Apply request size limit
     -> Check x-api-key
       -> Missing: 401 API_KEY_MISSING
       -> Invalid: 403 API_KEY_INVALID
+    -> Apply rate limit by API key and route
+      -> Exceeded: 429 TOO_MANY_REQUESTS
     -> Check Authorization Bearer token
       -> Missing: 401 JWT_TOKEN_MISSING
       -> Invalid: 403 JWT_TOKEN_INVALID
@@ -189,7 +215,10 @@ GET http://localhost:3000/health
 
 Client
   -> API Gateway
-  -> Health response
+    -> Create or reuse x-request-id
+    -> Add security headers
+    -> Apply request size limit
+    -> Health response
 ```
 
 ---
@@ -205,6 +234,7 @@ pulsegate/
         app.test.ts
         config/
           downstream-routes.ts
+          downstream-routes.test.ts
           env.ts
           env.test.ts
         errors/
@@ -216,8 +246,17 @@ pulsegate/
           error-handler.middleware.ts
           jwt-auth.middleware.ts
           jwt-auth.middleware.test.ts
+          rate-limit.middleware.ts
+          rate-limit.middleware.test.ts
           request-id.middleware.ts
           request-id.middleware.test.ts
+          request-size-limit.middleware.ts
+          request-size-limit.middleware.test.ts
+          security-headers.middleware.ts
+          security-headers.middleware.test.ts
+        rate-limit/
+          in-memory-rate-limit-store.ts
+          in-memory-rate-limit-store.test.ts
         routes/
           health.route.ts
           product-proxy.route.ts
@@ -300,6 +339,7 @@ GET /health
 GET /api/products
   -> Requires API key
   -> Requires JWT Bearer token
+  -> Rate limited by API key and route
 ```
 
 Responsibilities:
@@ -308,9 +348,12 @@ Responsibilities:
 * Receives client requests.
 * Creates or reuses request IDs.
 * Adds `x-request-id` response header.
+* Adds basic security headers.
+* Applies request size limit.
 * Routes product API requests to Product Service.
 * Forwards `x-request-id` to downstream services.
 * Applies API key authentication.
+* Applies in-memory rate limiting.
 * Applies JWT authentication.
 * Attaches verified JWT payload to `request.jwtPayload`.
 * Applies downstream request timeout.
@@ -357,17 +400,19 @@ Responsibilities:
 
 Currently implemented:
 
-| Category       | Technology                 | Status                                                            |
-| -------------- | -------------------------- | ----------------------------------------------------------------- |
-| Runtime        | Node.js                    | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Language       | TypeScript                 | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Web Framework  | Fastify                    | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Monorepo       | npm workspaces             | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Logging        | Fastify JSON logger        | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Authentication | API Key, JWT               | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| JWT Library    | jose                       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Testing        | Vitest                     | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Architecture   | API Gateway + Microservice | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Category           | Technology                       | Status                                                            |
+| ------------------ | -------------------------------- | ----------------------------------------------------------------- |
+| Runtime            | Node.js                          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Language           | TypeScript                       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Web Framework      | Fastify                          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Monorepo           | npm workspaces                   | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Logging            | Fastify JSON logger              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Authentication     | API Key, JWT                     | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| JWT Library        | jose                             | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Traffic Protection | In-memory rate limit, size limit | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| HTTP Security      | Basic security headers           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Testing            | Vitest                           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Architecture       | API Gateway + Microservice       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 
 Planned later:
 
@@ -386,6 +431,32 @@ Planned later:
 | Containerization | Docker, Docker Compose       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Orchestration    | Kubernetes                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | CI/CD            | GitHub Actions               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+
+---
+
+## Environment Configuration
+
+PulseGate uses environment variables for local configuration.
+
+Main API Gateway variables:
+
+```txt
+PORT=3000
+HOST=0.0.0.0
+PRODUCT_SERVICE_URL=http://127.0.0.1:3001
+DOWNSTREAM_REQUEST_TIMEOUT_MS=3000
+MAX_REQUEST_BODY_BYTES=1048576
+API_KEY_HEADER=x-api-key
+API_KEYS=dev-api-key
+JWT_SECRET=local-dev-jwt-secret-change-me
+JWT_ISSUER=pulsegate-api-gateway
+JWT_AUDIENCE=pulsegate-clients
+JWT_EXPIRES_IN_SECONDS=900
+PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS=5
+PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS=60000
+```
+
+See `.env.example` for the full list.
 
 ---
 
@@ -537,6 +608,51 @@ Expected response:
 }
 ```
 
+### API Gateway Rate Limit Validation
+
+`GET /api/products` is limited by API key and route.
+
+```powershell
+$headers = @{
+  "x-api-key" = "dev-api-key"
+  "authorization" = "Bearer $token"
+}
+
+1..6 | ForEach-Object {
+  try {
+    $res = Invoke-WebRequest http://localhost:3000/api/products `
+      -Headers $headers `
+      -UseBasicParsing
+
+    [PSCustomObject]@{
+      Attempt = $_
+      Status = $res.StatusCode
+      Remaining = $res.Headers["x-ratelimit-remaining"]
+      RetryAfter = $res.Headers["retry-after"]
+    }
+  } catch {
+    [PSCustomObject]@{
+      Attempt = $_
+      Status = $_.Exception.Response.StatusCode.value__
+      Remaining = $_.Exception.Response.Headers["x-ratelimit-remaining"]
+      RetryAfter = $_.Exception.Response.Headers["retry-after"]
+      Body = $_.ErrorDetails.Message
+    }
+  }
+} | Format-Table -AutoSize
+```
+
+Expected behavior:
+
+```txt
+Attempt 1 -> 200, Remaining 4
+Attempt 2 -> 200, Remaining 3
+Attempt 3 -> 200, Remaining 2
+Attempt 4 -> 200, Remaining 1
+Attempt 5 -> 200, Remaining 0
+Attempt 6 -> 429 TOO_MANY_REQUESTS
+```
+
 ---
 
 ## Authentication Behavior
@@ -571,7 +687,7 @@ Invalid API key
   -> 403 API_KEY_INVALID
 
 Valid API key
-  -> Continue to JWT authentication
+  -> Continue to route-level traffic protection
 ```
 
 ### JWT Authentication
@@ -617,6 +733,93 @@ Signature
 Issuer
 Audience
 Expiration
+```
+
+---
+
+## Traffic Protection Behavior
+
+PulseGate protects Gateway routes from excessive or unsafe traffic.
+
+### Rate Limiting
+
+Current product route rate limit:
+
+```txt
+GET /api/products
+  -> Limited by API key and route
+  -> Default: 5 requests per 60 seconds
+```
+
+When the limit is exceeded:
+
+```json
+{
+  "error": {
+    "code": "TOO_MANY_REQUESTS",
+    "message": "Too many requests. Please try again later.",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Expected status:
+
+```txt
+429
+```
+
+Rate limit response headers:
+
+```txt
+x-ratelimit-limit
+x-ratelimit-remaining
+x-ratelimit-reset
+retry-after
+```
+
+### Request Size Limit
+
+Current default request body size limit:
+
+```txt
+MAX_REQUEST_BODY_BYTES=1048576
+```
+
+That equals:
+
+```txt
+1MB
+```
+
+When request body is too large:
+
+```json
+{
+  "error": {
+    "code": "REQUEST_BODY_TOO_LARGE",
+    "message": "Request body is too large",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Expected status:
+
+```txt
+413
+```
+
+### Basic Security Headers
+
+API Gateway adds basic security headers to responses:
+
+```txt
+x-content-type-options: nosniff
+x-frame-options: DENY
+referrer-policy: no-referrer
+permissions-policy: camera=(), microphone=(), geolocation=()
+content-security-policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'
 ```
 
 ---
@@ -690,8 +893,8 @@ npm run test
 Current result:
 
 ```txt
-6 test files passed
-46 tests passed
+11 test files passed
+71 tests passed
 ```
 
 Current unit test coverage:
@@ -706,11 +909,26 @@ api-key-auth.middleware.test.ts
 jwt-auth.middleware.test.ts
   -> Bearer token extraction, JWT verification, missing token, invalid token, valid token
 
+rate-limit/in-memory-rate-limit-store.test.ts
+  -> In-memory rate limit store behavior, counters, window reset, cleanup, validation
+
+rate-limit.middleware.test.ts
+  -> Rate limit key generation, allowed requests, exceeded limit, reset behavior, missing identifier
+
+request-size-limit.middleware.test.ts
+  -> Content-Length parsing, allowed body size, exceeded body size, invalid config
+
+security-headers.middleware.test.ts
+  -> Basic security headers
+
 downstream-service-error.test.ts
   -> DownstreamServiceError and type guard behavior
 
 env.test.ts
   -> Number, CSV, and string env parsing
+
+downstream-routes.test.ts
+  -> Route-level rate limit config and auth requirements
 ```
 
 Current integration test coverage:
@@ -718,6 +936,11 @@ Current integration test coverage:
 ```txt
 GET /health
   -> 200 OK
+  -> includes x-request-id
+  -> includes basic security headers
+
+POST /api/products with oversized content-length
+  -> 413 REQUEST_BODY_TOO_LARGE
 
 GET /api/products without API key
   -> 401 API_KEY_MISSING
@@ -733,6 +956,11 @@ GET /api/products with valid API key but invalid JWT
 
 GET /api/products with valid API key and valid JWT
   -> 200 and product data
+  -> includes rate limit headers
+
+GET /api/products when rate limit is exceeded
+  -> 429 TOO_MANY_REQUESTS
+  -> does not call Product Service for the blocked request
 
 GET /api/products with valid API key and valid JWT but downstream unavailable
   -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
@@ -845,17 +1073,17 @@ Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
 
 ### Sprint 2 - Gateway Traffic Protection
 
-Status: ![Planned](https://img.shields.io/badge/status-planned-orange)
+Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
 
-| Feature                                       | Status                                                         | Notes                                   |
-| --------------------------------------------- | -------------------------------------------------------------- | --------------------------------------- |
-| Add in-memory rate limiting foundation        | ![Planned](https://img.shields.io/badge/status-planned-orange) | Start with behavior before Redis        |
-| Add route-level rate limit configuration      | ![Planned](https://img.shields.io/badge/status-planned-orange) | Per-route traffic rules                 |
-| Add rate limit response behavior              | ![Planned](https://img.shields.io/badge/status-planned-orange) | Return `429 TOO_MANY_REQUESTS`          |
-| Add request size limit                        | ![Planned](https://img.shields.io/badge/status-planned-orange) | Protect Gateway from oversized payloads |
-| Add basic security headers                    | ![Planned](https://img.shields.io/badge/status-planned-orange) | Improve HTTP response safety            |
-| Add route-level auth configuration refinement | ![Planned](https://img.shields.io/badge/status-planned-orange) | Move auth rules closer to route config  |
-| Add traffic protection tests                  | ![Planned](https://img.shields.io/badge/status-planned-orange) | Unit and integration tests              |
+| Feature                                       | Status                                                        |
+| --------------------------------------------- | ------------------------------------------------------------- |
+| Add in-memory rate limiting foundation        | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add route-level rate limit configuration      | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add rate limit response behavior              | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add request size limit                        | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add basic security headers                    | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add route-level auth configuration refinement | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add traffic protection tests                  | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
 
 ### Sprint 3 - Data & Infrastructure Foundation
 
@@ -910,7 +1138,7 @@ Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
 
 ## Current Status
 
-PulseGate currently has a stable local API Gateway foundation.
+PulseGate currently has a stable local API Gateway foundation with traffic protection.
 
 Stable flow:
 
@@ -918,7 +1146,10 @@ Stable flow:
 Client
   -> API Gateway :3000
     -> Request ID handling
+    -> Basic security headers
+    -> Request size limit
     -> API key authentication
+    -> In-memory rate limiting
     -> JWT authentication
     -> Downstream route configuration
     -> Downstream timeout handling
@@ -927,26 +1158,14 @@ Client
       -> Mock Product Response
 ```
 
-Latest stable Sprint 1 commits:
+Latest stable Sprint 2 commits:
 
 ```txt
-f66d523 feat(gateway): normalize downstream service errors
-32af4ab feat(gateway): add downstream request timeout
-27f40bb refactor(gateway): add downstream route configuration
-940806f feat(gateway): add api key authentication
-6c93cbe test(gateway): add basic unit test setup
-2b742d3 test(gateway): add api key auth unit tests
-7388dab test(gateway): add downstream error unit tests
-5023e36 test(gateway): add env parsing unit tests
-7f100de test(gateway): prepare app for integration tests
-056ed7a test(gateway): add api key route integration tests
-8fe5aae test(gateway): add valid api key product route integration test
-2fca28e test(gateway): add downstream failure integration tests
-10d512a test(gateway): add downstream timeout integration test
-82672c6 feat(gateway): add jwt configuration
-ad0a9fd feat(gateway): add jwt authentication middleware
-9cc8e88 test(gateway): add jwt auth unit tests
-c233071 feat(gateway): protect product route with jwt
+7c88936 feat(gateway): add in-memory rate limiting for product route
+4aed0ff refactor(gateway): move product rate limit to route config env
+a12605f feat(gateway): add request size limit
+76fdd2f feat(gateway): add basic security headers
+28a9b5e refactor(gateway): add route-level auth config
 ```
 
 ---

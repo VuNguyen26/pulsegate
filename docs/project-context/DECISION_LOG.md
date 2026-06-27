@@ -193,8 +193,10 @@ Planned order:
 ```txt
 Sprint 0: Local Node.js services
 Sprint 1: API Gateway core features
-Sprint 2: Redis / rate limit / cache
-Sprint 3: Docker Compose
+Sprint 2: Gateway traffic protection
+Sprint 3: Data and infrastructure foundation
+Sprint 4: Observability
+Sprint 5: Event-driven architecture
 Later: Kubernetes
 ```
 
@@ -639,6 +641,323 @@ Not included yet:
 * Prometheus
 * Grafana
 * OpenTelemetry
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-27 - Use In-Memory Rate Limiting Before Redis
+
+Decision:
+
+Use an in-memory rate limiting foundation in Sprint 2 before adding Redis-backed distributed rate limiting.
+
+Reason:
+
+* Gateway traffic protection behavior should be understood before adding infrastructure.
+* In-memory rate limiting is simple to test locally.
+* It allows the project to validate rate limit behavior, response format, headers, and request flow first.
+* Redis can be added later by replacing the rate limit store implementation.
+* This keeps Sprint 2 focused on Gateway behavior instead of infrastructure complexity.
+
+Implemented behavior:
+
+```txt
+GET /api/products
+  -> Limited by API key and route
+  -> Default: 5 requests per 60 seconds
+  -> Exceeded limit returns 429 TOO_MANY_REQUESTS
+```
+
+Current limitation:
+
+* Counters are stored in API Gateway memory.
+* Counters reset when the API Gateway process restarts.
+* Counters are not shared across multiple Gateway instances.
+* Redis-backed rate limiting is planned for a later sprint.
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-27 - Rate Limit by API Key and Route
+
+Decision:
+
+Apply rate limiting to protected Gateway routes by API key and route.
+
+Reason:
+
+* API key represents the calling client or application.
+* Protected routes already require API key authentication.
+* API-key-based rate limiting is more suitable than IP-only limiting for API Gateway behavior.
+* Including the HTTP method and route path prevents unrelated routes from sharing the same quota.
+* This prepares the project for future API plans and client-level traffic policies.
+
+Current rate limit key shape:
+
+```txt
+api-key:<api-key>:route:<method>:<route-path>
+```
+
+Example:
+
+```txt
+api-key:dev-api-key:route:GET:/api/products
+```
+
+Current response when the limit is exceeded:
+
+```json
+{
+  "error": {
+    "code": "TOO_MANY_REQUESTS",
+    "message": "Too many requests. Please try again later.",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Current status code:
+
+```txt
+429
+```
+
+Current rate limit headers:
+
+```txt
+x-ratelimit-limit
+x-ratelimit-remaining
+x-ratelimit-reset
+retry-after
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-27 - Store Route-Level Rate Limit Configuration in Downstream Route Config
+
+Decision:
+
+Store product route rate limit configuration in `downstream-routes.ts`, backed by environment variables.
+
+Reason:
+
+* API Gateway routes should have route-level traffic rules.
+* Route handlers should not hard-code traffic protection values directly.
+* Environment variables make local configuration easier without changing code.
+* This prepares the Gateway for future per-route and per-client traffic policies.
+
+Implementation:
+
+```txt
+apps/api-gateway/src/config/downstream-routes.ts
+```
+
+Current environment variables:
+
+```txt
+PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS=5
+PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS=60000
+```
+
+Current product route config:
+
+```txt
+GET /api/products
+  -> 5 requests per 60 seconds
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-27 - Add Request Size Limit at the Gateway Level
+
+Decision:
+
+API Gateway should reject requests with oversized bodies before they reach route handlers or downstream services.
+
+Reason:
+
+* Large request bodies can waste memory, CPU, bandwidth, and parsing time.
+* Gateway should protect downstream services from oversized payloads.
+* Request body size protection is a common production Gateway feature.
+* The behavior should be configurable through environment variables.
+
+Implementation:
+
+* Add `MAX_REQUEST_BODY_BYTES`.
+* Default value is `1048576` bytes.
+* Add request size limit middleware.
+* Configure Fastify `bodyLimit`.
+* Return `413 REQUEST_BODY_TOO_LARGE` when the request body is too large.
+
+Current default:
+
+```txt
+MAX_REQUEST_BODY_BYTES=1048576
+```
+
+Current response:
+
+```json
+{
+  "error": {
+    "code": "REQUEST_BODY_TOO_LARGE",
+    "message": "Request body is too large",
+    "requestId": "example-request-id"
+  }
+}
+```
+
+Current status code:
+
+```txt
+413
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-27 - Add Basic Security Headers to API Gateway Responses
+
+Decision:
+
+API Gateway should add basic HTTP security headers to responses.
+
+Reason:
+
+* Security headers improve baseline HTTP response safety.
+* API responses should avoid browser MIME sniffing.
+* Gateway responses should prevent iframe embedding by default.
+* Browser permissions such as camera, microphone, and geolocation should be disabled by default.
+* The project should demonstrate production-oriented API Gateway behavior.
+
+Current security headers:
+
+```txt
+x-content-type-options: nosniff
+x-frame-options: DENY
+referrer-policy: no-referrer
+permissions-policy: camera=(), microphone=(), geolocation=()
+content-security-policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'
+```
+
+Not included yet:
+
+```txt
+strict-transport-security
+```
+
+Reason HSTS is not included yet:
+
+* The project is still local-first.
+* Local development currently uses HTTP.
+* HSTS should be added when HTTPS deployment is introduced.
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-27 - Move Auth Requirements into Route Configuration
+
+Decision:
+
+Move route-level authentication requirements into downstream route configuration.
+
+Reason:
+
+* API Gateway route behavior should be driven by route configuration.
+* Route handlers should not hard-code all auth requirements directly.
+* Future routes may require different combinations of API key and JWT authentication.
+* This prepares the Gateway for more flexible route policies.
+
+Implementation:
+
+```txt
+apps/api-gateway/src/config/downstream-routes.ts
+```
+
+Current product route auth config:
+
+```txt
+GET /api/products
+  -> requireApiKey: true
+  -> requireJwt: true
+```
+
+Current request flow:
+
+```txt
+Client
+  -> API Gateway
+    -> Request ID
+    -> Security headers
+    -> Request size limit
+    -> API key authentication
+    -> Rate limit
+    -> JWT authentication
+    -> Product Service
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-27 - Keep Sprint 3 Focused on Data and Infrastructure Foundation
+
+Decision:
+
+After Sprint 2, the next sprint should focus on data and infrastructure foundation.
+
+Reason:
+
+* Gateway traffic protection behavior is now stable.
+* The project can now safely introduce infrastructure without hiding missing Gateway behavior.
+* PostgreSQL, Prisma, Docker Compose, Redis, and caching are natural next steps.
+* Kafka, RabbitMQ, Prometheus, Grafana, OpenTelemetry, Admin Dashboard, Developer Portal, and Kubernetes should still wait until the data and infrastructure foundation is stable.
+
+Recommended Sprint 3 order:
+
+```txt
+1. Add Docker Compose foundation.
+2. Add PostgreSQL service.
+3. Add Product Service database foundation.
+4. Add Prisma.
+5. Replace mock product data with database-backed product data.
+6. Add Redis service.
+7. Upgrade rate limiting from in-memory store to Redis-backed store.
+8. Add basic response caching.
+```
+
+Not included in Sprint 3 Step 1:
+
+* Kafka
+* RabbitMQ
+* Prometheus
+* Grafana
+* OpenTelemetry
+* Admin Dashboard
+* Developer Portal
+* Kubernetes
 
 Status:
 
