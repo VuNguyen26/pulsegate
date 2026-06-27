@@ -19,4 +19,15 @@ describe("downstream route config", () => {
       windowMs: 30000,
     });
   });
+
+  it("should define product route auth requirements", async () => {
+    const { productProductsRouteConfig } = await import(
+      "./downstream-routes.js"
+    );
+
+    expect(productProductsRouteConfig.auth).toEqual({
+      requireApiKey: true,
+      requireJwt: true,
+    });
+  });
 });

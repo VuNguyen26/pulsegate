@@ -13,14 +13,14 @@ export async function productProxyRoute(app: FastifyInstance): Promise<void> {
     routeConfig.gatewayPath,
     {
       preHandler: [
-        apiKeyAuthMiddleware,
+        ...(routeConfig.auth.requireApiKey ? [apiKeyAuthMiddleware] : []),
         createRateLimitMiddleware({
           limit: routeConfig.rateLimit.limit,
           windowMs: routeConfig.rateLimit.windowMs,
           routePath: routeConfig.gatewayPath,
           identityType: "api-key",
         }),
-        jwtAuthMiddleware,
+        ...(routeConfig.auth.requireJwt ? [jwtAuthMiddleware] : []),
       ],
     },
     async (request, reply) => {
