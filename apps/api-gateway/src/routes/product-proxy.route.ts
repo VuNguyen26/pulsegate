@@ -115,10 +115,22 @@ export async function productProxyRoute(
         });
       }
 
-      try {
-        const data = await response.json();
+            let data: unknown;
 
-        if (responseCacheStore) {
+      try {
+        data = await response.json();
+      } catch (error) {
+        throw new DownstreamServiceError({
+          code: "DOWNSTREAM_INVALID_RESPONSE",
+          message: "Product Service returned an invalid response",
+          service: routeConfig.serviceName,
+          statusCode: 502,
+          originalError: error,
+        });
+      }
+
+      if (responseCacheStore) {
+        try {
           await responseCacheStore.set(
             cacheKey,
             {
@@ -129,20 +141,21 @@ export async function productProxyRoute(
               ttlSeconds: responseCacheTtlSeconds,
             }
           );
+        } catch (error) {
+          request.log.error(
+            {
+              error,
+              cacheKey,
+              requestId: request.id,
+            },
+            "Failed to store response cache"
+          );
         }
-
-        reply.header("x-cache", responseCacheStore ? "MISS" : "BYPASS");
-
-        return reply.status(200).send(data);
-      } catch (error) {
-        throw new DownstreamServiceError({
-          code: "DOWNSTREAM_INVALID_RESPONSE",
-          message: "Product Service returned an invalid response",
-          service: routeConfig.serviceName,
-          statusCode: 502,
-          originalError: error,
-        });
       }
+
+      reply.header("x-cache", responseCacheStore ? "MISS" : "BYPASS");
+
+      return reply.status(200).send(data);
     }
   );
 }
