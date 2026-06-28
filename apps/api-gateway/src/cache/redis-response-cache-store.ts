@@ -21,6 +21,15 @@ export type RedisResponseCacheClient = {
   sendCommand: (args: string[]) => Promise<unknown>;
 };
 
+export type ResponseCacheStore = {
+  get: (key: string) => Promise<ResponseCacheGetResult>;
+  set: (
+    key: string,
+    value: CachedHttpResponse,
+    options: ResponseCacheSetOptions
+  ) => Promise<void>;
+};
+
 export type RedisResponseCacheStoreOptions = {
   commandTimeoutMs?: number;
   keyPrefix?: string;

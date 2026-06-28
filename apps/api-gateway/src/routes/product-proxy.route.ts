@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 
+import type { ResponseCacheStore } from "../cache/redis-response-cache-store.js";
 import { productProductsRouteConfig } from "../config/downstream-routes.js";
 import { DownstreamServiceError } from "../errors/downstream-service-error.js";
 import { apiKeyAuthMiddleware } from "../middlewares/api-key-auth.middleware.js";
@@ -11,9 +12,17 @@ import {
 import { getRedisClient } from "../redis/redis-client.js";
 import { RedisRateLimitStore } from "../rate-limit/redis-rate-limit-store.js";
 
+const DEFAULT_RESPONSE_CACHE_TTL_SECONDS = 30;
+
 export type ProductProxyRouteOptions = {
   rateLimitStore?: RateLimitStore;
+  responseCacheStore?: ResponseCacheStore;
+  responseCacheTtlSeconds?: number;
 };
+
+export function buildResponseCacheKey(method: string, routePath: string): string {
+  return `${method.toUpperCase()}:${routePath}`;
+}
 
 export async function productProxyRoute(
   app: FastifyInstance,
@@ -22,6 +31,9 @@ export async function productProxyRoute(
   const routeConfig = productProductsRouteConfig;
   const rateLimitStore =
     options.rateLimitStore ?? new RedisRateLimitStore(getRedisClient());
+  const responseCacheStore = options.responseCacheStore;
+  const responseCacheTtlSeconds =
+    options.responseCacheTtlSeconds ?? DEFAULT_RESPONSE_CACHE_TTL_SECONDS;
 
   app.get(
     routeConfig.gatewayPath,
@@ -39,6 +51,23 @@ export async function productProxyRoute(
       ],
     },
     async (request, reply) => {
+      const cacheKey = buildResponseCacheKey(
+        routeConfig.method,
+        routeConfig.gatewayPath
+      );
+
+      if (responseCacheStore) {
+        const cachedResponse = await responseCacheStore.get(cacheKey);
+
+        if (cachedResponse.hit) {
+          reply.header("x-cache", "HIT");
+
+          return reply
+            .status(cachedResponse.value.statusCode)
+            .send(cachedResponse.value.body);
+        }
+      }
+
       const controller = new AbortController();
 
       const timeout = setTimeout(() => {
@@ -88,6 +117,21 @@ export async function productProxyRoute(
 
       try {
         const data = await response.json();
+
+        if (responseCacheStore) {
+          await responseCacheStore.set(
+            cacheKey,
+            {
+              statusCode: 200,
+              body: data,
+            },
+            {
+              ttlSeconds: responseCacheTtlSeconds,
+            }
+          );
+        }
+
+        reply.header("x-cache", responseCacheStore ? "MISS" : "BYPASS");
 
         return reply.status(200).send(data);
       } catch (error) {

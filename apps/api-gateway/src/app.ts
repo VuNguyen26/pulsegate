@@ -1,11 +1,13 @@
 import Fastify from "fastify";
 
+import { RedisResponseCacheStore } from "./cache/redis-response-cache-store.js";
 import { env } from "./config/env.js";
 import { registerErrorHandlers } from "./middlewares/error-handler.middleware.js";
 import { generateRequestId } from "./middlewares/request-id.middleware.js";
 import { createRequestSizeLimitMiddleware } from "./middlewares/request-size-limit.middleware.js";
 import { securityHeadersMiddleware } from "./middlewares/security-headers.middleware.js";
-import { disconnectRedis } from "./redis/redis-client.js";
+import { RedisRateLimitStore } from "./rate-limit/redis-rate-limit-store.js";
+import { disconnectRedis, getRedisClient } from "./redis/redis-client.js";
 import { healthRoute } from "./routes/health.route.js";
 import {
   productProxyRoute,
@@ -45,8 +47,18 @@ export async function buildApiGatewayApp(
 
   registerErrorHandlers(app);
 
+  const redisClient = getRedisClient();
+
+  const productProxyOptions =
+    options.productProxy ??
+    {
+      rateLimitStore: new RedisRateLimitStore(redisClient),
+      responseCacheStore: new RedisResponseCacheStore(redisClient),
+      responseCacheTtlSeconds: 30,
+    };
+
   await app.register(healthRoute);
-  await app.register(productProxyRoute, options.productProxy ?? {});
+  await app.register(productProxyRoute, productProxyOptions);
 
   return app;
 }
