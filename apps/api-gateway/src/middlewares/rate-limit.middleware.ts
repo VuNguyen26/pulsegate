@@ -8,10 +8,17 @@ import {
 
 export type RateLimitIdentityType = "api-key" | "ip";
 
+export type RateLimitStore = {
+  consume: (
+    key: string,
+    config: RateLimitConfig
+  ) => RateLimitResult | Promise<RateLimitResult>;
+};
+
 export type RateLimitMiddlewareOptions = RateLimitConfig & {
   routePath: string;
   identityType?: RateLimitIdentityType;
-  store?: InMemoryRateLimitStore;
+  store?: RateLimitStore;
 };
 
 export type BuildRateLimitKeyOptions = {
@@ -89,7 +96,7 @@ export function createRateLimitMiddleware(
       routePath: options.routePath,
     });
 
-    const result = store.consume(key, {
+    const result = await store.consume(key, {
       limit: options.limit,
       windowMs: options.windowMs,
     });

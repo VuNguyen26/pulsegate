@@ -7,10 +7,14 @@ import { createRequestSizeLimitMiddleware } from "./middlewares/request-size-lim
 import { securityHeadersMiddleware } from "./middlewares/security-headers.middleware.js";
 import { disconnectRedis } from "./redis/redis-client.js";
 import { healthRoute } from "./routes/health.route.js";
-import { productProxyRoute } from "./routes/product-proxy.route.js";
+import {
+  productProxyRoute,
+  type ProductProxyRouteOptions,
+} from "./routes/product-proxy.route.js";
 
 type BuildApiGatewayAppOptions = {
   logger?: boolean;
+  productProxy?: ProductProxyRouteOptions;
 };
 
 export async function buildApiGatewayApp(
@@ -42,7 +46,7 @@ export async function buildApiGatewayApp(
   registerErrorHandlers(app);
 
   await app.register(healthRoute);
-  await app.register(productProxyRoute);
+  await app.register(productProxyRoute, options.productProxy ?? {});
 
   return app;
 }

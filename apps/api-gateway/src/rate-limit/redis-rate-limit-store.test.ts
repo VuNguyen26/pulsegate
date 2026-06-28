@@ -113,4 +113,21 @@ describe("RedisRateLimitStore", () => {
       })
     ).rejects.toThrow("Invalid Redis rate limit response");
   });
+
+    it("should fail fast when the Redis command takes too long", async () => {
+    const client: RedisRateLimitClient = {
+      eval: () => new Promise(() => {}),
+    };
+
+    const store = new RedisRateLimitStore(client, () => 1_000, {
+      commandTimeoutMs: 10,
+    });
+
+    await expect(
+      store.consume("api-key:test", {
+        limit: 5,
+        windowMs: 60_000,
+      })
+    ).rejects.toThrow("Redis rate limit command timed out");
+  });
 });

@@ -7,6 +7,8 @@ import { env } from "./config/env.js";
 
 import { securityHeaders } from "./middlewares/security-headers.middleware.js";
 
+import { InMemoryRateLimitStore } from "./rate-limit/in-memory-rate-limit-store.js";
+
 let app: FastifyInstance;
 
 async function createValidJwtToken(): Promise<string> {
@@ -38,8 +40,11 @@ async function createValidAuthHeaders(): Promise<Record<string, string>> {
 beforeEach(async () => {
   app = await buildApiGatewayApp({
     logger: false,
+    productProxy: {
+      rateLimitStore: new InMemoryRateLimitStore(),
+    },
   });
-});
+});;
 
 afterEach(async () => {
   vi.unstubAllGlobals();

@@ -4,10 +4,24 @@ import { productProductsRouteConfig } from "../config/downstream-routes.js";
 import { DownstreamServiceError } from "../errors/downstream-service-error.js";
 import { apiKeyAuthMiddleware } from "../middlewares/api-key-auth.middleware.js";
 import { jwtAuthMiddleware } from "../middlewares/jwt-auth.middleware.js";
-import { createRateLimitMiddleware } from "../middlewares/rate-limit.middleware.js";
+import {
+  createRateLimitMiddleware,
+  type RateLimitStore,
+} from "../middlewares/rate-limit.middleware.js";
+import { getRedisClient } from "../redis/redis-client.js";
+import { RedisRateLimitStore } from "../rate-limit/redis-rate-limit-store.js";
 
-export async function productProxyRoute(app: FastifyInstance): Promise<void> {
+export type ProductProxyRouteOptions = {
+  rateLimitStore?: RateLimitStore;
+};
+
+export async function productProxyRoute(
+  app: FastifyInstance,
+  options: ProductProxyRouteOptions = {}
+): Promise<void> {
   const routeConfig = productProductsRouteConfig;
+  const rateLimitStore =
+    options.rateLimitStore ?? new RedisRateLimitStore(getRedisClient());
 
   app.get(
     routeConfig.gatewayPath,
@@ -19,6 +33,7 @@ export async function productProxyRoute(app: FastifyInstance): Promise<void> {
           windowMs: routeConfig.rateLimit.windowMs,
           routePath: routeConfig.gatewayPath,
           identityType: "api-key",
+          store: rateLimitStore,
         }),
         ...(routeConfig.auth.requireJwt ? [jwtAuthMiddleware] : []),
       ],

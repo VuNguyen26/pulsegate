@@ -15,6 +15,12 @@ export type RedisRateLimitClient = {
   ) => Promise<unknown>;
 };
 
+export type RedisRateLimitStoreOptions = {
+  commandTimeoutMs?: number;
+};
+
+const DEFAULT_COMMAND_TIMEOUT_MS = 500;
+
 const RATE_LIMIT_SCRIPT = `
 local current = redis.call("INCR", KEYS[1])
 
@@ -28,10 +34,16 @@ return { current, ttl }
 `;
 
 export class RedisRateLimitStore {
+  private readonly commandTimeoutMs: number;
+
   constructor(
     private readonly client: RedisRateLimitClient,
-    private readonly now: NowProvider = () => Date.now()
-  ) {}
+    private readonly now: NowProvider = () => Date.now(),
+    options: RedisRateLimitStoreOptions = {}
+  ) {
+    this.commandTimeoutMs =
+      options.commandTimeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
+  }
 
   async consume(
     key: string,
@@ -43,7 +55,7 @@ export class RedisRateLimitStore {
     const now = this.now();
     const redisKey = this.buildRedisKey(key);
 
-    const rawResult = await this.client.eval(RATE_LIMIT_SCRIPT, {
+    const rawResult = await this.evalWithTimeout(RATE_LIMIT_SCRIPT, {
       keys: [redisKey],
       arguments: [String(config.windowMs)],
     });
@@ -63,6 +75,33 @@ export class RedisRateLimitStore {
         ? 0
         : Math.max(1, Math.ceil(effectiveTtlMs / 1000)),
     };
+  }
+
+  private async evalWithTimeout(
+    script: string,
+    options: {
+      keys: string[];
+      arguments: string[];
+    }
+  ): Promise<unknown> {
+    let timeoutId: NodeJS.Timeout | undefined;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error("Redis rate limit command timed out"));
+      }, this.commandTimeoutMs);
+    });
+
+    try {
+      return await Promise.race([
+        this.client.eval(script, options),
+        timeoutPromise,
+      ]);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
   }
 
   private buildRedisKey(key: string): string {
