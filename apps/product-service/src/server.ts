@@ -1,6 +1,7 @@
 ﻿import Fastify from "fastify";
 
 import { env } from "./config/env.js";
+import { prisma } from "./database/prisma.js";
 import { registerErrorHandlers } from "./middlewares/error-handler.middleware.js";
 import { generateRequestId } from "./middlewares/request-id.middleware.js";
 import { healthRoute } from "./routes/health.route.js";
@@ -11,12 +12,16 @@ const app = Fastify({
   genReqId: generateRequestId,
 });
 
+registerErrorHandlers(app);
+
+app.addHook("onClose", async () => {
+  await prisma.$disconnect();
+});
+
 const start = async () => {
   try {
     await app.register(healthRoute);
     await app.register(productRoute);
-
-    registerErrorHandlers(app);
 
     await app.listen({
       port: env.PORT,

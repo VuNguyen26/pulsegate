@@ -1,20 +1,13 @@
 import type { FastifyInstance } from "fastify";
 
+import { findProducts } from "../products/product.repository.js";
+
 export async function productRoute(app: FastifyInstance): Promise<void> {
   app.get("/products", async () => {
+    const products = await findProducts();
+
     return {
-      data: [
-        {
-          id: "prod_001",
-          name: "Mechanical Keyboard",
-          price: 120,
-        },
-        {
-          id: "prod_002",
-          name: "Gaming Mouse",
-          price: 45,
-        },
-      ],
+      data: products,
     };
   });
 }

@@ -10,6 +10,8 @@ RUN npm ci
 
 COPY . .
 
+RUN DATABASE_URL="postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate" npm run db:generate -w apps/product-service
+
 EXPOSE 3001
 
 CMD ["npm", "run", "dev:product"]
