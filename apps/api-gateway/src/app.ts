@@ -5,6 +5,7 @@ import { registerErrorHandlers } from "./middlewares/error-handler.middleware.js
 import { generateRequestId } from "./middlewares/request-id.middleware.js";
 import { createRequestSizeLimitMiddleware } from "./middlewares/request-size-limit.middleware.js";
 import { securityHeadersMiddleware } from "./middlewares/security-headers.middleware.js";
+import { disconnectRedis } from "./redis/redis-client.js";
 import { healthRoute } from "./routes/health.route.js";
 import { productProxyRoute } from "./routes/product-proxy.route.js";
 
@@ -19,6 +20,10 @@ export async function buildApiGatewayApp(
     logger: options.logger ?? true,
     genReqId: generateRequestId,
     bodyLimit: env.MAX_REQUEST_BODY_BYTES,
+  });
+
+  app.addHook("onClose", async () => {
+    await disconnectRedis();
   });
 
   app.addHook("onRequest", async (request, reply) => {

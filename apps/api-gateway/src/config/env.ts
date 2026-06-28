@@ -56,6 +56,7 @@ export const env = {
     "PRODUCT_SERVICE_URL",
     "http://127.0.0.1:3001"
   ),
+  REDIS_URL: readStringEnv("REDIS_URL", "redis://localhost:6379"),
   DOWNSTREAM_REQUEST_TIMEOUT_MS: readNumberEnv(
     "DOWNSTREAM_REQUEST_TIMEOUT_MS",
     3000

@@ -67,6 +67,7 @@ services:
       PORT: 3000
       HOST: 0.0.0.0
       PRODUCT_SERVICE_URL: http://product-service:3001
+      REDIS_URL: redis://redis:6379
       DOWNSTREAM_REQUEST_TIMEOUT_MS: 3000
       MAX_REQUEST_BODY_BYTES: 1048576
       API_KEY_HEADER: x-api-key
@@ -80,6 +81,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
+      redis:
+        condition: service_healthy
       product-service:
         condition: service_healthy
 
