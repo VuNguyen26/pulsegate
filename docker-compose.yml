@@ -1,0 +1,50 @@
+services:
+  product-service:
+    build:
+      context: .
+      dockerfile: apps/product-service/Dockerfile
+    container_name: pulsegate-product-service
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      HOST: 0.0.0.0
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: apps/api-gateway/Dockerfile
+    container_name: pulsegate-api-gateway
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      HOST: 0.0.0.0
+      PRODUCT_SERVICE_URL: http://product-service:3001
+      DOWNSTREAM_REQUEST_TIMEOUT_MS: 3000
+      MAX_REQUEST_BODY_BYTES: 1048576
+      API_KEY_HEADER: x-api-key
+      API_KEYS: dev-api-key
+      JWT_SECRET: local-dev-jwt-secret-change-me
+      JWT_ISSUER: pulsegate-api-gateway
+      JWT_AUDIENCE: pulsegate-clients
+      JWT_EXPIRES_IN_SECONDS: 900
+      PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS: 5
+      PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS: 60000
+    ports:
+      - "3000:3000"
+    depends_on:
+      product-service:
+        condition: service_healthy
