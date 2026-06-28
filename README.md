@@ -1,3 +1,4 @@
+````md
 # PulseGate
 
 <p align="center">
@@ -5,11 +6,11 @@
 </p>
 
 <p align="center">
-  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, and a microservice-oriented architecture.
+  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, and a microservice-oriented architecture.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Sprint%202%20Complete-brightgreen" />
+  <img src="https://img.shields.io/badge/status-Sprint%203%20In%20Progress-blue" />
   <img src="https://img.shields.io/badge/version-v0.3.0-blue" />
   <img src="https://img.shields.io/badge/tests-71%20passing-brightgreen" />
   <img src="https://img.shields.io/badge/typecheck-passing-brightgreen" />
@@ -19,6 +20,7 @@
   <img src="https://img.shields.io/badge/Fastify-API%20Gateway-black" />
   <img src="https://img.shields.io/badge/Auth-API%20Key%20%2B%20JWT-purple" />
   <img src="https://img.shields.io/badge/Traffic%20Protection-Rate%20Limit%20%2B%20Size%20Limit-orange" />
+  <img src="https://img.shields.io/badge/Docker%20Compose-enabled-blue" />
   <img src="https://img.shields.io/badge/License-MIT-lightgrey" />
 </p>
 
@@ -54,7 +56,7 @@ Client
     -> Normalized downstream error handling
     -> Product Service :3001
       -> Mock Product Response
-```
+````
 
 Current version:
 
@@ -65,23 +67,24 @@ v0.3.0
 Current sprint status:
 
 ```txt
-Sprint 2 - Complete
+Sprint 3 - Data & Infrastructure Foundation In Progress
 ```
 
 ---
 
 ## Project Status
 
-| Area            | Status                                                                                                  | Notes                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                                   | Core setup and basic Gateway flow          |
-| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                                   | API Gateway core features                  |
-| Sprint 2        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                                   | Gateway traffic protection                 |
-| Current Version | ![v0.3.0](https://img.shields.io/badge/version-v0.3.0-blue)                                             | Traffic-protected local Gateway foundation |
-| Automated Tests | ![71 Passing](https://img.shields.io/badge/tests-71%20passing-brightgreen)                              | Unit and integration tests                 |
-| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)                                  | TypeScript validation passes               |
-| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)                                      | Production build passes                    |
-| Next Sprint     | ![Sprint 3](https://img.shields.io/badge/Sprint%203-Data%20%26%20Infrastructure%20Foundation-lightgrey) | Data and infrastructure foundation         |
+| Area            | Status                                                                                             | Notes                                      |
+| --------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                              | Core setup and basic Gateway flow          |
+| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                              | API Gateway core features                  |
+| Sprint 2        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                              | Gateway traffic protection                 |
+| Sprint 3        | ![In Progress](https://img.shields.io/badge/status-in%20progress-blue)                             | Data and infrastructure foundation         |
+| Current Version | ![v0.3.0](https://img.shields.io/badge/version-v0.3.0-blue)                                        | Traffic-protected local Gateway foundation |
+| Automated Tests | ![71 Passing](https://img.shields.io/badge/tests-71%20passing-brightgreen)                         | Unit and integration tests                 |
+| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)                             | TypeScript validation passes               |
+| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)                                 | Production build passes                    |
+| Current Sprint  | ![Sprint 3](https://img.shields.io/badge/Sprint%203-Data%20%26%20Infrastructure%20Foundation-blue) | Docker Compose foundation added            |
 
 ---
 
@@ -163,6 +166,19 @@ Long-term goals:
 | Route-level auth configuration refinement | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Moves auth requirements closer to config |
 | Traffic protection tests                  | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Unit and integration tests               |
 
+### Sprint 3 - Data & Infrastructure Foundation
+
+| Feature                      | Status                                                            | Notes                                     |
+| ---------------------------- | ----------------------------------------------------------------- | ----------------------------------------- |
+| Docker Compose foundation    | ![Done](https://img.shields.io/badge/status-done-brightgreen)     | Runs API Gateway and Product Service      |
+| Containerize API Gateway     | ![Done](https://img.shields.io/badge/status-done-brightgreen)     | API Gateway container runs on port `3000` |
+| Containerize Product Service | ![Done](https://img.shields.io/badge/status-done-brightgreen)     | Product Service container runs on `3001`  |
+| PostgreSQL service           | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) | Planned for next infrastructure step      |
+| Prisma setup                 | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) | Planned after PostgreSQL foundation       |
+| Database-backed products     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) | Will replace mock product data            |
+| Redis-backed rate limiting   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) | Will replace in-memory rate limit store   |
+| Basic response caching       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) | Planned after Redis foundation            |
+
 ---
 
 ## Current Architecture
@@ -203,7 +219,8 @@ Client
       -> Missing: 401 JWT_TOKEN_MISSING
       -> Invalid: 403 JWT_TOKEN_INVALID
     -> Call Product Service
-      -> GET http://127.0.0.1:3001/products
+      -> Local npm: http://127.0.0.1:3001/products
+      -> Docker Compose: http://product-service:3001/products
     -> Product Service returns products
     -> API Gateway returns response to Client
 ```
@@ -229,6 +246,7 @@ Client
 pulsegate/
   apps/
     api-gateway/
+      Dockerfile
       src/
         app.ts
         app.test.ts
@@ -266,6 +284,7 @@ pulsegate/
       vitest.config.ts
 
     product-service/
+      Dockerfile
       src/
         config/
           env.ts
@@ -297,9 +316,11 @@ pulsegate/
 
   infra/
 
+  .dockerignore
   .env.example
   .gitattributes
   .gitignore
+  docker-compose.yml
   package.json
   package-lock.json
   README.md
@@ -361,6 +382,7 @@ Responsibilities:
 * Handles basic 404 and 500 errors.
 * Logs requests in JSON format.
 * Supports automated integration tests using `app.inject()`.
+* Supports Docker Compose local development.
 
 ---
 
@@ -393,6 +415,7 @@ Responsibilities:
 * Reuses request ID from API Gateway.
 * Handles basic 404 and 500 errors.
 * Logs requests in JSON format.
+* Supports Docker Compose local development.
 
 ---
 
@@ -411,26 +434,26 @@ Currently implemented:
 | JWT Library        | jose                             | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Traffic Protection | In-memory rate limit, size limit | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | HTTP Security      | Basic security headers           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Containerization   | Docker, Docker Compose           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Testing            | Vitest                           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Architecture       | API Gateway + Microservice       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 
 Planned later:
 
-| Category         | Technology                   | Status                                                            |
-| ---------------- | ---------------------------- | ----------------------------------------------------------------- |
-| Database         | PostgreSQL                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| ORM              | Prisma                       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Cache            | Redis                        | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Event Streaming  | Kafka                        | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Background Jobs  | RabbitMQ                     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Metrics          | Prometheus                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Dashboard        | Grafana                      | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Tracing          | OpenTelemetry + Jaeger/Tempo | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Logs             | Loki                         | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Load Testing     | k6                           | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Containerization | Docker, Docker Compose       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Orchestration    | Kubernetes                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| CI/CD            | GitHub Actions               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Category        | Technology                   | Status                                                            |
+| --------------- | ---------------------------- | ----------------------------------------------------------------- |
+| Database        | PostgreSQL                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| ORM             | Prisma                       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Cache           | Redis                        | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Event Streaming | Kafka                        | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Background Jobs | RabbitMQ                     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Metrics         | Prometheus                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Dashboard       | Grafana                      | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Tracing         | OpenTelemetry + Jaeger/Tempo | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Logs            | Loki                         | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Load Testing    | k6                           | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Orchestration   | Kubernetes                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| CI/CD           | GitHub Actions               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 
 ---
 
@@ -454,6 +477,18 @@ JWT_AUDIENCE=pulsegate-clients
 JWT_EXPIRES_IN_SECONDS=900
 PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS=5
 PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS=60000
+```
+
+For local npm development, API Gateway uses:
+
+```txt
+PRODUCT_SERVICE_URL=http://127.0.0.1:3001
+```
+
+For Docker Compose development, API Gateway uses the internal Docker service name:
+
+```txt
+PRODUCT_SERVICE_URL=http://product-service:3001
 ```
 
 See `.env.example` for the full list.
@@ -502,6 +537,60 @@ API Gateway runs on:
 ```txt
 http://localhost:3000
 ```
+
+### 5. Run with Docker Compose
+
+PulseGate can also run both services with Docker Compose.
+
+This starts:
+
+```txt
+API Gateway      -> http://localhost:3000
+Product Service  -> http://localhost:3001
+```
+
+Run:
+
+```powershell
+docker compose up --build
+```
+
+Or run in detached mode:
+
+```powershell
+docker compose up --build -d
+```
+
+Check running containers:
+
+```powershell
+docker compose ps
+```
+
+Stop and remove containers:
+
+```powershell
+docker compose down
+```
+
+When running inside Docker Compose, API Gateway calls Product Service through the internal Docker service name:
+
+```txt
+http://product-service:3001
+```
+
+This is different from local npm development, where API Gateway calls Product Service through:
+
+```txt
+http://127.0.0.1:3001
+```
+
+Both workflows are supported:
+
+| Workflow       | Product Service URL inside API Gateway |
+| -------------- | -------------------------------------- |
+| Local npm      | `http://127.0.0.1:3001`                |
+| Docker Compose | `http://product-service:3001`          |
 
 ---
 
@@ -991,6 +1080,24 @@ Run Product Service:
 npm run dev:product
 ```
 
+Run with Docker Compose:
+
+```powershell
+docker compose up --build
+```
+
+Run with Docker Compose in detached mode:
+
+```powershell
+docker compose up --build -d
+```
+
+Stop Docker Compose services:
+
+```powershell
+docker compose down
+```
+
 Run tests:
 
 ```powershell
@@ -1087,16 +1194,16 @@ Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
 
 ### Sprint 3 - Data & Infrastructure Foundation
 
-Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
+Status: ![In Progress](https://img.shields.io/badge/status-in%20progress-blue)
 
 | Feature                                      | Status                                                            |
 | -------------------------------------------- | ----------------------------------------------------------------- |
+| Add Docker Compose                           | ![Done](https://img.shields.io/badge/status-done-brightgreen)     |
+| Containerize API Gateway                     | ![Done](https://img.shields.io/badge/status-done-brightgreen)     |
+| Containerize Product Service                 | ![Done](https://img.shields.io/badge/status-done-brightgreen)     |
 | Add PostgreSQL                               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Add Prisma                                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Replace mock product data with database data | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add Docker Compose                           | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Containerize API Gateway                     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Containerize Product Service                 | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Add Redis-backed rate limiting               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Add response caching                         | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 
@@ -1138,7 +1245,7 @@ Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
 
 ## Current Status
 
-PulseGate currently has a stable local API Gateway foundation with traffic protection.
+PulseGate currently has a stable local API Gateway foundation with traffic protection and Docker Compose support.
 
 Stable flow:
 
@@ -1158,6 +1265,17 @@ Client
       -> Mock Product Response
 ```
 
+Docker Compose foundation:
+
+```txt
+Client
+  -> localhost:3000
+    -> API Gateway container
+      -> http://product-service:3001
+        -> Product Service container
+          -> Mock Product Response
+```
+
 Latest stable Sprint 2 commits:
 
 ```txt
@@ -1166,6 +1284,12 @@ Latest stable Sprint 2 commits:
 a12605f feat(gateway): add request size limit
 76fdd2f feat(gateway): add basic security headers
 28a9b5e refactor(gateway): add route-level auth config
+```
+
+Latest stable Sprint 3 commits:
+
+```txt
+7dbb2d2 chore: add docker compose foundation
 ```
 
 ---
@@ -1190,3 +1314,6 @@ PulseGate follows these principles:
 ## License
 
 This project is licensed under the MIT License.
+
+```
+```
