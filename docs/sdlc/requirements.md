@@ -4,11 +4,23 @@
 
 PulseGate - High-Traffic API Gateway & Observability Platform
 
-## 2. Project Purpose
+## 2. Current Version
+
+```txt
+v0.4.0
+```
+
+## 3. Current Sprint
+
+```txt
+Sprint 3 - Data & Infrastructure Foundation
+```
+
+## 4. Project Purpose
 
 PulseGate is a mini API Gateway, API Management, and Observability Platform.
 
-The project is built to demonstrate backend engineering skills, API Gateway design, microservice communication, authentication, traffic protection, observability, scalability, and production-oriented system design.
+The project is built to demonstrate backend engineering skills, API Gateway design, microservice communication, authentication, traffic protection, caching, local infrastructure, database-backed services, observability preparation, scalability, and production-oriented system design.
 
 The project is inspired by:
 
@@ -18,7 +30,7 @@ The project is inspired by:
 * Apigee
 * AWS API Gateway
 
-## 3. Target Users
+## 5. Target Users
 
 PulseGate is designed for:
 
@@ -28,7 +40,7 @@ PulseGate is designed for:
 * Tech Leads
 * Companies that manage many APIs or microservices
 
-## 4. Main Problems
+## 6. Main Problems
 
 PulseGate aims to solve the following problems:
 
@@ -40,47 +52,180 @@ PulseGate aims to solve the following problems:
 * API traffic should be logged for debugging.
 * API performance should be monitored.
 * Distributed request flow should be traceable across services.
-* The system should be easy to run locally first before cloud deployment.
+* Downstream services should be protected from unnecessary repeated requests.
+* Selected responses should be cached to reduce downstream load.
+* Product data should come from a real database instead of hard-coded mock data.
+* The system should be easy to run locally before cloud deployment.
 
-## 5. Sprint 0 Goal
+---
 
-Sprint 0 focused on the smallest working system.
+## 7. Current System Overview
 
-The goal was to prove this flow:
+Current stable architecture after Sprint 3:
 
 ```txt
 Client
-  -> API Gateway
-    -> Product Service
-      -> Response
+  -> API Gateway :3000
+    -> Request ID handling
+    -> Basic security headers
+    -> Request size limit
+    -> API key authentication
+    -> Redis-backed rate limiting
+    -> JWT authentication
+    -> Redis response cache
+      -> Cache HIT:
+           -> Return cached response
+      -> Cache MISS:
+           -> Call Product Service
+           -> Store response in Redis cache
+    -> Product Service :3001
+      -> Prisma Client
+      -> PostgreSQL :5432
+      -> Database-backed product data
 ```
 
-Sprint 0 intentionally did not include complex infrastructure.
+Current Docker services:
 
-Not included in Sprint 0:
+```txt
+pulsegate-api-gateway
+pulsegate-product-service
+pulsegate-postgres
+pulsegate-redis
+```
 
-* Redis
-* Kafka
-* RabbitMQ
-* PostgreSQL
-* Prisma
-* Docker
-* Kubernetes
-* Prometheus
-* Grafana
-* OpenTelemetry
-* Admin Dashboard
-* Developer Portal
+Current exposed ports:
 
-Sprint 0 status:
+```txt
+API Gateway      -> 3000
+Product Service  -> 3001
+PostgreSQL       -> 5432
+Redis            -> 6379
+```
+
+Current public endpoint:
+
+```txt
+GET /health
+```
+
+Current protected endpoint:
+
+```txt
+GET /api/products
+```
+
+Protected endpoint requirements:
+
+```txt
+x-api-key: dev-api-key
+Authorization: Bearer <jwt-token>
+```
+
+---
+
+## 8. Sprint Status Summary
+
+### Sprint 0 - Core Setup & Basic Gateway Flow
+
+Status:
 
 ```txt
 Done
 ```
 
-## 6. Sprint 0 Functional Requirements
+Sprint 0 completed:
 
-### FR-001: API Gateway Service
+* Monorepo setup.
+* API Gateway.
+* Product Service.
+* Basic Gateway-to-Product-Service proxy flow.
+* Health endpoints.
+* Request ID generation and propagation.
+* Basic error handlers.
+* Initial project documentation.
+* README foundation.
+* `.env.example`.
+
+### Sprint 1 - Gateway Core Behavior
+
+Status:
+
+```txt
+Done
+```
+
+Sprint 1 completed:
+
+* Normalized downstream service errors.
+* Downstream request timeout.
+* Downstream route configuration.
+* API key authentication.
+* JWT authentication.
+* API Gateway app builder for integration tests.
+* Unit test foundation.
+* Integration test foundation.
+* Manual validation for protected route behavior.
+
+### Sprint 2 - Gateway Traffic Protection
+
+Status:
+
+```txt
+Done
+```
+
+Sprint 2 completed:
+
+* In-memory rate limiting foundation.
+* Rate limit middleware.
+* Route-level rate limit configuration.
+* `429 TOO_MANY_REQUESTS` response behavior.
+* Request size limit.
+* `413 REQUEST_BODY_TOO_LARGE` response behavior.
+* Basic security headers.
+* Route-level auth configuration.
+* Traffic protection unit tests.
+* Traffic protection integration tests.
+* Manual validation for rate limit behavior.
+
+### Sprint 3 - Data & Infrastructure Foundation
+
+Status:
+
+```txt
+Technical implementation complete
+```
+
+Sprint 3 completed:
+
+* Docker Compose foundation.
+* API Gateway Dockerfile.
+* Product Service Dockerfile.
+* PostgreSQL Docker service.
+* Redis Docker service.
+* Product Service `DATABASE_URL` configuration.
+* Prisma setup.
+* Product model.
+* Initial Product migration.
+* Product seed script.
+* Product Service database-backed product data.
+* Redis client foundation in API Gateway.
+* Redis-backed rate limit store.
+* Redis-backed rate limiting for `GET /api/products`.
+* Redis response cache store.
+* Response caching for `GET /api/products`.
+* `x-cache: MISS`, `x-cache: HIT`, and `x-cache: BYPASS`.
+* Cache HIT behavior when Product Service is down.
+* Redis fail-fast behavior.
+* Response cache write failure isolation.
+* Automated tests updated to `13 test files passed`, `85 tests passed`.
+* Manual Docker validation completed.
+
+---
+
+# 9. Functional Requirements
+
+## FR-001: API Gateway Service
 
 The system must have an API Gateway service.
 
@@ -92,6 +237,8 @@ Acceptance criteria:
 * API Gateway uses TypeScript.
 * API Gateway has JSON logging enabled.
 * API Gateway has a health check endpoint.
+* API Gateway can be run locally.
+* API Gateway can be run through Docker Compose.
 
 Current endpoint:
 
@@ -117,7 +264,7 @@ Done
 
 ---
 
-### FR-002: Product Service
+## FR-002: Product Service
 
 The system must have a Product Service.
 
@@ -130,6 +277,9 @@ Acceptance criteria:
 * Product Service has JSON logging enabled.
 * Product Service has a health check endpoint.
 * Product Service has a products endpoint.
+* Product Service reads product data from PostgreSQL through Prisma.
+* Product Service can be run locally.
+* Product Service can be run through Docker Compose.
 
 Current endpoints:
 
@@ -165,17 +315,18 @@ Done
 
 ---
 
-### FR-003: Gateway Product Proxy Route
+## FR-003: Gateway Product Proxy Route
 
 API Gateway must route product requests to Product Service.
 
 Acceptance criteria:
 
 * Client can call API Gateway at `GET /api/products`.
-* API Gateway calls Product Service at `GET /products`.
+* API Gateway calls Product Service at `GET /products` on cache MISS.
 * API Gateway returns Product Service response to the client.
 * Client does not need to call Product Service directly.
 * Product Service URL is configurable through `PRODUCT_SERVICE_URL`.
+* API Gateway supports Docker internal Product Service URL.
 
 Current Gateway endpoint:
 
@@ -183,23 +334,16 @@ Current Gateway endpoint:
 GET /api/products
 ```
 
-Current downstream endpoint:
+Current local downstream endpoint:
 
 ```txt
 GET http://127.0.0.1:3001/products
 ```
 
-Expected flow:
+Current Docker downstream endpoint:
 
 ```txt
-Client
-  -> GET http://localhost:3000/api/products
-    -> API Gateway
-      -> GET http://127.0.0.1:3001/products
-        -> Product Service
-          -> Product response
-      -> API Gateway
-  -> Client
+GET http://product-service:3001/products
 ```
 
 Status:
@@ -210,7 +354,7 @@ Done
 
 ---
 
-### FR-004: Request ID
+## FR-004: Request ID
 
 The system must support request ID generation and propagation.
 
@@ -221,6 +365,7 @@ Acceptance criteria:
 * API Gateway returns `x-request-id` in response headers.
 * API Gateway forwards `x-request-id` to Product Service.
 * Product Service reuses the request ID from API Gateway.
+* Error responses include request ID.
 * Logs from API Gateway and Product Service can be connected using the same request ID.
 
 Header:
@@ -237,7 +382,7 @@ Done
 
 ---
 
-### FR-005: Basic Error Handling
+## FR-005: Basic Error Handling
 
 Both services must have basic error handling.
 
@@ -249,6 +394,7 @@ Acceptance criteria:
 * Error response includes request ID.
 * Unexpected server errors return `500`.
 * Server errors are logged.
+* Internal implementation details should not be exposed to clients.
 
 Example 404 response:
 
@@ -270,7 +416,7 @@ Done
 
 ---
 
-### FR-006: Health Check APIs
+## FR-006: Health Check APIs
 
 Both services must expose health check APIs.
 
@@ -290,256 +436,21 @@ Done
 
 ---
 
-### FR-007: Project Documentation
+## FR-007: Downstream Error Normalization
 
-The project must include basic documentation.
-
-Required documentation:
-
-* `docs/project-context/CURRENT_PROGRESS.md`
-* `docs/project-context/DECISION_LOG.md`
-* `docs/project-context/AI_HANDOFF.md`
-* `docs/architecture/overview.md`
-* `docs/sdlc/requirements.md`
-* Root `README.md`
-* `.env.example`
-
-Status:
-
-```txt
-Done
-```
-
-## 7. Sprint 0 Non-Functional Requirements
-
-### NFR-001: Local First
-
-The project must run locally before any cloud deployment.
+API Gateway must return clean and consistent errors when downstream services fail.
 
 Acceptance criteria:
 
-* API Gateway can run locally.
-* Product Service can run locally.
-* No paid cloud infrastructure is required.
-* Developer can test the basic flow from local terminal.
+* Product Service unavailable returns `503 DOWNSTREAM_SERVICE_UNAVAILABLE`.
+* Product Service timeout returns `504 DOWNSTREAM_TIMEOUT`.
+* Product Service 5xx response returns `502 DOWNSTREAM_HTTP_ERROR`.
+* Product Service invalid JSON returns `502 DOWNSTREAM_INVALID_RESPONSE`.
+* Error response includes request ID.
+* Error response identifies downstream service.
+* Raw runtime errors are not exposed to clients.
 
-Status:
-
-```txt
-Done
-```
-
----
-
-### NFR-002: Cost Safe
-
-The project must avoid unnecessary paid services during early development.
-
-Acceptance criteria:
-
-* Sprint 0 does not require AWS, GCP, Azure, or paid hosting.
-* Sprint 0 does not require managed databases or managed message brokers.
-* All current features run locally.
-
-Status:
-
-```txt
-Done
-```
-
----
-
-### NFR-003: Maintainable Structure
-
-The codebase must be organized clearly.
-
-Acceptance criteria:
-
-* API Gateway separates app building, config, routes, middlewares, errors, tests, and server startup.
-* Product Service separates config, routes, middlewares, and server startup.
-* `app.ts` builds the API Gateway app and can be reused by integration tests.
-* `server.ts` mainly starts the server.
-* Business routes live in `routes`.
-* Reusable request handling logic lives in `middlewares`.
-* Reusable Gateway error types live in `errors`.
-* Downstream route information lives in `config/downstream-routes.ts`.
-
-Status:
-
-```txt
-Done
-```
-
----
-
-### NFR-004: Type Safety
-
-The project must use TypeScript with strict checking.
-
-Acceptance criteria:
-
-* TypeScript is configured.
-* `npm run typecheck` passes.
-* `npm run build` passes.
-* Services use TypeScript source files.
-
-Status:
-
-```txt
-Done
-```
-
----
-
-### NFR-005: Observability Foundation
-
-The project must prepare for future observability.
-
-Acceptance criteria:
-
-* JSON logger is enabled.
-* Request ID exists.
-* Request ID is propagated across services.
-* Error responses include request ID.
-* API Gateway forwards `x-request-id` to Product Service.
-* Integration tests verify request ID response header and downstream forwarding behavior.
-
-Status:
-
-```txt
-Done
-```
-
----
-
-### NFR-006: Testability Foundation
-
-The project must support automated testing for Gateway core behavior.
-
-Acceptance criteria:
-
-* Test framework is installed.
-* Tests can be run with `npm run test`.
-* API Gateway can be tested without opening port `3000`.
-* API Gateway integration tests can use `app.inject()`.
-* Test output does not include unnecessary Fastify JSON logs.
-
-Status:
-
-```txt
-Done
-```
-
-## 8. Current System Constraints
-
-Current constraints after Sprint 2 completion:
-
-* Product data is still hard-coded.
-* No database is connected yet.
-* No Prisma schema exists yet.
-* API Gateway currently proxies only Product Service.
-* API key authentication exists for `GET /api/products`.
-* JWT authentication exists for `GET /api/products`.
-* In-memory rate limiting exists for `GET /api/products`.
-* Rate limit counters are not shared across multiple Gateway instances yet.
-* Redis-backed distributed rate limiting does not exist yet.
-* Request size limit exists at the Gateway level.
-* Basic security headers exist at the Gateway level.
-* No response caching exists yet.
-* No Docker setup exists yet.
-* No metrics dashboard exists yet.
-* No tracing system exists yet.
-* API Gateway normalizes downstream service failures.
-* API Gateway applies request timeout to downstream calls.
-* API Gateway uses downstream route configuration.
-* API Gateway supports route-level auth configuration.
-* API Gateway supports route-level rate limit configuration.
-* Unit tests cover request ID, API key authentication, JWT authentication, rate limiting, request size limit, security headers, downstream errors, route config, and env parsing.
-* Integration tests cover API Gateway health, security headers, request size limit, API key route protection, JWT route protection, valid product proxy flow, rate limit behavior, downstream failures, and downstream timeout behavior.
-
-## 9. Sprint 1 Goal
-
-Sprint 1 focused on API Gateway core behavior.
-
-The goal was to make the Gateway more production-like before adding infrastructure.
-
-Sprint 1 improved:
-
-* Downstream service error handling.
-* Request timeout handling.
-* Gateway route configuration foundation.
-* API key authentication.
-* JWT authentication.
-* Unit tests.
-* Integration tests.
-* Manual validation for protected route behavior.
-
-Sprint 1 intentionally avoided:
-
-* Redis
-* Kafka
-* RabbitMQ
-* PostgreSQL
-* Prisma
-* Docker
-* Kubernetes
-* Prometheus
-* Grafana
-* OpenTelemetry
-
-Sprint 1 current status:
-
-```txt
-Done
-```
-
-Completed Sprint 1 checkpoints:
-
-1. Normalize downstream service errors.
-2. Add downstream request timeout.
-3. Add route configuration foundation.
-4. Add API key authentication.
-5. Add basic unit test setup.
-6. Add API key authentication unit tests.
-7. Add downstream service error unit tests.
-8. Add environment parsing unit tests.
-9. Prepare API Gateway app for integration tests.
-10. Add API key route integration tests.
-11. Add valid API key product route integration test.
-12. Add downstream failure integration tests.
-13. Add downstream timeout integration test.
-14. Add JWT configuration.
-15. Add JWT authentication middleware.
-16. Add JWT authentication unit tests.
-17. Protect Product route with API key and JWT.
-18. Manually validate API key and JWT protected route.
-
-Status:
-
-```txt
-Done
-```
-
-## 10. Sprint 1 Functional Requirements
-
-### S1-FR-001: Normalize Downstream Service Errors
-
-API Gateway must return a clean and consistent error response when a downstream service is unavailable.
-
-Problem:
-
-If Product Service is down, `fetch` may throw a low-level error such as `fetch failed`.
-
-Expected behavior:
-
-* API Gateway should catch downstream connection errors.
-* API Gateway should not expose raw runtime errors to clients.
-* API Gateway should return a normalized error response.
-* Error response should include request ID.
-* Error response should identify the downstream service.
-* Error response should use a suitable HTTP status code.
-
-Expected response example:
+Expected unavailable response:
 
 ```json
 {
@@ -552,13 +463,6 @@ Expected response example:
 }
 ```
 
-Implemented behavior:
-
-* `DownstreamServiceError` was added.
-* Product proxy route catches downstream connection failures.
-* Gateway returns normalized downstream error response.
-* Raw `fetch failed` is not exposed to clients.
-
 Status:
 
 ```txt
@@ -567,7 +471,7 @@ Done
 
 ---
 
-### S1-FR-002: Add Downstream Request Timeout
+## FR-008: Downstream Request Timeout
 
 API Gateway must stop waiting if a downstream service takes too long to respond.
 
@@ -575,11 +479,18 @@ Acceptance criteria:
 
 * Gateway request to Product Service has a timeout.
 * Timeout duration is configurable.
+* Timeout uses `AbortController`.
 * Timeout error returns a normalized error response.
 * Timeout response includes request ID.
 * Timeout response does not expose raw internal error details.
 
-Expected response example:
+Current config:
+
+```txt
+DOWNSTREAM_REQUEST_TIMEOUT_MS=3000
+```
+
+Expected timeout response:
 
 ```json
 {
@@ -592,14 +503,6 @@ Expected response example:
 }
 ```
 
-Implemented behavior:
-
-* `DOWNSTREAM_REQUEST_TIMEOUT_MS` was added.
-* API Gateway uses `AbortController` to cancel slow downstream requests.
-* Timeout defaults to `3000ms`.
-* Gateway returns `504 DOWNSTREAM_TIMEOUT`.
-* Integration test verifies `AbortError` is converted to `504 DOWNSTREAM_TIMEOUT`.
-
 Status:
 
 ```txt
@@ -608,49 +511,29 @@ Done
 
 ---
 
-### S1-FR-003: Route Configuration Foundation
+## FR-009: API Key Authentication
 
-API Gateway should move hard-coded downstream route information toward a route configuration structure.
-
-Acceptance criteria:
-
-* Product Service URL remains configurable.
-* Product route config is separated from route handler logic.
-* Future services can be added without rewriting Gateway core logic too much.
-* Route config should be simple in Sprint 1.
-
-Implemented behavior:
-
-* `apps/api-gateway/src/config/downstream-routes.ts` was added.
-* `DownstreamRouteConfig` was added.
-* Product proxy route now reads Gateway path, downstream URL, service name, method, and timeout from route config.
-* Product proxy route no longer directly hard-codes all downstream details.
-
-Status:
-
-```txt
-Done
-```
-
----
-
-### S1-FR-004: API Key Authentication
-
-API Gateway should support basic API key authentication.
+API Gateway must support API key authentication for protected routes.
 
 Acceptance criteria:
 
-* API Gateway checks an API key from request headers.
-* Missing API key returns `401 Unauthorized`.
-* Invalid API key returns `403 Forbidden`.
+* API Gateway checks API key from request headers.
+* Missing API key returns `401 API_KEY_MISSING`.
+* Invalid API key returns `403 API_KEY_INVALID`.
 * Valid API key allows request to continue.
 * API key header name is configurable.
-* Sprint 1 may use a simple environment-based API key list before database support exists.
+* API key list is configurable through environment variables.
 
-Possible header:
+Current header:
 
 ```txt
 x-api-key
+```
+
+Current local development API key:
+
+```txt
+dev-api-key
 ```
 
 Expected missing API key response:
@@ -677,20 +560,6 @@ Expected invalid API key response:
 }
 ```
 
-Implemented behavior:
-
-* `API_KEY_HEADER` was added.
-* `API_KEYS` was added.
-* `api-key-auth.middleware.ts` was added.
-* `GET /api/products` is protected by API key authentication.
-* `GET /health` remains public.
-* Missing API key returns `401 API_KEY_MISSING`.
-* Invalid API key returns `403 API_KEY_INVALID`.
-* Valid API key allows request to continue to route-level rate limiting and JWT authentication.
-* Default local API key is `dev-api-key`.
-* Unit tests cover missing, invalid, valid, and array header API key cases.
-* Integration tests cover missing, invalid, and valid API key route behavior.
-
 Status:
 
 ```txt
@@ -699,20 +568,34 @@ Done
 
 ---
 
-### S1-FR-005: JWT Authentication
+## FR-010: JWT Authentication
 
-API Gateway should support JWT authentication after API key authentication foundation is clear.
+API Gateway must support JWT authentication for protected routes.
 
 Acceptance criteria:
 
 * API Gateway accepts Bearer token.
-* Missing token returns `401 Unauthorized`.
-* Invalid token returns `403 Forbidden`.
+* Missing token returns `401 JWT_TOKEN_MISSING`.
+* Invalid token returns `403 JWT_TOKEN_INVALID`.
 * Valid token allows request to continue.
-* User context can be forwarded to downstream services later.
-* JWT configuration can be controlled through environment variables.
-* JWT behavior should be covered by unit tests.
-* JWT route behavior should be covered by integration tests.
+* JWT configuration is controlled through environment variables.
+* JWT validation checks signature, issuer, audience, and expiration.
+* Verified JWT payload is attached to `request.jwtPayload`.
+
+Current header:
+
+```txt
+Authorization: Bearer <jwt-token>
+```
+
+Current local JWT configuration:
+
+```txt
+JWT_SECRET=local-dev-jwt-secret-change-me
+JWT_ISSUER=pulsegate-api-gateway
+JWT_AUDIENCE=pulsegate-clients
+JWT_EXPIRES_IN_SECONDS=900
+```
 
 Expected missing JWT response:
 
@@ -738,26 +621,6 @@ Expected invalid JWT response:
 }
 ```
 
-Implemented behavior:
-
-* `JWT_SECRET` was added.
-* `JWT_ISSUER` was added.
-* `JWT_AUDIENCE` was added.
-* `JWT_EXPIRES_IN_SECONDS` was added.
-* `jose` dependency was added.
-* `jwt-auth.middleware.ts` was added.
-* `extractBearerToken()` was added.
-* `verifyJwtToken()` was added.
-* `request.jwtPayload` is attached after successful verification.
-* Missing Bearer token returns `401 JWT_TOKEN_MISSING`.
-* Invalid Bearer token returns `403 JWT_TOKEN_INVALID`.
-* Valid Bearer token allows request to continue.
-* JWT validation checks signature, issuer, audience, and expiration.
-* `GET /api/products` is protected by both API key and JWT.
-* Unit tests cover Bearer token extraction, token verification, missing token, invalid token, and valid token behavior.
-* Integration tests cover missing JWT, invalid JWT, and valid JWT route behavior.
-* Manual validation was completed with PowerShell.
-
 Status:
 
 ```txt
@@ -766,215 +629,40 @@ Done
 
 ---
 
-### S1-FR-006: Unit Tests
+## FR-011: Request Size Limit
 
-The project should add basic unit tests.
-
-Acceptance criteria:
-
-* Request ID generation is tested.
-* Environment parsing is tested where applicable.
-* API key authentication behavior is tested.
-* JWT authentication behavior is tested.
-* Downstream error helper is tested.
-* Gateway utility functions are tested where applicable.
-* Tests can be run with an npm script.
-
-Implemented behavior:
-
-* Vitest was added.
-* Root `npm run test` was added.
-* API Gateway workspace test script was added.
-* `apps/api-gateway/vitest.config.ts` was added.
-* Request ID middleware tests were added.
-* API key authentication middleware tests were added.
-* JWT authentication middleware tests were added.
-* Downstream service error tests were added.
-* Environment parsing tests were added.
-
-Status:
-
-```txt
-Done
-```
-
----
-
-### S1-FR-007: Integration Tests
-
-The project should add basic integration tests for the current flow.
+API Gateway must reject oversized request bodies.
 
 Acceptance criteria:
 
-* Test API Gateway `/health`.
-* Test API Gateway `/api/products` with missing API key.
-* Test API Gateway `/api/products` with invalid API key.
-* Test API Gateway `/api/products` with valid API key but missing JWT.
-* Test API Gateway `/api/products` with valid API key but invalid JWT.
-* Test API Gateway `/api/products` with valid API key and valid JWT.
-* Test Gateway behavior when downstream service is unavailable.
-* Test Gateway behavior when downstream service returns an error status.
-* Test Gateway behavior when downstream service returns invalid JSON.
-* Test Gateway behavior when downstream service times out.
-
-Implemented behavior:
-
-* API Gateway app builder was separated into `apps/api-gateway/src/app.ts`.
-* `server.ts` now only starts the server.
-* API Gateway integration tests use `app.inject()`.
-* `/health` integration test was added.
-* `/api/products` missing API key integration test was added.
-* `/api/products` invalid API key integration test was added.
-* `/api/products` missing JWT integration test was added.
-* `/api/products` invalid JWT integration test was added.
-* `/api/products` valid API key and valid JWT integration test was added.
-* Product proxy integration test verifies downstream URL, `x-request-id` forwarding, and `AbortSignal`.
-* Downstream unavailable integration test was added.
-* Downstream HTTP error integration test was added.
-* Downstream invalid JSON integration test was added.
-* Downstream timeout integration test was added.
-
-Status:
-
-```txt
-Done
-```
-
-## 11. Sprint 2 Goal
-
-Sprint 2 focused on Gateway traffic protection.
-
-The goal was to protect the Gateway and downstream services from excessive traffic, oversized request bodies, and unsafe default HTTP response behavior before adding Redis, Docker, databases, or observability infrastructure.
-
-Sprint 2 improved:
-
-* In-memory rate limiting.
-* Route-level rate limit configuration.
-* Rate limit response behavior.
-* Request size limit.
-* Basic security headers.
-* Route-level auth configuration.
-* Traffic protection unit tests.
-* Traffic protection integration tests.
-* Manual validation for rate limit behavior.
-
-Sprint 2 intentionally avoided:
-
-* Redis-backed distributed rate limiting.
-* PostgreSQL.
-* Prisma.
-* Docker.
-* Kubernetes.
-* Kafka.
-* RabbitMQ.
-* Prometheus.
-* Grafana.
-* OpenTelemetry.
-* Admin Dashboard.
-* Developer Portal.
-
-Sprint 2 current status:
-
-```txt
-Done
-```
-
-Completed Sprint 2 checkpoints:
-
-1. Add in-memory rate limiting foundation.
-2. Add in-memory rate limit store unit tests.
-3. Add rate limit middleware.
-4. Add rate limit middleware unit tests.
-5. Attach validated API key to request context.
-6. Apply rate limit to `GET /api/products`.
-7. Add route-level rate limit configuration.
-8. Move product route rate limit values to environment-based config.
-9. Add `429 TOO_MANY_REQUESTS` response behavior.
-10. Add request size limit middleware.
-11. Add request size limit unit tests.
-12. Add `413 REQUEST_BODY_TOO_LARGE` response behavior.
-13. Add Fastify `bodyLimit`.
-14. Add basic security headers middleware.
-15. Add security headers unit tests.
-16. Add route-level auth configuration.
-17. Add downstream route config tests for rate limit and auth requirements.
-18. Add integration test for oversized request body.
-19. Add integration test for product route rate limit exceeded behavior.
-20. Add manual validation for rate limit behavior.
-21. Run `npm run test`.
-22. Run `npm run typecheck`.
-23. Run `npm run build`.
-24. Push stable checkpoints to GitHub.
-
-Status:
-
-```txt
-Done
-```
-
-## 12. Sprint 2 Functional Requirements
-
-### S2-FR-001: In-Memory Rate Limiting Foundation
-
-API Gateway must support a local in-memory rate limiting foundation before Redis is added.
-
-Acceptance criteria:
-
-* Gateway can count requests per rate limit key.
-* Gateway can allow requests under the limit.
-* Gateway can block requests after the limit is exceeded.
-* Gateway can reset counters after the configured window.
-* Gateway can clear counters for tests.
-* Gateway can clean up expired counters.
-* Rate limit behavior is covered by unit tests.
-
-Implemented behavior:
-
-* `InMemoryRateLimitStore` was added.
-* Rate limit records are stored in memory.
-* Rate limit counters are keyed by identity and route.
-* Window reset behavior is supported.
-* Expired record cleanup is supported.
-* Unit tests verify allowed requests, blocked requests, separate keys, window reset, cleanup, and invalid config.
-
-Current limitation:
-
-* Counters reset when API Gateway restarts.
-* Counters are not shared across multiple Gateway instances.
-* Redis-backed rate limiting is planned for a later sprint.
-
-Status:
-
-```txt
-Done
-```
-
----
-
-### S2-FR-002: Route-Level Rate Limit Configuration
-
-API Gateway must support route-level rate limit configuration.
-
-Acceptance criteria:
-
-* Product route has a dedicated rate limit config.
-* Rate limit values are configurable through environment variables.
-* Route handler reads rate limit values from route config.
-* Route config remains separated from route handler logic.
-
-Implemented behavior:
-
-* `RouteRateLimitConfig` was added.
-* Product route rate limit config was added to `downstream-routes.ts`.
-* `PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS` was added.
-* `PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS` was added.
-* Product route defaults to 5 requests per 60 seconds.
+* Gateway has configurable request body size limit.
+* Gateway checks `content-length` before route handlers.
+* Gateway returns `413 REQUEST_BODY_TOO_LARGE` when content length exceeds the configured limit.
+* Error response includes request ID.
+* Fastify body parser has configured body limit.
 
 Current config:
 
 ```txt
-PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS=5
-PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS=60000
+MAX_REQUEST_BODY_BYTES=1048576
+```
+
+That equals:
+
+```txt
+1MB
+```
+
+Expected response:
+
+```json
+{
+  "error": {
+    "code": "REQUEST_BODY_TOO_LARGE",
+    "message": "Request body is too large",
+    "requestId": "example-request-id"
+  }
+}
 ```
 
 Status:
@@ -985,20 +673,139 @@ Done
 
 ---
 
-### S2-FR-003: Rate Limit Response Behavior
+## FR-012: Basic Security Headers
 
-API Gateway must return a clean response when rate limit is exceeded.
+API Gateway must add basic HTTP security headers to responses.
 
 Acceptance criteria:
 
-* Gateway returns `429 Too Many Requests` when the route limit is exceeded.
-* Error response includes a stable error code.
-* Error response includes a user-friendly message.
-* Error response includes request ID.
-* Response includes rate limit headers.
-* Product Service is not called for blocked requests.
+* Gateway adds basic security headers globally.
+* Health route responses include security headers.
+* Protected route responses include security headers.
+* Error responses receive baseline security headers.
+* Security header behavior is covered by automated tests.
 
-Expected response:
+Current security headers:
+
+```txt
+x-content-type-options: nosniff
+x-frame-options: DENY
+referrer-policy: no-referrer
+permissions-policy: camera=(), microphone=(), geolocation=()
+content-security-policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'
+```
+
+Not included yet:
+
+```txt
+strict-transport-security
+```
+
+Reason:
+
+* The project is still local-first and uses HTTP in local development.
+* HSTS should be added when HTTPS deployment is introduced.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-013: Route-Level Configuration
+
+API Gateway must support route-level configuration for downstream routing, auth requirements, timeout, and rate limit.
+
+Acceptance criteria:
+
+* Product route config declares downstream service name.
+* Product route config declares Gateway path.
+* Product route config declares downstream URL.
+* Product route config declares HTTP method.
+* Product route config declares timeout.
+* Product route config declares API key requirement.
+* Product route config declares JWT requirement.
+* Product route config declares rate limit values.
+* Route config remains separated from route handler logic.
+
+Current product route config includes:
+
+```txt
+serviceName
+gatewayPath
+downstreamUrl
+method
+timeoutMs
+auth
+rateLimit
+```
+
+Current product route auth config:
+
+```txt
+GET /api/products
+  -> requireApiKey: true
+  -> requireJwt: true
+```
+
+Current product route rate limit config:
+
+```txt
+GET /api/products
+  -> limit: PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS
+  -> windowMs: PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-014: Redis-Backed Rate Limiting
+
+API Gateway must support Redis-backed rate limiting for protected routes.
+
+Acceptance criteria:
+
+* API Gateway stores rate limit counters in Redis.
+* API Gateway rate limits by API key, HTTP method, and route path.
+* API Gateway returns the same external response behavior as the previous in-memory rate limiter.
+* API Gateway returns `429 TOO_MANY_REQUESTS` when the limit is exceeded.
+* API Gateway returns rate limit headers.
+* Product Service is not called for blocked requests.
+* Redis rate limit commands fail fast when Redis is unavailable.
+* Redis internal errors are not exposed to clients.
+
+Current default product route rate limit:
+
+```txt
+5 requests per 60 seconds
+```
+
+Current logical rate limit key:
+
+```txt
+api-key:<api-key>:route:<method>:<route-path>
+```
+
+Current Redis rate limit key:
+
+```txt
+rate-limit:api-key:<api-key>:route:<method>:<route-path>
+```
+
+Example Redis key:
+
+```txt
+rate-limit:api-key:dev-api-key:route:GET:/api/products
+```
+
+Expected rate limit response:
 
 ```json
 {
@@ -1025,13 +832,44 @@ x-ratelimit-reset
 retry-after
 ```
 
-Implemented behavior:
+Status:
 
-* Rate limit middleware was added.
-* Product route uses rate limit middleware after API key authentication.
-* Rate limit identity defaults to API key.
-* Product route is limited by API key, HTTP method, and route path.
-* Integration test verifies that the blocked request does not call Product Service.
+```txt
+Done
+```
+
+---
+
+## FR-015: Docker Compose Local Infrastructure
+
+The project must support local infrastructure through Docker Compose.
+
+Acceptance criteria:
+
+* API Gateway can run in Docker Compose.
+* Product Service can run in Docker Compose.
+* PostgreSQL can run in Docker Compose.
+* Redis can run in Docker Compose.
+* PostgreSQL has a healthcheck.
+* Redis has a healthcheck.
+* Product Service waits for healthy PostgreSQL.
+* API Gateway waits for healthy Redis and healthy Product Service.
+* Developer can start the local stack with one command.
+
+Current command:
+
+```powershell
+docker compose up --build -d
+```
+
+Current services:
+
+```txt
+api-gateway
+product-service
+postgres
+redis
+```
 
 Status:
 
@@ -1041,51 +879,136 @@ Done
 
 ---
 
-### S2-FR-004: Request Size Limit
+## FR-016: PostgreSQL Database
 
-API Gateway must reject oversized request bodies.
+Product Service must use PostgreSQL for product data.
 
 Acceptance criteria:
 
-* Gateway has configurable request body size limit.
-* Gateway checks `content-length` before route handlers.
-* Gateway returns `413 Payload Too Large` when content length exceeds the configured limit.
-* Error response includes request ID.
-* Fastify body parser also has a configured body limit.
-* Behavior is covered by unit and integration tests.
+* PostgreSQL is available through Docker Compose.
+* PostgreSQL has a `pulsegate` database.
+* PostgreSQL stores Product Service data.
+* Database connection is configurable through `DATABASE_URL`.
+* Product Service uses Docker internal database URL inside Docker.
+* Product Service can use local host database URL in local host mode.
 
-Current config:
+Current database:
 
 ```txt
-MAX_REQUEST_BODY_BYTES=1048576
+pulsegate
 ```
 
-Expected response:
+Current local host database URL:
+
+```txt
+postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate
+```
+
+Current Docker internal database URL:
+
+```txt
+postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-017: Prisma Product Model
+
+Product Service must use Prisma as the ORM for product data.
+
+Acceptance criteria:
+
+* Product Service has Prisma Client dependency.
+* Product Service has Prisma CLI dependency.
+* Product Service has Prisma schema.
+* Prisma schema defines a Product model.
+* Prisma migration creates `products` table.
+* Prisma Client can be generated.
+* Product seed script can insert or update sample products.
+* Seed script is idempotent.
+
+Current Prisma schema location:
+
+```txt
+apps/product-service/prisma/schema.prisma
+```
+
+Current migration location:
+
+```txt
+apps/product-service/prisma/migrations/20260628092746_init_products/migration.sql
+```
+
+Current seed script:
+
+```txt
+apps/product-service/prisma/seed.ts
+```
+
+Current Product model fields:
+
+```txt
+id
+name
+price
+createdAt
+updatedAt
+```
+
+Current seed products:
+
+```txt
+prod_001 - Mechanical Keyboard - 120
+prod_002 - Gaming Mouse - 45
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-018: Database-Backed Product Endpoint
+
+Product Service must return products from PostgreSQL instead of hard-coded mock data.
+
+Acceptance criteria:
+
+* Product Service has a Prisma database helper.
+* Product Service has a Product repository.
+* Product route reads products from database.
+* Product route returns products ordered by id.
+* Product route response shape remains compatible with previous mock response.
+* API Gateway receives the same product response shape through the proxy route.
+* Product Service disconnects Prisma client on server close.
+
+Current response:
 
 ```json
 {
-  "error": {
-    "code": "REQUEST_BODY_TOO_LARGE",
-    "message": "Request body is too large",
-    "requestId": "example-request-id"
-  }
+  "data": [
+    {
+      "id": "prod_001",
+      "name": "Mechanical Keyboard",
+      "price": 120
+    },
+    {
+      "id": "prod_002",
+      "name": "Gaming Mouse",
+      "price": 45
+    }
+  ]
 }
 ```
 
-Expected status:
-
-```txt
-413
-```
-
-Implemented behavior:
-
-* `MAX_REQUEST_BODY_BYTES` was added.
-* Request size limit middleware was added.
-* Fastify `bodyLimit` was configured.
-* Unit tests cover content-length parsing, allowed body sizes, exceeded body size, and invalid config.
-* Integration test verifies oversized request behavior.
-
 Status:
 
 ```txt
@@ -1094,79 +1017,49 @@ Done
 
 ---
 
-### S2-FR-005: Basic Security Headers
+## FR-019: Redis Response Caching
 
-API Gateway must add basic HTTP security headers to responses.
-
-Acceptance criteria:
-
-* Gateway adds basic security headers globally.
-* Health route responses include security headers.
-* Error responses should receive the same baseline header behavior.
-* Security header behavior is covered by automated tests.
-
-Current security headers:
-
-```txt
-x-content-type-options: nosniff
-x-frame-options: DENY
-referrer-policy: no-referrer
-permissions-policy: camera=(), microphone=(), geolocation=()
-content-security-policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'
-```
-
-Implemented behavior:
-
-* Security headers middleware was added.
-* API Gateway registers the middleware globally.
-* Unit test verifies basic security headers.
-* Integration test verifies health response includes security headers.
-
-Not included yet:
-
-```txt
-strict-transport-security
-```
-
-Reason:
-
-* The project is still local-first and uses HTTP in local development.
-* HSTS should be added when HTTPS deployment is introduced.
-
-Status:
-
-```txt
-Done
-```
-
----
-
-### S2-FR-006: Route-Level Auth Configuration Refinement
-
-API Gateway must support route-level auth requirements in route config.
+API Gateway must cache selected downstream responses in Redis.
 
 Acceptance criteria:
 
-* Product route config declares whether API key is required.
-* Product route config declares whether JWT is required.
-* Product route builds authentication handlers from route config.
-* Route handler no longer hard-codes all auth requirements directly.
-* Route-level auth config is covered by tests.
+* API Gateway can store product responses in Redis.
+* API Gateway can read cached product responses from Redis.
+* `GET /api/products` returns `x-cache: MISS` when the response is not cached.
+* `GET /api/products` returns `x-cache: HIT` when cached response is used.
+* Cache key is stable.
+* Cache TTL is applied.
+* Product Service is not called on cache HIT.
+* Cache write failure does not fail an otherwise valid downstream response.
+* Product Service down + cache HIT returns cached response successfully.
+* Product Service down + cache MISS returns normalized downstream error.
+* Redis cache commands fail fast when Redis is unavailable.
 
-Implemented behavior:
-
-* `RouteAuthConfig` was added.
-* Product route config now includes `auth.requireApiKey`.
-* Product route config now includes `auth.requireJwt`.
-* Product proxy route builds pre-handlers based on route config.
-* Downstream route config test verifies auth requirements.
-
-Current product route auth config:
+Current Redis cache key:
 
 ```txt
-GET /api/products
-  -> requireApiKey: true
-  -> requireJwt: true
+response-cache:GET:/api/products
+```
+
+Current cache TTL:
+
+```txt
+30 seconds
+```
+
+Expected cache behavior:
+
+```txt
+First valid request after cache clear
+  -> 200
+  -> x-cache: MISS
+  -> Product Service is called
+  -> Response is stored in Redis
+
+Second valid request within TTL
+  -> 200
+  -> x-cache: HIT
+  -> Cached response is returned
 ```
 
 Status:
@@ -1177,55 +1070,671 @@ Done
 
 ---
 
-### S2-FR-007: Traffic Protection Tests
+## FR-020: Automated Tests
 
-Gateway traffic protection behavior must be covered by automated tests.
+The project must include automated tests for Gateway behavior.
 
 Acceptance criteria:
 
-* Rate limit store behavior is tested.
-* Rate limit middleware behavior is tested.
-* Request size limit behavior is tested.
-* Security header behavior is tested.
-* Route-level rate limit config is tested.
-* Route-level auth config is tested.
-* API Gateway integration tests include rate limit behavior.
-* API Gateway integration tests include request size limit behavior.
-* `npm run test` passes.
+* Tests can be run with `npm run test`.
+* API Gateway can be tested without opening port `3000`.
+* API Gateway integration tests use `app.inject()`.
+* Test output does not include unnecessary Fastify JSON logs.
+* Unit tests cover middleware and helper behavior.
+* Integration tests cover protected route behavior.
+* Test, typecheck, and build must pass before committing stable checkpoints.
+
+Current test framework:
+
+```txt
+Vitest
+```
+
+Current automated test status:
+
+```txt
+13 test files passed
+85 tests passed
+```
+
+Current test command:
+
+```powershell
+npm run test
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+# 10. Non-Functional Requirements
+
+## NFR-001: Local First
+
+The project must run locally before any cloud deployment.
+
+Acceptance criteria:
+
+* API Gateway can run locally.
+* Product Service can run locally.
+* PostgreSQL can run locally through Docker Compose.
+* Redis can run locally through Docker Compose.
+* No paid cloud infrastructure is required.
+* Developer can test the full flow from local terminal.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## NFR-002: Cost Safe
+
+The project must avoid unnecessary paid services during early development.
+
+Acceptance criteria:
+
+* Current system does not require AWS, GCP, Azure, or paid hosting.
+* Current system does not require managed databases.
+* Current system does not require managed message brokers.
+* All current features run locally.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## NFR-003: Maintainable Structure
+
+The codebase must be organized clearly.
+
+Acceptance criteria:
+
+* API Gateway separates app building, config, routes, middlewares, errors, Redis client, cache stores, rate limit stores, tests, and server startup.
+* Product Service separates config, database helper, repositories, routes, middlewares, and server startup.
+* Prisma files are located under Product Service.
+* `app.ts` builds the API Gateway app and can be reused by integration tests.
+* `server.ts` mainly starts the server.
+* Business routes live in `routes`.
+* Reusable request handling logic lives in `middlewares`.
+* Reusable Gateway error types live in `errors`.
+* Downstream route information lives in `config/downstream-routes.ts`.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## NFR-004: Type Safety
+
+The project must use TypeScript with strict checking.
+
+Acceptance criteria:
+
+* TypeScript is configured.
 * `npm run typecheck` passes.
 * `npm run build` passes.
+* Services use TypeScript source files.
+* Prisma seed script has its own TypeScript config.
 
-Implemented behavior:
-
-Current total automated test status:
+Status:
 
 ```txt
-11 test files passed
-71 tests passed
+Done
 ```
 
-Current unit test files:
+---
+
+## NFR-005: Observability Foundation
+
+The project must prepare for future observability.
+
+Acceptance criteria:
+
+* JSON logger is enabled.
+* Request ID exists.
+* Request ID is propagated across services.
+* Error responses include request ID.
+* API Gateway forwards `x-request-id` to Product Service.
+* Integration tests verify request ID response header and downstream forwarding behavior.
+* Gateway already has enough request flow structure to add structured access logs and metrics in Sprint 4.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## NFR-006: Testability Foundation
+
+The project must support automated testing for Gateway core behavior.
+
+Acceptance criteria:
+
+* Test framework is installed.
+* Tests can be run with `npm run test`.
+* API Gateway can be tested without opening port `3000`.
+* API Gateway integration tests can use `app.inject()`.
+* Tests can inject in-memory rate limit store instead of Redis when needed.
+* Test output does not include unnecessary Fastify JSON logs.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## NFR-007: Failure Isolation
+
+Non-critical infrastructure failures should not break successful business responses when avoidable.
+
+Acceptance criteria:
+
+* Downstream failures are normalized.
+* Redis command failures fail fast.
+* Redis internal errors are not exposed to clients.
+* Cache write failure does not fail a successful Product Service response.
+* Cache HIT can serve data even when Product Service is temporarily down.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+# 11. Current System Constraints
+
+Current constraints after Sprint 3 completion:
+
+* API Gateway currently proxies only Product Service.
+* API key list is still environment-based.
+* JWT validation is local-secret based.
+* There is no user service yet.
+* There is no API consumer database yet.
+* Product data is database-backed, but only a minimal Product model exists.
+* Product Service has no create/update/delete product APIs yet.
+* Response cache TTL is currently fixed in code at 30 seconds.
+* Redis-backed rate limiting is implemented for `GET /api/products`, not for multiple dynamic routes yet.
+* Redis failure currently causes protected product route to return generic `500`.
+* There is no metrics endpoint yet.
+* There is no Prometheus service yet.
+* There is no Grafana dashboard yet.
+* There is no distributed tracing yet.
+* There is no Kafka or RabbitMQ yet.
+* There is no Admin Dashboard yet.
+* There is no Developer Portal yet.
+* There is no Kubernetes deployment yet.
+* There is no production cloud deployment yet.
+
+---
+
+# 12. Current Runtime Behavior
+
+## Protected Product Flow
+
+```txt
+Client
+  -> GET http://localhost:3000/api/products
+    -> API Gateway creates or reuses x-request-id
+    -> API Gateway adds basic security headers
+    -> API Gateway applies request size limit
+      -> If request body is too large:
+        -> 413 REQUEST_BODY_TOO_LARGE
+    -> API Gateway checks x-api-key
+      -> If missing:
+        -> 401 API_KEY_MISSING
+      -> If invalid:
+        -> 403 API_KEY_INVALID
+      -> If valid:
+        -> API Gateway applies Redis-backed rate limit by API key and route
+          -> If exceeded:
+            -> 429 TOO_MANY_REQUESTS
+          -> If allowed:
+            -> API Gateway checks Authorization Bearer token
+              -> If missing:
+                -> 401 JWT_TOKEN_MISSING
+              -> If invalid:
+                -> 403 JWT_TOKEN_INVALID
+              -> If valid:
+                -> API Gateway checks Redis response cache
+                  -> If cache HIT:
+                    -> 200
+                    -> x-cache: HIT
+                    -> Return cached product data
+                  -> If cache MISS:
+                    -> API Gateway calls Product Service
+                    -> Product Service reads products from PostgreSQL using Prisma
+                    -> Product Service returns product data
+                    -> API Gateway stores response in Redis cache
+                    -> API Gateway returns 200 with x-cache: MISS
+```
+
+## Public Health Flow
+
+```txt
+Client
+  -> GET http://localhost:3000/health
+    -> API Gateway creates or reuses x-request-id
+    -> API Gateway adds basic security headers
+    -> API Gateway applies request size limit
+    -> API Gateway returns health response
+```
+
+## Downstream Failure Behavior
+
+```txt
+Product Service unavailable + cache MISS
+  -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
+
+Product Service unavailable + cache HIT
+  -> 200 from Redis cache
+
+Product Service timeout + cache MISS
+  -> 504 DOWNSTREAM_TIMEOUT
+
+Product Service returns error status + cache MISS
+  -> 502 DOWNSTREAM_HTTP_ERROR
+
+Product Service returns invalid JSON + cache MISS
+  -> 502 DOWNSTREAM_INVALID_RESPONSE
+```
+
+## Redis Failure Behavior
+
+```txt
+Redis unavailable
+  -> API Gateway fails fast
+  -> Product route returns generic 500 Internal Server Error
+  -> Redis internal details are not exposed to the client
+```
+
+---
+
+# 13. Current Environment Variables
+
+## API Gateway
+
+```txt
+PORT=3000
+HOST=0.0.0.0
+PRODUCT_SERVICE_URL=http://127.0.0.1:3001
+DOWNSTREAM_REQUEST_TIMEOUT_MS=3000
+MAX_REQUEST_BODY_BYTES=1048576
+API_KEY_HEADER=x-api-key
+API_KEYS=dev-api-key
+JWT_SECRET=local-dev-jwt-secret-change-me
+JWT_ISSUER=pulsegate-api-gateway
+JWT_AUDIENCE=pulsegate-clients
+JWT_EXPIRES_IN_SECONDS=900
+PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS=5
+PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS=60000
+REDIS_URL=redis://localhost:6379
+```
+
+Docker internal values:
+
+```txt
+PRODUCT_SERVICE_URL=http://product-service:3001
+REDIS_URL=redis://redis:6379
+```
+
+## Product Service
+
+```txt
+PORT=3001
+HOST=0.0.0.0
+DATABASE_URL=postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate
+```
+
+Docker internal value:
+
+```txt
+DATABASE_URL=postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate
+```
+
+---
+
+# 14. Current Test Commands
+
+Run full Docker stack:
+
+```powershell
+docker compose up --build -d
+```
+
+Check Docker services:
+
+```powershell
+docker compose ps
+```
+
+Stop Docker stack:
+
+```powershell
+docker compose down
+```
+
+Run Product Service locally:
+
+```powershell
+npm run dev:product
+```
+
+Run API Gateway locally:
+
+```powershell
+npm run dev:gateway
+```
+
+Run automated tests:
+
+```powershell
+npm run test
+```
+
+Typecheck:
+
+```powershell
+npm run typecheck
+```
+
+Build:
+
+```powershell
+npm run build
+```
+
+Seed Product Service database:
+
+```powershell
+npm run db:seed -w apps/product-service
+```
+
+Generate Prisma Client:
+
+```powershell
+npm run db:generate -w apps/product-service
+```
+
+Validate PostgreSQL tables:
+
+```powershell
+docker compose exec postgres psql -U pulsegate -d pulsegate -c "\dt"
+```
+
+Validate product data:
+
+```powershell
+docker compose exec postgres psql -U pulsegate -d pulsegate -c "SELECT id, name, price FROM products ORDER BY id;"
+```
+
+Validate Redis:
+
+```powershell
+docker compose exec redis redis-cli ping
+```
+
+Expected Redis result:
+
+```txt
+PONG
+```
+
+Test API Gateway health:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
+```
+
+Create local development JWT token:
+
+```powershell
+$token = node --input-type=module -e "import { SignJWT } from 'jose'; const secretKey = new TextEncoder().encode('local-dev-jwt-secret-change-me'); const expiresAt = Math.floor(Date.now() / 1000) + 900; const token = await new SignJWT({ role: 'user' }).setProtectedHeader({ alg: 'HS256' }).setSubject('user_123').setIssuer('pulsegate-api-gateway').setAudience('pulsegate-clients').setExpirationTime(expiresAt).sign(secretKey); console.log(token);"
+```
+
+Create request headers:
+
+```powershell
+$headers = @{
+  "x-api-key" = "dev-api-key"
+  "authorization" = "Bearer $token"
+}
+```
+
+Test API Gateway products:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/api/products `
+  -Headers $headers |
+  ConvertTo-Json -Depth 10
+```
+
+Test Redis-backed rate limit:
+
+```powershell
+docker compose exec redis redis-cli DEL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
+
+1..6 | ForEach-Object {
+  try {
+    $res = Invoke-WebRequest http://localhost:3000/api/products `
+      -Headers $headers `
+      -UseBasicParsing
+
+    [PSCustomObject]@{
+      Attempt = $_
+      Status = $res.StatusCode
+      Remaining = $res.Headers["x-ratelimit-remaining"]
+      RetryAfter = $res.Headers["retry-after"]
+    }
+  } catch {
+    [PSCustomObject]@{
+      Attempt = $_
+      Status = $_.Exception.Response.StatusCode.value__
+      Remaining = $_.Exception.Response.Headers["x-ratelimit-remaining"]
+      RetryAfter = $_.Exception.Response.Headers["retry-after"]
+      Body = $_.ErrorDetails.Message
+    }
+  }
+} | Format-Table -AutoSize
+```
+
+Expected result:
+
+```txt
+Attempt 1 -> 200, Remaining 4
+Attempt 2 -> 200, Remaining 3
+Attempt 3 -> 200, Remaining 2
+Attempt 4 -> 200, Remaining 1
+Attempt 5 -> 200, Remaining 0
+Attempt 6 -> 429 TOO_MANY_REQUESTS
+```
+
+Check Redis rate limit key:
+
+```powershell
+docker compose exec redis redis-cli GET "rate-limit:api-key:dev-api-key:route:GET:/api/products"
+docker compose exec redis redis-cli TTL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
+```
+
+Test response cache MISS/HIT:
+
+```powershell
+docker compose exec redis redis-cli DEL "response-cache:GET:/api/products"
+docker compose exec redis redis-cli DEL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
+
+$res1 = Invoke-WebRequest http://localhost:3000/api/products `
+  -Headers $headers `
+  -UseBasicParsing
+
+$res1.StatusCode
+$res1.Headers["x-cache"]
+$res1.Content
+
+$res2 = Invoke-WebRequest http://localhost:3000/api/products `
+  -Headers $headers `
+  -UseBasicParsing
+
+$res2.StatusCode
+$res2.Headers["x-cache"]
+$res2.Content
+```
+
+Expected result:
+
+```txt
+Request 1 -> 200, x-cache: MISS
+Request 2 -> 200, x-cache: HIT
+```
+
+Check Redis response cache key:
+
+```powershell
+docker compose exec redis redis-cli GET "response-cache:GET:/api/products"
+docker compose exec redis redis-cli TTL "response-cache:GET:/api/products"
+```
+
+Test cache HIT when Product Service is down:
+
+```powershell
+docker compose exec redis redis-cli DEL "response-cache:GET:/api/products"
+docker compose exec redis redis-cli DEL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
+
+$res1 = Invoke-WebRequest http://localhost:3000/api/products `
+  -Headers $headers `
+  -UseBasicParsing
+
+$res1.StatusCode
+$res1.Headers["x-cache"]
+
+docker compose stop product-service
+
+$res2 = Invoke-WebRequest http://localhost:3000/api/products `
+  -Headers $headers `
+  -UseBasicParsing
+
+$res2.StatusCode
+$res2.Headers["x-cache"]
+$res2.Content
+
+docker compose start product-service
+```
+
+Expected result:
+
+```txt
+Request 1 -> 200, x-cache: MISS
+Product Service stopped
+Request 2 -> 200, x-cache: HIT
+```
+
+Test Redis down behavior:
+
+```powershell
+docker compose stop redis
+
+try {
+  Invoke-RestMethod http://localhost:3000/api/products `
+    -Headers $headers |
+    ConvertTo-Json -Depth 10
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+
+docker compose start redis
+docker compose restart api-gateway
+```
+
+Expected result:
+
+```txt
+500
+{"error":{"message":"Internal Server Error","requestId":"example-request-id"}}
+```
+
+---
+
+# 15. Automated Test Status
+
+Current test framework:
+
+```txt
+Vitest
+```
+
+Current test result:
+
+```txt
+13 test files passed
+85 tests passed
+```
+
+Current unit tests:
 
 ```txt
 apps/api-gateway/src/middlewares/request-id.middleware.test.ts
+  -> 4 tests
+
 apps/api-gateway/src/middlewares/api-key-auth.middleware.test.ts
+  -> 4 tests
+
 apps/api-gateway/src/middlewares/jwt-auth.middleware.test.ts
+  -> 9 tests
+
 apps/api-gateway/src/rate-limit/in-memory-rate-limit-store.test.ts
+  -> 9 tests
+
+apps/api-gateway/src/rate-limit/redis-rate-limit-store.test.ts
+  -> 7 tests
+
 apps/api-gateway/src/middlewares/rate-limit.middleware.test.ts
+  -> 5 tests
+
+apps/api-gateway/src/cache/redis-response-cache-store.test.ts
+  -> 7 tests
+
 apps/api-gateway/src/middlewares/request-size-limit.middleware.test.ts
+  -> 6 tests
+
 apps/api-gateway/src/middlewares/security-headers.middleware.test.ts
+  -> 1 test
+
 apps/api-gateway/src/errors/downstream-service-error.test.ts
+  -> 5 tests
+
 apps/api-gateway/src/config/env.test.ts
+  -> 14 tests
+
 apps/api-gateway/src/config/downstream-routes.test.ts
+  -> 2 tests
 ```
 
-Current integration test file:
+Current integration tests:
 
 ```txt
 apps/api-gateway/src/app.test.ts
+  -> 12 tests
 ```
 
-Current integration test coverage:
+Integration test coverage:
 
 ```txt
 GET /health
@@ -1269,251 +1778,11 @@ GET /api/products with valid API key and valid JWT but downstream times out
   -> 504 DOWNSTREAM_TIMEOUT
 ```
 
-Status:
+---
 
-```txt
-Done
-```
+# 16. Sprint Definitions of Done
 
-## 13. Current Runtime Behavior
-
-Current protected product flow:
-
-```txt
-Client
-  -> GET http://localhost:3000/api/products
-    -> API Gateway creates or reuses x-request-id
-    -> API Gateway adds basic security headers
-    -> API Gateway applies request size limit
-      -> If request body is too large:
-        -> 413 REQUEST_BODY_TOO_LARGE
-    -> API Gateway checks x-api-key
-      -> If missing:
-        -> 401 API_KEY_MISSING
-      -> If invalid:
-        -> 403 API_KEY_INVALID
-      -> If valid:
-        -> API Gateway applies rate limit by API key and route
-          -> If exceeded:
-            -> 429 TOO_MANY_REQUESTS
-          -> If allowed:
-            -> API Gateway checks Authorization Bearer token
-              -> If missing:
-                -> 401 JWT_TOKEN_MISSING
-              -> If invalid:
-                -> 403 JWT_TOKEN_INVALID
-              -> If valid:
-                -> API Gateway calls Product Service
-                  -> GET http://127.0.0.1:3001/products
-                -> Product Service returns mock product data
-    -> API Gateway returns response to Client
-```
-
-Current public health flow:
-
-```txt
-Client
-  -> GET http://localhost:3000/health
-    -> API Gateway creates or reuses x-request-id
-    -> API Gateway adds basic security headers
-    -> API Gateway applies request size limit
-    -> API Gateway returns health response
-```
-
-Current downstream failure behavior:
-
-```txt
-Product Service unavailable
-  -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
-
-Product Service timeout
-  -> 504 DOWNSTREAM_TIMEOUT
-
-Product Service returns error status
-  -> 502 DOWNSTREAM_HTTP_ERROR
-
-Product Service returns invalid JSON
-  -> 502 DOWNSTREAM_INVALID_RESPONSE
-```
-
-## 14. Current Test Commands
-
-Run Product Service:
-
-```powershell
-npm run dev:product
-```
-
-Run API Gateway:
-
-```powershell
-npm run dev:gateway
-```
-
-Run automated tests:
-
-```powershell
-npm run test
-```
-
-Typecheck:
-
-```powershell
-npm run typecheck
-```
-
-Build:
-
-```powershell
-npm run build
-```
-
-Test Product Service manually:
-
-```powershell
-Invoke-RestMethod http://localhost:3001/health | ConvertTo-Json -Depth 10
-Invoke-RestMethod http://localhost:3001/products | ConvertTo-Json -Depth 10
-```
-
-Test API Gateway health manually:
-
-```powershell
-Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
-```
-
-Create local development JWT token:
-
-```powershell
-$token = node --input-type=module -e "import { SignJWT } from 'jose'; const secretKey = new TextEncoder().encode('local-dev-jwt-secret-change-me'); const expiresAt = Math.floor(Date.now() / 1000) + 900; const token = await new SignJWT({ role: 'user' }).setProtectedHeader({ alg: 'HS256' }).setSubject('user_123').setIssuer('pulsegate-api-gateway').setAudience('pulsegate-clients').setExpirationTime(expiresAt).sign(secretKey); console.log(token);"
-```
-
-Test API Gateway products with valid API key and valid JWT:
-
-```powershell
-Invoke-RestMethod http://localhost:3000/api/products `
-  -Headers @{
-    "x-api-key" = "dev-api-key"
-    "authorization" = "Bearer $token"
-  } |
-  ConvertTo-Json -Depth 10
-```
-
-Test product route rate limit:
-
-```powershell
-$headers = @{
-  "x-api-key" = "dev-api-key"
-  "authorization" = "Bearer $token"
-}
-
-1..6 | ForEach-Object {
-  try {
-    $res = Invoke-WebRequest http://localhost:3000/api/products `
-      -Headers $headers `
-      -UseBasicParsing
-
-    [PSCustomObject]@{
-      Attempt = $_
-      Status = $res.StatusCode
-      Remaining = $res.Headers["x-ratelimit-remaining"]
-      RetryAfter = $res.Headers["retry-after"]
-    }
-  } catch {
-    [PSCustomObject]@{
-      Attempt = $_
-      Status = $_.Exception.Response.StatusCode.value__
-      Remaining = $_.Exception.Response.Headers["x-ratelimit-remaining"]
-      RetryAfter = $_.Exception.Response.Headers["retry-after"]
-      Body = $_.ErrorDetails.Message
-    }
-  }
-} | Format-Table -AutoSize
-```
-
-Expected rate limit behavior:
-
-```txt
-Attempt 1 -> 200, Remaining 4
-Attempt 2 -> 200, Remaining 3
-Attempt 3 -> 200, Remaining 2
-Attempt 4 -> 200, Remaining 1
-Attempt 5 -> 200, Remaining 0
-Attempt 6 -> 429 TOO_MANY_REQUESTS
-```
-
-Test missing API key:
-
-```powershell
-try {
-  Invoke-RestMethod http://localhost:3000/api/products | ConvertTo-Json -Depth 10
-} catch {
-  $_.Exception.Response.StatusCode.value__
-  $_.ErrorDetails.Message
-}
-```
-
-Test invalid API key:
-
-```powershell
-try {
-  Invoke-RestMethod http://localhost:3000/api/products `
-    -Headers @{ "x-api-key" = "wrong-key" } |
-    ConvertTo-Json -Depth 10
-} catch {
-  $_.Exception.Response.StatusCode.value__
-  $_.ErrorDetails.Message
-}
-```
-
-Test missing JWT:
-
-```powershell
-try {
-  Invoke-RestMethod http://localhost:3000/api/products `
-    -Headers @{ "x-api-key" = "dev-api-key" } |
-    ConvertTo-Json -Depth 10
-} catch {
-  $_.Exception.Response.StatusCode.value__
-  $_.ErrorDetails.Message
-}
-```
-
-Test invalid JWT:
-
-```powershell
-try {
-  Invoke-RestMethod http://localhost:3000/api/products `
-    -Headers @{
-      "x-api-key" = "dev-api-key"
-      "authorization" = "Bearer invalid-token"
-    } |
-    ConvertTo-Json -Depth 10
-} catch {
-  $_.Exception.Response.StatusCode.value__
-  $_.ErrorDetails.Message
-}
-```
-
-Expected products response:
-
-```json
-{
-  "data": [
-    {
-      "id": "prod_001",
-      "name": "Mechanical Keyboard",
-      "price": 120
-    },
-    {
-      "id": "prod_002",
-      "name": "Gaming Mouse",
-      "price": 45
-    }
-  ]
-}
-```
-
-## 15. Sprint 0 Definition of Done
+## Sprint 0 Definition of Done
 
 Sprint 0 is done when:
 
@@ -1541,7 +1810,7 @@ Current Sprint 0 status:
 Done
 ```
 
-## 16. Sprint 1 Definition of Done
+## Sprint 1 Definition of Done
 
 Sprint 1 is done when:
 
@@ -1566,19 +1835,7 @@ Current Sprint 1 status:
 Done
 ```
 
-Completed Sprint 1 items:
-
-```txt
-S1-FR-001 Done
-S1-FR-002 Done
-S1-FR-003 Done
-S1-FR-004 Done
-S1-FR-005 Done
-S1-FR-006 Done
-S1-FR-007 Done
-```
-
-## 17. Sprint 2 Definition of Done
+## Sprint 2 Definition of Done
 
 Sprint 2 is done when:
 
@@ -1609,126 +1866,134 @@ Current Sprint 2 status:
 Done
 ```
 
-Completed Sprint 2 items:
+## Sprint 3 Definition of Done
+
+Sprint 3 is done when:
+
+* Docker Compose can run the local stack.
+* API Gateway has a Dockerfile.
+* Product Service has a Dockerfile.
+* PostgreSQL service is available through Docker Compose.
+* Redis service is available through Docker Compose.
+* Product Service has `DATABASE_URL` configuration.
+* Product Service uses Prisma.
+* Prisma Product model exists.
+* Initial Product migration exists.
+* Product seed script exists and is idempotent.
+* Product Service reads products from PostgreSQL.
+* API Gateway has Redis client foundation.
+* API Gateway uses Redis-backed rate limiting for `GET /api/products`.
+* Redis rate limit key is created and incremented.
+* Rate limit behavior remains externally compatible with Sprint 2.
+* API Gateway has Redis response cache store.
+* API Gateway caches product responses in Redis.
+* API Gateway returns `x-cache: MISS` on cache MISS.
+* API Gateway returns `x-cache: HIT` on cache HIT.
+* API Gateway can return cached data when Product Service is down.
+* Redis failures fail fast and do not expose internal Redis errors.
+* Cache write failures are isolated from valid downstream responses.
+* `npm run test` passes.
+* `npm run typecheck` passes.
+* `npm run build` passes.
+* Docker validation passes.
+* Code is pushed to GitHub.
+
+Current Sprint 3 status:
 
 ```txt
-S2-FR-001 Done
-S2-FR-002 Done
-S2-FR-003 Done
-S2-FR-004 Done
-S2-FR-005 Done
-S2-FR-006 Done
-S2-FR-007 Done
+Technical implementation complete
 ```
 
-## 18. Future Functional Requirements
+---
+
+# 17. Future Functional Requirements
 
 These requirements are planned for later sprints.
 
-### Future FR: Redis-Backed Distributed Rate Limiting
+## Future FR: Observability Metrics
 
-API Gateway should support distributed rate limiting through Redis.
+API Gateway should expose basic metrics.
 
 Planned features:
 
-* Store counters in Redis.
-* Share counters across multiple Gateway instances.
-* Keep the same external rate limit behavior.
-* Reuse the current rate limit middleware contract where possible.
+* Request count metrics.
+* Request duration metrics.
+* Route-level metrics.
+* Status-code-level metrics.
+* Basic `/metrics` endpoint.
+* Prometheus scraping.
 
 Status:
 
 ```txt
-Planned
+Planned for Sprint 4
 ```
 
 ---
 
-### Future FR: Redis Caching
+## Future FR: Grafana Dashboard
 
-API Gateway should cache selected responses.
+The system should provide a local Grafana dashboard.
 
 Planned features:
 
-* Cache product responses.
-* Configure TTL.
-* Return cached response when available.
-* Reduce downstream service load.
+* Prometheus service.
+* Grafana service.
+* API Gateway dashboard.
+* Request rate panel.
+* Latency panel.
+* Error rate panel.
 
 Status:
 
 ```txt
-Planned
+Planned for Sprint 4
 ```
 
 ---
 
-### Future FR: PostgreSQL and Prisma
+## Future FR: Structured Access Logs
 
-Product Service should use a real database.
+API Gateway should produce structured access logs.
 
 Planned features:
 
-* Add PostgreSQL.
-* Add Prisma.
-* Create Product model.
-* Replace mock product data with database data.
+* Log method.
+* Log route.
+* Log status code.
+* Log request ID.
+* Log latency.
+* Log cache status.
+* Log downstream service when relevant.
 
 Status:
 
 ```txt
-Planned
+Planned for Sprint 4
 ```
 
 ---
 
-### Future FR: Docker Compose
+## Future FR: Distributed Tracing
 
-The project should support local infrastructure through Docker Compose.
-
-Planned services:
-
-* API Gateway
-* Product Service
-* PostgreSQL
-* Redis
-
-Later services:
-
-* Kafka
-* RabbitMQ
-* Prometheus
-* Grafana
-* Jaeger or Tempo
-
-Status:
-
-```txt
-Planned
-```
-
----
-
-### Future FR: Metrics and Tracing
-
-The system should expose metrics and distributed tracing.
+The system should support distributed tracing later.
 
 Planned features:
 
-* Prometheus metrics.
-* Grafana dashboards.
 * OpenTelemetry instrumentation.
+* Trace ID propagation.
+* Span generation.
 * Jaeger or Tempo trace viewer.
 
 Status:
 
 ```txt
-Planned
+Planned for later sprint
 ```
 
 ---
 
-### Future FR: Event-Driven Architecture
+## Future FR: Event-Driven Architecture
 
 The system should support event streaming and background processing later.
 
@@ -1742,39 +2007,103 @@ Planned features:
 Status:
 
 ```txt
-Planned
+Planned for later sprint
 ```
 
-## 19. Recommended Next Step
+---
+
+## Future FR: Admin Dashboard
+
+The system should eventually support an Admin Dashboard.
+
+Planned features:
+
+* View services.
+* View routes.
+* View API consumers.
+* View API keys.
+* View traffic metrics.
+* View logs and status.
+
+Status:
+
+```txt
+Planned for later sprint
+```
+
+---
+
+## Future FR: Developer Portal
+
+The system should eventually support a Developer Portal.
+
+Planned features:
+
+* API documentation.
+* API key request flow.
+* Usage overview.
+* Developer onboarding.
+
+Status:
+
+```txt
+Planned for later sprint
+```
+
+---
+
+## Future FR: Kubernetes Deployment
+
+The system should eventually support Kubernetes deployment.
+
+Planned features:
+
+* Kubernetes manifests.
+* Service deployments.
+* ConfigMaps.
+* Secrets.
+* Ingress.
+* Horizontal scaling examples.
+
+Status:
+
+```txt
+Planned for later sprint
+```
+
+---
+
+# 18. Recommended Next Step
 
 Recommended next step:
 
 ```txt
-Sprint 3 - Data & Infrastructure Foundation
+Sprint 3 - Final Documentation Update
 ```
 
-Reason:
+After Sprint 3 final documentation update, move to:
 
-The Gateway now has routing, request ID propagation, authentication, downstream timeout handling, normalized error handling, traffic protection, and automated tests. The next useful production-like step is adding local infrastructure and real data storage.
+```txt
+Sprint 4 - Observability Foundation
+```
 
-Recommended Sprint 3 order:
+Recommended Sprint 4 order:
 
-1. Add Docker Compose foundation.
-2. Add PostgreSQL service.
-3. Add Product Service database foundation.
-4. Add Prisma.
-5. Replace mock product data with database-backed product data.
-6. Add Redis service.
-7. Upgrade rate limiting from in-memory store to Redis-backed store.
-8. Add basic response caching.
+1. Add structured access logs.
+2. Add request latency measurement.
+3. Add basic metrics endpoint.
+4. Add Prometheus service.
+5. Add Grafana service.
+6. Add dashboard foundation.
+7. Add gateway-level observability documentation.
+8. Keep advanced OpenTelemetry tracing for a later sprint unless explicitly needed.
 
-Do not add these before the Sprint 3 foundation is stable:
+Do not add these before the Sprint 4 foundation is stable:
 
 * Kafka
 * RabbitMQ
-* Prometheus
-* Grafana
-* OpenTelemetry
+* Kubernetes
 * Admin Dashboard
 * Developer Portal
-* Kubernetes
+* Advanced OpenTelemetry tracing
+* Production cloud deployment

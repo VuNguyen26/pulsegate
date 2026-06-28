@@ -6,13 +6,15 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Sprint
 
-Sprint 2 - Gateway Traffic Protection
+Sprint 3 - Data & Infrastructure Foundation
 
 ## Current Version
 
-v0.3.0
+v0.4.0
 
 ## Sprint Status
+
+Sprint 3 technical implementation is complete.
 
 Sprint 2 is complete.
 
@@ -20,19 +22,28 @@ Sprint 1 is complete.
 
 Sprint 0 is complete.
 
-Sprint 2 completed the Gateway traffic protection foundation:
+Sprint 3 completed the data and infrastructure foundation:
 
-1. Add in-memory rate limiting foundation.
-2. Add route-level rate limit configuration.
-3. Add rate limit response behavior.
-4. Return `429 TOO_MANY_REQUESTS` when the limit is exceeded.
-5. Add request size limit.
-6. Return `413 REQUEST_BODY_TOO_LARGE` when request body is too large.
-7. Add basic security headers.
-8. Add route-level auth configuration refinement.
-9. Add traffic protection unit tests.
-10. Add traffic protection integration tests.
-11. Manually validate rate limit behavior with PowerShell.
+1. Add Docker Compose foundation.
+2. Containerize API Gateway and Product Service.
+3. Add PostgreSQL service.
+4. Add Redis service.
+5. Add Product Service database configuration.
+6. Add Prisma foundation.
+7. Add initial Product model and migration.
+8. Add idempotent product seed script.
+9. Replace mock Product Service data with PostgreSQL-backed product data.
+10. Add Redis client foundation to API Gateway.
+11. Add Redis-backed rate limit store.
+12. Replace in-memory rate limiting for `GET /api/products` with Redis-backed rate limiting.
+13. Add Redis response cache store.
+14. Add response caching for `GET /api/products`.
+15. Add `x-cache: MISS` and `x-cache: HIT` response headers.
+16. Validate cache HIT behavior when Product Service is down.
+17. Add fail-fast Redis command timeout behavior.
+18. Isolate response cache write failures so valid downstream responses still return successfully.
+19. Add and update unit/integration tests.
+20. Manually validate Docker, PostgreSQL, Redis, rate limiting, and caching behavior.
 
 ## Completed
 
@@ -46,6 +57,185 @@ Sprint 2 completed the Gateway traffic protection foundation:
 * `.gitignore` added.
 * `.gitattributes` added.
 * `.env.example` added.
+* Docker Compose foundation added.
+* API Gateway Dockerfile added.
+* Product Service Dockerfile added.
+* `.dockerignore` added.
+
+### Infrastructure
+
+Current local infrastructure is managed through Docker Compose.
+
+Implemented services:
+
+```txt
+api-gateway
+product-service
+postgres
+redis
+```
+
+Current exposed ports:
+
+```txt
+API Gateway      -> 3000
+Product Service  -> 3001
+PostgreSQL       -> 5432
+Redis            -> 6379
+```
+
+Current Docker services:
+
+```txt
+pulsegate-api-gateway
+pulsegate-product-service
+pulsegate-postgres
+pulsegate-redis
+```
+
+Current Docker Compose behavior:
+
+* API Gateway runs inside Docker.
+* Product Service runs inside Docker.
+* PostgreSQL runs inside Docker.
+* Redis runs inside Docker.
+* Product Service depends on healthy PostgreSQL.
+* API Gateway depends on healthy Redis and healthy Product Service.
+* PostgreSQL uses persistent Docker volume.
+* Redis uses the default Redis image behavior.
+* API Gateway uses Docker internal service URL for Product Service.
+* API Gateway uses Docker internal Redis URL.
+
+Current infrastructure validation:
+
+```powershell
+docker compose up --build -d
+docker compose ps
+```
+
+Expected services:
+
+```txt
+pulsegate-postgres         healthy
+pulsegate-redis            healthy
+pulsegate-product-service  healthy
+pulsegate-api-gateway      up
+```
+
+### PostgreSQL
+
+Implemented:
+
+* PostgreSQL Docker service.
+* Local database name:
+
+```txt
+pulsegate
+```
+
+Default local database user:
+
+```txt
+pulsegate
+```
+
+Default local password:
+
+```txt
+pulsegate_password
+```
+
+Current local host connection string:
+
+```txt
+postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate
+```
+
+Current Docker internal connection string:
+
+```txt
+postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate
+```
+
+Current database tables:
+
+```txt
+_prisma_migrations
+products
+```
+
+Current `products` table columns:
+
+```txt
+id
+name
+price
+createdAt
+updatedAt
+```
+
+Current seeded products:
+
+```txt
+prod_001 - Mechanical Keyboard - 120
+prod_002 - Gaming Mouse - 45
+```
+
+### Redis
+
+Implemented:
+
+* Redis Docker service.
+* Redis client foundation in API Gateway.
+* Redis-backed rate limiting.
+* Redis response caching.
+* Redis command timeout behavior.
+* Redis fail-fast behavior for rate limit and cache commands.
+* Redis offline queue disabled.
+* Redis reconnect strategy disabled for the current local development setup.
+
+Current local Redis URL:
+
+```txt
+redis://localhost:6379
+```
+
+Current Docker internal Redis URL:
+
+```txt
+redis://redis:6379
+```
+
+Redis validation command:
+
+```powershell
+docker compose exec redis redis-cli ping
+```
+
+Expected result:
+
+```txt
+PONG
+```
+
+Current Redis key categories:
+
+```txt
+rate-limit:*
+response-cache:*
+```
+
+Example Redis rate limit key:
+
+```txt
+rate-limit:api-key:dev-api-key:route:GET:/api/products
+```
+
+Example Redis response cache key:
+
+```txt
+response-cache:GET:/api/products
+```
 
 ### API Gateway
 
@@ -76,6 +266,9 @@ Implemented:
 * Routes separated into `routes`.
 * Middlewares separated into `middlewares`.
 * Errors separated into `errors`.
+* Redis client separated into `redis`.
+* Rate limit stores separated into `rate-limit`.
+* Response cache stores separated into `cache`.
 * App builder separated into `app.ts`.
 * Server startup separated into `server.ts`.
 * Normalized downstream service errors.
@@ -89,7 +282,8 @@ Implemented:
 * JWT authentication middleware.
 * JWT validation using `jose`.
 * Protected Product route with API key and JWT.
-* In-memory rate limiting foundation.
+* In-memory rate limit store for tests and fallback-compatible abstractions.
+* Redis-backed rate limit store for Docker/runtime flow.
 * Route-level rate limit configuration.
 * Rate limit response behavior with `429 TOO_MANY_REQUESTS`.
 * Rate limit response headers.
@@ -99,6 +293,11 @@ Implemented:
 * Request body too large response with `413 REQUEST_BODY_TOO_LARGE`.
 * Basic security headers.
 * Route-level auth configuration.
+* Redis response cache store.
+* Product response caching for `GET /api/products`.
+* Cache debug headers with `x-cache: MISS`, `x-cache: HIT`, and `x-cache: BYPASS`.
+* Cache HIT behavior when Product Service is down.
+* Cache write failure isolation.
 * Vitest unit test setup.
 * API Gateway integration tests using `app.inject()`.
 
@@ -117,8 +316,10 @@ GET /health
 
 GET /api/products
   -> Requires API key
-  -> Rate limited by API key and route
+  -> Redis-backed rate limited by API key and route
   -> Requires JWT Bearer token
+  -> Uses Redis response cache
+  -> Proxies to Product Service on cache MISS
 ```
 
 Current API key header:
@@ -156,12 +357,36 @@ PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS=5
 PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS=60000
 ```
 
-Current structure:
+Current response cache behavior:
+
+```txt
+GET /api/products
+  -> Cache MISS:
+       x-cache: MISS
+       API Gateway calls Product Service
+       API Gateway stores response in Redis
+  -> Cache HIT:
+       x-cache: HIT
+       API Gateway returns cached response from Redis
+  -> Cache disabled in injected tests:
+       x-cache: BYPASS
+```
+
+Current response cache TTL:
+
+```txt
+30 seconds
+```
+
+Current API Gateway structure:
 
 ```txt
 apps/api-gateway/src/
   app.ts
   app.test.ts
+  cache/
+    redis-response-cache-store.ts
+    redis-response-cache-store.test.ts
   config/
     downstream-routes.ts
     downstream-routes.test.ts
@@ -187,6 +412,10 @@ apps/api-gateway/src/
   rate-limit/
     in-memory-rate-limit-store.ts
     in-memory-rate-limit-store.test.ts
+    redis-rate-limit-store.ts
+    redis-rate-limit-store.test.ts
+  redis/
+    redis-client.ts
   routes/
     health.route.ts
     product-proxy.route.ts
@@ -211,7 +440,11 @@ Implemented:
 
 * Fastify server.
 * Health check endpoint.
-* Products endpoint with mock data.
+* Products endpoint.
+* PostgreSQL-backed products.
+* Prisma Client.
+* Product repository.
+* Database connection helper.
 * Request ID generation and reuse.
 * Request ID reuse from API Gateway.
 * JSON logger.
@@ -220,6 +453,9 @@ Implemented:
 * Config separated into `config/env.ts`.
 * Routes separated into `routes`.
 * Middlewares separated into `middlewares`.
+* Prisma schema.
+* Prisma migration for `products`.
+* Idempotent seed script.
 
 Current endpoints:
 
@@ -228,19 +464,40 @@ GET /health
 GET /products
 ```
 
-Current structure:
+Current Product Service behavior:
 
 ```txt
-apps/product-service/src/
-  config/
-    env.ts
-  middlewares/
-    error-handler.middleware.ts
-    request-id.middleware.ts
-  routes/
-    health.route.ts
-    product.route.ts
-  server.ts
+GET /products
+  -> Reads products from PostgreSQL
+  -> Returns product list ordered by id
+```
+
+Current Product Service structure:
+
+```txt
+apps/product-service/
+  prisma/
+    migrations/
+      20260628092746_init_products/
+        migration.sql
+      migration_lock.toml
+    schema.prisma
+    seed.ts
+    tsconfig.json
+  src/
+    config/
+      env.ts
+    database/
+      prisma.ts
+    middlewares/
+      error-handler.middleware.ts
+      request-id.middleware.ts
+    products/
+      product.repository.ts
+    routes/
+      health.route.ts
+      product.route.ts
+    server.ts
 ```
 
 ## Current Working Flow
@@ -252,13 +509,21 @@ Client
     -> Basic security headers
     -> Request size limit
     -> API key authentication for protected routes
-    -> In-memory rate limiting by API key and route
+    -> Redis-backed rate limiting by API key and route
     -> JWT Bearer token authentication for protected routes
-    -> Downstream route configuration
-    -> Downstream timeout handling
-    -> Normalized downstream error handling
-    -> Product Service :3001
-      -> Mock Product Response
+    -> Redis response cache
+      -> Cache HIT:
+           -> Return cached product response
+      -> Cache MISS:
+           -> Downstream route configuration
+           -> Downstream timeout handling
+           -> Normalized downstream error handling
+           -> Product Service :3001
+             -> Prisma Client
+             -> PostgreSQL :5432
+             -> Database-backed product response
+           -> Store response in Redis cache
+    -> Return response to Client
 ```
 
 Current product request flow:
@@ -277,7 +542,7 @@ Client
       -> If invalid:
         -> 403 API_KEY_INVALID
       -> If valid:
-        -> API Gateway applies rate limit by API key and route
+        -> API Gateway applies Redis-backed rate limit by API key and route
           -> If exceeded:
             -> 429 TOO_MANY_REQUESTS
           -> If allowed:
@@ -287,10 +552,18 @@ Client
               -> If invalid:
                 -> 403 JWT_TOKEN_INVALID
               -> If valid:
-                -> API Gateway calls Product Service
-                  -> GET http://127.0.0.1:3001/products
-                -> Product Service returns mock product data
-    -> API Gateway returns response to Client
+                -> API Gateway checks Redis response cache
+                  -> If cache HIT:
+                    -> 200 with x-cache: HIT
+                    -> Return cached products
+                  -> If cache MISS:
+                    -> API Gateway calls Product Service
+                      -> GET http://product-service:3001/products inside Docker
+                      -> GET http://127.0.0.1:3001/products in local host mode
+                    -> Product Service reads products from PostgreSQL
+                    -> Product Service returns database-backed product data
+                    -> API Gateway stores response in Redis cache
+                    -> API Gateway returns 200 with x-cache: MISS
 ```
 
 Current downstream failure flow:
@@ -298,15 +571,28 @@ Current downstream failure flow:
 ```txt
 Client
   -> GET http://localhost:3000/api/products with valid API key and valid JWT
-    -> API Gateway calls Product Service
-      -> If Product Service is unavailable:
-        -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
-      -> If Product Service times out:
-        -> 504 DOWNSTREAM_TIMEOUT
-      -> If Product Service returns 5xx:
-        -> 502 DOWNSTREAM_HTTP_ERROR
-      -> If Product Service returns invalid JSON:
-        -> 502 DOWNSTREAM_INVALID_RESPONSE
+    -> API Gateway checks Redis response cache
+      -> If cache HIT:
+        -> 200 with x-cache: HIT even if Product Service is temporarily down
+      -> If cache MISS:
+        -> API Gateway calls Product Service
+          -> If Product Service is unavailable:
+            -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
+          -> If Product Service times out:
+            -> 504 DOWNSTREAM_TIMEOUT
+          -> If Product Service returns 5xx:
+            -> 502 DOWNSTREAM_HTTP_ERROR
+          -> If Product Service returns invalid JSON:
+            -> 502 DOWNSTREAM_INVALID_RESPONSE
+```
+
+Current Redis failure behavior:
+
+```txt
+Redis unavailable
+  -> API Gateway fails fast for Redis-backed rate limit/cache commands
+  -> Product route returns generic 500 Internal Server Error
+  -> Internal Redis details are not exposed in the response body
 ```
 
 ## Traffic Protection Behavior
@@ -341,16 +627,28 @@ Rate limit identity:
 API key + HTTP method + route path
 ```
 
-Current rate limit key shape:
+Current rate limit key shape before Redis prefix:
 
 ```txt
 api-key:<api-key>:route:<method>:<route-path>
 ```
 
-Example:
+Example logical rate limit key:
 
 ```txt
 api-key:dev-api-key:route:GET:/api/products
+```
+
+Current Redis rate limit key shape:
+
+```txt
+rate-limit:api-key:<api-key>:route:<method>:<route-path>
+```
+
+Example Redis rate limit key:
+
+```txt
+rate-limit:api-key:dev-api-key:route:GET:/api/products
 ```
 
 Rate limit response headers:
@@ -434,15 +732,96 @@ permissions-policy: camera=(), microphone=(), geolocation=()
 content-security-policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'
 ```
 
+## Response Cache Behavior
+
+Current cached route:
+
+```txt
+GET /api/products
+```
+
+Current Redis response cache key:
+
+```txt
+response-cache:GET:/api/products
+```
+
+Current behavior:
+
+```txt
+First request
+  -> Cache MISS
+  -> API Gateway calls Product Service
+  -> API Gateway stores response in Redis
+  -> Response header: x-cache: MISS
+
+Second request within TTL
+  -> Cache HIT
+  -> API Gateway returns cached response from Redis
+  -> Response header: x-cache: HIT
+```
+
+Current TTL:
+
+```txt
+30 seconds
+```
+
+Expected response cache headers:
+
+```txt
+x-cache: MISS
+x-cache: HIT
+x-cache: BYPASS
+```
+
+Cache write failure behavior:
+
+```txt
+Product Service returns valid JSON
+  -> API Gateway attempts to write cache
+  -> If cache write fails:
+       -> API Gateway logs the cache error
+       -> API Gateway still returns 200 response to client
+```
+
+Cache resilience behavior:
+
+```txt
+Product Service down + cache HIT
+  -> API Gateway returns 200 from Redis cache
+
+Product Service down + cache MISS
+  -> API Gateway returns downstream error
+```
+
 ## Main Test Commands
 
-Run Product Service:
+Run full Docker stack:
+
+```powershell
+docker compose up --build -d
+```
+
+Check Docker services:
+
+```powershell
+docker compose ps
+```
+
+Stop Docker stack:
+
+```powershell
+docker compose down
+```
+
+Run Product Service locally:
 
 ```powershell
 npm run dev:product
 ```
 
-Run API Gateway:
+Run API Gateway locally:
 
 ```powershell
 npm run dev:gateway
@@ -466,6 +845,42 @@ Build:
 npm run build
 ```
 
+Run Product Service seed:
+
+```powershell
+npm run db:seed -w apps/product-service
+```
+
+Generate Prisma Client:
+
+```powershell
+npm run db:generate -w apps/product-service
+```
+
+Validate PostgreSQL tables:
+
+```powershell
+docker compose exec postgres psql -U pulsegate -d pulsegate -c "\dt"
+```
+
+Validate products table:
+
+```powershell
+docker compose exec postgres psql -U pulsegate -d pulsegate -c "SELECT id, name, price FROM products ORDER BY id;"
+```
+
+Validate Redis:
+
+```powershell
+docker compose exec redis redis-cli ping
+```
+
+Expected Redis result:
+
+```txt
+PONG
+```
+
 Test Product Service:
 
 ```powershell
@@ -485,24 +900,27 @@ Create local development JWT token:
 $token = node --input-type=module -e "import { SignJWT } from 'jose'; const secretKey = new TextEncoder().encode('local-dev-jwt-secret-change-me'); const expiresAt = Math.floor(Date.now() / 1000) + 900; const token = await new SignJWT({ role: 'user' }).setProtectedHeader({ alg: 'HS256' }).setSubject('user_123').setIssuer('pulsegate-api-gateway').setAudience('pulsegate-clients').setExpirationTime(expiresAt).sign(secretKey); console.log(token);"
 ```
 
-Test API Gateway products with valid API key and valid JWT:
-
-```powershell
-Invoke-RestMethod http://localhost:3000/api/products `
-  -Headers @{
-    "x-api-key" = "dev-api-key"
-    "authorization" = "Bearer $token"
-  } |
-  ConvertTo-Json -Depth 10
-```
-
-Test product route rate limit:
+Create API request headers:
 
 ```powershell
 $headers = @{
   "x-api-key" = "dev-api-key"
   "authorization" = "Bearer $token"
 }
+```
+
+Test API Gateway products with valid API key and valid JWT:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/api/products `
+  -Headers $headers |
+  ConvertTo-Json -Depth 10
+```
+
+Test product route Redis-backed rate limit:
+
+```powershell
+docker compose exec redis redis-cli DEL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
 
 1..6 | ForEach-Object {
   try {
@@ -537,6 +955,109 @@ Attempt 3 -> 200, Remaining 2
 Attempt 4 -> 200, Remaining 1
 Attempt 5 -> 200, Remaining 0
 Attempt 6 -> 429 TOO_MANY_REQUESTS
+```
+
+Check Redis rate limit key:
+
+```powershell
+docker compose exec redis redis-cli GET "rate-limit:api-key:dev-api-key:route:GET:/api/products"
+docker compose exec redis redis-cli TTL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
+```
+
+Test response cache MISS/HIT:
+
+```powershell
+docker compose exec redis redis-cli DEL "response-cache:GET:/api/products"
+docker compose exec redis redis-cli DEL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
+
+$res1 = Invoke-WebRequest http://localhost:3000/api/products `
+  -Headers $headers `
+  -UseBasicParsing
+
+$res1.StatusCode
+$res1.Headers["x-cache"]
+$res1.Content
+
+$res2 = Invoke-WebRequest http://localhost:3000/api/products `
+  -Headers $headers `
+  -UseBasicParsing
+
+$res2.StatusCode
+$res2.Headers["x-cache"]
+$res2.Content
+```
+
+Expected response cache behavior:
+
+```txt
+Request 1 -> 200, x-cache: MISS
+Request 2 -> 200, x-cache: HIT
+```
+
+Check Redis response cache key:
+
+```powershell
+docker compose exec redis redis-cli GET "response-cache:GET:/api/products"
+docker compose exec redis redis-cli TTL "response-cache:GET:/api/products"
+```
+
+Test cache HIT when Product Service is down:
+
+```powershell
+docker compose exec redis redis-cli DEL "response-cache:GET:/api/products"
+docker compose exec redis redis-cli DEL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
+
+$res1 = Invoke-WebRequest http://localhost:3000/api/products `
+  -Headers $headers `
+  -UseBasicParsing
+
+$res1.StatusCode
+$res1.Headers["x-cache"]
+
+docker compose stop product-service
+
+$res2 = Invoke-WebRequest http://localhost:3000/api/products `
+  -Headers $headers `
+  -UseBasicParsing
+
+$res2.StatusCode
+$res2.Headers["x-cache"]
+$res2.Content
+
+docker compose start product-service
+```
+
+Expected result:
+
+```txt
+Request 1 -> 200, x-cache: MISS
+Product Service stopped
+Request 2 -> 200, x-cache: HIT
+```
+
+Test Redis down behavior:
+
+```powershell
+docker compose stop redis
+
+try {
+  Invoke-RestMethod http://localhost:3000/api/products `
+    -Headers $headers |
+    ConvertTo-Json -Depth 10
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+
+docker compose start redis
+docker compose restart api-gateway
+```
+
+Expected result:
+
+```txt
+500
+{"error":{"message":"Internal Server Error","requestId":"example-request-id"}}
 ```
 
 Test missing API key:
@@ -703,7 +1224,7 @@ Invalid API key
   -> 403 API_KEY_INVALID
 
 Valid API key
-  -> Continue to route-level rate limiting
+  -> Continue to Redis-backed route-level rate limiting
 ```
 
 ### JWT Authentication
@@ -724,7 +1245,7 @@ Invalid Bearer token
   -> 403 JWT_TOKEN_INVALID
 
 Valid Bearer token
-  -> Continue to Product Service
+  -> Continue to Redis response cache
 ```
 
 JWT validation checks:
@@ -744,7 +1265,7 @@ request.jwtPayload
 
 ## Downstream Error Behavior
 
-When Product Service is unavailable, API Gateway returns:
+When Product Service is unavailable and cache MISS, API Gateway returns:
 
 ```json
 {
@@ -763,7 +1284,7 @@ Expected status:
 503
 ```
 
-When Product Service is too slow, API Gateway returns:
+When Product Service is too slow and cache MISS, API Gateway returns:
 
 ```json
 {
@@ -782,7 +1303,7 @@ Expected status:
 504
 ```
 
-When Product Service returns an error status, API Gateway returns:
+When Product Service returns an error status and cache MISS, API Gateway returns:
 
 ```json
 {
@@ -801,7 +1322,7 @@ Expected status:
 502
 ```
 
-When Product Service returns invalid JSON, API Gateway returns:
+When Product Service returns invalid JSON and cache MISS, API Gateway returns:
 
 ```json
 {
@@ -837,8 +1358,8 @@ npm run test
 Current test result:
 
 ```txt
-11 test files passed
-71 tests passed
+13 test files passed
+85 tests passed
 ```
 
 Current unit tests:
@@ -856,8 +1377,14 @@ apps/api-gateway/src/middlewares/jwt-auth.middleware.test.ts
 apps/api-gateway/src/rate-limit/in-memory-rate-limit-store.test.ts
   -> 9 tests
 
+apps/api-gateway/src/rate-limit/redis-rate-limit-store.test.ts
+  -> 7 tests
+
 apps/api-gateway/src/middlewares/rate-limit.middleware.test.ts
   -> 5 tests
+
+apps/api-gateway/src/cache/redis-response-cache-store.test.ts
+  -> 7 tests
 
 apps/api-gateway/src/middlewares/request-size-limit.middleware.test.ts
   -> 6 tests
@@ -933,8 +1460,13 @@ Latest validation:
 * `npm run test` passed.
 * `npm run typecheck` passed.
 * `npm run build` passed.
+* `docker compose up --build -d` passed.
+* PostgreSQL service was healthy.
+* Redis service was healthy.
+* Product Service container was healthy.
+* API Gateway container started successfully.
 * Product Service `/health` passed.
-* Product Service `/products` passed.
+* Product Service `/products` returned database-backed product data.
 * API Gateway `/health` passed without API key.
 * API Gateway `/health` includes security headers.
 * API Gateway `/api/products` returned `401 API_KEY_MISSING` without API key.
@@ -942,16 +1474,22 @@ Latest validation:
 * API Gateway `/api/products` returned `401 JWT_TOKEN_MISSING` with valid API key but missing JWT.
 * API Gateway `/api/products` returned `403 JWT_TOKEN_INVALID` with valid API key but invalid JWT.
 * API Gateway `/api/products` passed with valid API key and valid JWT.
-* API Gateway `/api/products` returned `429 TOO_MANY_REQUESTS` when rate limit was exceeded.
-* API Gateway `/api/products` returned `503 DOWNSTREAM_SERVICE_UNAVAILABLE` when Product Service was down.
-* API Gateway `/api/products` returned `504 DOWNSTREAM_TIMEOUT` when Product Service was intentionally delayed.
-* Automated tests cover request ID, API key authentication, JWT authentication, rate limiting, request size limit, security headers, route config, downstream unavailable, downstream HTTP error, invalid JSON, and timeout behavior.
+* API Gateway `/api/products` returned `429 TOO_MANY_REQUESTS` when Redis-backed rate limit was exceeded.
+* Redis rate limit key was created and incremented.
+* API Gateway `/api/products` returned `x-cache: MISS` on first valid request after cache clear.
+* API Gateway `/api/products` returned `x-cache: HIT` on the second valid request within cache TTL.
+* Redis response cache key was created with TTL.
+* API Gateway `/api/products` returned cached response with `x-cache: HIT` when Product Service was stopped.
+* API Gateway `/api/products` returned generic `500 Internal Server Error` quickly when Redis was stopped.
+* API Gateway did not expose Redis internal details in the Redis failure response body.
+* API Gateway still returns valid downstream data if response cache write fails.
+* Automated tests cover request ID, API key authentication, JWT authentication, in-memory rate limit store, Redis rate limit store, rate limit middleware, Redis response cache store, request size limit, security headers, route config, downstream unavailable, downstream HTTP error, invalid JSON, and timeout behavior.
 * Code pushed to GitHub.
 * Git working tree was clean after latest commit.
 
 ## Documentation Status
 
-Completed documentation:
+Completed documentation from previous sprints:
 
 * `README.md`
 * `.env.example`
@@ -961,9 +1499,31 @@ Completed documentation:
 * `docs/architecture/overview.md`
 * `docs/sdlc/requirements.md`
 
-Current Sprint 2 documentation finalization is in progress.
+Current Sprint 3 final documentation update is in progress.
 
 ## Latest Stable Commits
+
+### Sprint 3
+
+```txt
+7dbb2d2 chore: add docker compose foundation
+84a277b docs: document docker compose workflow
+75edf46 chore: add postgres service to docker compose
+934532b chore(product): add database url config
+f390694 chore(product): add prisma schema foundation
+10a3101 chore(product): add initial products migration
+f247260 chore(product): add product seed script
+23b5903 feat(product): read products from database
+ccccda5 chore: add redis service to docker compose
+94443a3 chore(gateway): add redis client foundation
+25bff78 feat(gateway): add redis rate limit store
+ff06658 feat(gateway): use redis backed rate limiting
+411d13a feat(gateway): add redis response cache store
+cf0f2b9 feat(gateway): cache product responses in redis
+176bcfe fix(gateway): isolate response cache write failures
+```
+
+### Earlier Stable Foundation
 
 ```txt
 5d247cc feat: setup basic gateway to product service flow
@@ -1007,7 +1567,9 @@ Sprint 1 is complete.
 
 Sprint 2 is complete.
 
-PulseGate currently has a stable local-first API Gateway foundation with production-oriented Gateway behavior, traffic protection, and automated tests:
+Sprint 3 technical implementation is complete.
+
+PulseGate currently has a stable local-first API Gateway and infrastructure foundation with Docker Compose, PostgreSQL, Prisma, Redis-backed traffic protection, database-backed Product Service data, and Redis response caching:
 
 ```txt
 Client
@@ -1016,87 +1578,112 @@ Client
     -> Basic security headers
     -> Request size limit
     -> API key authentication for protected routes
-    -> In-memory rate limiting for protected routes
+    -> Redis-backed rate limiting for protected routes
     -> JWT authentication for protected routes
+    -> Redis response cache
     -> Downstream route configuration
     -> Downstream timeout handling
     -> Normalized downstream error handling
     -> Product Service
-      -> Mock product response
+      -> Prisma
+      -> PostgreSQL
+      -> Database-backed product response
 ```
 
-## Sprint 2 Progress
+## Sprint 3 Progress
 
 ### Done
 
-1. Add in-memory rate limiting foundation.
-2. Add rate limit store unit tests.
-3. Add rate limit middleware.
-4. Add rate limit middleware unit tests.
-5. Attach validated API key to request context.
-6. Apply rate limit to `GET /api/products`.
-7. Add route-level rate limit configuration.
-8. Move product route rate limit values to environment-based config.
-9. Add `429 TOO_MANY_REQUESTS` response behavior.
-10. Add request size limit middleware.
-11. Add request size limit unit tests.
-12. Add `413 REQUEST_BODY_TOO_LARGE` response behavior.
-13. Add Fastify `bodyLimit`.
-14. Add basic security headers middleware.
-15. Add security headers unit tests.
-16. Add route-level auth configuration.
-17. Add downstream route config tests for rate limit and auth requirements.
-18. Add integration test for oversized request body.
-19. Add integration test for product route rate limit exceeded behavior.
-20. Add manual validation for rate limit behavior.
-21. Run `npm run test`.
-22. Run `npm run typecheck`.
-23. Run `npm run build`.
-24. Push stable checkpoints to GitHub.
+1. Add Docker Compose foundation.
+2. Add `.dockerignore`.
+3. Add API Gateway Dockerfile.
+4. Add Product Service Dockerfile.
+5. Validate Dockerized API Gateway and Product Service.
+6. Add PostgreSQL Docker service.
+7. Add PostgreSQL healthcheck.
+8. Add PostgreSQL Docker volume.
+9. Add Product Service `DATABASE_URL` config.
+10. Add Product Service Docker `DATABASE_URL`.
+11. Add Prisma Client dependency.
+12. Add Prisma CLI dependency.
+13. Add Prisma schema.
+14. Add `Product` model.
+15. Generate Prisma Client.
+16. Add initial Product migration.
+17. Validate `products` table in PostgreSQL.
+18. Add idempotent product seed script.
+19. Add Product Service Prisma database helper.
+20. Add Product repository.
+21. Replace mock Product Service data with PostgreSQL-backed data.
+22. Add Product Service database error handling through existing error middleware.
+23. Add Redis Docker service.
+24. Add Redis healthcheck.
+25. Add API Gateway `REDIS_URL` config.
+26. Add API Gateway Redis client foundation.
+27. Add Redis client connection and disconnection lifecycle.
+28. Add Redis rate limit store.
+29. Add Redis rate limit store unit tests.
+30. Update rate limit middleware to support async stores.
+31. Wire Redis-backed rate limiting into `GET /api/products`.
+32. Validate Redis rate limit key creation.
+33. Validate `429 TOO_MANY_REQUESTS` with Redis-backed rate limit.
+34. Add Redis fail-fast behavior for rate limiting.
+35. Add Redis response cache store.
+36. Add Redis response cache store unit tests.
+37. Wire Redis response caching into `GET /api/products`.
+38. Add `x-cache: MISS`, `x-cache: HIT`, and `x-cache: BYPASS`.
+39. Validate Redis response cache key creation.
+40. Validate cache MISS/HIT behavior.
+41. Validate cache HIT when Product Service is down.
+42. Isolate response cache write failures.
+43. Run `npm run test`.
+44. Run `npm run typecheck`.
+45. Run `npm run build`.
+46. Push stable checkpoints to GitHub.
 
 ### Remaining
 
-No remaining Sprint 2 implementation tasks.
+No remaining Sprint 3 technical implementation tasks.
 
-Sprint 2 documentation finalization is in progress.
+Sprint 3 final documentation update is in progress.
 
 ## Recommended Next Step
 
 Recommended next step:
 
 ```txt
-Sprint 2 - Final Documentation Update
+Sprint 3 - Final Documentation Update
 ```
 
 After final documentation update, the project can move to:
 
 ```txt
-Sprint 3 - Data & Infrastructure Foundation
+Sprint 4 - Observability Foundation
 ```
 
-Recommended Sprint 3 direction:
+Recommended Sprint 4 direction:
 
-1. Add Docker Compose foundation.
-2. Add PostgreSQL service.
-3. Add Product Service database foundation.
-4. Add Prisma.
-5. Replace mock product data with database-backed product data.
-6. Add Redis service.
-7. Upgrade rate limiting from in-memory store to Redis-backed store.
-8. Add basic response caching.
+1. Add structured access logs.
+2. Add request latency measurement.
+3. Add basic metrics endpoint.
+4. Add Prometheus service.
+5. Add Grafana service.
+6. Add dashboard foundation.
+7. Add gateway-level observability documentation.
+8. Keep OpenTelemetry for a later sprint unless explicitly needed.
 
 ## Do Not Add Yet
 
-Do not add these before Sprint 3 starts:
+Do not add these before Sprint 4 starts or before the project is ready:
 
 * Kafka
 * RabbitMQ
-* Prometheus
-* Grafana
-* OpenTelemetry
+* Kubernetes
 * Admin Dashboard
 * Developer Portal
-* Kubernetes
+* Advanced OpenTelemetry tracing
+* Complex service discovery
+* Production cloud deployment
 
 ## Notes
 
@@ -1112,7 +1699,7 @@ Each new feature should follow this workflow:
 6. Run `npm run build`.
 7. Commit after stable checkpoint.
 8. Push after each stable commit.
-9. Update project context docs when needed.
+9. Update project context docs at the end of each sprint or when needed.
 
 Current preferred development style:
 

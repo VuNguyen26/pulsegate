@@ -962,3 +962,590 @@ Not included in Sprint 3 Step 1:
 Status:
 
 Accepted.
+
+---
+
+## 2026-06-28 - Add Docker Compose Foundation in Sprint 3
+
+Decision:
+
+Add Docker Compose foundation for local infrastructure and service orchestration.
+
+Reason:
+
+* Sprint 3 focuses on data and infrastructure foundation.
+* API Gateway and Product Service should be runnable together in a repeatable local environment.
+* PostgreSQL and Redis require local infrastructure support.
+* Docker Compose makes it easier to validate multi-service behavior.
+* This keeps the project local-first and cost-safe before cloud deployment.
+
+Implemented behavior:
+
+```txt
+docker compose up --build -d
+  -> api-gateway
+  -> product-service
+  -> postgres
+  -> redis
+```
+
+Current Docker services:
+
+```txt
+pulsegate-api-gateway
+pulsegate-product-service
+pulsegate-postgres
+pulsegate-redis
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Containerize API Gateway and Product Service
+
+Decision:
+
+Add Dockerfiles for API Gateway and Product Service.
+
+Reason:
+
+* Services should run consistently inside Docker.
+* Dockerized services can communicate using Docker internal service names.
+* This prepares the project for future infrastructure, observability, and deployment work.
+* Docker images keep local runtime behavior closer to production-style service execution.
+
+Implemented files:
+
+```txt
+apps/api-gateway/Dockerfile
+apps/product-service/Dockerfile
+```
+
+Current Docker runtime behavior:
+
+```txt
+API Gateway      -> port 3000
+Product Service  -> port 3001
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Use PostgreSQL as Product Service Database
+
+Decision:
+
+Use PostgreSQL as the database for Product Service data.
+
+Reason:
+
+* Product data should no longer stay hard-coded after the Gateway foundation is stable.
+* PostgreSQL is a production-grade relational database.
+* It is widely used in backend systems.
+* It works well with Prisma.
+* It can run locally through Docker Compose.
+
+Implemented behavior:
+
+```txt
+postgres service
+  -> database: pulsegate
+  -> user: pulsegate
+  -> password: pulsegate_password
+```
+
+Current database URL for local host mode:
+
+```txt
+postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate
+```
+
+Current database URL for Docker internal mode:
+
+```txt
+postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Use Prisma for Product Service Database Access
+
+Decision:
+
+Use Prisma as the ORM for Product Service database access.
+
+Reason:
+
+* Prisma provides type-safe database access.
+* Prisma migrations make schema changes trackable.
+* Prisma Client improves developer experience with TypeScript.
+* Prisma is a good fit for a learning project that needs clean database modeling.
+* Product Service can grow from a simple Product model into more realistic data models later.
+
+Implemented files:
+
+```txt
+apps/product-service/prisma/schema.prisma
+apps/product-service/prisma/migrations/20260628092746_init_products/migration.sql
+apps/product-service/prisma/seed.ts
+apps/product-service/src/database/prisma.ts
+apps/product-service/src/products/product.repository.ts
+```
+
+Current Product model:
+
+```txt
+id
+name
+price
+createdAt
+updatedAt
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Replace Mock Product Data with Database-Backed Products
+
+Decision:
+
+Replace hard-coded mock product data with PostgreSQL-backed product data.
+
+Reason:
+
+* Sprint 0 used mock data to validate the Gateway flow quickly.
+* Sprint 3 needs real data storage foundation.
+* Product Service should own product data and read it from its database.
+* The API response shape should remain compatible with previous Gateway behavior.
+* This allows later features to build on real persistence.
+
+Implemented behavior:
+
+```txt
+GET /products
+  -> Product Service
+  -> Prisma Client
+  -> PostgreSQL products table
+  -> Return products ordered by id
+```
+
+Current seeded products:
+
+```txt
+prod_001 - Mechanical Keyboard - 120
+prod_002 - Gaming Mouse - 45
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Add Idempotent Product Seed Script
+
+Decision:
+
+Add a Product Service seed script that can be safely run multiple times.
+
+Reason:
+
+* Local development needs predictable sample data.
+* Docker and database validation are easier with stable seed data.
+* The seed script should not create duplicate products on repeated runs.
+* Idempotent seeding is safer for local and CI-like workflows.
+
+Implemented command:
+
+```powershell
+npm run db:seed -w apps/product-service
+```
+
+Implemented behavior:
+
+```txt
+upsert prod_001
+upsert prod_002
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Add Redis Service in Sprint 3
+
+Decision:
+
+Add Redis as a local infrastructure service through Docker Compose.
+
+Reason:
+
+* Redis is needed for distributed rate limiting.
+* Redis is needed for response caching.
+* Redis is a common production dependency for API Gateways.
+* Adding Redis after the in-memory rate limit foundation keeps the learning path clear.
+* Redis can be reused by future features such as session storage, distributed locks, and background jobs.
+
+Implemented service:
+
+```txt
+redis
+```
+
+Validation command:
+
+```powershell
+docker compose exec redis redis-cli ping
+```
+
+Expected result:
+
+```txt
+PONG
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Add Redis Client Foundation to API Gateway
+
+Decision:
+
+Add a Redis client module to API Gateway.
+
+Reason:
+
+* API Gateway needs a shared Redis connection for rate limiting and caching.
+* Redis connection lifecycle should be centralized.
+* App shutdown should disconnect Redis cleanly.
+* Future Gateway features should reuse the same Redis client foundation.
+
+Implemented file:
+
+```txt
+apps/api-gateway/src/redis/redis-client.ts
+```
+
+Current API Gateway Redis config:
+
+```txt
+REDIS_URL=redis://localhost:6379
+```
+
+Current Docker Redis config:
+
+```txt
+REDIS_URL=redis://redis:6379
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Upgrade Product Route Rate Limiting to Redis-Backed Store
+
+Decision:
+
+Use Redis-backed rate limiting for `GET /api/products`.
+
+Reason:
+
+* In-memory rate limiting was useful for Sprint 2 learning and tests.
+* In-memory counters are not shared across multiple Gateway instances.
+* Redis allows distributed counters and prepares for horizontal scaling.
+* The external API behavior should stay compatible with the previous rate limit behavior.
+* The existing rate limit middleware should support both in-memory and Redis-backed stores.
+
+Implemented behavior:
+
+```txt
+GET /api/products
+  -> API key authentication
+  -> Redis-backed rate limiting
+  -> JWT authentication
+```
+
+Current Redis rate limit key:
+
+```txt
+rate-limit:api-key:dev-api-key:route:GET:/api/products
+```
+
+Current default rate limit:
+
+```txt
+5 requests per 60 seconds
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Keep In-Memory Rate Limit Store for Tests and Abstraction
+
+Decision:
+
+Keep `InMemoryRateLimitStore` even after adding Redis-backed rate limiting.
+
+Reason:
+
+* Unit and integration tests should not require Redis.
+* The rate limit middleware should support dependency injection.
+* In-memory store is still useful for fast local tests.
+* Keeping both stores makes the design more flexible.
+
+Current behavior:
+
+```txt
+Production Docker flow
+  -> RedisRateLimitStore
+
+Injected app tests
+  -> InMemoryRateLimitStore
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Make Redis Rate Limit Commands Fail Fast
+
+Decision:
+
+Redis-backed rate limit commands should fail fast instead of hanging for a long time when Redis is unavailable.
+
+Reason:
+
+* API Gateway requests should not hang when Redis is down.
+* A slow Redis retry loop can consume request time and make debugging confusing.
+* Fail-fast behavior is better for local validation and production-style resilience.
+* Redis internal errors should not be exposed to clients.
+
+Implemented behavior:
+
+```txt
+Redis unavailable
+  -> Redis command fails quickly
+  -> API Gateway returns generic 500 Internal Server Error
+  -> Redis internal details are not exposed in response body
+```
+
+Implementation notes:
+
+* Redis offline queue is disabled.
+* Redis reconnect strategy is disabled for the current local development setup.
+* Redis command timeout is added in the rate limit store.
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Add Redis Response Cache Store
+
+Decision:
+
+Add a Redis-backed response cache store to API Gateway.
+
+Reason:
+
+* API Gateway should reduce repeated downstream calls.
+* Response caching is a common API Gateway feature.
+* Redis is already available after the rate limiting upgrade.
+* A dedicated cache store keeps caching logic separate from route handling.
+* Cache behavior can be tested independently.
+
+Implemented file:
+
+```txt
+apps/api-gateway/src/cache/redis-response-cache-store.ts
+```
+
+Current cache key shape:
+
+```txt
+response-cache:<method>:<route-path>
+```
+
+Current product cache key:
+
+```txt
+response-cache:GET:/api/products
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Cache Product Responses in Redis
+
+Decision:
+
+Cache `GET /api/products` responses in Redis.
+
+Reason:
+
+* Product data is a good first caching example.
+* Caching reduces repeated calls to Product Service.
+* Caching demonstrates Gateway-level performance optimization.
+* The feature prepares the project for future cache policies and invalidation strategies.
+
+Implemented behavior:
+
+```txt
+First valid request
+  -> x-cache: MISS
+  -> API Gateway calls Product Service
+  -> API Gateway stores response in Redis
+
+Second valid request within TTL
+  -> x-cache: HIT
+  -> API Gateway returns cached response
+```
+
+Current cache TTL:
+
+```txt
+30 seconds
+```
+
+Current response headers:
+
+```txt
+x-cache: MISS
+x-cache: HIT
+x-cache: BYPASS
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Allow Cache HIT to Serve Data When Product Service Is Down
+
+Decision:
+
+If Product Service is temporarily down but Redis cache has a valid response, API Gateway should return the cached response.
+
+Reason:
+
+* Cache should improve resilience, not only performance.
+* A cached response can keep read-only endpoints available during short downstream outages.
+* This behavior demonstrates a production-oriented API Gateway pattern.
+* Product Service should only be required when cache is missing or expired.
+
+Implemented behavior:
+
+```txt
+Product Service down + cache HIT
+  -> 200
+  -> x-cache: HIT
+  -> Return cached product data
+
+Product Service down + cache MISS
+  -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Isolate Response Cache Write Failures
+
+Decision:
+
+A cache write failure should not fail a request if Product Service already returned valid data.
+
+Reason:
+
+* Cache is an optimization layer.
+* A valid downstream response should still be returned to the client.
+* Cache write errors should be logged for debugging.
+* Cache failures should not be incorrectly reported as downstream invalid response errors.
+
+Implemented behavior:
+
+```txt
+Product Service returns valid JSON
+  -> API Gateway attempts to write response cache
+  -> If cache write fails:
+       -> Log cache error
+       -> Still return 200 response to client
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-28 - Keep Sprint 4 Focused on Observability Foundation
+
+Decision:
+
+After Sprint 3 final documentation update, Sprint 4 should focus on observability foundation.
+
+Reason:
+
+* Gateway routing, authentication, traffic protection, data infrastructure, Redis rate limiting, and response caching are now stable.
+* Observability is the next production-oriented layer.
+* Metrics and dashboards should be introduced before Kafka, RabbitMQ, Kubernetes, Admin Dashboard, or Developer Portal.
+* Keeping Sprint 4 focused prevents scope creep.
+
+Recommended Sprint 4 order:
+
+```txt
+1. Add structured access logs.
+2. Add request latency measurement.
+3. Add basic metrics endpoint.
+4. Add Prometheus service.
+5. Add Grafana service.
+6. Add dashboard foundation.
+7. Add gateway-level observability documentation.
+8. Keep OpenTelemetry for a later sprint unless explicitly needed.
+```
+
+Not included at the beginning of Sprint 4:
+
+* Kafka
+* RabbitMQ
+* Kubernetes
+* Admin Dashboard
+* Developer Portal
+* Advanced OpenTelemetry tracing
+* Production cloud deployment
+
+Status:
+
+Accepted.

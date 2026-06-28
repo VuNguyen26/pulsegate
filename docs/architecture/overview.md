@@ -17,13 +17,13 @@ PulseGate is designed to help backend teams manage, protect, monitor, and scale 
 Current version:
 
 ```txt
-v0.3.0
+v0.4.0
 ```
 
 Current status:
 
 ```txt
-Sprint 2 - Gateway Traffic Protection Complete
+Sprint 3 - Data & Infrastructure Foundation Technical Implementation Complete
 ```
 
 ---
@@ -48,18 +48,20 @@ PulseGate aims to solve these problems:
 * Route client requests to the correct downstream service.
 * Centralize authentication and authorization.
 * Protect APIs from spam, abuse, excessive traffic, and unsafe payloads.
-* Reduce backend load with caching in later sprints.
+* Reduce backend load with Redis response caching.
+* Provide database-backed downstream service data.
 * Add request logging for debugging.
-* Add metrics for monitoring in later sprints.
-* Add distributed tracing for understanding request flow in later sprints.
-* Support event streaming and background jobs in later phases.
+* Prepare for metrics and monitoring.
+* Prepare for distributed tracing.
+* Support local infrastructure through Docker Compose.
+* Support future event streaming and background jobs.
 * Provide a foundation for future API management features.
 
 ---
 
 ## 4. Current Architecture
 
-Current stable architecture after Sprint 2:
+Current stable architecture after Sprint 3:
 
 ```txt
 Client
@@ -68,13 +70,21 @@ Client
     -> Basic security headers
     -> Request size limit
     -> API key authentication for protected routes
-    -> In-memory rate limiting by API key and route
+    -> Redis-backed rate limiting by API key and route
     -> JWT authentication for protected routes
-    -> Downstream route configuration
-    -> Downstream timeout handling
-    -> Normalized downstream error handling
-    -> Product Service :3001
-      -> Mock product response
+    -> Redis response cache
+      -> Cache HIT:
+           -> Return cached product response
+      -> Cache MISS:
+           -> Downstream route configuration
+           -> Downstream timeout handling
+           -> Normalized downstream error handling
+           -> Product Service :3001
+             -> Prisma Client
+             -> PostgreSQL :5432
+             -> Database-backed product response
+           -> Store response in Redis cache
+    -> Return response to Client
 ```
 
 Current architecture diagram:
@@ -82,17 +92,31 @@ Current architecture diagram:
 ```mermaid
 flowchart LR
     Client[Client / API Consumer] --> Gateway[PulseGate API Gateway<br/>Port 3000]
+
     Gateway --> ReqId[Request ID Middleware]
     ReqId --> SecurityHeaders[Security Headers Middleware]
     SecurityHeaders --> SizeLimit[Request Size Limit]
     SizeLimit --> ApiKey[API Key Authentication]
-    ApiKey --> RateLimit[In-Memory Rate Limiting]
+    ApiKey --> RateLimit[Redis-Backed Rate Limiting]
     RateLimit --> Jwt[JWT Authentication]
-    Jwt --> RouteConfig[Downstream Route Config]
+    Jwt --> Cache{Redis Response Cache}
+
+    Cache -->|HIT| CachedResponse[Cached Product Response]
+    CachedResponse --> Gateway
+
+    Cache -->|MISS| RouteConfig[Downstream Route Config]
     RouteConfig --> Product[Product Service<br/>Port 3001]
-    Product --> Response[Mock Product Response]
-    Response --> Product
+    Product --> Prisma[Prisma Client]
+    Prisma --> Postgres[(PostgreSQL<br/>Port 5432)]
+    Postgres --> Prisma
+    Prisma --> Product
     Product --> Gateway
+    Gateway --> CacheStore[Store Response in Redis Cache]
+    CacheStore --> Redis[(Redis<br/>Port 6379)]
+
+    RateLimit --> Redis
+    Cache --> Redis
+
     Gateway --> Client
 ```
 
@@ -103,22 +127,86 @@ Current behavior:
 3. API Gateway adds baseline security headers.
 4. API Gateway checks request body size.
 5. API Gateway checks API key for protected routes.
-6. API Gateway applies rate limiting for protected routes.
+6. API Gateway applies Redis-backed rate limiting for protected routes.
 7. API Gateway checks JWT for protected routes.
-8. API Gateway uses route config to determine downstream service information.
-9. API Gateway calls Product Service.
-10. API Gateway forwards the same `x-request-id` header.
-11. Product Service receives the request.
-12. Product Service reuses the same request ID.
-13. Product Service returns mock product data.
-14. API Gateway normalizes downstream errors when needed.
-15. API Gateway returns the response to the client.
+8. API Gateway checks Redis response cache.
+9. If cache HIT, API Gateway returns cached response with `x-cache: HIT`.
+10. If cache MISS, API Gateway uses route config to determine downstream service information.
+11. API Gateway calls Product Service.
+12. API Gateway forwards the same `x-request-id` header.
+13. Product Service receives the request.
+14. Product Service reuses the same request ID.
+15. Product Service reads product data from PostgreSQL using Prisma.
+16. Product Service returns database-backed product data.
+17. API Gateway stores the response in Redis cache.
+18. API Gateway returns the response with `x-cache: MISS`.
+19. API Gateway normalizes downstream errors when needed.
 
 ---
 
-## 5. Current Services
+## 5. Current Infrastructure
 
-### 5.1 API Gateway
+PulseGate currently runs locally through Docker Compose.
+
+Current Docker services:
+
+```txt
+api-gateway
+product-service
+postgres
+redis
+```
+
+Current container names:
+
+```txt
+pulsegate-api-gateway
+pulsegate-product-service
+pulsegate-postgres
+pulsegate-redis
+```
+
+Current exposed ports:
+
+```txt
+API Gateway      -> 3000
+Product Service  -> 3001
+PostgreSQL       -> 5432
+Redis            -> 6379
+```
+
+Current Docker Compose responsibilities:
+
+* Runs API Gateway.
+* Runs Product Service.
+* Runs PostgreSQL.
+* Runs Redis.
+* Provides Docker internal service DNS.
+* Provides PostgreSQL healthcheck.
+* Provides Redis healthcheck.
+* Starts Product Service after PostgreSQL is healthy.
+* Starts API Gateway after Redis and Product Service are healthy.
+
+Current Docker command:
+
+```powershell
+docker compose up --build -d
+```
+
+Expected Docker status:
+
+```txt
+pulsegate-postgres         healthy
+pulsegate-redis            healthy
+pulsegate-product-service  healthy
+pulsegate-api-gateway      up
+```
+
+---
+
+## 6. Current Services
+
+### 6.1 API Gateway
 
 Location:
 
@@ -147,8 +235,9 @@ GET /health
 
 GET /api/products
   -> Requires API key
-  -> Rate limited by API key and route
+  -> Redis-backed rate limited by API key and route
   -> Requires JWT Bearer token
+  -> Uses Redis response cache
 ```
 
 Responsibilities:
@@ -159,10 +248,11 @@ Responsibilities:
 * Adds `x-request-id` response header.
 * Adds basic security headers.
 * Applies request size limit.
-* Routes `/api/products` to Product Service.
+* Routes `/api/products` to Product Service on cache MISS.
+* Returns cached product response on cache HIT.
 * Forwards `x-request-id` to downstream service.
 * Applies API key authentication.
-* Applies in-memory rate limiting.
+* Applies Redis-backed rate limiting.
 * Applies JWT authentication.
 * Attaches verified JWT payload to `request.jwtPayload`.
 * Uses downstream route configuration.
@@ -181,6 +271,9 @@ Current structure:
 apps/api-gateway/src/
   app.ts
   app.test.ts
+  cache/
+    redis-response-cache-store.ts
+    redis-response-cache-store.test.ts
   config/
     downstream-routes.ts
     downstream-routes.test.ts
@@ -206,6 +299,10 @@ apps/api-gateway/src/
   rate-limit/
     in-memory-rate-limit-store.ts
     in-memory-rate-limit-store.test.ts
+    redis-rate-limit-store.ts
+    redis-rate-limit-store.test.ts
+  redis/
+    redis-client.ts
   routes/
     health.route.ts
     product-proxy.route.ts
@@ -214,7 +311,7 @@ apps/api-gateway/src/
 
 ---
 
-### 5.2 Product Service
+### 6.2 Product Service
 
 Location:
 
@@ -238,33 +335,153 @@ GET /products
 Responsibilities:
 
 * Provides product-related APIs.
-* Returns mock product data.
+* Returns database-backed product data.
+* Reads product data from PostgreSQL using Prisma Client.
 * Generates or reuses request ID.
 * Reuses request ID from API Gateway.
 * Handles basic 404 errors.
 * Handles basic 500 errors.
 * Logs requests in JSON format.
+* Disconnects Prisma Client on server close.
+* Supports Prisma schema, migration, and seed script.
 
 Current structure:
 
 ```txt
-apps/product-service/src/
-  config/
-    env.ts
-  middlewares/
-    error-handler.middleware.ts
-    request-id.middleware.ts
-  routes/
-    health.route.ts
-    product.route.ts
-  server.ts
+apps/product-service/
+  prisma/
+    migrations/
+      20260628092746_init_products/
+        migration.sql
+      migration_lock.toml
+    schema.prisma
+    seed.ts
+    tsconfig.json
+  src/
+    config/
+      env.ts
+    database/
+      prisma.ts
+    middlewares/
+      error-handler.middleware.ts
+      request-id.middleware.ts
+    products/
+      product.repository.ts
+    routes/
+      health.route.ts
+      product.route.ts
+    server.ts
 ```
 
 ---
 
-## 6. Current Request Flow
+### 6.3 PostgreSQL
 
-### 6.1 API Gateway Health Check Flow
+PostgreSQL is used by Product Service.
+
+Current database:
+
+```txt
+pulsegate
+```
+
+Current database user:
+
+```txt
+pulsegate
+```
+
+Current database password:
+
+```txt
+pulsegate_password
+```
+
+Current local host database URL:
+
+```txt
+postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate
+```
+
+Current Docker internal database URL:
+
+```txt
+postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate
+```
+
+Current tables:
+
+```txt
+_prisma_migrations
+products
+```
+
+Current Product model fields:
+
+```txt
+id
+name
+price
+createdAt
+updatedAt
+```
+
+Current seed products:
+
+```txt
+prod_001 - Mechanical Keyboard - 120
+prod_002 - Gaming Mouse - 45
+```
+
+---
+
+### 6.4 Redis
+
+Redis is used by API Gateway.
+
+Current local Redis URL:
+
+```txt
+redis://localhost:6379
+```
+
+Current Docker internal Redis URL:
+
+```txt
+redis://redis:6379
+```
+
+Current Redis responsibilities:
+
+* Store rate limit counters.
+* Store response cache payloads.
+* Support Gateway traffic protection.
+* Support Gateway response caching.
+
+Current Redis key categories:
+
+```txt
+rate-limit:*
+response-cache:*
+```
+
+Example Redis rate limit key:
+
+```txt
+rate-limit:api-key:dev-api-key:route:GET:/api/products
+```
+
+Example Redis response cache key:
+
+```txt
+response-cache:GET:/api/products
+```
+
+---
+
+## 7. Current Request Flow
+
+### 7.1 API Gateway Health Check Flow
 
 ```txt
 Client
@@ -285,7 +502,9 @@ Expected response:
 }
 ```
 
-### 6.2 Product Service Health Check Flow
+---
+
+### 7.2 Product Service Health Check Flow
 
 ```txt
 Client
@@ -304,7 +523,9 @@ Expected response:
 }
 ```
 
-### 6.3 Protected Product API Flow
+---
+
+### 7.3 Protected Product API Flow
 
 ```txt
 Client
@@ -320,7 +541,7 @@ Client
       -> If invalid:
         -> 403 API_KEY_INVALID
       -> If valid:
-        -> API Gateway applies rate limit by API key and route
+        -> API Gateway applies Redis-backed rate limit by API key and route
           -> If exceeded:
             -> 429 TOO_MANY_REQUESTS
           -> If allowed:
@@ -330,10 +551,18 @@ Client
               -> If invalid:
                 -> 403 JWT_TOKEN_INVALID
               -> If valid:
-                -> API Gateway calls Product Service
-                  -> GET http://127.0.0.1:3001/products
-                -> Product Service returns mock product data
-    -> API Gateway returns response to Client
+                -> API Gateway checks Redis response cache
+                  -> If cache HIT:
+                    -> 200 with x-cache: HIT
+                    -> Return cached product response
+                  -> If cache MISS:
+                    -> API Gateway calls Product Service
+                      -> GET http://product-service:3001/products in Docker
+                      -> GET http://127.0.0.1:3001/products in local host mode
+                    -> Product Service reads products from PostgreSQL using Prisma
+                    -> Product Service returns database-backed product data
+                    -> API Gateway stores response in Redis cache
+                    -> API Gateway returns 200 with x-cache: MISS
 ```
 
 Expected response:
@@ -357,7 +586,7 @@ Expected response:
 
 ---
 
-## 7. Request ID Design
+## 8. Request ID Design
 
 PulseGate uses request IDs from the beginning.
 
@@ -386,9 +615,9 @@ x-request-id
 
 ---
 
-## 8. Authentication Design
+## 9. Authentication Design
 
-### 8.1 API Key Authentication
+### 9.1 API Key Authentication
 
 API key authentication is used for client or application-level authentication.
 
@@ -420,12 +649,12 @@ Invalid API key
   -> 403 API_KEY_INVALID
 
 Valid API key
-  -> Continue to route-level rate limiting
+  -> Continue to Redis-backed route-level rate limiting
 ```
 
 ---
 
-### 8.2 JWT Authentication
+### 9.2 JWT Authentication
 
 JWT authentication is used for user or session-level authentication.
 
@@ -469,7 +698,7 @@ Invalid Bearer token
   -> 403 JWT_TOKEN_INVALID
 
 Valid Bearer token
-  -> Continue to Product Service
+  -> Continue to Redis response cache
 ```
 
 Verified JWT payload is attached to:
@@ -480,11 +709,11 @@ request.jwtPayload
 
 ---
 
-## 9. Traffic Protection Design
+## 10. Traffic Protection Design
 
-### 9.1 In-Memory Rate Limiting
+### 10.1 Redis-Backed Rate Limiting
 
-PulseGate currently supports in-memory rate limiting for:
+PulseGate currently supports Redis-backed rate limiting for:
 
 ```txt
 GET /api/products
@@ -512,16 +741,22 @@ Rate limit identity:
 API key + HTTP method + route path
 ```
 
-Current rate limit key shape:
+Logical rate limit key shape:
 
 ```txt
 api-key:<api-key>:route:<method>:<route-path>
 ```
 
+Redis rate limit key shape:
+
+```txt
+rate-limit:api-key:<api-key>:route:<method>:<route-path>
+```
+
 Example:
 
 ```txt
-api-key:dev-api-key:route:GET:/api/products
+rate-limit:api-key:dev-api-key:route:GET:/api/products
 ```
 
 Current rate limit response headers:
@@ -551,16 +786,24 @@ Expected status:
 429
 ```
 
-Current limitation:
+Current Redis failure behavior:
 
-* Counters are stored in API Gateway memory.
-* Counters reset when the API Gateway process restarts.
-* Counters are not shared across multiple Gateway instances.
-* Redis-backed distributed rate limiting is planned for a later sprint.
+```txt
+Redis unavailable
+  -> Redis command fails fast
+  -> Product route returns generic 500 Internal Server Error
+  -> Redis internal details are not exposed in the response body
+```
+
+Implementation notes:
+
+* `InMemoryRateLimitStore` still exists for tests and flexible dependency injection.
+* `RedisRateLimitStore` is used by the normal Docker/runtime flow.
+* Rate limit middleware supports async stores.
 
 ---
 
-### 9.2 Request Size Limit
+### 10.2 Request Size Limit
 
 PulseGate currently applies request size protection at the API Gateway level.
 
@@ -611,7 +854,7 @@ Implementation notes:
 
 ---
 
-### 9.3 Basic Security Headers
+### 10.3 Basic Security Headers
 
 PulseGate currently adds baseline security headers to API Gateway responses.
 
@@ -638,23 +881,93 @@ Reason:
 
 ---
 
-## 10. Downstream Resilience Design
+## 11. Response Cache Design
+
+PulseGate currently caches selected Gateway responses in Redis.
+
+Current cached route:
+
+```txt
+GET /api/products
+```
+
+Current Redis response cache key:
+
+```txt
+response-cache:GET:/api/products
+```
+
+Current cache TTL:
+
+```txt
+30 seconds
+```
+
+Current response cache headers:
+
+```txt
+x-cache: MISS
+x-cache: HIT
+x-cache: BYPASS
+```
+
+Current behavior:
+
+```txt
+First valid request after cache clear
+  -> Cache MISS
+  -> API Gateway calls Product Service
+  -> API Gateway stores response in Redis
+  -> Response header: x-cache: MISS
+
+Second valid request within TTL
+  -> Cache HIT
+  -> API Gateway returns cached response from Redis
+  -> Response header: x-cache: HIT
+```
+
+Cache resilience behavior:
+
+```txt
+Product Service down + cache HIT
+  -> 200 from Redis cache
+
+Product Service down + cache MISS
+  -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
+```
+
+Cache write failure behavior:
+
+```txt
+Product Service returns valid JSON
+  -> API Gateway attempts to write response cache
+  -> If cache write fails:
+       -> API Gateway logs the cache error
+       -> API Gateway still returns 200 response to client
+```
+
+---
+
+## 12. Downstream Resilience Design
 
 PulseGate normalizes downstream Product Service failures.
 
 Current downstream failure behavior:
 
 ```txt
-Product Service unavailable
+Product Service unavailable + cache MISS
   -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
 
-Product Service timeout
+Product Service unavailable + cache HIT
+  -> 200 from Redis cache
+
+Product Service timeout + cache MISS
   -> 504 DOWNSTREAM_TIMEOUT
 
-Product Service returns error status
+Product Service returns error status + cache MISS
   -> 502 DOWNSTREAM_HTTP_ERROR
 
-Product Service returns invalid JSON
+Product Service returns invalid JSON + cache MISS
   -> 502 DOWNSTREAM_INVALID_RESPONSE
 ```
 
@@ -673,7 +986,7 @@ Example unavailable response:
 
 ---
 
-## 11. Route Configuration Design
+## 13. Route Configuration Design
 
 Current route config file:
 
@@ -718,7 +1031,62 @@ Purpose:
 
 ---
 
-## 12. Current Tech Stack
+## 14. Database Design
+
+Product Service owns the current Product data.
+
+Database:
+
+```txt
+PostgreSQL
+```
+
+ORM:
+
+```txt
+Prisma
+```
+
+Current Product model:
+
+```txt
+id        String
+name      String
+price     Int
+createdAt DateTime
+updatedAt DateTime
+```
+
+Current table:
+
+```txt
+products
+```
+
+Current seed script:
+
+```txt
+apps/product-service/prisma/seed.ts
+```
+
+Current seeded data:
+
+```txt
+prod_001 - Mechanical Keyboard - 120
+prod_002 - Gaming Mouse - 45
+```
+
+Design notes:
+
+* Product Service owns product data.
+* API Gateway does not connect directly to PostgreSQL.
+* API Gateway only communicates with Product Service through HTTP.
+* Product Service reads from PostgreSQL through Prisma.
+* The Product response shape remains compatible with the earlier mock response shape.
+
+---
+
+## 15. Current Tech Stack
 
 Currently implemented:
 
@@ -728,6 +1096,11 @@ Currently implemented:
 * npm workspaces
 * Vitest
 * jose
+* Docker
+* Docker Compose
+* PostgreSQL
+* Prisma
+* Redis
 
 Currently implemented Gateway capabilities:
 
@@ -738,21 +1111,28 @@ Currently implemented Gateway capabilities:
 * Downstream route configuration.
 * Downstream timeout handling.
 * Normalized downstream error handling.
-* In-memory rate limiting.
+* Redis-backed rate limiting.
 * Request size limit.
 * Basic security headers.
+* Redis response caching.
 * Unit tests.
 * Integration tests.
 
+Currently implemented Product Service capabilities:
+
+* Health check.
+* Database-backed products.
+* Prisma Client.
+* Product repository.
+* PostgreSQL access.
+* Request ID reuse.
+* JSON logging.
+* Basic error handling.
+
 Not implemented yet:
 
-* PostgreSQL
-* Prisma
-* Redis
 * Kafka
 * RabbitMQ
-* Docker
-* Docker Compose
 * Kubernetes
 * Prometheus
 * Grafana
@@ -762,10 +1142,11 @@ Not implemented yet:
 * k6
 * Admin Dashboard
 * Developer Portal
+* Production cloud deployment
 
 ---
 
-## 13. Monorepo Structure
+## 16. Monorepo Structure
 
 Current repository structure:
 
@@ -773,9 +1154,13 @@ Current repository structure:
 pulsegate/
   apps/
     api-gateway/
+      Dockerfile
       src/
         app.ts
         app.test.ts
+        cache/
+          redis-response-cache-store.ts
+          redis-response-cache-store.test.ts
         config/
           downstream-routes.ts
           downstream-routes.test.ts
@@ -801,6 +1186,10 @@ pulsegate/
         rate-limit/
           in-memory-rate-limit-store.ts
           in-memory-rate-limit-store.test.ts
+          redis-rate-limit-store.ts
+          redis-rate-limit-store.test.ts
+        redis/
+          redis-client.ts
         routes/
           health.route.ts
           product-proxy.route.ts
@@ -810,24 +1199,31 @@ pulsegate/
       vitest.config.ts
 
     product-service/
+      Dockerfile
+      prisma/
+        migrations/
+          20260628092746_init_products/
+            migration.sql
+          migration_lock.toml
+        schema.prisma
+        seed.ts
+        tsconfig.json
       src/
         config/
           env.ts
+        database/
+          prisma.ts
         middlewares/
           error-handler.middleware.ts
           request-id.middleware.ts
+        products/
+          product.repository.ts
         routes/
           health.route.ts
           product.route.ts
         server.ts
       package.json
       tsconfig.json
-
-  packages/
-    shared/
-      src/
-        errors/
-        types/
 
   docs/
     architecture/
@@ -839,8 +1235,8 @@ pulsegate/
       CURRENT_PROGRESS.md
       DECISION_LOG.md
 
-  infra/
-
+  docker-compose.yml
+  .dockerignore
   .env.example
   .gitattributes
   .gitignore
@@ -851,7 +1247,7 @@ pulsegate/
 
 ---
 
-## 14. Automated Test Architecture
+## 17. Automated Test Architecture
 
 PulseGate uses Vitest for API Gateway unit and integration tests.
 
@@ -864,8 +1260,8 @@ npm run test
 Current test status:
 
 ```txt
-11 test files passed
-71 tests passed
+13 test files passed
+85 tests passed
 ```
 
 Current unit test coverage:
@@ -883,8 +1279,14 @@ jwt-auth.middleware.test.ts
 in-memory-rate-limit-store.test.ts
   -> In-memory rate limit store behavior, counters, window reset, cleanup, validation
 
+redis-rate-limit-store.test.ts
+  -> Redis rate limit store behavior and fail-fast timeout
+
 rate-limit.middleware.test.ts
   -> Rate limit key generation, allowed requests, exceeded limit, reset behavior, missing identifier
+
+redis-response-cache-store.test.ts
+  -> Redis response cache store MISS/HIT, set with TTL, validation, and fail-fast timeout
 
 request-size-limit.middleware.test.ts
   -> Content-Length parsing, allowed body size, exceeded body size, invalid config
@@ -948,23 +1350,23 @@ GET /api/products with valid API key and valid JWT but downstream times out
 
 ---
 
-## 15. Current Design Principles
+## 18. Current Design Principles
 
 PulseGate follows these principles:
 
-### 15.1 Local First
+### 18.1 Local First
 
 The project should run locally before adding cloud deployment.
 
-### 15.2 Cost Safe
+### 18.2 Cost Safe
 
 Early versions should not require paid cloud infrastructure.
 
-### 15.3 Small Steps
+### 18.3 Small Steps
 
 New technologies should be added only after the previous layer is stable.
 
-### 15.4 Clean Structure
+### 18.4 Clean Structure
 
 Each service should separate:
 
@@ -975,21 +1377,38 @@ Each service should separate:
 * Tests
 * Server startup
 
-### 15.5 Observable by Design
+API Gateway also separates:
+
+* Redis client
+* Rate limit stores
+* Response cache stores
+* Downstream route configuration
+
+Product Service also separates:
+
+* Database helper
+* Product repository
+* Prisma schema and migrations
+
+### 18.5 Observable by Design
 
 Request ID and JSON logging are added early to prepare for future observability.
 
-### 15.6 Behavior First, Infrastructure Later
+### 18.6 Behavior First, Infrastructure Later
 
-Gateway behavior should be implemented and tested before adding Redis, Docker, databases, Kafka, or observability infrastructure.
+Gateway behavior is implemented and tested before adding more advanced distributed systems.
 
-### 15.7 Test Before Scaling
+### 18.7 Test Before Scaling
 
 Core Gateway behavior should be protected by automated tests before infrastructure and distributed systems are added.
 
+### 18.8 Infrastructure After Stable Gateway Behavior
+
+Docker, PostgreSQL, Redis, and Prisma were added only after routing, auth, downstream resilience, and traffic protection were stable.
+
 ---
 
-## 16. Future Target Architecture
+## 19. Future Target Architecture
 
 Long-term architecture:
 
@@ -1023,7 +1442,7 @@ Infrastructure
 
 ---
 
-## 17. Planned Evolution
+## 20. Planned Evolution
 
 ### Sprint 0 - Core Setup & Basic Gateway Flow
 
@@ -1087,7 +1506,7 @@ Done
 
 ### Sprint 3 - Data & Infrastructure Foundation
 
-Planned goal:
+Goal:
 
 * Add Docker Compose foundation.
 * Add PostgreSQL service.
@@ -1101,20 +1520,23 @@ Planned goal:
 Status:
 
 ```txt
-Planned
+Technical implementation complete
 ```
 
 ---
 
-### Sprint 4 - Observability
+### Sprint 4 - Observability Foundation
 
 Planned goal:
 
-* Add Prometheus metrics.
-* Add Grafana dashboard.
-* Add OpenTelemetry.
-* Add Jaeger or Tempo.
-* Add structured log pipeline later.
+* Add structured access logs.
+* Add request latency measurement.
+* Add basic metrics endpoint.
+* Add Prometheus service.
+* Add Grafana service.
+* Add dashboard foundation.
+* Add gateway-level observability documentation.
+* Keep advanced OpenTelemetry tracing for a later sprint unless explicitly needed.
 
 Status:
 

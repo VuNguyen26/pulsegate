@@ -1,4 +1,3 @@
-````md
 # PulseGate
 
 <p align="center">
@@ -6,20 +5,23 @@
 </p>
 
 <p align="center">
-  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, and a microservice-oriented architecture.
+  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, and a microservice-oriented architecture.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Sprint%203%20In%20Progress-blue" />
-  <img src="https://img.shields.io/badge/version-v0.3.0-blue" />
-  <img src="https://img.shields.io/badge/tests-71%20passing-brightgreen" />
+  <img src="https://img.shields.io/badge/status-Sprint%203%20Complete-brightgreen" />
+  <img src="https://img.shields.io/badge/version-v0.4.0-blue" />
+  <img src="https://img.shields.io/badge/tests-85%20passing-brightgreen" />
   <img src="https://img.shields.io/badge/typecheck-passing-brightgreen" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
   <img src="https://img.shields.io/badge/Node.js-20%2B-green" />
   <img src="https://img.shields.io/badge/TypeScript-strict-blue" />
   <img src="https://img.shields.io/badge/Fastify-API%20Gateway-black" />
   <img src="https://img.shields.io/badge/Auth-API%20Key%20%2B%20JWT-purple" />
-  <img src="https://img.shields.io/badge/Traffic%20Protection-Rate%20Limit%20%2B%20Size%20Limit-orange" />
+  <img src="https://img.shields.io/badge/Rate%20Limit-Redis-red" />
+  <img src="https://img.shields.io/badge/Cache-Redis-red" />
+  <img src="https://img.shields.io/badge/Database-PostgreSQL-blue" />
+  <img src="https://img.shields.io/badge/ORM-Prisma-2D3748" />
   <img src="https://img.shields.io/badge/Docker%20Compose-enabled-blue" />
   <img src="https://img.shields.io/badge/License-MIT-lightgrey" />
 </p>
@@ -36,7 +38,7 @@
 * Apigee
 * AWS API Gateway
 
-The project is designed to demonstrate backend engineering skills around API routing, microservice communication, authentication, traffic protection, request tracing, error handling, testing, observability, scalability, and production-oriented system design.
+The project is designed to demonstrate backend engineering skills around API routing, microservice communication, authentication, traffic protection, caching, data persistence, request tracing, error handling, testing, observability preparation, scalability, and production-oriented system design.
 
 PulseGate starts small and grows step by step.
 
@@ -49,48 +51,56 @@ Client
     -> Basic security headers
     -> Request size limit
     -> API key authentication
-    -> In-memory rate limiting
+    -> Redis-backed rate limiting
     -> JWT authentication
-    -> Downstream route configuration
-    -> Downstream timeout handling
-    -> Normalized downstream error handling
-    -> Product Service :3001
-      -> Mock Product Response
-````
+    -> Redis response cache
+      -> Cache HIT:
+           -> Return cached Product response
+      -> Cache MISS:
+           -> Downstream route configuration
+           -> Downstream timeout handling
+           -> Normalized downstream error handling
+           -> Product Service :3001
+             -> Prisma Client
+             -> PostgreSQL :5432
+             -> Database-backed Product response
+           -> Store response in Redis cache
+    -> Return response to Client
+```
 
 Current version:
 
 ```txt
-v0.3.0
+v0.4.0
 ```
 
 Current sprint status:
 
 ```txt
-Sprint 3 - Data & Infrastructure Foundation In Progress
+Sprint 3 - Data & Infrastructure Foundation Complete
 ```
 
 ---
 
 ## Project Status
 
-| Area            | Status                                                                                             | Notes                                      |
-| --------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                              | Core setup and basic Gateway flow          |
-| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                              | API Gateway core features                  |
-| Sprint 2        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                              | Gateway traffic protection                 |
-| Sprint 3        | ![In Progress](https://img.shields.io/badge/status-in%20progress-blue)                             | Data and infrastructure foundation         |
-| Current Version | ![v0.3.0](https://img.shields.io/badge/version-v0.3.0-blue)                                        | Traffic-protected local Gateway foundation |
-| Automated Tests | ![71 Passing](https://img.shields.io/badge/tests-71%20passing-brightgreen)                         | Unit and integration tests                 |
-| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)                             | TypeScript validation passes               |
-| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)                                 | Production build passes                    |
-| Current Sprint  | ![Sprint 3](https://img.shields.io/badge/Sprint%203-Data%20%26%20Infrastructure%20Foundation-blue) | Docker Compose foundation added            |
+| Area            | Status                                                                               | Notes                                                     |
+| --------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                | Core setup and basic Gateway flow                         |
+| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                | API Gateway core features                                 |
+| Sprint 2        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                | Gateway traffic protection                                |
+| Sprint 3        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                | Data and infrastructure foundation                        |
+| Current Version | ![v0.4.0](https://img.shields.io/badge/version-v0.4.0-blue)                          | Docker, PostgreSQL, Prisma, Redis rate limit, Redis cache |
+| Automated Tests | ![85 Passing](https://img.shields.io/badge/tests-85%20passing-brightgreen)           | Unit and integration tests                                |
+| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)               | TypeScript validation passes                              |
+| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)                   | Production build passes                                   |
+| Next Sprint     | ![Sprint 4](https://img.shields.io/badge/Sprint%204-Observability%20Foundation-blue) | Structured logs, latency, metrics, Prometheus, Grafana    |
 
 ---
 
 ## Why PulseGate?
 
-Modern backend systems often contain many services. Without an API Gateway, clients may need to call each service directly, which creates problems around routing, security, rate limiting, logging, monitoring, and scaling.
+Modern backend systems often contain many services. Without an API Gateway, clients may need to call each service directly, which creates problems around routing, security, rate limiting, logging, monitoring, caching, resilience, and scaling.
 
 PulseGate aims to solve these problems by acting as a single entry point for APIs.
 
@@ -102,6 +112,7 @@ Long-term goals:
 * Add request size protection.
 * Add security headers.
 * Add Redis caching to reduce backend load.
+* Store service data in PostgreSQL.
 * Log requests with request IDs.
 * Expose metrics for monitoring.
 * Add distributed tracing.
@@ -168,16 +179,23 @@ Long-term goals:
 
 ### Sprint 3 - Data & Infrastructure Foundation
 
-| Feature                      | Status                                                            | Notes                                     |
-| ---------------------------- | ----------------------------------------------------------------- | ----------------------------------------- |
-| Docker Compose foundation    | ![Done](https://img.shields.io/badge/status-done-brightgreen)     | Runs API Gateway and Product Service      |
-| Containerize API Gateway     | ![Done](https://img.shields.io/badge/status-done-brightgreen)     | API Gateway container runs on port `3000` |
-| Containerize Product Service | ![Done](https://img.shields.io/badge/status-done-brightgreen)     | Product Service container runs on `3001`  |
-| PostgreSQL service           | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) | Planned for next infrastructure step      |
-| Prisma setup                 | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) | Planned after PostgreSQL foundation       |
-| Database-backed products     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) | Will replace mock product data            |
-| Redis-backed rate limiting   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) | Will replace in-memory rate limit store   |
-| Basic response caching       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) | Planned after Redis foundation            |
+| Feature                                | Status                                                        | Notes                                                |
+| -------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------- |
+| Docker Compose foundation              | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Runs API Gateway, Product Service, PostgreSQL, Redis |
+| Containerize API Gateway               | ![Done](https://img.shields.io/badge/status-done-brightgreen) | API Gateway container runs on port `3000`            |
+| Containerize Product Service           | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Product Service container runs on port `3001`        |
+| PostgreSQL service                     | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Local database through Docker Compose                |
+| Prisma setup                           | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Prisma schema, migration, client generation          |
+| Product seed script                    | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Idempotent seed with `upsert`                        |
+| Database-backed products               | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Replaced mock Product Service data                   |
+| Redis service                          | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Local Redis through Docker Compose                   |
+| Redis client foundation                | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Shared Redis connection lifecycle                    |
+| Redis-backed rate limiting             | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Replaced runtime in-memory rate limit store          |
+| Redis rate limit fail-fast behavior    | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Prevents long request hangs when Redis is down       |
+| Redis response cache store             | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Cache get/set with TTL and timeout                   |
+| Product response caching               | ![Done](https://img.shields.io/badge/status-done-brightgreen) | `x-cache: MISS` and `x-cache: HIT`                   |
+| Cache HIT when Product Service is down | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Cached response survives downstream outage           |
+| Cache write failure isolation          | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Cache write errors do not break valid responses      |
 
 ---
 
@@ -186,17 +204,31 @@ Long-term goals:
 ```mermaid
 flowchart LR
     Client[Client / API Consumer] --> Gateway[PulseGate API Gateway<br/>Port 3000]
+
     Gateway --> ReqId[Request ID Middleware]
     ReqId --> SecurityHeaders[Security Headers Middleware]
     SecurityHeaders --> SizeLimit[Request Size Limit]
     SizeLimit --> ApiKey[API Key Authentication]
-    ApiKey --> RateLimit[In-Memory Rate Limiting]
+    ApiKey --> RateLimit[Redis-Backed Rate Limiting]
     RateLimit --> Jwt[JWT Authentication]
-    Jwt --> RouteConfig[Downstream Route Config]
+    Jwt --> Cache{Redis Response Cache}
+
+    Cache -->|HIT| CachedResponse[Cached Product Response]
+    CachedResponse --> Gateway
+
+    Cache -->|MISS| RouteConfig[Downstream Route Config]
     RouteConfig --> Product[Product Service<br/>Port 3001]
-    Product --> Response[Mock Product Response]
-    Response --> Product
+    Product --> Prisma[Prisma Client]
+    Prisma --> Postgres[(PostgreSQL<br/>Port 5432)]
+    Postgres --> Prisma
+    Prisma --> Product
     Product --> Gateway
+    Gateway --> CacheStore[Store Response in Redis Cache]
+    CacheStore --> Redis[(Redis<br/>Port 6379)]
+
+    RateLimit --> Redis
+    Cache --> Redis
+
     Gateway --> Client
 ```
 
@@ -213,16 +245,23 @@ Client
     -> Check x-api-key
       -> Missing: 401 API_KEY_MISSING
       -> Invalid: 403 API_KEY_INVALID
-    -> Apply rate limit by API key and route
+    -> Apply Redis-backed rate limit by API key and route
       -> Exceeded: 429 TOO_MANY_REQUESTS
     -> Check Authorization Bearer token
       -> Missing: 401 JWT_TOKEN_MISSING
       -> Invalid: 403 JWT_TOKEN_INVALID
-    -> Call Product Service
-      -> Local npm: http://127.0.0.1:3001/products
-      -> Docker Compose: http://product-service:3001/products
-    -> Product Service returns products
-    -> API Gateway returns response to Client
+    -> Check Redis response cache
+      -> HIT:
+           -> Return cached products
+           -> x-cache: HIT
+      -> MISS:
+           -> Call Product Service
+              -> Local npm: http://127.0.0.1:3001/products
+              -> Docker Compose: http://product-service:3001/products
+           -> Product Service reads PostgreSQL through Prisma
+           -> API Gateway stores response in Redis cache
+           -> Return products
+           -> x-cache: MISS
 ```
 
 Current public request flow:
@@ -250,6 +289,9 @@ pulsegate/
       src/
         app.ts
         app.test.ts
+        cache/
+          redis-response-cache-store.ts
+          redis-response-cache-store.test.ts
         config/
           downstream-routes.ts
           downstream-routes.test.ts
@@ -275,6 +317,10 @@ pulsegate/
         rate-limit/
           in-memory-rate-limit-store.ts
           in-memory-rate-limit-store.test.ts
+          redis-rate-limit-store.ts
+          redis-rate-limit-store.test.ts
+        redis/
+          redis-client.ts
         routes/
           health.route.ts
           product-proxy.route.ts
@@ -285,24 +331,30 @@ pulsegate/
 
     product-service/
       Dockerfile
+      prisma/
+        migrations/
+          20260628092746_init_products/
+            migration.sql
+          migration_lock.toml
+        schema.prisma
+        seed.ts
+        tsconfig.json
       src/
         config/
           env.ts
+        database/
+          prisma.ts
         middlewares/
           error-handler.middleware.ts
           request-id.middleware.ts
+        products/
+          product.repository.ts
         routes/
           health.route.ts
           product.route.ts
         server.ts
       package.json
       tsconfig.json
-
-  packages/
-    shared/
-      src/
-        errors/
-        types/
 
   docs/
     architecture/
@@ -313,8 +365,6 @@ pulsegate/
       AI_HANDOFF.md
       CURRENT_PROGRESS.md
       DECISION_LOG.md
-
-  infra/
 
   .dockerignore
   .env.example
@@ -359,8 +409,9 @@ GET /health
 
 GET /api/products
   -> Requires API key
+  -> Redis-backed rate limited by API key and route
   -> Requires JWT Bearer token
-  -> Rate limited by API key and route
+  -> Uses Redis response cache
 ```
 
 Responsibilities:
@@ -371,10 +422,11 @@ Responsibilities:
 * Adds `x-request-id` response header.
 * Adds basic security headers.
 * Applies request size limit.
-* Routes product API requests to Product Service.
+* Routes product API requests to Product Service on cache MISS.
+* Returns cached response on cache HIT.
 * Forwards `x-request-id` to downstream services.
 * Applies API key authentication.
-* Applies in-memory rate limiting.
+* Applies Redis-backed rate limiting.
 * Applies JWT authentication.
 * Attaches verified JWT payload to `request.jwtPayload`.
 * Applies downstream request timeout.
@@ -410,7 +462,9 @@ GET /products
 Responsibilities:
 
 * Provides product-related APIs.
-* Returns mock product data.
+* Reads product data from PostgreSQL.
+* Uses Prisma Client for database access.
+* Returns database-backed product data.
 * Creates or reuses request IDs.
 * Reuses request ID from API Gateway.
 * Handles basic 404 and 500 errors.
@@ -419,38 +473,104 @@ Responsibilities:
 
 ---
 
+### PostgreSQL
+
+Port:
+
+```txt
+5432
+```
+
+Responsibilities:
+
+* Stores Product Service data.
+* Holds the `products` table.
+* Stores Prisma migration metadata.
+* Runs locally through Docker Compose.
+
+Current database:
+
+```txt
+pulsegate
+```
+
+Current user:
+
+```txt
+pulsegate
+```
+
+Current Product table:
+
+```txt
+products
+```
+
+Current seeded products:
+
+```txt
+prod_001 - Mechanical Keyboard - 120
+prod_002 - Gaming Mouse - 45
+```
+
+---
+
+### Redis
+
+Port:
+
+```txt
+6379
+```
+
+Responsibilities:
+
+* Stores API Gateway rate limit counters.
+* Stores API Gateway response cache payloads.
+* Supports Redis-backed traffic protection.
+* Supports Redis-backed response caching.
+
+Current Redis key examples:
+
+```txt
+rate-limit:api-key:dev-api-key:route:GET:/api/products
+response-cache:GET:/api/products
+```
+
+---
+
 ## Tech Stack
 
 Currently implemented:
 
-| Category           | Technology                       | Status                                                            |
-| ------------------ | -------------------------------- | ----------------------------------------------------------------- |
-| Runtime            | Node.js                          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Language           | TypeScript                       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Web Framework      | Fastify                          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Monorepo           | npm workspaces                   | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Logging            | Fastify JSON logger              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Authentication     | API Key, JWT                     | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| JWT Library        | jose                             | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Traffic Protection | In-memory rate limit, size limit | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| HTTP Security      | Basic security headers           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Containerization   | Docker, Docker Compose           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Testing            | Vitest                           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Architecture       | API Gateway + Microservice       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Category           | Technology                          | Status                                                            |
+| ------------------ | ----------------------------------- | ----------------------------------------------------------------- |
+| Runtime            | Node.js 20+                         | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Language           | TypeScript strict mode              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Web Framework      | Fastify                             | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Monorepo           | npm workspaces                      | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Logging            | Fastify JSON logger                 | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Authentication     | API Key, JWT                        | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| JWT Library        | jose                                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Traffic Protection | Redis-backed rate limit, size limit | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| HTTP Security      | Basic security headers              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Cache              | Redis response cache                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Database           | PostgreSQL                          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| ORM                | Prisma                              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Containerization   | Docker, Docker Compose              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Testing            | Vitest                              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Architecture       | API Gateway + Microservice          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 
 Planned later:
 
 | Category        | Technology                   | Status                                                            |
 | --------------- | ---------------------------- | ----------------------------------------------------------------- |
-| Database        | PostgreSQL                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| ORM             | Prisma                       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Cache           | Redis                        | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Event Streaming | Kafka                        | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Background Jobs | RabbitMQ                     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Metrics         | Prometheus                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Dashboard       | Grafana                      | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Tracing         | OpenTelemetry + Jaeger/Tempo | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Logs            | Loki                         | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Event Streaming | Kafka                        | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Background Jobs | RabbitMQ                     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Load Testing    | k6                           | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Orchestration   | Kubernetes                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | CI/CD           | GitHub Actions               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
@@ -461,7 +581,7 @@ Planned later:
 
 PulseGate uses environment variables for local configuration.
 
-Main API Gateway variables:
+### API Gateway Variables
 
 ```txt
 PORT=3000
@@ -477,18 +597,25 @@ JWT_AUDIENCE=pulsegate-clients
 JWT_EXPIRES_IN_SECONDS=900
 PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS=5
 PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS=60000
+REDIS_URL=redis://localhost:6379
 ```
 
-For local npm development, API Gateway uses:
+### Product Service Variables
 
 ```txt
-PRODUCT_SERVICE_URL=http://127.0.0.1:3001
+PORT=3001
+HOST=0.0.0.0
+DATABASE_URL=postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate
 ```
 
-For Docker Compose development, API Gateway uses the internal Docker service name:
+### Docker Compose Internal Values
+
+Inside Docker Compose, API Gateway and Product Service use internal service names:
 
 ```txt
 PRODUCT_SERVICE_URL=http://product-service:3001
+DATABASE_URL=postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate
+REDIS_URL=redis://redis:6379
 ```
 
 See `.env.example` for the full list.
@@ -508,6 +635,113 @@ cd pulsegate
 
 ```powershell
 npm install
+```
+
+---
+
+## Run with Docker Compose
+
+This is the recommended workflow after Sprint 3.
+
+### 1. Start PostgreSQL and Redis
+
+```powershell
+docker compose up -d postgres redis
+```
+
+Check services:
+
+```powershell
+docker compose ps
+```
+
+Expected:
+
+```txt
+pulsegate-postgres  healthy
+pulsegate-redis     healthy
+```
+
+### 2. Run database migration
+
+Set local database URL:
+
+```powershell
+$env:DATABASE_URL="postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate"
+```
+
+Apply Prisma migrations:
+
+```powershell
+npx prisma migrate deploy --schema apps/product-service/prisma/schema.prisma
+```
+
+### 3. Seed product data
+
+```powershell
+npm run db:seed -w apps/product-service
+```
+
+Validate product data:
+
+```powershell
+docker compose exec postgres psql -U pulsegate -d pulsegate -c "SELECT id, name, price FROM products ORDER BY id;"
+```
+
+Expected result:
+
+```txt
+prod_001 | Mechanical Keyboard | 120
+prod_002 | Gaming Mouse        | 45
+```
+
+### 4. Start the full stack
+
+```powershell
+docker compose up --build -d
+```
+
+Check running containers:
+
+```powershell
+docker compose ps
+```
+
+Expected services:
+
+```txt
+pulsegate-postgres         healthy
+pulsegate-redis            healthy
+pulsegate-product-service  healthy
+pulsegate-api-gateway      up
+```
+
+### 5. Stop the stack
+
+```powershell
+docker compose down
+```
+
+---
+
+## Run Locally with npm
+
+For local npm development, keep PostgreSQL and Redis running in Docker, then run API Gateway and Product Service directly with npm.
+
+### 1. Start infrastructure
+
+```powershell
+docker compose up -d postgres redis
+```
+
+### 2. Prepare database
+
+```powershell
+$env:DATABASE_URL="postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate"
+
+npx prisma migrate deploy --schema apps/product-service/prisma/schema.prisma
+
+npm run db:seed -w apps/product-service
 ```
 
 ### 3. Run Product Service
@@ -537,60 +771,6 @@ API Gateway runs on:
 ```txt
 http://localhost:3000
 ```
-
-### 5. Run with Docker Compose
-
-PulseGate can also run both services with Docker Compose.
-
-This starts:
-
-```txt
-API Gateway      -> http://localhost:3000
-Product Service  -> http://localhost:3001
-```
-
-Run:
-
-```powershell
-docker compose up --build
-```
-
-Or run in detached mode:
-
-```powershell
-docker compose up --build -d
-```
-
-Check running containers:
-
-```powershell
-docker compose ps
-```
-
-Stop and remove containers:
-
-```powershell
-docker compose down
-```
-
-When running inside Docker Compose, API Gateway calls Product Service through the internal Docker service name:
-
-```txt
-http://product-service:3001
-```
-
-This is different from local npm development, where API Gateway calls Product Service through:
-
-```txt
-http://127.0.0.1:3001
-```
-
-Both workflows are supported:
-
-| Workflow       | Product Service URL inside API Gateway |
-| -------------- | -------------------------------------- |
-| Local npm      | `http://127.0.0.1:3001`                |
-| Docker Compose | `http://product-service:3001`          |
 
 ---
 
@@ -653,28 +833,32 @@ Expected response:
 }
 ```
 
-### Create Local Development JWT Token
+---
+
+## Create Local Development JWT Token
 
 ```powershell
 $token = node --input-type=module -e "import { SignJWT } from 'jose'; const secretKey = new TextEncoder().encode('local-dev-jwt-secret-change-me'); const expiresAt = Math.floor(Date.now() / 1000) + 900; const token = await new SignJWT({ role: 'user' }).setProtectedHeader({ alg: 'HS256' }).setSubject('user_123').setIssuer('pulsegate-api-gateway').setAudience('pulsegate-clients').setExpirationTime(expiresAt).sign(secretKey); console.log(token);"
 ```
 
-Check token:
+Create request headers:
 
 ```powershell
-$token
+$headers = @{
+  "x-api-key" = "dev-api-key"
+  "authorization" = "Bearer $token"
+}
 ```
 
-### API Gateway Product Proxy API
+---
+
+## API Gateway Product Proxy API
 
 This route requires both API key and JWT.
 
 ```powershell
 Invoke-RestMethod http://localhost:3000/api/products `
-  -Headers @{
-    "x-api-key" = "dev-api-key"
-    "authorization" = "Bearer $token"
-  } |
+  -Headers $headers |
   ConvertTo-Json -Depth 10
 ```
 
@@ -695,51 +879,6 @@ Expected response:
     }
   ]
 }
-```
-
-### API Gateway Rate Limit Validation
-
-`GET /api/products` is limited by API key and route.
-
-```powershell
-$headers = @{
-  "x-api-key" = "dev-api-key"
-  "authorization" = "Bearer $token"
-}
-
-1..6 | ForEach-Object {
-  try {
-    $res = Invoke-WebRequest http://localhost:3000/api/products `
-      -Headers $headers `
-      -UseBasicParsing
-
-    [PSCustomObject]@{
-      Attempt = $_
-      Status = $res.StatusCode
-      Remaining = $res.Headers["x-ratelimit-remaining"]
-      RetryAfter = $res.Headers["retry-after"]
-    }
-  } catch {
-    [PSCustomObject]@{
-      Attempt = $_
-      Status = $_.Exception.Response.StatusCode.value__
-      Remaining = $_.Exception.Response.Headers["x-ratelimit-remaining"]
-      RetryAfter = $_.Exception.Response.Headers["retry-after"]
-      Body = $_.ErrorDetails.Message
-    }
-  }
-} | Format-Table -AutoSize
-```
-
-Expected behavior:
-
-```txt
-Attempt 1 -> 200, Remaining 4
-Attempt 2 -> 200, Remaining 3
-Attempt 3 -> 200, Remaining 2
-Attempt 4 -> 200, Remaining 1
-Attempt 5 -> 200, Remaining 0
-Attempt 6 -> 429 TOO_MANY_REQUESTS
 ```
 
 ---
@@ -776,7 +915,7 @@ Invalid API key
   -> 403 API_KEY_INVALID
 
 Valid API key
-  -> Continue to route-level traffic protection
+  -> Continue to Redis-backed rate limiting
 ```
 
 ### JWT Authentication
@@ -812,7 +951,7 @@ Invalid Bearer token
   -> 403 JWT_TOKEN_INVALID
 
 Valid Bearer token
-  -> Continue to Product Service
+  -> Continue to Redis response cache
 ```
 
 JWT validation checks:
@@ -830,7 +969,7 @@ Expiration
 
 PulseGate protects Gateway routes from excessive or unsafe traffic.
 
-### Rate Limiting
+### Redis-Backed Rate Limiting
 
 Current product route rate limit:
 
@@ -838,6 +977,58 @@ Current product route rate limit:
 GET /api/products
   -> Limited by API key and route
   -> Default: 5 requests per 60 seconds
+```
+
+Logical rate limit key:
+
+```txt
+api-key:<api-key>:route:<method>:<route-path>
+```
+
+Redis rate limit key:
+
+```txt
+rate-limit:api-key:dev-api-key:route:GET:/api/products
+```
+
+Validate rate limiting:
+
+```powershell
+docker compose exec redis redis-cli DEL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
+
+1..6 | ForEach-Object {
+  try {
+    $res = Invoke-WebRequest http://localhost:3000/api/products `
+      -Headers $headers `
+      -UseBasicParsing
+
+    [PSCustomObject]@{
+      Attempt = $_
+      Status = $res.StatusCode
+      Remaining = $res.Headers["x-ratelimit-remaining"]
+      RetryAfter = $res.Headers["retry-after"]
+    }
+  } catch {
+    [PSCustomObject]@{
+      Attempt = $_
+      Status = $_.Exception.Response.StatusCode.value__
+      Remaining = $_.Exception.Response.Headers["x-ratelimit-remaining"]
+      RetryAfter = $_.Exception.Response.Headers["retry-after"]
+      Body = $_.ErrorDetails.Message
+    }
+  }
+} | Format-Table -AutoSize
+```
+
+Expected behavior:
+
+```txt
+Attempt 1 -> 200, Remaining 4
+Attempt 2 -> 200, Remaining 3
+Attempt 3 -> 200, Remaining 2
+Attempt 4 -> 200, Remaining 1
+Attempt 5 -> 200, Remaining 0
+Attempt 6 -> 429 TOO_MANY_REQUESTS
 ```
 
 When the limit is exceeded:
@@ -913,21 +1104,115 @@ content-security-policy: default-src 'none'; frame-ancestors 'none'; base-uri 'n
 
 ---
 
+## Redis Response Cache Behavior
+
+PulseGate currently caches `GET /api/products` responses in Redis.
+
+Current response cache key:
+
+```txt
+response-cache:GET:/api/products
+```
+
+Current cache TTL:
+
+```txt
+30 seconds
+```
+
+Validate cache MISS/HIT:
+
+```powershell
+docker compose exec redis redis-cli DEL "response-cache:GET:/api/products"
+docker compose exec redis redis-cli DEL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
+
+$res1 = Invoke-WebRequest http://localhost:3000/api/products `
+  -Headers $headers `
+  -UseBasicParsing
+
+$res1.StatusCode
+$res1.Headers["x-cache"]
+$res1.Content
+
+$res2 = Invoke-WebRequest http://localhost:3000/api/products `
+  -Headers $headers `
+  -UseBasicParsing
+
+$res2.StatusCode
+$res2.Headers["x-cache"]
+$res2.Content
+```
+
+Expected behavior:
+
+```txt
+Request 1 -> 200, x-cache: MISS
+Request 2 -> 200, x-cache: HIT
+```
+
+Check Redis cache key:
+
+```powershell
+docker compose exec redis redis-cli GET "response-cache:GET:/api/products"
+docker compose exec redis redis-cli TTL "response-cache:GET:/api/products"
+```
+
+### Cache HIT when Product Service is down
+
+```powershell
+docker compose exec redis redis-cli DEL "response-cache:GET:/api/products"
+docker compose exec redis redis-cli DEL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
+
+$res1 = Invoke-WebRequest http://localhost:3000/api/products `
+  -Headers $headers `
+  -UseBasicParsing
+
+$res1.StatusCode
+$res1.Headers["x-cache"]
+
+docker compose stop product-service
+
+$res2 = Invoke-WebRequest http://localhost:3000/api/products `
+  -Headers $headers `
+  -UseBasicParsing
+
+$res2.StatusCode
+$res2.Headers["x-cache"]
+$res2.Content
+
+docker compose start product-service
+```
+
+Expected behavior:
+
+```txt
+Request 1 -> 200, x-cache: MISS
+Product Service stopped
+Request 2 -> 200, x-cache: HIT
+```
+
+This confirms that a valid Redis cache HIT can serve data even when Product Service is temporarily unavailable.
+
+---
+
 ## Downstream Error Behavior
 
 PulseGate normalizes downstream Product Service failures.
 
 ```txt
-Product Service unavailable
+Product Service unavailable + cache MISS
   -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
 
-Product Service timeout
+Product Service unavailable + cache HIT
+  -> 200 from Redis cache
+
+Product Service timeout + cache MISS
   -> 504 DOWNSTREAM_TIMEOUT
 
-Product Service returns error status
+Product Service returns error status + cache MISS
   -> 502 DOWNSTREAM_HTTP_ERROR
 
-Product Service returns invalid JSON
+Product Service returns invalid JSON + cache MISS
   -> 502 DOWNSTREAM_INVALID_RESPONSE
 ```
 
@@ -943,6 +1228,37 @@ Example unavailable response:
   }
 }
 ```
+
+---
+
+## Redis Failure Behavior
+
+When Redis is unavailable, API Gateway fails fast instead of hanging for a long time.
+
+```powershell
+docker compose stop redis
+
+try {
+  Invoke-RestMethod http://localhost:3000/api/products `
+    -Headers $headers |
+    ConvertTo-Json -Depth 10
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+
+docker compose start redis
+docker compose restart api-gateway
+```
+
+Expected result:
+
+```txt
+500
+{"error":{"message":"Internal Server Error","requestId":"example-request-id"}}
+```
+
+Redis internal errors are not exposed to clients.
 
 ---
 
@@ -969,6 +1285,54 @@ Why this matters:
 
 ---
 
+## Database and Prisma
+
+Product Service uses PostgreSQL and Prisma.
+
+Prisma schema:
+
+```txt
+apps/product-service/prisma/schema.prisma
+```
+
+Current migration:
+
+```txt
+apps/product-service/prisma/migrations/20260628092746_init_products/migration.sql
+```
+
+Seed script:
+
+```txt
+apps/product-service/prisma/seed.ts
+```
+
+Generate Prisma Client:
+
+```powershell
+npm run db:generate -w apps/product-service
+```
+
+Run seed:
+
+```powershell
+npm run db:seed -w apps/product-service
+```
+
+Validate tables:
+
+```powershell
+docker compose exec postgres psql -U pulsegate -d pulsegate -c "\dt"
+```
+
+Validate products:
+
+```powershell
+docker compose exec postgres psql -U pulsegate -d pulsegate -c "SELECT id, name, price FROM products ORDER BY id;"
+```
+
+---
+
 ## Automated Tests
 
 PulseGate uses Vitest for unit and integration tests.
@@ -982,8 +1346,8 @@ npm run test
 Current result:
 
 ```txt
-11 test files passed
-71 tests passed
+13 test files passed
+85 tests passed
 ```
 
 Current unit test coverage:
@@ -1001,8 +1365,14 @@ jwt-auth.middleware.test.ts
 rate-limit/in-memory-rate-limit-store.test.ts
   -> In-memory rate limit store behavior, counters, window reset, cleanup, validation
 
+rate-limit/redis-rate-limit-store.test.ts
+  -> Redis rate limit store behavior and fail-fast timeout
+
 rate-limit.middleware.test.ts
   -> Rate limit key generation, allowed requests, exceeded limit, reset behavior, missing identifier
+
+cache/redis-response-cache-store.test.ts
+  -> Redis response cache store MISS/HIT, set with TTL, validation, and fail-fast timeout
 
 request-size-limit.middleware.test.ts
   -> Content-Length parsing, allowed body size, exceeded body size, invalid config
@@ -1116,6 +1486,18 @@ Build all workspaces:
 npm run build
 ```
 
+Generate Prisma Client:
+
+```powershell
+npm run db:generate -w apps/product-service
+```
+
+Seed database:
+
+```powershell
+npm run db:seed -w apps/product-service
+```
+
 ---
 
 ## Documentation
@@ -1194,30 +1576,34 @@ Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
 
 ### Sprint 3 - Data & Infrastructure Foundation
 
-Status: ![In Progress](https://img.shields.io/badge/status-in%20progress-blue)
+Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
 
-| Feature                                      | Status                                                            |
-| -------------------------------------------- | ----------------------------------------------------------------- |
-| Add Docker Compose                           | ![Done](https://img.shields.io/badge/status-done-brightgreen)     |
-| Containerize API Gateway                     | ![Done](https://img.shields.io/badge/status-done-brightgreen)     |
-| Containerize Product Service                 | ![Done](https://img.shields.io/badge/status-done-brightgreen)     |
-| Add PostgreSQL                               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add Prisma                                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Replace mock product data with database data | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add Redis-backed rate limiting               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add response caching                         | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Feature                                      | Status                                                        |
+| -------------------------------------------- | ------------------------------------------------------------- |
+| Add Docker Compose                           | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Containerize API Gateway                     | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Containerize Product Service                 | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add PostgreSQL                               | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add Prisma                                   | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add Product seed script                      | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Replace mock product data with database data | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add Redis service                            | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add Redis-backed rate limiting               | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add response caching                         | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Validate cache HIT when Product Service down | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
 
-### Sprint 4 - Observability
+### Sprint 4 - Observability Foundation
 
 Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
 
-| Feature                           | Status                                                            |
-| --------------------------------- | ----------------------------------------------------------------- |
-| Add Prometheus metrics            | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add Grafana dashboard             | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add OpenTelemetry                 | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add Jaeger or Tempo               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add structured log pipeline later | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Feature                      | Status                                                            |
+| ---------------------------- | ----------------------------------------------------------------- |
+| Add structured access logs   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add request latency tracking | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add basic metrics endpoint   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add Prometheus service       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add Grafana service          | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add dashboard foundation     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 
 ### Sprint 5 - Event-Driven Architecture
 
@@ -1245,7 +1631,7 @@ Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
 
 ## Current Status
 
-PulseGate currently has a stable local API Gateway foundation with traffic protection and Docker Compose support.
+PulseGate currently has a stable local-first API Gateway and infrastructure foundation with Docker Compose, PostgreSQL, Prisma, Redis-backed traffic protection, database-backed Product Service data, and Redis response caching.
 
 Stable flow:
 
@@ -1256,40 +1642,47 @@ Client
     -> Basic security headers
     -> Request size limit
     -> API key authentication
-    -> In-memory rate limiting
+    -> Redis-backed rate limiting
     -> JWT authentication
+    -> Redis response cache
     -> Downstream route configuration
     -> Downstream timeout handling
     -> Normalized downstream error handling
     -> Product Service :3001
-      -> Mock Product Response
+      -> Prisma
+      -> PostgreSQL
+      -> Database-backed Product Response
 ```
 
-Docker Compose foundation:
+Docker Compose flow:
 
 ```txt
 Client
   -> localhost:3000
     -> API Gateway container
-      -> http://product-service:3001
-        -> Product Service container
-          -> Mock Product Response
-```
-
-Latest stable Sprint 2 commits:
-
-```txt
-7c88936 feat(gateway): add in-memory rate limiting for product route
-4aed0ff refactor(gateway): move product rate limit to route config env
-a12605f feat(gateway): add request size limit
-76fdd2f feat(gateway): add basic security headers
-28a9b5e refactor(gateway): add route-level auth config
+      -> Redis container for rate limiting and caching
+      -> Product Service container
+        -> PostgreSQL container
 ```
 
 Latest stable Sprint 3 commits:
 
 ```txt
 7dbb2d2 chore: add docker compose foundation
+84a277b docs: document docker compose workflow
+75edf46 chore: add postgres service to docker compose
+934532b chore(product): add database url config
+f390694 chore(product): add prisma schema foundation
+10a3101 chore(product): add initial products migration
+f247260 chore(product): add product seed script
+23b5903 feat(product): read products from database
+ccccda5 chore: add redis service to docker compose
+94443a3 chore(gateway): add redis client foundation
+25bff78 feat(gateway): add redis rate limit store
+ff06658 feat(gateway): use redis backed rate limiting
+411d13a feat(gateway): add redis response cache store
+cf0f2b9 feat(gateway): cache product responses in redis
+176bcfe fix(gateway): isolate response cache write failures
 ```
 
 ---
@@ -1314,6 +1707,3 @@ PulseGate follows these principles:
 ## License
 
 This project is licensed under the MIT License.
-
-```
-```
