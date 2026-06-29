@@ -3,6 +3,7 @@ import Fastify from "fastify";
 import {
   buildAccessLogPayload,
   calculateDurationMs,
+  formatDurationHeader,
   getRequestPath,
   registerAccessLogMiddleware,
 } from "./access-log.middleware.js";
@@ -13,6 +14,12 @@ describe("access log middleware", () => {
     const endedAt = 1_012_345_678n;
 
     expect(calculateDurationMs(startedAt, endedAt)).toBe(12.35);
+  });
+
+  it("should format duration header with two decimal places", () => {
+    expect(formatDurationHeader(12)).toBe("12.00");
+    expect(formatDurationHeader(12.3)).toBe("12.30");
+    expect(formatDurationHeader(12.35)).toBe("12.35");
   });
 
   it("should extract request path without query string", async () => {
@@ -80,6 +87,30 @@ describe("access log middleware", () => {
 
     expect(JSON.stringify(payload)).not.toContain("secret-api-key");
     expect(JSON.stringify(payload)).not.toContain("secret-jwt-token");
+  });
+
+  it("should add response time header when registered", async () => {
+    const app = Fastify({ logger: false });
+
+    registerAccessLogMiddleware(app);
+
+    app.get("/health", async () => {
+      return {
+        status: "ok",
+      };
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/health",
+    });
+
+    const responseTime = response.headers["x-response-time-ms"];
+
+    expect(response.statusCode).toBe(200);
+    expect(responseTime).toBeDefined();
+    expect(Number(responseTime)).not.toBeNaN();
+    expect(Number(responseTime)).toBeGreaterThanOrEqual(0);
   });
 
   it("should not break request handling when registered", async () => {

@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 const REQUEST_ID_HEADER = "x-request-id";
 const CACHE_HEADER = "x-cache";
+const RESPONSE_TIME_HEADER = "x-response-time-ms";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -47,6 +48,10 @@ export function calculateDurationMs(
   return roundDurationMs(Number(endedAt - startedAt) / 1_000_000);
 }
 
+export function formatDurationHeader(durationMs: number): string {
+  return durationMs.toFixed(2);
+}
+
 export function getRequestPath(request: FastifyRequest): string {
   const rawUrl = request.raw.url ?? request.url;
   const path = rawUrl.split("?")[0];
@@ -88,6 +93,20 @@ export function buildAccessLogPayload(params: {
 export function registerAccessLogMiddleware(app: FastifyInstance): void {
   app.addHook("onRequest", async (request) => {
     request.accessLogStartedAt = process.hrtime.bigint();
+  });
+
+  app.addHook("onSend", async (request, reply, payload) => {
+    const startedAt = request.accessLogStartedAt;
+
+    if (startedAt === undefined) {
+      return payload;
+    }
+
+    const durationMs = calculateDurationMs(startedAt);
+
+    reply.header(RESPONSE_TIME_HEADER, formatDurationHeader(durationMs));
+
+    return payload;
   });
 
   app.addHook("onResponse", async (request, reply) => {
