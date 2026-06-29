@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 
 import type { ResponseCacheStore } from "../cache/redis-response-cache-store.js";
 import { productProductsRouteConfig } from "../config/downstream-routes.js";
@@ -13,11 +13,12 @@ import {
   buildResponseCacheKey,
   resolveRouteCachePolicy,
 } from "../policies/cache.policy.js";
+import { resolveRouteRateLimitPolicy } from "../policies/rate-limit.policy.js";
+import { applyRequestHeaderTransform } from "../policies/request-transform.policy.js";
+import { applyResponseHeaderTransform } from "../policies/response-transform.policy.js";
 import { createDownstreamTimeout } from "../policies/timeout.policy.js";
 import { RedisRateLimitStore } from "../rate-limit/redis-rate-limit-store.js";
 import { getRedisClient } from "../redis/redis-client.js";
-import { resolveRouteRateLimitPolicy } from "../policies/rate-limit.policy.js";
-import { applyRequestHeaderTransform } from "../policies/request-transform.policy.js";
 
 export { buildResponseCacheKey } from "../policies/cache.policy.js";
 
@@ -26,6 +27,15 @@ export type ProductProxyRouteOptions = {
   responseCacheStore?: ResponseCacheStore;
   responseCacheTtlSeconds?: number;
 };
+
+function applyHeadersToReply(
+  reply: FastifyReply,
+  headers: Record<string, string>,
+): void {
+  for (const [headerName, headerValue] of Object.entries(headers)) {
+    reply.header(headerName, headerValue);
+  }
+}
 
 export async function productProxyRoute(
   app: FastifyInstance,
@@ -75,10 +85,16 @@ export async function productProxyRoute(
         routeConfig.gatewayPath,
       );
 
+      const transformedResponseHeaders = applyResponseHeaderTransform(
+        {},
+        routePolicies.responseTransform,
+      );
+
       if (responseCache.enabled && responseCache.store) {
         const cachedResponse = await responseCache.store.get(cacheKey);
 
         if (cachedResponse.hit) {
+          applyHeadersToReply(reply, transformedResponseHeaders);
           reply.header("x-cache", "HIT");
 
           return reply
@@ -89,14 +105,14 @@ export async function productProxyRoute(
 
       const downstreamTimeout = createDownstreamTimeout(routePolicies.timeout);
 
-      let response: Response;
-
       const downstreamRequestHeaders = applyRequestHeaderTransform(
         {
           "x-request-id": request.id,
         },
         routePolicies.requestTransform,
       );
+
+      let response: Response;
 
       try {
         response = await fetch(routeConfig.downstreamUrl, {
@@ -173,6 +189,7 @@ export async function productProxyRoute(
         }
       }
 
+      applyHeadersToReply(reply, transformedResponseHeaders);
       reply.header("x-cache", responseCache.enabled ? "MISS" : "BYPASS");
 
       return reply.status(200).send(data);
