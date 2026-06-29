@@ -17,6 +17,7 @@ import { createDownstreamTimeout } from "../policies/timeout.policy.js";
 import { RedisRateLimitStore } from "../rate-limit/redis-rate-limit-store.js";
 import { getRedisClient } from "../redis/redis-client.js";
 import { resolveRouteRateLimitPolicy } from "../policies/rate-limit.policy.js";
+import { applyRequestHeaderTransform } from "../policies/request-transform.policy.js";
 
 export { buildResponseCacheKey } from "../policies/cache.policy.js";
 
@@ -90,12 +91,17 @@ export async function productProxyRoute(
 
       let response: Response;
 
+      const downstreamRequestHeaders = applyRequestHeaderTransform(
+        {
+          "x-request-id": request.id,
+        },
+        routePolicies.requestTransform,
+      );
+
       try {
         response = await fetch(routeConfig.downstreamUrl, {
           method: routeConfig.method,
-          headers: {
-            "x-request-id": request.id,
-          },
+          headers: downstreamRequestHeaders,
           signal: downstreamTimeout.signal,
         });
       } catch (error) {
