@@ -86,5 +86,20 @@ services:
       product-service:
         condition: service_healthy
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pulsegate-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - pulsegate_prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    depends_on:
+      - api-gateway
+
 volumes:
   pulsegate_postgres_data:
+  pulsegate_prometheus_data:
