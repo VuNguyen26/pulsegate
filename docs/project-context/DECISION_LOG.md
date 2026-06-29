@@ -2657,3 +2657,316 @@ Production cloud deployment
 Status:
 
 Accepted.
+
+---
+
+## 2026-06-29 - Keep Sprint 6 Focused on CI/CD Foundation
+
+Decision:
+
+Keep Sprint 6 focused on CI/CD foundation with GitHub Actions.
+
+Reason:
+
+* Sprint 5 already completed the advanced Gateway policy foundation.
+* The project now needs automated validation to make the GitHub repository more professional.
+* CI/CD is a strong portfolio signal because it proves every push can be checked automatically.
+* Automated validation should be added before bigger future changes such as tracing, load testing, multi-route expansion, Kafka, RabbitMQ, Kubernetes, Admin Dashboard, or Developer Portal.
+* Keeping Sprint 6 focused prevents scope creep.
+
+Included in Sprint 6:
+
+```txt
+GitHub Actions workflow
+CI trigger on push to main
+CI trigger on pull request to main
+npm ci
+Prisma Client generation
+Automated tests
+TypeScript typecheck
+Production build
+API Gateway Docker image build validation
+Product Service Docker image build validation
+README CI badge
+Final validation
+Documentation update
+```
+
+Not included in Sprint 6:
+
+```txt
+Kafka
+RabbitMQ
+Kubernetes
+OpenTelemetry
+Jaeger
+Tempo
+Loki
+k6
+Admin Dashboard
+Developer Portal
+Production cloud deployment
+Docker image push to registry
+Automatic deployment
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Use GitHub Actions for CI
+
+Decision:
+
+Use GitHub Actions as the CI platform for PulseGate.
+
+Reason:
+
+* GitHub Actions integrates directly with the GitHub repository.
+* It is easy for reviewers and recruiters to see CI status on the repository page.
+* It supports Node.js, npm, Docker, and monorepo workflows well.
+* It is enough for the current local-first project stage.
+* It avoids adding external CI services too early.
+
+Implemented workflow file:
+
+```txt
+.github/workflows/ci.yml
+```
+
+Current workflow name:
+
+```txt
+CI
+```
+
+Current job name:
+
+```txt
+Test, Typecheck, and Build
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Run CI on Push and Pull Request to Main
+
+Decision:
+
+Run the CI workflow on every push to `main` and every pull request targeting `main`.
+
+Reason:
+
+* Push validation confirms the main branch remains healthy after each checkpoint.
+* Pull request validation prepares the project for a more professional collaboration workflow later.
+* The `main` branch should represent stable code.
+* Automated checks reduce the chance of broken code being pushed unnoticed.
+
+Current trigger behavior:
+
+```txt
+push to main
+pull_request to main
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Use npm ci in CI
+
+Decision:
+
+Use `npm ci` instead of `npm install` in GitHub Actions.
+
+Reason:
+
+* `npm ci` uses `package-lock.json` exactly.
+* It gives a clean, reproducible dependency installation.
+* It is more suitable for CI environments than `npm install`.
+* It helps detect lockfile and dependency problems early.
+
+Current CI install step:
+
+```txt
+npm ci
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Generate Prisma Client in CI
+
+Decision:
+
+Generate Prisma Client in CI before running typecheck and build.
+
+Reason:
+
+* GitHub Actions runners start from a clean environment.
+* Generated Prisma Client files should not be assumed to already exist in CI.
+* Product Service typecheck and build depend on Prisma Client being generated.
+* Running Prisma generate in CI prevents clean-runner build issues.
+
+Current CI command:
+
+```powershell
+npm run db:generate -w apps/product-service
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Validate Tests, Typecheck, and Build in CI
+
+Decision:
+
+CI should run automated tests, TypeScript typecheck, and production build.
+
+Reason:
+
+* Tests validate Gateway behavior and policy helper behavior.
+* Typecheck validates TypeScript correctness across workspaces.
+* Build validation ensures the project can compile successfully.
+* These checks match the local validation workflow already used after stable checkpoints.
+* Running all three in CI makes the repository safer for future refactoring.
+
+Current CI commands:
+
+```powershell
+npm run test
+npm run typecheck
+npm run build
+```
+
+Current validation status:
+
+```txt
+24 test files passed
+139 tests passed
+typecheck passed
+build passed
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Add Docker Image Build Validation to CI
+
+Decision:
+
+Add Docker image build validation for API Gateway and Product Service in GitHub Actions.
+
+Reason:
+
+* Dockerfiles are part of the runtime foundation.
+* A project can pass TypeScript build but still have broken Docker image builds.
+* Docker build validation catches Dockerfile, workspace, lockfile, and Prisma generation issues early.
+* Building images in CI improves confidence that the local Docker Compose stack remains reproducible.
+
+Current CI Docker build commands:
+
+```powershell
+docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
+docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
+```
+
+Current scope:
+
+```txt
+Build Docker images only
+Do not push Docker images to a registry yet
+Do not deploy automatically yet
+Do not run full docker compose stack in CI yet
+```
+
+Reason full Docker Compose runtime validation is not added to CI yet:
+
+* The current goal is lightweight CI foundation.
+* Local Docker Compose runtime validation already covers `/health`, `/metrics`, PostgreSQL, Redis, Prometheus, and Grafana.
+* Full runtime CI can be added later when the project needs deeper integration validation.
+* Avoid making Sprint 6 too heavy.
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Add README CI Badge
+
+Decision:
+
+Add a live GitHub Actions CI badge to the README.
+
+Reason:
+
+* The README is the first page recruiters and reviewers see.
+* A live CI badge shows that the repository has automated validation.
+* The badge is connected to the real workflow instead of being a static fake status.
+* It improves the professional appearance of the GitHub project.
+
+Current README badge target:
+
+```txt
+.github/workflows/ci.yml
+```
+
+Current badge behavior:
+
+```txt
+CI passing -> README shows passing
+CI failing -> README shows failing
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Keep Deployment Out of Sprint 6
+
+Decision:
+
+Do not add automatic deployment, Docker registry push, cloud hosting, Kubernetes, or production release automation in Sprint 6.
+
+Reason:
+
+* Sprint 6 is only the CI/CD foundation.
+* Deployment requires additional decisions about environment, secrets, hosting, registry, and runtime security.
+* The project is still local-first.
+* Deployment should come after the Gateway has more stable production-like features and clearer demo requirements.
+* Avoiding deployment keeps the sprint focused and safe.
+
+Deferred items:
+
+```txt
+Docker image registry push
+GitHub Actions deployment job
+Cloud deployment
+Kubernetes deployment
+Production secrets management
+Environment promotion
+Release versioning automation
+```
+
+Status:
+
+Accepted.

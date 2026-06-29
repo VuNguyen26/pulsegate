@@ -7,28 +7,43 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 ## 2. Current Version
 
 ```txt
-v0.6.0
+v0.7.0
 ```
 
 ## 3. Current Sprint
 
 ```txt
-Sprint 5 - Advanced Gateway Policies
+Sprint 6 - CI/CD Foundation
 ```
 
 ## 4. Project Purpose
 
 PulseGate is a mini API Gateway, API Management, and Observability Platform.
 
-The project is built to demonstrate backend engineering skills, API Gateway design, microservice communication, authentication, traffic protection, caching, local infrastructure, database-backed services, observability, route policy design, gateway resilience, scalability, and production-oriented system design.
+The project demonstrates backend engineering skills through:
 
-The project is inspired by:
+* API Gateway design.
+* Microservice communication.
+* Authentication and authorization.
+* Traffic protection.
+* Redis-backed rate limiting.
+* Redis response caching.
+* Database-backed downstream services.
+* Docker Compose local infrastructure.
+* Observability with logs, metrics, Prometheus, and Grafana.
+* Policy-driven Gateway behavior.
+* CI validation with GitHub Actions.
+* Production-oriented backend system design.
+
+PulseGate is inspired by:
 
 * Kong
 * Apache APISIX
 * Tyk
 * Apigee
 * AWS API Gateway
+
+---
 
 ## 5. Target Users
 
@@ -38,35 +53,34 @@ PulseGate is designed for:
 * DevOps Engineers
 * SREs
 * Tech Leads
-* Companies that manage many APIs or microservices
+* Teams that manage multiple APIs or microservices
+
+---
 
 ## 6. Main Problems
 
-PulseGate aims to solve the following problems:
+PulseGate aims to solve these problems:
 
 * Clients need one single entry point for multiple backend services.
 * Backend services should not be exposed directly to external clients.
 * Requests need to be routed to the correct downstream service.
 * APIs need centralized authentication and authorization.
-* APIs need protection from spam, abuse, excessive traffic, and unsafe payloads.
+* APIs need protection from excessive traffic and unsafe payloads.
+* Downstream services should be protected from repeated requests.
+* Selected responses should be cached to reduce downstream load.
 * API traffic should be logged for debugging.
 * API latency should be visible during local testing.
-* API performance should be monitored through metrics.
-* Gateway metrics should be scrapeable by Prometheus.
+* Gateway metrics should be exposed to Prometheus.
 * Gateway behavior should be visible through Grafana dashboards.
 * Gateway route behavior should be configurable through policies.
-* Gateway routes should support per-route auth, timeout, cache, rate limit, transform, and retry rules.
-* Distributed request flow should be traceable across services later.
-* Downstream services should be protected from unnecessary repeated requests.
-* Selected responses should be cached to reduce downstream load.
-* Product data should come from a real database instead of hard-coded mock data.
+* Repository health should be validated automatically before the main branch is considered stable.
 * The system should be easy to run locally before cloud deployment.
 
 ---
 
 ## 7. Current System Overview
 
-Current stable architecture after Sprint 5:
+Current stable architecture after Sprint 6:
 
 ```txt
 Client
@@ -76,7 +90,7 @@ Client
     -> Metrics timer
     -> Basic security headers
     -> Request size limit
-    -> Downstream route policy configuration
+    -> Route policy configuration
       -> Auth policy
       -> Timeout policy
       -> Cache policy
@@ -90,20 +104,21 @@ Client
     -> Redis response cache
       -> Cache HIT:
            -> Apply response transform foundation
-           -> Return cached response
+           -> Return cached product response
       -> Cache MISS:
            -> Apply request transform foundation
            -> Call Product Service through timeout and retry helpers
+           -> Product Service :3001
+             -> Prisma Client
+             -> PostgreSQL :5432
+             -> Database-backed product data
            -> Store response in Redis cache
            -> Apply response transform foundation
     -> Add x-cache
     -> Add x-response-time-ms
     -> Record Prometheus metrics
     -> Write structured access log
-    -> Product Service :3001
-      -> Prisma Client
-      -> PostgreSQL :5432
-      -> Database-backed product data
+    -> Return response to Client
 
 API Gateway
   -> Exposes /metrics
@@ -114,17 +129,25 @@ Prometheus :9090
 Grafana :3002
   -> Uses Prometheus datasource
   -> Displays PulseGate API Gateway Overview dashboard
+
+GitHub Actions
+  -> Runs on push and pull request to main
+  -> Installs dependencies with npm ci
+  -> Generates Prisma Client
+  -> Runs tests, typecheck, and build
+  -> Builds API Gateway and Product Service Docker images
+  -> Reports pass/fail status to GitHub
 ```
 
 Current Docker services:
 
 ```txt
-pulsegate-api-gateway
-pulsegate-product-service
-pulsegate-postgres
-pulsegate-redis
-pulsegate-prometheus
-pulsegate-grafana
+api-gateway
+product-service
+postgres
+redis
+prometheus
+grafana
 ```
 
 Current exposed ports:
@@ -158,14 +181,10 @@ x-api-key: dev-api-key
 Authorization: Bearer <jwt-token>
 ```
 
-Current observability endpoints:
+Current CI workflow:
 
 ```txt
-Prometheus:
-http://localhost:9090
-
-Grafana:
-http://localhost:3002
+.github/workflows/ci.yml
 ```
 
 ---
@@ -180,7 +199,7 @@ Status:
 Done
 ```
 
-Sprint 0 completed:
+Completed:
 
 * Monorepo setup.
 * API Gateway.
@@ -188,7 +207,7 @@ Sprint 0 completed:
 * Basic Gateway-to-Product-Service proxy flow.
 * Health endpoints.
 * Request ID generation and propagation.
-* Basic error handlers.
+* Basic error handling.
 * Initial project documentation.
 * README foundation.
 * `.env.example`.
@@ -201,7 +220,7 @@ Status:
 Done
 ```
 
-Sprint 1 completed:
+Completed:
 
 * Normalized downstream service errors.
 * Downstream request timeout.
@@ -211,7 +230,6 @@ Sprint 1 completed:
 * API Gateway app builder for integration tests.
 * Unit test foundation.
 * Integration test foundation.
-* Manual validation for protected route behavior.
 
 ### Sprint 2 - Gateway Traffic Protection
 
@@ -221,7 +239,7 @@ Status:
 Done
 ```
 
-Sprint 2 completed:
+Completed:
 
 * In-memory rate limiting foundation.
 * Rate limit middleware.
@@ -231,9 +249,7 @@ Sprint 2 completed:
 * `413 REQUEST_BODY_TOO_LARGE` response behavior.
 * Basic security headers.
 * Route-level auth configuration.
-* Traffic protection unit tests.
-* Traffic protection integration tests.
-* Manual validation for rate limit behavior.
+* Traffic protection tests.
 
 ### Sprint 3 - Data & Infrastructure Foundation
 
@@ -243,29 +259,23 @@ Status:
 Done
 ```
 
-Sprint 3 completed:
+Completed:
 
 * Docker Compose foundation.
 * API Gateway Dockerfile.
 * Product Service Dockerfile.
-* PostgreSQL Docker service.
-* Redis Docker service.
-* Product Service `DATABASE_URL` configuration.
+* PostgreSQL service.
+* Redis service.
 * Prisma setup.
 * Product model.
 * Initial Product migration.
 * Product seed script.
-* Product Service database-backed product data.
-* Redis client foundation in API Gateway.
-* Redis-backed rate limit store.
-* Redis-backed rate limiting for `GET /api/products`.
-* Redis response cache store.
-* Response caching for `GET /api/products`.
-* `x-cache: MISS`, `x-cache: HIT`, and `x-cache: BYPASS`.
+* Database-backed Product Service data.
+* Redis-backed rate limiting.
+* Redis response caching.
 * Cache HIT behavior when Product Service is down.
 * Redis fail-fast behavior.
 * Response cache write failure isolation.
-* Manual Docker validation completed.
 
 ### Sprint 4 - Observability Foundation
 
@@ -275,36 +285,31 @@ Status:
 Done
 ```
 
-Sprint 4 completed:
+Completed:
 
 * Structured access logs.
 * Request latency measurement.
 * `x-response-time-ms` response header.
-* Basic HTTP metrics registry.
+* Prometheus-compatible metrics registry.
 * Metrics middleware.
-* Prometheus-compatible `/metrics` endpoint.
-* Prometheus Docker Compose service.
-* Prometheus scrape configuration for API Gateway.
-* Grafana Docker Compose service.
+* `/metrics` endpoint.
+* Prometheus Docker service.
+* Prometheus scrape configuration.
+* Grafana Docker service.
 * Grafana Prometheus datasource provisioning.
-* Grafana dashboard provider provisioning.
-* API Gateway overview dashboard foundation.
-* Dashboard panels for request rate, request count, p95 latency, and cache outcomes.
-* Prometheus target validation completed.
-* Grafana datasource validation completed.
-* Grafana dashboard provisioning validation completed.
+* Grafana dashboard provisioning.
+* API Gateway overview dashboard.
 
 ### Sprint 5 - Advanced Gateway Policies
 
 Status:
 
 ```txt
-Technical implementation complete
+Done
 ```
 
-Sprint 5 completed:
+Completed:
 
-* Current downstream route configuration review.
 * Route policy type foundation.
 * Central `RoutePolicies` model.
 * Route config validation improvements.
@@ -316,11 +321,34 @@ Sprint 5 completed:
 * Upstream retry policy foundation.
 * Product proxy route refactor to use policy helpers.
 * Route policy unit tests.
-* Route policy integration test coverage.
-* Automated tests updated to `24 test files passed`, `139 tests passed`.
-* Typecheck passed.
-* Build passed.
-* Docker runtime validation passed.
+* Route policy integration tests.
+
+### Sprint 6 - CI/CD Foundation
+
+Status:
+
+```txt
+Technical implementation complete
+```
+
+Completed:
+
+* Reviewed root and workspace package scripts.
+* Added GitHub Actions workflow.
+* Configured CI on push to `main`.
+* Configured CI on pull request to `main`.
+* Configured Node.js 20 in CI.
+* Configured dependency installation with `npm ci`.
+* Configured Prisma Client generation in CI.
+* Configured automated tests in CI.
+* Configured TypeScript typecheck in CI.
+* Configured production build in CI.
+* Added API Gateway Docker image build validation.
+* Added Product Service Docker image build validation.
+* Validated GitHub Actions CI on GitHub.
+* Added live CI badge to README.
+* Final local validation passed.
+* Final Docker Compose validation passed.
 * API Gateway `/health` validation passed.
 * API Gateway `/metrics` validation passed.
 
@@ -334,33 +362,15 @@ The system must have an API Gateway service.
 
 Acceptance criteria:
 
-* API Gateway can start successfully.
 * API Gateway runs on port `3000`.
-* API Gateway uses Fastify.
-* API Gateway uses TypeScript.
+* API Gateway uses Fastify and TypeScript.
 * API Gateway has JSON logging enabled.
-* API Gateway has a health check endpoint.
-* API Gateway has a Prometheus metrics endpoint.
-* API Gateway can be run locally.
-* API Gateway can be run through Docker Compose.
-
-Current endpoints:
-
-```txt
-GET /health
-GET /metrics
-GET /api/products
-```
-
-Expected health response example:
-
-```json
-{
-  "service": "api-gateway",
-  "status": "ok",
-  "timestamp": "2026-06-25T00:00:00.000Z"
-}
-```
+* API Gateway exposes `GET /health`.
+* API Gateway exposes `GET /metrics`.
+* API Gateway exposes `GET /api/products`.
+* API Gateway can run locally.
+* API Gateway can run through Docker Compose.
+* API Gateway Docker image can be built in CI.
 
 Status:
 
@@ -376,25 +386,16 @@ The system must have a Product Service.
 
 Acceptance criteria:
 
-* Product Service can start successfully.
 * Product Service runs on port `3001`.
-* Product Service uses Fastify.
-* Product Service uses TypeScript.
-* Product Service has JSON logging enabled.
-* Product Service has a health check endpoint.
-* Product Service has a products endpoint.
+* Product Service uses Fastify and TypeScript.
+* Product Service exposes `GET /health`.
+* Product Service exposes `GET /products`.
 * Product Service reads product data from PostgreSQL through Prisma.
-* Product Service can be run locally.
-* Product Service can be run through Docker Compose.
+* Product Service can run locally.
+* Product Service can run through Docker Compose.
+* Product Service Docker image can be built in CI.
 
-Current endpoints:
-
-```txt
-GET /health
-GET /products
-```
-
-Expected products response:
+Current response:
 
 ```json
 {
@@ -427,32 +428,11 @@ API Gateway must route product requests to Product Service.
 
 Acceptance criteria:
 
-* Client can call API Gateway at `GET /api/products`.
-* API Gateway calls Product Service at `GET /products` on cache MISS.
-* API Gateway returns Product Service response to the client.
-* Client does not need to call Product Service directly.
+* Client can call `GET /api/products` through API Gateway.
+* API Gateway calls Product Service `GET /products` on cache MISS.
+* API Gateway can return cached response on cache HIT.
 * Product Service URL is configurable through `PRODUCT_SERVICE_URL`.
-* API Gateway supports Docker internal Product Service URL.
-* API Gateway can return cached response without calling Product Service on cache HIT.
-* API Gateway product route behavior is driven by route policy configuration.
-
-Current Gateway endpoint:
-
-```txt
-GET /api/products
-```
-
-Current local downstream endpoint:
-
-```txt
-GET http://127.0.0.1:3001/products
-```
-
-Current Docker downstream endpoint:
-
-```txt
-GET http://product-service:3001/products
-```
+* Product route behavior is driven by route policy configuration.
 
 Status:
 
@@ -474,7 +454,6 @@ Acceptance criteria:
 * API Gateway forwards `x-request-id` to Product Service.
 * Product Service reuses the request ID from API Gateway.
 * Error responses include request ID.
-* Logs from API Gateway and Product Service can be connected using the same request ID.
 * Structured access logs include request ID.
 
 Header:
@@ -498,24 +477,9 @@ Both services must have basic error handling.
 Acceptance criteria:
 
 * Unknown routes return `404`.
-* Error response includes a message.
-* Error response includes the request path for `404`.
-* Error response includes request ID.
 * Unexpected server errors return `500`.
-* Server errors are logged.
-* Internal implementation details should not be exposed to clients.
-
-Example 404 response:
-
-```json
-{
-  "error": {
-    "message": "Route not found",
-    "path": "/unknown",
-    "requestId": "example-request-id"
-  }
-}
-```
+* Error responses include request ID.
+* Internal implementation details are not exposed to clients.
 
 Status:
 
@@ -525,30 +489,7 @@ Done
 
 ---
 
-## FR-006: Health Check APIs
-
-Both services must expose health check APIs.
-
-Acceptance criteria:
-
-* API Gateway has `GET /health`.
-* Product Service has `GET /health`.
-* Health response includes service name.
-* Health response includes status.
-* Health response includes timestamp.
-* API Gateway health response includes `x-request-id`.
-* API Gateway health response includes `x-response-time-ms`.
-* API Gateway health response includes basic security headers.
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-007: Downstream Error Normalization
+## FR-006: Downstream Error Normalization
 
 API Gateway must return clean and consistent errors when downstream services fail.
 
@@ -559,21 +500,7 @@ Acceptance criteria:
 * Product Service 5xx response returns `502 DOWNSTREAM_HTTP_ERROR`.
 * Product Service invalid JSON returns `502 DOWNSTREAM_INVALID_RESPONSE`.
 * Error response includes request ID.
-* Error response identifies downstream service.
-* Raw runtime errors are not exposed to clients.
-
-Expected unavailable response:
-
-```json
-{
-  "error": {
-    "code": "DOWNSTREAM_SERVICE_UNAVAILABLE",
-    "message": "Product Service is currently unavailable",
-    "service": "product-service",
-    "requestId": "example-request-id"
-  }
-}
-```
+* Raw runtime errors are not exposed.
 
 Status:
 
@@ -583,68 +510,18 @@ Done
 
 ---
 
-## FR-008: Downstream Request Timeout
-
-API Gateway must stop waiting if a downstream service takes too long to respond.
-
-Acceptance criteria:
-
-* Gateway request to Product Service has a timeout.
-* Timeout duration is configurable.
-* Timeout uses `AbortController`.
-* Timeout error returns a normalized error response.
-* Timeout response includes request ID.
-* Timeout response does not expose raw internal error details.
-* Timeout behavior is resolved from route policy.
-
-Current config:
-
-```txt
-DOWNSTREAM_REQUEST_TIMEOUT_MS=3000
-```
-
-Current route policy:
-
-```txt
-timeout:
-  enabled: true
-  timeoutMs: DOWNSTREAM_REQUEST_TIMEOUT_MS
-```
-
-Expected timeout response:
-
-```json
-{
-  "error": {
-    "code": "DOWNSTREAM_TIMEOUT",
-    "message": "Product Service did not respond in time",
-    "service": "product-service",
-    "requestId": "example-request-id"
-  }
-}
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-009: API Key Authentication
+## FR-007: API Key Authentication
 
 API Gateway must support API key authentication for protected routes.
 
 Acceptance criteria:
 
-* API Gateway checks API key from request headers.
 * Missing API key returns `401 API_KEY_MISSING`.
 * Invalid API key returns `403 API_KEY_INVALID`.
 * Valid API key allows request to continue.
 * API key header name is configurable.
 * API key list is configurable through environment variables.
-* Sensitive API key values are not logged in structured access logs.
+* Sensitive API key values are not logged.
 * API key requirement is controlled by route auth policy.
 
 Current header:
@@ -653,34 +530,10 @@ Current header:
 x-api-key
 ```
 
-Current local development API key:
+Current local API key:
 
 ```txt
 dev-api-key
-```
-
-Expected missing API key response:
-
-```json
-{
-  "error": {
-    "code": "API_KEY_MISSING",
-    "message": "API key is required",
-    "requestId": "example-request-id"
-  }
-}
-```
-
-Expected invalid API key response:
-
-```json
-{
-  "error": {
-    "code": "API_KEY_INVALID",
-    "message": "API key is invalid",
-    "requestId": "example-request-id"
-  }
-}
 ```
 
 Status:
@@ -691,20 +544,18 @@ Done
 
 ---
 
-## FR-010: JWT Authentication
+## FR-008: JWT Authentication
 
 API Gateway must support JWT authentication for protected routes.
 
 Acceptance criteria:
 
-* API Gateway accepts Bearer token.
-* Missing token returns `401 JWT_TOKEN_MISSING`.
+* Missing Bearer token returns `401 JWT_TOKEN_MISSING`.
 * Invalid token returns `403 JWT_TOKEN_INVALID`.
 * Valid token allows request to continue.
-* JWT configuration is controlled through environment variables.
 * JWT validation checks signature, issuer, audience, and expiration.
 * Verified JWT payload is attached to `request.jwtPayload`.
-* Sensitive JWT values are not logged in structured access logs.
+* Sensitive JWT values are not logged.
 * JWT requirement is controlled by route auth policy.
 
 Current header:
@@ -713,39 +564,6 @@ Current header:
 Authorization: Bearer <jwt-token>
 ```
 
-Current local JWT configuration:
-
-```txt
-JWT_SECRET=local-dev-jwt-secret-change-me
-JWT_ISSUER=pulsegate-api-gateway
-JWT_AUDIENCE=pulsegate-clients
-JWT_EXPIRES_IN_SECONDS=900
-```
-
-Expected missing JWT response:
-
-```json
-{
-  "error": {
-    "code": "JWT_TOKEN_MISSING",
-    "message": "Bearer token is required",
-    "requestId": "example-request-id"
-  }
-}
-```
-
-Expected invalid JWT response:
-
-```json
-{
-  "error": {
-    "code": "JWT_TOKEN_INVALID",
-    "message": "Bearer token is invalid",
-    "requestId": "example-request-id"
-  }
-}
-```
-
 Status:
 
 ```txt
@@ -754,16 +572,15 @@ Done
 
 ---
 
-## FR-011: Request Size Limit
+## FR-009: Request Size Limit
 
 API Gateway must reject oversized request bodies.
 
 Acceptance criteria:
 
 * Gateway has configurable request body size limit.
-* Gateway checks `content-length` before route handlers.
+* Gateway checks `content-length`.
 * Gateway returns `413 REQUEST_BODY_TOO_LARGE` when content length exceeds the configured limit.
-* Error response includes request ID.
 * Fastify body parser has configured body limit.
 
 Current config:
@@ -772,24 +589,6 @@ Current config:
 MAX_REQUEST_BODY_BYTES=1048576
 ```
 
-That equals:
-
-```txt
-1MB
-```
-
-Expected response:
-
-```json
-{
-  "error": {
-    "code": "REQUEST_BODY_TOO_LARGE",
-    "message": "Request body is too large",
-    "requestId": "example-request-id"
-  }
-}
-```
-
 Status:
 
 ```txt
@@ -798,18 +597,18 @@ Done
 
 ---
 
-## FR-012: Basic Security Headers
+## FR-010: Basic Security Headers
 
 API Gateway must add basic HTTP security headers to responses.
 
 Acceptance criteria:
 
-* Gateway adds basic security headers globally.
+* Gateway adds security headers globally.
 * Health route responses include security headers.
 * Metrics route responses include security headers.
 * Protected route responses include security headers.
-* Error responses receive baseline security headers.
-* Security header behavior is covered by automated tests.
+* Error responses include security headers.
+* Security header behavior is covered by tests.
 
 Current security headers:
 
@@ -821,17 +620,6 @@ permissions-policy: camera=(), microphone=(), geolocation=()
 content-security-policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'
 ```
 
-Not included yet:
-
-```txt
-strict-transport-security
-```
-
-Reason:
-
-* The project is still local-first and uses HTTP in local development.
-* HSTS should be added when HTTPS deployment is introduced.
-
 Status:
 
 ```txt
@@ -840,69 +628,7 @@ Done
 
 ---
 
-## FR-013: Route-Level Configuration and Policy Model
-
-API Gateway must support route-level configuration for downstream routing and Gateway policies.
-
-Acceptance criteria:
-
-* Product route config declares downstream service name.
-* Product route config declares Gateway path.
-* Product route config declares downstream URL.
-* Product route config declares HTTP method.
-* Product route config declares route policies.
-* Route config remains separated from route handler logic.
-* Route handlers read behavior from route policies instead of hardcoding all behavior inline.
-
-Current product route config includes:
-
-```txt
-serviceName
-gatewayPath
-downstreamUrl
-method
-policies
-```
-
-Current policy model:
-
-```txt
-RoutePolicies
-  -> auth
-  -> timeout
-  -> cache
-  -> rateLimit
-  -> requestTransform
-  -> responseTransform
-  -> retry
-```
-
-Current product route auth policy:
-
-```txt
-GET /api/products
-  -> requireApiKey: true
-  -> requireJwt: true
-```
-
-Current product route rate limit policy:
-
-```txt
-GET /api/products
-  -> enabled: true
-  -> limit: PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS
-  -> windowMs: PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-014: Redis-Backed Rate Limiting
+## FR-011: Redis-Backed Rate Limiting
 
 API Gateway must support Redis-backed rate limiting for protected routes.
 
@@ -910,65 +636,25 @@ Acceptance criteria:
 
 * API Gateway stores rate limit counters in Redis.
 * API Gateway rate limits by API key, HTTP method, and route path.
-* API Gateway returns the same external response behavior as the previous in-memory rate limiter.
 * API Gateway returns `429 TOO_MANY_REQUESTS` when the limit is exceeded.
 * API Gateway returns rate limit headers.
 * Product Service is not called for blocked requests.
-* Redis rate limit commands fail fast when Redis is unavailable.
-* Redis internal errors are not exposed to clients.
+* Redis commands fail fast when Redis is unavailable.
+* Redis internal errors are not exposed.
 * Runtime rate limit behavior is resolved from route policy.
 
-Current default product route rate limit:
+Default product route rate limit:
 
 ```txt
 5 requests per 60 seconds
 ```
 
-Current logical rate limit key:
-
-```txt
-api-key:<api-key>:route:<method>:<route-path>
-```
-
-Current Redis rate limit key:
-
-```txt
-rate-limit:api-key:<api-key>:route:<method>:<route-path>
-```
-
-Example Redis key:
+Redis key example:
 
 ```txt
 rate-limit:api-key:dev-api-key:route:GET:/api/products
 ```
 
-Expected rate limit response:
-
-```json
-{
-  "error": {
-    "code": "TOO_MANY_REQUESTS",
-    "message": "Too many requests. Please try again later.",
-    "requestId": "example-request-id"
-  }
-}
-```
-
-Expected status:
-
-```txt
-429
-```
-
-Expected headers:
-
-```txt
-x-ratelimit-limit
-x-ratelimit-remaining
-x-ratelimit-reset
-retry-after
-```
-
 Status:
 
 ```txt
@@ -977,208 +663,21 @@ Done
 
 ---
 
-## FR-015: Docker Compose Local Infrastructure
-
-The project must support local infrastructure through Docker Compose.
-
-Acceptance criteria:
-
-* API Gateway can run in Docker Compose.
-* Product Service can run in Docker Compose.
-* PostgreSQL can run in Docker Compose.
-* Redis can run in Docker Compose.
-* Prometheus can run in Docker Compose.
-* Grafana can run in Docker Compose.
-* PostgreSQL has a healthcheck.
-* Redis has a healthcheck.
-* Product Service waits for healthy PostgreSQL.
-* API Gateway waits for healthy Redis and healthy Product Service.
-* Prometheus can scrape API Gateway.
-* Grafana can connect to Prometheus.
-* Developer can start the local stack with one command.
-
-Current command:
-
-```powershell
-docker compose up --build -d
-```
-
-Current services:
-
-```txt
-api-gateway
-product-service
-postgres
-redis
-prometheus
-grafana
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-016: PostgreSQL Database
-
-Product Service must use PostgreSQL for product data.
-
-Acceptance criteria:
-
-* PostgreSQL is available through Docker Compose.
-* PostgreSQL has a `pulsegate` database.
-* PostgreSQL stores Product Service data.
-* Database connection is configurable through `DATABASE_URL`.
-* Product Service uses Docker internal database URL inside Docker.
-* Product Service can use local host database URL in local host mode.
-
-Current database:
-
-```txt
-pulsegate
-```
-
-Current local host database URL:
-
-```txt
-postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate
-```
-
-Current Docker internal database URL:
-
-```txt
-postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-017: Prisma Product Model
-
-Product Service must use Prisma as the ORM for product data.
-
-Acceptance criteria:
-
-* Product Service has Prisma Client dependency.
-* Product Service has Prisma CLI dependency.
-* Product Service has Prisma schema.
-* Prisma schema defines a Product model.
-* Prisma migration creates `products` table.
-* Prisma Client can be generated.
-* Product seed script can insert or update sample products.
-* Seed script is idempotent.
-
-Current Prisma schema location:
-
-```txt
-apps/product-service/prisma/schema.prisma
-```
-
-Current migration location:
-
-```txt
-apps/product-service/prisma/migrations/20260628092746_init_products/migration.sql
-```
-
-Current seed script:
-
-```txt
-apps/product-service/prisma/seed.ts
-```
-
-Current Product model fields:
-
-```txt
-id
-name
-price
-createdAt
-updatedAt
-```
-
-Current seed products:
-
-```txt
-prod_001 - Mechanical Keyboard - 120
-prod_002 - Gaming Mouse - 45
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-018: Database-Backed Product Endpoint
-
-Product Service must return products from PostgreSQL instead of hard-coded mock data.
-
-Acceptance criteria:
-
-* Product Service has a Prisma database helper.
-* Product Service has a Product repository.
-* Product route reads products from database.
-* Product route returns products ordered by id.
-* Product route response shape remains compatible with previous mock response.
-* API Gateway receives the same product response shape through the proxy route.
-* Product Service disconnects Prisma client on server close.
-
-Current response:
-
-```json
-{
-  "data": [
-    {
-      "id": "prod_001",
-      "name": "Mechanical Keyboard",
-      "price": 120
-    },
-    {
-      "id": "prod_002",
-      "name": "Gaming Mouse",
-      "price": 45
-    }
-  ]
-}
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-019: Redis Response Caching
+## FR-012: Redis Response Caching
 
 API Gateway must cache selected downstream responses in Redis.
 
 Acceptance criteria:
 
 * API Gateway can store product responses in Redis.
-* API Gateway can read cached product responses from Redis.
-* `GET /api/products` returns `x-cache: MISS` when the response is not cached.
-* `GET /api/products` returns `x-cache: HIT` when cached response is used.
-* `GET /api/products` returns `x-cache: BYPASS` when no cache store is configured in injected tests.
-* Cache key is stable.
-* Cache TTL is applied.
+* API Gateway can read product responses from Redis.
+* Cache MISS returns `x-cache: MISS`.
+* Cache HIT returns `x-cache: HIT`.
+* Cache BYPASS is supported in injected tests.
 * Product Service is not called on cache HIT.
-* Cache write failure does not fail an otherwise valid downstream response.
-* Product Service down + cache HIT returns cached response successfully.
+* Cache write failure does not fail a valid downstream response.
+* Product Service down + cache HIT returns cached response.
 * Product Service down + cache MISS returns normalized downstream error.
-* Redis cache commands fail fast when Redis is unavailable.
-* Cache outcome can be recorded by metrics when `x-cache` exists.
 * Cache behavior is resolved from route policy.
 
 Current Redis cache key:
@@ -1187,25 +686,38 @@ Current Redis cache key:
 response-cache:GET:/api/products
 ```
 
-Current cache TTL:
+Current TTL:
 
 ```txt
 30 seconds
 ```
 
-Expected cache behavior:
+Status:
 
 ```txt
-First valid request after cache clear
-  -> 200
-  -> x-cache: MISS
-  -> Product Service is called
-  -> Response is stored in Redis
+Done
+```
 
-Second valid request within TTL
-  -> 200
-  -> x-cache: HIT
-  -> Cached response is returned
+---
+
+## FR-013: PostgreSQL and Prisma
+
+Product Service must use PostgreSQL and Prisma for product data.
+
+Acceptance criteria:
+
+* PostgreSQL runs through Docker Compose.
+* Product Service uses `DATABASE_URL`.
+* Prisma schema defines Product model.
+* Prisma migration creates `products` table.
+* Product seed script is idempotent.
+* Product Service reads products from PostgreSQL.
+* Prisma Client can be generated locally and in CI.
+
+Current Prisma schema:
+
+```txt
+apps/product-service/prisma/schema.prisma
 ```
 
 Status:
@@ -1216,40 +728,24 @@ Done
 
 ---
 
-## FR-020: Automated Tests
+## FR-014: Docker Compose Local Infrastructure
 
-The project must include automated tests for Gateway behavior.
+The project must support local infrastructure through Docker Compose.
 
 Acceptance criteria:
 
-* Tests can be run with `npm run test`.
-* API Gateway can be tested without opening port `3000`.
-* API Gateway integration tests use `app.inject()`.
-* Test output does not include unnecessary Fastify JSON logs.
-* Unit tests cover middleware and helper behavior.
-* Unit tests cover Gateway policy helper behavior.
-* Integration tests cover protected route behavior.
-* Integration tests cover route policy cache behavior.
-* Metrics and observability helpers are covered by tests.
-* Test, typecheck, and build must pass before committing stable checkpoints.
+* API Gateway runs in Docker Compose.
+* Product Service runs in Docker Compose.
+* PostgreSQL runs in Docker Compose.
+* Redis runs in Docker Compose.
+* Prometheus runs in Docker Compose.
+* Grafana runs in Docker Compose.
+* Developer can start the local stack with one command.
 
-Current test framework:
-
-```txt
-Vitest
-```
-
-Current automated test status:
-
-```txt
-24 test files passed
-139 tests passed
-```
-
-Current test command:
+Current command:
 
 ```powershell
-npm run test
+docker compose up --build -d
 ```
 
 Status:
@@ -1260,111 +756,20 @@ Done
 
 ---
 
-## FR-021: Structured Access Logs
+## FR-015: Observability Foundation
 
-API Gateway must write structured access logs for completed requests.
-
-Acceptance criteria:
-
-* API Gateway writes structured access logs after responses complete.
-* Access logs use a stable event name.
-* Access logs include request ID.
-* Access logs include HTTP method.
-* Access logs include request path.
-* Access logs include route label.
-* Access logs include response status code.
-* Access logs include request duration in milliseconds.
-* Access logs include cache status when available.
-* Access logs include user agent when available.
-* Access logs include remote address when available.
-* Access logs do not include sensitive authentication headers.
-
-Current event name:
-
-```txt
-http_request_completed
-```
-
-Current structured fields:
-
-```txt
-requestId
-method
-path
-route
-statusCode
-durationMs
-cacheStatus
-userAgent
-remoteAddress
-```
-
-Sensitive values intentionally not logged:
-
-```txt
-x-api-key
-authorization
-cookie
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-022: Response Time Header
-
-API Gateway must include a request latency response header.
+The system must provide API Gateway observability.
 
 Acceptance criteria:
 
+* API Gateway writes structured access logs.
 * API Gateway returns `x-response-time-ms`.
-* Header value is measured using high-resolution time.
-* Header value is formatted in milliseconds.
-* Header value uses two decimal places.
-* Header is added before the response is sent.
-* Health responses include the header.
-* Protected route responses include the header.
-
-Current header:
-
-```txt
-x-response-time-ms
-```
-
-Example:
-
-```txt
-x-response-time-ms: 4.32
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-023: Prometheus Metrics Registry
-
-API Gateway must maintain Prometheus-compatible HTTP metrics.
-
-Acceptance criteria:
-
-* API Gateway has a metrics registry.
-* API Gateway records total HTTP request count.
-* API Gateway records HTTP request duration.
-* API Gateway records cache outcome counts.
-* Request metrics include method label.
-* Request metrics include route label.
-* Request metrics include status code label.
-* Cache metrics include route label.
-* Cache metrics include cache status label.
-* Metrics use route labels instead of raw high-cardinality URLs where possible.
+* API Gateway records HTTP request metrics.
+* API Gateway records cache outcome metrics.
+* API Gateway exposes Prometheus-compatible `/metrics`.
+* Prometheus scrapes API Gateway metrics.
+* Grafana visualizes Gateway metrics.
+* Grafana dashboard is provisioned from repository files.
 
 Current metrics:
 
@@ -1373,251 +778,6 @@ http_requests_total
 http_request_duration_seconds
 http_response_cache_total
 ```
-
-Supported cache statuses:
-
-```txt
-HIT
-MISS
-BYPASS
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-024: Metrics Middleware
-
-API Gateway must automatically record metrics for requests.
-
-Acceptance criteria:
-
-* Metrics middleware starts timing when a request begins.
-* Metrics middleware records request count after response completion.
-* Metrics middleware records request duration after response completion.
-* Metrics middleware records final response status code.
-* Metrics middleware records cache outcome when `x-cache` exists.
-* Route handlers do not need to manually update request metrics.
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-025: Metrics Endpoint
-
-API Gateway must expose Prometheus-compatible metrics.
-
-Acceptance criteria:
-
-* API Gateway exposes `GET /metrics`.
-* `/metrics` returns `200 OK`.
-* `/metrics` returns Prometheus text format.
-* `/metrics` can be scraped by Prometheus.
-* `/metrics` is public in local Docker development.
-* `/metrics` does not require API key in local development.
-* `/metrics` does not require JWT in local development.
-
-Current endpoint:
-
-```txt
-GET /metrics
-```
-
-Current behavior:
-
-```txt
-GET /metrics
-  -> 200 OK
-  -> Prometheus text format
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-026: Prometheus Service
-
-The system must include Prometheus for local metrics scraping.
-
-Acceptance criteria:
-
-* Prometheus runs through Docker Compose.
-* Prometheus is exposed on local port `9090`.
-* Prometheus has a configuration file.
-* Prometheus scrapes API Gateway `/metrics`.
-* Prometheus uses Docker internal service name for API Gateway.
-* Prometheus target health can be validated.
-* Prometheus stores scraped time-series metrics in a Docker volume.
-
-Current local URL:
-
-```txt
-http://localhost:9090
-```
-
-Current scrape target:
-
-```txt
-http://api-gateway:3000/metrics
-```
-
-Current config file:
-
-```txt
-observability/prometheus/prometheus.yml
-```
-
-Expected target status:
-
-```txt
-health: up
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-027: Grafana Service
-
-The system must include Grafana for local metrics visualization.
-
-Acceptance criteria:
-
-* Grafana runs through Docker Compose.
-* Grafana is exposed on local port `3002`.
-* Grafana can be opened in the browser.
-* Grafana has local development admin credentials.
-* Grafana can connect to Prometheus.
-* Grafana stores local data in a Docker volume.
-
-Current local URL:
-
-```txt
-http://localhost:3002
-```
-
-Current local login:
-
-```txt
-username: admin
-password: admin
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-028: Grafana Prometheus Datasource Provisioning
-
-Grafana must automatically provision Prometheus as a datasource.
-
-Acceptance criteria:
-
-* Grafana datasource is configured by file.
-* Datasource is automatically available after Docker Compose startup.
-* Datasource uses Docker internal Prometheus URL.
-* Datasource has a stable UID.
-* Datasource is the default Grafana datasource.
-* Datasource can be validated through Grafana API.
-
-Current datasource file:
-
-```txt
-observability/grafana/provisioning/datasources/prometheus.yml
-```
-
-Current datasource:
-
-```txt
-name: Prometheus
-uid: pulsegate-prometheus
-type: prometheus
-url: http://prometheus:9090
-isDefault: true
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-029: Grafana Dashboard Provisioning
-
-Grafana must automatically provision a basic API Gateway dashboard.
-
-Acceptance criteria:
-
-* Grafana dashboard provider is configured by file.
-* Dashboard JSON is stored in the repository.
-* Dashboard loads automatically after Docker Compose startup.
-* Dashboard is placed in the `PulseGate` Grafana folder.
-* Dashboard has a stable UID.
-* Dashboard uses the provisioned Prometheus datasource.
-* Dashboard can be validated through Grafana API.
-
-Current dashboard provider:
-
-```txt
-observability/grafana/provisioning/dashboards/dashboards.yml
-```
-
-Current dashboard JSON:
-
-```txt
-observability/grafana/dashboards/api-gateway-overview.json
-```
-
-Current dashboard:
-
-```txt
-title: PulseGate API Gateway Overview
-uid: pulsegate-api-gateway-overview
-folder: PulseGate
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-030: API Gateway Observability Dashboard
-
-The system must provide a basic API Gateway observability dashboard.
-
-Acceptance criteria:
-
-* Dashboard shows request rate.
-* Dashboard shows request count by route.
-* Dashboard shows p95 latency by route.
-* Dashboard shows cache outcomes.
-* Dashboard refreshes automatically.
-* Dashboard uses Prometheus metrics from API Gateway.
 
 Current dashboard panels:
 
@@ -1636,27 +796,18 @@ Done
 
 ---
 
-## FR-031: Route Policy Type Foundation
+## FR-016: Route Policy Model
 
-API Gateway must support a typed route policy model.
+API Gateway must support policy-driven route behavior.
 
 Acceptance criteria:
 
-* Route policy types are centralized.
-* Route policy model includes auth policy.
-* Route policy model includes timeout policy.
-* Route policy model includes cache policy.
-* Route policy model includes rate limit policy.
-* Route policy model includes request transform policy.
-* Route policy model includes response transform policy.
-* Route policy model includes retry policy.
-* Product route config uses the new route policy model.
-
-Current route policy type file:
-
-```txt
-apps/api-gateway/src/policies/route-policy.types.ts
-```
+* Route config contains a `policies` object.
+* Policy model includes auth, timeout, cache, rate limit, request transform, response transform, and retry.
+* Route config is validated.
+* Product proxy route uses policy helpers.
+* Policy helpers are unit tested.
+* Policy behavior is covered by integration tests.
 
 Current policy model:
 
@@ -1679,70 +830,17 @@ Done
 
 ---
 
-## FR-032: Route Configuration Validation
-
-API Gateway must validate downstream route configuration.
-
-Acceptance criteria:
-
-* Route config validates service name.
-* Route config validates Gateway path.
-* Route config validates HTTP method.
-* Route config validates downstream URL.
-* Route config validates timeout policy values.
-* Route config validates cache policy values.
-* Route config validates rate limit policy values.
-* Route config validates request transform header names.
-* Route config validates response transform header names.
-* Route config validates retry policy values.
-* Route config rejects duplicate method and path combinations.
-
-Current validation file:
-
-```txt
-apps/api-gateway/src/config/validate-downstream-routes.ts
-```
-
-Current validation tests:
-
-```txt
-apps/api-gateway/src/config/validate-downstream-routes.test.ts
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-033: Per-Route Timeout Policy
+## FR-017: Per-Route Timeout Policy
 
 API Gateway must support per-route timeout policy resolution.
 
 Acceptance criteria:
 
 * Timeout policy can be enabled or disabled.
-* Timeout helper creates an `AbortSignal` only when enabled.
+* Timeout helper creates an `AbortSignal` when enabled.
 * Timeout helper aborts downstream request after configured timeout.
 * Timeout helper provides cleanup function.
 * Product proxy route uses timeout policy helper.
-* Timeout helper behavior is covered by tests.
-
-Current timeout policy helper:
-
-```txt
-apps/api-gateway/src/policies/timeout.policy.ts
-```
-
-Current product route timeout policy:
-
-```txt
-timeout:
-  enabled: true
-  timeoutMs: DOWNSTREAM_REQUEST_TIMEOUT_MS
-```
 
 Status:
 
@@ -1752,7 +850,7 @@ Done
 
 ---
 
-## FR-034: Per-Route Cache Policy
+## FR-018: Per-Route Cache Policy
 
 API Gateway must support per-route cache policy resolution.
 
@@ -1760,31 +858,9 @@ Acceptance criteria:
 
 * Cache policy can be enabled or disabled.
 * Cache is enabled only when route policy is enabled and cache store exists.
-* Cache TTL comes from route policy by default.
-* Cache TTL can be overridden in tests.
+* Cache TTL comes from route policy.
 * Cache key generation is stable.
 * Product proxy route uses cache policy helper.
-* Cache helper behavior is covered by tests.
-
-Current cache policy helper:
-
-```txt
-apps/api-gateway/src/policies/cache.policy.ts
-```
-
-Current product route cache policy:
-
-```txt
-cache:
-  enabled: true
-  ttlSeconds: 30
-```
-
-Current response cache key:
-
-```txt
-response-cache:GET:/api/products
-```
 
 Status:
 
@@ -1794,7 +870,7 @@ Done
 
 ---
 
-## FR-035: Per-Route Rate Limit Policy
+## FR-019: Per-Route Rate Limit Policy
 
 API Gateway must support per-route rate limit policy resolution.
 
@@ -1802,33 +878,8 @@ Acceptance criteria:
 
 * Rate limit policy can be enabled or disabled.
 * Rate limit policy resolves runtime middleware values.
-* Rate limit policy includes limit.
-* Rate limit policy includes window.
-* Rate limit policy includes route path.
-* Rate limit policy includes identity type.
+* Rate limit policy includes limit, window, route path, identity type, and store.
 * Product proxy route uses rate limit policy helper.
-* Rate limit helper behavior is covered by tests.
-
-Current rate limit policy helper:
-
-```txt
-apps/api-gateway/src/policies/rate-limit.policy.ts
-```
-
-Current product route rate limit policy:
-
-```txt
-rateLimit:
-  enabled: true
-  limit: PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS
-  windowMs: PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS
-```
-
-Current identity type:
-
-```txt
-api-key
-```
 
 Status:
 
@@ -1838,33 +889,19 @@ Done
 
 ---
 
-## FR-036: Request Transformation Policy Foundation
+## FR-020: Request and Response Transformation Foundation
 
-API Gateway must support a request header transformation foundation.
+API Gateway must support request and response header transformation foundations.
 
 Acceptance criteria:
 
-* Request transform policy can be enabled or disabled.
-* Request transform helper can add configured headers.
-* Request transform helper can remove configured headers.
+* Request transform policy can add and remove configured headers.
+* Response transform policy can add and remove configured headers.
 * Header removal is case-insensitive.
-* Added headers win after removal.
-* Original header object is not mutated.
+* Original header objects are not mutated.
 * Product proxy route applies request transform before downstream fetch.
-* Request transform behavior is covered by tests.
-
-Current request transform helper:
-
-```txt
-apps/api-gateway/src/policies/request-transform.policy.ts
-```
-
-Current product route request transform policy:
-
-```txt
-requestTransform:
-  enabled: false
-```
+* Product proxy route applies response transform for cache HIT, MISS, and BYPASS responses.
+* Current product route keeps transform disabled by default.
 
 Status:
 
@@ -1874,56 +911,7 @@ Done
 
 ---
 
-## FR-037: Response Transformation Policy Foundation
-
-API Gateway must support a response header transformation foundation.
-
-Acceptance criteria:
-
-* Response transform policy can be enabled or disabled.
-* Response transform helper can add configured headers.
-* Response transform helper can remove configured headers.
-* Header removal is case-insensitive.
-* Added headers win after removal.
-* Original header object is not mutated.
-* Product proxy route applies response transform for cache HIT responses.
-* Product proxy route applies response transform for cache MISS responses.
-* Product proxy route applies response transform for cache BYPASS responses.
-* Response transform behavior is covered by tests.
-
-Current response transform helper:
-
-```txt
-apps/api-gateway/src/policies/response-transform.policy.ts
-```
-
-Current product route response transform policy:
-
-```txt
-responseTransform:
-  enabled: false
-```
-
-Gateway-owned response headers still apply:
-
-```txt
-x-cache
-x-response-time-ms
-x-request-id
-x-ratelimit-limit
-x-ratelimit-remaining
-x-ratelimit-reset
-```
-
-Status:
-
-```txt
-Done
-```
-
----
-
-## FR-038: Upstream Retry Policy Foundation
+## FR-021: Upstream Retry Policy Foundation
 
 API Gateway must support an upstream retry policy foundation.
 
@@ -1932,26 +920,84 @@ Acceptance criteria:
 * Retry policy can be enabled or disabled.
 * Retry is allowed only for safe `GET` requests.
 * Retry attempts are additional retries after the first request.
-* Retry can be based on result predicate.
-* Retry can be based on error predicate.
 * Retryable statuses are configured by route policy.
 * Product proxy route is wired to retry helper.
 * Retry remains disabled by default for the product route.
-* Retry behavior is covered by tests.
 
-Current retry policy helper:
+Status:
 
 ```txt
-apps/api-gateway/src/policies/retry.policy.ts
+Done
 ```
 
-Current product route retry policy:
+---
+
+## FR-022: Automated Tests
+
+The project must include automated tests for Gateway behavior.
+
+Acceptance criteria:
+
+* Tests can be run with `npm run test`.
+* API Gateway can be tested without opening port `3000`.
+* API Gateway integration tests use `app.inject()`.
+* Unit tests cover middleware and policy helper behavior.
+* Integration tests cover protected route behavior.
+* Integration tests cover route policy cache behavior.
+* Metrics and observability helpers are covered by tests.
+* Test, typecheck, and build must pass before stable commits.
+
+Current test status:
 
 ```txt
-retry:
-  enabled: false
-  attempts: 0
-  retryOnStatuses: [502, 503, 504]
+24 test files passed
+139 tests passed
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-023: GitHub Actions CI/CD Foundation
+
+The project must support automated CI validation through GitHub Actions.
+
+Acceptance criteria:
+
+* Repository has a GitHub Actions workflow file.
+* CI runs on push to `main`.
+* CI runs on pull request to `main`.
+* CI uses Node.js 20.
+* CI installs dependencies with `npm ci`.
+* CI generates Prisma Client before typecheck and build.
+* CI runs automated tests.
+* CI runs TypeScript typecheck.
+* CI runs production build.
+* CI validates API Gateway Docker image build.
+* CI validates Product Service Docker image build.
+* CI status is visible through README badge.
+* CI passes successfully on GitHub.
+
+Current workflow file:
+
+```txt
+.github/workflows/ci.yml
+```
+
+Current CI commands:
+
+```powershell
+npm ci
+npm run db:generate -w apps/product-service
+npm run test
+npm run typecheck
+npm run build
+docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
+docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
 ```
 
 Status:
@@ -1966,16 +1012,13 @@ Done
 
 ## NFR-001: Local First
 
-The project must run locally before any cloud deployment.
+The project must run locally before cloud deployment.
 
 Acceptance criteria:
 
 * API Gateway can run locally.
 * Product Service can run locally.
-* PostgreSQL can run locally through Docker Compose.
-* Redis can run locally through Docker Compose.
-* Prometheus can run locally through Docker Compose.
-* Grafana can run locally through Docker Compose.
+* PostgreSQL, Redis, Prometheus, and Grafana run through Docker Compose.
 * No paid cloud infrastructure is required.
 * Developer can test the full flow from local terminal.
 
@@ -1997,7 +1040,6 @@ Acceptance criteria:
 * Current system does not require managed databases.
 * Current system does not require managed message brokers.
 * Current system does not require managed observability services.
-* All current features run locally.
 
 Status:
 
@@ -2016,15 +1058,8 @@ Acceptance criteria:
 * API Gateway separates app building, config, routes, middlewares, errors, Redis client, cache stores, rate limit stores, policy helpers, observability code, tests, and server startup.
 * Product Service separates config, database helper, repositories, routes, middlewares, and server startup.
 * Prisma files are located under Product Service.
-* Prometheus configuration is located under `observability/prometheus`.
-* Grafana configuration is located under `observability/grafana`.
-* `app.ts` builds the API Gateway app and can be reused by integration tests.
-* `server.ts` mainly starts the server.
-* Business routes live in `routes`.
-* Reusable request handling logic lives in `middlewares`.
-* Reusable Gateway error types live in `errors`.
-* Downstream route information lives in `config/downstream-routes.ts`.
-* Route policy helpers live in `policies`.
+* Prometheus and Grafana config are located under `observability`.
+* CI workflow is located under `.github/workflows`.
 
 Status:
 
@@ -2043,9 +1078,8 @@ Acceptance criteria:
 * TypeScript is configured.
 * `npm run typecheck` passes.
 * `npm run build` passes.
-* Services use TypeScript source files.
-* Prisma seed script has its own TypeScript config.
 * Route policies are typed.
+* Prisma Client can be generated.
 
 Status:
 
@@ -2055,23 +1089,19 @@ Done
 
 ---
 
-## NFR-005: Observability Foundation
+## NFR-005: Observability
 
-The project must provide a local observability foundation.
+The project must provide local observability.
 
 Acceptance criteria:
 
-* JSON logger is enabled.
 * Request ID exists.
 * Request ID is propagated across services.
-* Error responses include request ID.
-* API Gateway forwards `x-request-id` to Product Service.
 * API Gateway writes structured access logs.
 * API Gateway includes request latency response header.
 * API Gateway exposes Prometheus-compatible metrics.
 * Prometheus scrapes API Gateway metrics.
 * Grafana visualizes API Gateway metrics.
-* Grafana dashboard is provisioned from repository files.
 
 Status:
 
@@ -2081,23 +1111,16 @@ Done
 
 ---
 
-## NFR-006: Testability Foundation
+## NFR-006: Testability
 
-The project must support automated testing for Gateway core behavior.
+The project must support automated testing.
 
 Acceptance criteria:
 
-* Test framework is installed.
-* Tests can be run with `npm run test`.
-* API Gateway can be tested without opening port `3000`.
-* API Gateway integration tests can use `app.inject()`.
-* Tests can inject in-memory rate limit store instead of Redis when needed.
-* Tests can inject response cache store when needed.
-* Tests can inject metrics registry when needed.
-* Test output does not include unnecessary Fastify JSON logs.
-* Observability helper behavior is covered by tests.
-* Route policy helper behavior is covered by tests.
-* Policy integration behavior is covered by tests.
+* Tests can run with `npm run test`.
+* API Gateway can be tested with `app.inject()`.
+* Tests can inject in-memory stores when Redis is not needed.
+* Middleware, policy helpers, metrics helpers, and route behavior are covered by tests.
 
 Status:
 
@@ -2109,16 +1132,15 @@ Done
 
 ## NFR-007: Failure Isolation
 
-Non-critical infrastructure failures should not break successful business responses when avoidable.
+Non-critical failures should not break successful business responses when avoidable.
 
 Acceptance criteria:
 
 * Downstream failures are normalized.
 * Redis command failures fail fast.
-* Redis internal errors are not exposed to clients.
+* Redis internal errors are not exposed.
 * Cache write failure does not fail a successful Product Service response.
-* Cache HIT can serve data even when Product Service is temporarily down.
-* Cache metrics are optional and should not change business response behavior.
+* Cache HIT can serve data when Product Service is temporarily down.
 * Retry foundation is disabled by default to avoid hidden behavior changes.
 
 Status:
@@ -2129,19 +1151,18 @@ Done
 
 ---
 
-## NFR-008: Reproducible Local Observability
+## NFR-008: Reproducible Local Infrastructure
 
-The local observability stack must be reproducible from repository files.
+The local infrastructure stack must be reproducible from repository files.
 
 Acceptance criteria:
 
-* Prometheus config is committed to the repository.
-* Grafana datasource config is committed to the repository.
-* Grafana dashboard provider config is committed to the repository.
-* Grafana dashboard JSON is committed to the repository.
-* Developer does not need to manually create Prometheus target.
-* Developer does not need to manually create Grafana datasource.
-* Developer does not need to manually create Grafana dashboard.
+* Docker Compose config is committed.
+* Prometheus config is committed.
+* Grafana datasource config is committed.
+* Grafana dashboard provider config is committed.
+* Grafana dashboard JSON is committed.
+* Developer does not need to manually create Prometheus target, Grafana datasource, or Grafana dashboard.
 
 Status:
 
@@ -2157,14 +1178,8 @@ Gateway route behavior should be policy-driven instead of hardcoded directly ins
 
 Acceptance criteria:
 
-* Route config contains a `policies` object.
-* Auth behavior is controlled by route policy.
-* Timeout behavior is controlled by route policy.
-* Cache behavior is controlled by route policy.
-* Rate limit behavior is controlled by route policy.
-* Request transform behavior is controlled by route policy.
-* Response transform behavior is controlled by route policy.
-* Retry behavior is controlled by route policy.
+* Route config contains `policies`.
+* Auth, timeout, cache, rate limit, transform, and retry behavior are controlled by policy.
 * Policy config is validated.
 * Policy helpers are unit tested.
 * Policy behavior is covered by integration tests.
@@ -2177,9 +1192,34 @@ Done
 
 ---
 
+## NFR-010: Automated CI Validation
+
+The project must validate repository health automatically.
+
+Acceptance criteria:
+
+* CI workflow is committed to the repository.
+* CI uses clean dependency installation.
+* CI validates Prisma Client generation.
+* CI validates automated tests.
+* CI validates TypeScript typecheck.
+* CI validates production build.
+* CI validates Docker image builds.
+* CI result is visible in GitHub Actions.
+* CI badge is visible in README.
+* CI does not deploy automatically yet.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
 # 11. Current System Constraints
 
-Current constraints after Sprint 5 completion:
+Current constraints after Sprint 6 completion:
 
 * API Gateway currently proxies only Product Service.
 * API key list is still environment-based.
@@ -2187,9 +1227,8 @@ Current constraints after Sprint 5 completion:
 * There is no user service yet.
 * There is no API consumer database yet.
 * Product data is database-backed, but only a minimal Product model exists.
-* Product Service has no create/update/delete product APIs yet.
-* Response cache TTL is now in route policy, but still static config, not dynamically managed by database or UI.
-* Redis-backed rate limiting is implemented for `GET /api/products`, not for many dynamic routes yet.
+* Product Service has no create, update, or delete product APIs yet.
+* Redis-backed rate limiting is implemented for `GET /api/products`, not many dynamic routes yet.
 * Route policy foundation exists, but there is only one real downstream route so far.
 * Request and response transformation foundations support headers only.
 * Request and response transformation policies are disabled by default for the product route.
@@ -2199,6 +1238,10 @@ Current constraints after Sprint 5 completion:
 * Prometheus and Grafana are local Docker services only.
 * Grafana local credentials are development-only.
 * Dashboard is a foundation dashboard, not a complete production dashboard.
+* CI validates tests, typecheck, build, Prisma generate, and Docker image builds only.
+* CI does not run the full Docker Compose runtime stack yet.
+* CI does not push Docker images to a registry yet.
+* CI does not deploy automatically yet.
 * There is no distributed tracing yet.
 * There is no OpenTelemetry instrumentation yet.
 * There is no Kafka or RabbitMQ yet.
@@ -2221,41 +1264,21 @@ Client
     -> API Gateway starts metrics timer
     -> API Gateway adds basic security headers
     -> API Gateway applies request size limit
-      -> If request body is too large:
-        -> 413 REQUEST_BODY_TOO_LARGE
     -> API Gateway loads route policy configuration
     -> API Gateway checks x-api-key
-      -> If missing:
-        -> 401 API_KEY_MISSING
-      -> If invalid:
-        -> 403 API_KEY_INVALID
-      -> If valid:
-        -> API Gateway resolves route rate limit policy
-        -> API Gateway applies Redis-backed rate limit by API key and route
-          -> If exceeded:
-            -> 429 TOO_MANY_REQUESTS
-          -> If allowed:
-            -> API Gateway checks Authorization Bearer token
-              -> If missing:
-                -> 401 JWT_TOKEN_MISSING
-              -> If invalid:
-                -> 403 JWT_TOKEN_INVALID
-              -> If valid:
-                -> API Gateway resolves route cache policy
-                -> API Gateway checks Redis response cache
-                  -> If cache HIT:
-                    -> Apply response transform foundation
-                    -> 200
-                    -> x-cache: HIT
-                    -> Return cached product data
-                  -> If cache MISS:
-                    -> Apply request transform foundation
-                    -> API Gateway calls Product Service through timeout and retry helpers
-                    -> Product Service reads products from PostgreSQL using Prisma
-                    -> Product Service returns product data
-                    -> API Gateway stores response in Redis cache
-                    -> Apply response transform foundation
-                    -> API Gateway returns 200 with x-cache: MISS
+    -> API Gateway applies Redis-backed rate limit
+    -> API Gateway checks JWT Bearer token
+    -> API Gateway checks Redis response cache
+      -> Cache HIT:
+           -> Apply response transform foundation
+           -> Return cached product data with x-cache: HIT
+      -> Cache MISS:
+           -> Apply request transform foundation
+           -> Call Product Service through timeout and retry helpers
+           -> Product Service reads products from PostgreSQL using Prisma
+           -> Store response in Redis cache
+           -> Apply response transform foundation
+           -> Return product data with x-cache: MISS
     -> API Gateway adds x-response-time-ms
     -> API Gateway records Prometheus metrics
     -> API Gateway writes structured access log
@@ -2267,8 +1290,6 @@ Client
 Client
   -> GET http://localhost:3000/health
     -> API Gateway creates or reuses x-request-id
-    -> API Gateway starts access log timer
-    -> API Gateway starts metrics timer
     -> API Gateway adds basic security headers
     -> API Gateway applies request size limit
     -> API Gateway returns health response
@@ -2285,7 +1306,25 @@ Prometheus
     -> API Gateway returns Prometheus text format
     -> Prometheus stores time-series metrics
     -> Grafana reads metrics from Prometheus datasource
-    -> Grafana displays PulseGate API Gateway Overview dashboard
+```
+
+## CI Flow
+
+```txt
+Developer
+  -> Pushes code to main or opens pull request into main
+    -> GitHub Actions starts CI workflow
+    -> GitHub Actions checks out repository
+    -> GitHub Actions sets up Node.js 20
+    -> GitHub Actions runs npm ci
+    -> GitHub Actions generates Prisma Client
+    -> GitHub Actions runs automated tests
+    -> GitHub Actions runs TypeScript typecheck
+    -> GitHub Actions runs production build
+    -> GitHub Actions builds API Gateway Docker image
+    -> GitHub Actions builds Product Service Docker image
+    -> GitHub Actions reports pass/fail status to GitHub
+    -> README CI badge reflects workflow status
 ```
 
 ## Downstream Failure Behavior
@@ -2305,15 +1344,6 @@ Product Service returns error status + cache MISS
 
 Product Service returns invalid JSON + cache MISS
   -> 502 DOWNSTREAM_INVALID_RESPONSE
-```
-
-## Redis Failure Behavior
-
-```txt
-Redis unavailable
-  -> API Gateway fails fast
-  -> Product route returns generic 500 Internal Server Error
-  -> Redis internal details are not exposed to the client
 ```
 
 ## Route Policy Behavior
@@ -2396,7 +1426,7 @@ Grafana Prometheus datasource=http://prometheus:9090
 
 ---
 
-# 14. Current Test Commands
+# 14. Main Commands
 
 Run full Docker stack:
 
@@ -2408,24 +1438,6 @@ Check Docker services:
 
 ```powershell
 docker compose ps
-```
-
-Stop Docker stack:
-
-```powershell
-docker compose down
-```
-
-Run Product Service locally:
-
-```powershell
-npm run dev:product
-```
-
-Run API Gateway locally:
-
-```powershell
-npm run dev:gateway
 ```
 
 Run automated tests:
@@ -2446,40 +1458,28 @@ Build:
 npm run build
 ```
 
-Seed Product Service database:
-
-```powershell
-npm run db:seed -w apps/product-service
-```
-
 Generate Prisma Client:
 
 ```powershell
 npm run db:generate -w apps/product-service
 ```
 
-Validate PostgreSQL tables:
+Seed Product Service database:
 
 ```powershell
-docker compose exec postgres psql -U pulsegate -d pulsegate -c "\dt"
+npm run db:seed -w apps/product-service
 ```
 
-Validate product data:
+Run CI-equivalent validation locally:
 
 ```powershell
-docker compose exec postgres psql -U pulsegate -d pulsegate -c "SELECT id, name, price FROM products ORDER BY id;"
-```
-
-Validate Redis:
-
-```powershell
-docker compose exec redis redis-cli ping
-```
-
-Expected Redis result:
-
-```txt
-PONG
+npm ci
+npm run db:generate -w apps/product-service
+npm run test
+npm run typecheck
+npm run build
+docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
+docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
 ```
 
 Test API Gateway health:
@@ -2494,221 +1494,16 @@ Test API Gateway metrics:
 Invoke-WebRequest http://localhost:3000/metrics -UseBasicParsing
 ```
 
-Test Prometheus health:
+Test Redis:
 
 ```powershell
-Invoke-WebRequest http://localhost:9090/-/healthy -UseBasicParsing
+docker compose exec redis redis-cli ping
 ```
 
-Test Prometheus targets:
-
-```powershell
-Invoke-RestMethod http://localhost:9090/api/v1/targets | ConvertTo-Json -Depth 10
-```
-
-Test Grafana health:
-
-```powershell
-Invoke-RestMethod http://localhost:3002/api/health | ConvertTo-Json -Depth 10
-```
-
-Test Grafana datasource:
-
-```powershell
-$pair = "admin:admin"
-$encoded = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
-$headers = @{
-  Authorization = "Basic $encoded"
-}
-
-Invoke-RestMethod http://localhost:3002/api/datasources `
-  -Headers $headers |
-  ConvertTo-Json -Depth 10
-```
-
-Test Grafana dashboard search:
-
-```powershell
-Invoke-RestMethod http://localhost:3002/api/search?query=PulseGate `
-  -Headers $headers |
-  ConvertTo-Json -Depth 10
-```
-
-Test Grafana dashboard detail:
-
-```powershell
-Invoke-RestMethod http://localhost:3002/api/dashboards/uid/pulsegate-api-gateway-overview `
-  -Headers $headers |
-  ConvertTo-Json -Depth 10
-```
-
-Create local development JWT token:
-
-```powershell
-$token = node --input-type=module -e "import { SignJWT } from 'jose'; const secretKey = new TextEncoder().encode('local-dev-jwt-secret-change-me'); const expiresAt = Math.floor(Date.now() / 1000) + 900; const token = await new SignJWT({ role: 'user' }).setProtectedHeader({ alg: 'HS256' }).setSubject('user_123').setIssuer('pulsegate-api-gateway').setAudience('pulsegate-clients').setExpirationTime(expiresAt).sign(secretKey); console.log(token);"
-```
-
-Create request headers:
-
-```powershell
-$headers = @{
-  "x-api-key" = "dev-api-key"
-  "authorization" = "Bearer $token"
-}
-```
-
-Test API Gateway products:
-
-```powershell
-Invoke-RestMethod http://localhost:3000/api/products `
-  -Headers $headers |
-  ConvertTo-Json -Depth 10
-```
-
-Test Redis-backed rate limit:
-
-```powershell
-docker compose exec redis redis-cli DEL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
-
-1..6 | ForEach-Object {
-  try {
-    $res = Invoke-WebRequest http://localhost:3000/api/products `
-      -Headers $headers `
-      -UseBasicParsing
-
-    [PSCustomObject]@{
-      Attempt = $_
-      Status = $res.StatusCode
-      Remaining = $res.Headers["x-ratelimit-remaining"]
-      RetryAfter = $res.Headers["retry-after"]
-    }
-  } catch {
-    [PSCustomObject]@{
-      Attempt = $_
-      Status = $_.Exception.Response.StatusCode.value__
-      Remaining = $_.Exception.Response.Headers["x-ratelimit-remaining"]
-      RetryAfter = $_.Exception.Response.Headers["retry-after"]
-      Body = $_.ErrorDetails.Message
-    }
-  }
-} | Format-Table -AutoSize
-```
-
-Expected result:
+Expected Redis result:
 
 ```txt
-Attempt 1 -> 200, Remaining 4
-Attempt 2 -> 200, Remaining 3
-Attempt 3 -> 200, Remaining 2
-Attempt 4 -> 200, Remaining 1
-Attempt 5 -> 200, Remaining 0
-Attempt 6 -> 429 TOO_MANY_REQUESTS
-```
-
-Check Redis rate limit key:
-
-```powershell
-docker compose exec redis redis-cli GET "rate-limit:api-key:dev-api-key:route:GET:/api/products"
-docker compose exec redis redis-cli TTL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
-```
-
-Test response cache MISS/HIT:
-
-```powershell
-docker compose exec redis redis-cli DEL "response-cache:GET:/api/products"
-docker compose exec redis redis-cli DEL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
-
-$res1 = Invoke-WebRequest http://localhost:3000/api/products `
-  -Headers $headers `
-  -UseBasicParsing
-
-$res1.StatusCode
-$res1.Headers["x-cache"]
-$res1.Headers["x-response-time-ms"]
-$res1.Content
-
-$res2 = Invoke-WebRequest http://localhost:3000/api/products `
-  -Headers $headers `
-  -UseBasicParsing
-
-$res2.StatusCode
-$res2.Headers["x-cache"]
-$res2.Headers["x-response-time-ms"]
-$res2.Content
-```
-
-Expected result:
-
-```txt
-Request 1 -> 200, x-cache: MISS
-Request 2 -> 200, x-cache: HIT
-Both responses include x-response-time-ms
-```
-
-Check Redis response cache key:
-
-```powershell
-docker compose exec redis redis-cli GET "response-cache:GET:/api/products"
-docker compose exec redis redis-cli TTL "response-cache:GET:/api/products"
-```
-
-Test cache HIT when Product Service is down:
-
-```powershell
-docker compose exec redis redis-cli DEL "response-cache:GET:/api/products"
-docker compose exec redis redis-cli DEL "rate-limit:api-key:dev-api-key:route:GET:/api/products"
-
-$res1 = Invoke-WebRequest http://localhost:3000/api/products `
-  -Headers $headers `
-  -UseBasicParsing
-
-$res1.StatusCode
-$res1.Headers["x-cache"]
-
-docker compose stop product-service
-
-$res2 = Invoke-WebRequest http://localhost:3000/api/products `
-  -Headers $headers `
-  -UseBasicParsing
-
-$res2.StatusCode
-$res2.Headers["x-cache"]
-$res2.Content
-
-docker compose start product-service
-```
-
-Expected result:
-
-```txt
-Request 1 -> 200, x-cache: MISS
-Product Service stopped
-Request 2 -> 200, x-cache: HIT
-```
-
-Test Redis down behavior:
-
-```powershell
-docker compose stop redis
-
-try {
-  Invoke-RestMethod http://localhost:3000/api/products `
-    -Headers $headers |
-    ConvertTo-Json -Depth 10
-} catch {
-  $_.Exception.Response.StatusCode.value__
-  $_.ErrorDetails.Message
-}
-
-docker compose start redis
-docker compose restart api-gateway
-```
-
-Expected result:
-
-```txt
-500
-{"error":{"message":"Internal Server Error","requestId":"example-request-id"}}
+PONG
 ```
 
 ---
@@ -2728,139 +1523,48 @@ Current test result:
 139 tests passed
 ```
 
-Current unit tests:
+Current important test areas:
 
-```txt
-apps/api-gateway/src/middlewares/request-id.middleware.test.ts
-  -> 4 tests
+* Request ID middleware.
+* Access log middleware.
+* API key authentication.
+* JWT authentication.
+* Metrics middleware.
+* Rate limit stores.
+* Rate limit middleware.
+* Redis response cache store.
+* Request size limit.
+* Security headers.
+* Downstream service errors.
+* Environment config parsing.
+* Downstream route config.
+* Route config validation.
+* Metrics registry.
+* Metrics route.
+* Timeout policy.
+* Cache policy.
+* Rate limit policy.
+* Request transform policy.
+* Response transform policy.
+* Retry policy.
+* API Gateway integration flow.
 
-apps/api-gateway/src/middlewares/access-log.middleware.test.ts
-  -> 6 tests
+Current integration test coverage:
 
-apps/api-gateway/src/middlewares/api-key-auth.middleware.test.ts
-  -> 4 tests
-
-apps/api-gateway/src/middlewares/jwt-auth.middleware.test.ts
-  -> 9 tests
-
-apps/api-gateway/src/middlewares/metrics.middleware.test.ts
-  -> 4 tests
-
-apps/api-gateway/src/rate-limit/in-memory-rate-limit-store.test.ts
-  -> 9 tests
-
-apps/api-gateway/src/rate-limit/redis-rate-limit-store.test.ts
-  -> 7 tests
-
-apps/api-gateway/src/middlewares/rate-limit.middleware.test.ts
-  -> 5 tests
-
-apps/api-gateway/src/cache/redis-response-cache-store.test.ts
-  -> 7 tests
-
-apps/api-gateway/src/middlewares/request-size-limit.middleware.test.ts
-  -> 6 tests
-
-apps/api-gateway/src/middlewares/security-headers.middleware.test.ts
-  -> 1 test
-
-apps/api-gateway/src/errors/downstream-service-error.test.ts
-  -> 5 tests
-
-apps/api-gateway/src/config/env.test.ts
-  -> 14 tests
-
-apps/api-gateway/src/config/downstream-routes.test.ts
-  -> 5 tests
-
-apps/api-gateway/src/config/validate-downstream-routes.test.ts
-  -> 6 tests
-
-apps/api-gateway/src/observability/metrics.test.ts
-  -> 4 tests
-
-apps/api-gateway/src/routes/metrics.route.test.ts
-  -> 2 tests
-
-apps/api-gateway/src/policies/timeout.policy.test.ts
-  -> 3 tests
-
-apps/api-gateway/src/policies/cache.policy.test.ts
-  -> 5 tests
-
-apps/api-gateway/src/policies/rate-limit.policy.test.ts
-  -> 2 tests
-
-apps/api-gateway/src/policies/request-transform.policy.test.ts
-  -> 5 tests
-
-apps/api-gateway/src/policies/response-transform.policy.test.ts
-  -> 5 tests
-
-apps/api-gateway/src/policies/retry.policy.test.ts
-  -> 8 tests
-```
-
-Current integration tests:
-
-```txt
-apps/api-gateway/src/app.test.ts
-  -> 13 tests
-```
-
-Integration test coverage:
-
-```txt
-GET /health
-  -> 200 OK
-  -> includes x-request-id
-  -> includes basic security headers
-
-GET /metrics
-  -> 200 OK
-  -> returns Prometheus text format
-
-POST /api/products with oversized content-length
-  -> 413 REQUEST_BODY_TOO_LARGE
-
-GET /api/products without API key
-  -> 401 API_KEY_MISSING
-
-GET /api/products with invalid API key
-  -> 403 API_KEY_INVALID
-
-GET /api/products with valid API key but missing JWT
-  -> 401 JWT_TOKEN_MISSING
-
-GET /api/products with valid API key but invalid JWT
-  -> 403 JWT_TOKEN_INVALID
-
-GET /api/products with valid API key and valid JWT
-  -> 200 and product data
-  -> includes x-cache: BYPASS when no response cache store is configured in test app
-  -> includes rate limit headers
-
-GET /api/products with response cache store configured
-  -> First request returns x-cache: MISS
-  -> Second request returns x-cache: HIT
-  -> Product Service is only called once
-
-GET /api/products when rate limit is exceeded
-  -> 429 TOO_MANY_REQUESTS
-  -> does not call Product Service for the blocked request
-
-GET /api/products with valid API key and valid JWT but downstream unavailable
-  -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
-
-GET /api/products with valid API key and valid JWT but downstream returns 500
-  -> 502 DOWNSTREAM_HTTP_ERROR
-
-GET /api/products with valid API key and valid JWT but downstream returns invalid JSON
-  -> 502 DOWNSTREAM_INVALID_RESPONSE
-
-GET /api/products with valid API key and valid JWT but downstream times out
-  -> 504 DOWNSTREAM_TIMEOUT
-```
+* `GET /health` returns `200 OK`.
+* `GET /metrics` returns Prometheus text format.
+* Oversized request returns `413 REQUEST_BODY_TOO_LARGE`.
+* Missing API key returns `401 API_KEY_MISSING`.
+* Invalid API key returns `403 API_KEY_INVALID`.
+* Missing JWT returns `401 JWT_TOKEN_MISSING`.
+* Invalid JWT returns `403 JWT_TOKEN_INVALID`.
+* Valid protected request returns `200`.
+* Cache MISS then HIT behavior works.
+* Rate limit exceeded returns `429 TOO_MANY_REQUESTS`.
+* Downstream unavailable returns `503`.
+* Downstream 500 returns `502`.
+* Downstream invalid JSON returns `502`.
+* Downstream timeout returns `504`.
 
 ---
 
@@ -2868,25 +1572,7 @@ GET /api/products with valid API key and valid JWT but downstream times out
 
 ## Sprint 0 Definition of Done
 
-Sprint 0 is done when:
-
-* API Gateway runs on port `3000`.
-* Product Service runs on port `3001`.
-* Client can call `GET /api/products` through API Gateway.
-* API Gateway forwards request to Product Service.
-* Product Service returns product data.
-* Request ID works across services.
-* JSON logger works.
-* Health check endpoints work.
-* Basic error handlers work.
-* Typecheck passes.
-* Build passes.
-* Project context docs are created.
-* Architecture overview is created.
-* Requirements document is created.
-* README is updated.
-* `.env.example` is added.
-* Code is pushed to GitHub.
+Sprint 0 is done when the basic monorepo, API Gateway, Product Service, proxy flow, health endpoints, request ID, logging, error handlers, docs, typecheck, build, and GitHub push are complete.
 
 Current Sprint 0 status:
 
@@ -2896,22 +1582,7 @@ Done
 
 ## Sprint 1 Definition of Done
 
-Sprint 1 is done when:
-
-* API Gateway normalizes downstream service errors.
-* API Gateway applies request timeout to Product Service calls.
-* API Gateway has downstream route configuration foundation.
-* API Gateway supports API key authentication.
-* API Gateway supports JWT authentication.
-* API Gateway keeps `/health` public.
-* API Gateway protects `/api/products` with API key and JWT.
-* API Gateway has unit tests for request ID, env parsing, API key auth, JWT auth, and downstream errors.
-* API Gateway has integration tests for health, API key route behavior, JWT route behavior, product proxy success, downstream failure, and downstream timeout.
-* Manual validation confirms API key and JWT protected route behavior.
-* `npm run test` passes.
-* `npm run typecheck` passes.
-* `npm run build` passes.
-* Code is pushed to GitHub.
+Sprint 1 is done when downstream error normalization, downstream timeout, route config, API key auth, JWT auth, unit tests, integration tests, typecheck, build, and GitHub push are complete.
 
 Current Sprint 1 status:
 
@@ -2921,28 +1592,7 @@ Done
 
 ## Sprint 2 Definition of Done
 
-Sprint 2 is done when:
-
-* API Gateway has in-memory rate limiting foundation.
-* API Gateway can rate limit `GET /api/products`.
-* API Gateway rate limits by API key and route.
-* API Gateway returns `429 TOO_MANY_REQUESTS` when the limit is exceeded.
-* API Gateway returns rate limit headers.
-* API Gateway does not call Product Service for a blocked rate limited request.
-* API Gateway has route-level rate limit config.
-* API Gateway supports environment-based product route rate limit values.
-* API Gateway has request size limit.
-* API Gateway returns `413 REQUEST_BODY_TOO_LARGE` when request body is too large.
-* API Gateway has Fastify `bodyLimit` configured.
-* API Gateway adds basic security headers.
-* API Gateway has route-level auth config.
-* Unit tests cover rate limit store, rate limit middleware, request size limit, security headers, and route config.
-* Integration tests cover oversized request body and exceeded rate limit.
-* Manual validation confirms rate limit behavior.
-* `npm run test` passes.
-* `npm run typecheck` passes.
-* `npm run build` passes.
-* Code is pushed to GitHub.
+Sprint 2 is done when rate limiting, request size limit, security headers, route-level auth config, traffic protection tests, typecheck, build, and GitHub push are complete.
 
 Current Sprint 2 status:
 
@@ -2952,35 +1602,7 @@ Done
 
 ## Sprint 3 Definition of Done
 
-Sprint 3 is done when:
-
-* Docker Compose can run the local stack.
-* API Gateway has a Dockerfile.
-* Product Service has a Dockerfile.
-* PostgreSQL service is available through Docker Compose.
-* Redis service is available through Docker Compose.
-* Product Service has `DATABASE_URL` configuration.
-* Product Service uses Prisma.
-* Prisma Product model exists.
-* Initial Product migration exists.
-* Product seed script exists and is idempotent.
-* Product Service reads products from PostgreSQL.
-* API Gateway has Redis client foundation.
-* API Gateway uses Redis-backed rate limiting for `GET /api/products`.
-* Redis rate limit key is created and incremented.
-* Rate limit behavior remains externally compatible with Sprint 2.
-* API Gateway has Redis response cache store.
-* API Gateway caches product responses in Redis.
-* API Gateway returns `x-cache: MISS` on cache MISS.
-* API Gateway returns `x-cache: HIT` on cache HIT.
-* API Gateway can return cached data when Product Service is down.
-* Redis failures fail fast and do not expose internal Redis errors.
-* Cache write failures are isolated from valid downstream responses.
-* `npm run test` passes.
-* `npm run typecheck` passes.
-* `npm run build` passes.
-* Docker validation passes.
-* Code is pushed to GitHub.
+Sprint 3 is done when Docker Compose, PostgreSQL, Prisma, database-backed Product Service data, Redis-backed rate limiting, Redis response caching, Docker validation, tests, typecheck, build, and GitHub push are complete.
 
 Current Sprint 3 status:
 
@@ -2990,32 +1612,7 @@ Done
 
 ## Sprint 4 Definition of Done
 
-Sprint 4 is done when:
-
-* API Gateway has structured access logs.
-* API Gateway avoids logging sensitive auth headers.
-* API Gateway measures request latency.
-* API Gateway returns `x-response-time-ms`.
-* API Gateway has basic Prometheus metrics registry.
-* API Gateway records request count metrics.
-* API Gateway records request duration metrics.
-* API Gateway records cache outcome metrics.
-* API Gateway exposes `GET /metrics`.
-* `/metrics` returns Prometheus text format.
-* Prometheus service is available through Docker Compose.
-* Prometheus scrapes `api-gateway:3000/metrics`.
-* Prometheus target health is `up`.
-* Grafana service is available through Docker Compose.
-* Grafana Prometheus datasource is provisioned automatically.
-* Grafana API Gateway dashboard is provisioned automatically.
-* Dashboard includes request rate, request count, p95 latency, and cache outcome panels.
-* `npm run test` passes.
-* `npm run typecheck` passes.
-* `npm run build` passes.
-* Docker validation passes.
-* Prometheus validation passes.
-* Grafana validation passes.
-* Code is pushed to GitHub.
+Sprint 4 is done when structured access logs, response time header, metrics, `/metrics`, Prometheus, Grafana, dashboard provisioning, tests, typecheck, build, Docker validation, and GitHub push are complete.
 
 Current Sprint 4 status:
 
@@ -3025,33 +1622,19 @@ Done
 
 ## Sprint 5 Definition of Done
 
-Sprint 5 is done when:
-
-* Current route configuration model is reviewed.
-* Route policy type foundation exists.
-* Product route behavior is moved under route policies.
-* Route config validation exists.
-* Route config validation rejects invalid policy values.
-* Route config validation rejects duplicate method and path combinations.
-* Per-route timeout policy helper exists.
-* Per-route cache policy helper exists.
-* Per-route rate limit policy helper exists.
-* Request transformation policy foundation exists.
-* Response transformation policy foundation exists.
-* Upstream retry policy foundation exists.
-* Product proxy route uses policy helpers.
-* Retry foundation is wired but disabled by default.
-* Unit tests cover route policy helpers.
-* Integration tests cover route policy cache behavior.
-* `npm run test` passes.
-* `npm run typecheck` passes.
-* `npm run build` passes.
-* Docker validation passes.
-* API Gateway `/health` returns `status: ok`.
-* API Gateway `/metrics` returns `200 OK`.
-* Code is pushed to GitHub.
+Sprint 5 is done when route policy foundation, route config validation, per-route timeout/cache/rate-limit helpers, request/response transform foundations, retry foundation, policy tests, integration tests, typecheck, build, Docker validation, and GitHub push are complete.
 
 Current Sprint 5 status:
+
+```txt
+Done
+```
+
+## Sprint 6 Definition of Done
+
+Sprint 6 is done when GitHub Actions CI workflow, push/PR triggers, Node.js 20 setup, `npm ci`, Prisma Client generation, tests, typecheck, build, Docker image build validation, README CI badge, final local validation, Docker Compose validation, and GitHub push are complete.
+
+Current Sprint 6 status:
 
 ```txt
 Technical implementation complete
@@ -3059,13 +1642,9 @@ Technical implementation complete
 
 ---
 
-# 17. Future Functional Requirements
-
-These requirements are planned for later sprints.
+# 17. Future Requirements
 
 ## Future FR: More Realistic Multi-Route Gateway Policies
-
-API Gateway should support more realistic route policy usage across multiple downstream routes later.
 
 Planned features:
 
@@ -3076,7 +1655,6 @@ Planned features:
 * Apply different rate limit policies per route.
 * Enable request or response transform on selected routes.
 * Enable retry only for safe read-only routes where retry is appropriate.
-* Add more integration tests for multi-route behavior.
 
 Status:
 
@@ -3087,8 +1665,6 @@ Planned for later sprint
 ---
 
 ## Future FR: Distributed Tracing
-
-The system should support distributed tracing later.
 
 Planned features:
 
@@ -3106,9 +1682,24 @@ Planned for later sprint
 
 ---
 
-## Future FR: Event-Driven Architecture
+## Future FR: Load Testing
 
-The system should support event streaming and background processing later.
+Planned features:
+
+* k6 load testing.
+* Basic load scenarios.
+* Gateway latency and throughput validation.
+* Rate limit behavior under load.
+
+Status:
+
+```txt
+Planned for later sprint
+```
+
+---
+
+## Future FR: Event-Driven Architecture
 
 Planned features:
 
@@ -3126,8 +1717,6 @@ Planned for later sprint
 ---
 
 ## Future FR: Admin Dashboard
-
-The system should eventually support an Admin Dashboard.
 
 Planned features:
 
@@ -3149,8 +1738,6 @@ Planned for later sprint
 
 ## Future FR: Developer Portal
 
-The system should eventually support a Developer Portal.
-
 Planned features:
 
 * API documentation.
@@ -3167,8 +1754,6 @@ Planned for later sprint
 ---
 
 ## Future FR: Kubernetes Deployment
-
-The system should eventually support Kubernetes deployment.
 
 Planned features:
 
@@ -3192,7 +1777,7 @@ Planned for later sprint
 Recommended next step:
 
 ```txt
-Sprint 5 - Final Documentation Update
+Sprint 6 - Final Documentation Update
 ```
 
 Currently updating:
@@ -3206,7 +1791,7 @@ docs/sdlc/requirements.md
 docs/architecture/overview.md
 ```
 
-After Sprint 5 final documentation update, move to:
+After Sprint 6 final documentation update, move to:
 
 ```txt
 Next sprint planning
@@ -3214,13 +1799,12 @@ Next sprint planning
 
 Possible next sprint candidates:
 
-1. CI/CD foundation with GitHub Actions.
-2. More realistic multi-route Gateway policy expansion.
-3. OpenTelemetry tracing foundation.
-4. k6 load testing foundation.
-5. Additional downstream service routing.
-6. Admin Dashboard foundation later.
-7. Developer Portal foundation later.
+1. More realistic multi-route Gateway policy expansion.
+2. OpenTelemetry tracing foundation.
+3. k6 load testing foundation.
+4. Additional downstream service routing.
+5. Admin Dashboard foundation later.
+6. Developer Portal foundation later.
 
 Do not add these before they are explicitly selected as a planned sprint:
 

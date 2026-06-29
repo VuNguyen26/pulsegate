@@ -12,18 +12,18 @@ The long-term goal is to build a mini API Gateway and API Management system insp
 * Apigee
 * AWS API Gateway
 
-PulseGate is designed to help backend teams manage, protect, monitor, and scale APIs in a microservice environment.
+PulseGate is designed to help backend teams manage, protect, monitor, validate, and scale APIs in a microservice environment.
 
 Current version:
 
 ```txt
-v0.6.0
+v0.7.0
 ```
 
 Current status:
 
 ```txt
-Sprint 5 - Advanced Gateway Policies Technical Implementation Complete
+Sprint 6 - CI/CD Foundation Technical Implementation Complete
 ```
 
 Current automated test status:
@@ -31,6 +31,13 @@ Current automated test status:
 ```txt
 24 test files passed
 139 tests passed
+```
+
+Current CI/CD status:
+
+```txt
+GitHub Actions CI -> passed
+README CI badge -> passing
 ```
 
 ---
@@ -64,6 +71,8 @@ PulseGate aims to solve these problems:
 * Visualize Gateway behavior through Grafana dashboards.
 * Configure Gateway route behavior through route policies.
 * Support per-route auth, timeout, cache, rate limit, transform, and retry rules.
+* Validate repository health automatically with CI.
+* Validate tests, typecheck, build, Prisma generation, and Docker image builds before treating the main branch as stable.
 * Prepare for distributed tracing.
 * Support local infrastructure through Docker Compose.
 * Support future event streaming and background jobs.
@@ -73,7 +82,7 @@ PulseGate aims to solve these problems:
 
 ## 4. Current Architecture
 
-Current stable architecture after Sprint 5:
+Current stable architecture after Sprint 6:
 
 ```txt
 Client
@@ -124,6 +133,14 @@ Prometheus :9090
 Grafana :3002
   -> Uses Prometheus datasource
   -> Displays PulseGate API Gateway Overview dashboard
+
+GitHub Actions
+  -> Runs on push and pull request to main
+  -> Installs dependencies with npm ci
+  -> Generates Prisma Client
+  -> Runs tests, typecheck, and build
+  -> Builds API Gateway and Product Service Docker images
+  -> Reports pass/fail status to GitHub
 ```
 
 Current architecture diagram:
@@ -170,6 +187,17 @@ flowchart LR
     Gateway --> MetricsEndpoint[/GET /metrics/]
     Prometheus[Prometheus<br/>Port 9090] -->|Scrapes| MetricsEndpoint
     Grafana[Grafana<br/>Port 3002] -->|Reads datasource| Prometheus
+
+    Developer[Developer] --> GitHub[GitHub Repository]
+    GitHub --> Actions[GitHub Actions CI]
+    Actions --> NpmCi[npm ci]
+    NpmCi --> PrismaGenerate[Generate Prisma Client]
+    PrismaGenerate --> Test[Run Tests]
+    Test --> Typecheck[Run Typecheck]
+    Typecheck --> Build[Run Build]
+    Build --> DockerBuild[Build API Gateway and Product Service Docker Images]
+    DockerBuild --> Status[Report CI Pass / Fail]
+    Status --> Badge[README CI Badge]
 ```
 
 Current behavior:
@@ -206,6 +234,11 @@ Current behavior:
 30. API Gateway normalizes downstream errors when needed.
 31. Prometheus scrapes API Gateway `/metrics`.
 32. Grafana reads metrics from Prometheus and displays the API Gateway overview dashboard.
+33. GitHub Actions validates every push to `main`.
+34. GitHub Actions validates every pull request targeting `main`.
+35. GitHub Actions runs `npm ci`, Prisma generate, tests, typecheck, build, and Docker image build validation.
+36. GitHub reports CI pass/fail status.
+37. README badge reflects the current CI workflow status.
 
 ---
 
@@ -363,6 +396,7 @@ Responsibilities:
 * Records HTTP metrics after request completion.
 * Exposes Prometheus-compatible metrics at `/metrics`.
 * Supports automated integration tests using Fastify `app.inject()`.
+* Has Docker image build validation in GitHub Actions CI.
 
 Current structure:
 
@@ -468,6 +502,8 @@ Responsibilities:
 * Logs requests in JSON format.
 * Disconnects Prisma Client on server close.
 * Supports Prisma schema, migration, and seed script.
+* Generates Prisma Client in GitHub Actions CI.
+* Has Docker image build validation in GitHub Actions CI.
 
 Current structure:
 
@@ -718,6 +754,70 @@ Cache Outcomes
 
 ---
 
+### 6.7 GitHub Actions CI
+
+GitHub Actions is used to validate repository health automatically.
+
+Workflow file:
+
+```txt
+.github/workflows/ci.yml
+```
+
+Workflow name:
+
+```txt
+CI
+```
+
+Job name:
+
+```txt
+Test, Typecheck, and Build
+```
+
+Current triggers:
+
+```txt
+push to main
+pull_request to main
+```
+
+Current CI steps:
+
+```txt
+Checkout repository
+Setup Node.js 20
+npm ci
+npm run db:generate -w apps/product-service
+npm run test
+npm run typecheck
+npm run build
+docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
+docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
+```
+
+Current CI responsibilities:
+
+* Validate clean dependency installation.
+* Validate Prisma Client generation in a clean runner.
+* Validate automated tests.
+* Validate TypeScript typecheck.
+* Validate production build.
+* Validate API Gateway Docker image build.
+* Validate Product Service Docker image build.
+* Report pass/fail status to GitHub.
+* Feed README CI badge status.
+
+Current scope:
+
+* CI validates the repository.
+* CI does not push Docker images to a registry yet.
+* CI does not deploy automatically yet.
+* CI does not run the full Docker Compose runtime stack yet.
+
+---
+
 ## 7. Current Request Flow
 
 ### 7.1 API Gateway Health Check Flow
@@ -875,6 +975,27 @@ Expected response:
     }
   ]
 }
+```
+
+---
+
+### 7.5 CI Validation Flow
+
+```txt
+Developer
+  -> Pushes code to main or opens pull request into main
+    -> GitHub Actions starts CI workflow
+    -> GitHub Actions checks out repository
+    -> GitHub Actions sets up Node.js 20
+    -> GitHub Actions installs dependencies with npm ci
+    -> GitHub Actions generates Prisma Client
+    -> GitHub Actions runs automated tests
+    -> GitHub Actions runs TypeScript typecheck
+    -> GitHub Actions runs production build
+    -> GitHub Actions builds API Gateway Docker image
+    -> GitHub Actions builds Product Service Docker image
+    -> GitHub Actions reports pass/fail status to GitHub
+    -> README CI badge reflects workflow status
 ```
 
 ---
@@ -1681,7 +1802,80 @@ Purpose:
 
 ---
 
-## 15. Database Design
+## 15. CI/CD Design
+
+Sprint 6 introduced a GitHub Actions CI/CD foundation.
+
+Current workflow file:
+
+```txt
+.github/workflows/ci.yml
+```
+
+Current workflow name:
+
+```txt
+CI
+```
+
+Current job name:
+
+```txt
+Test, Typecheck, and Build
+```
+
+Current triggers:
+
+```txt
+push to main
+pull_request to main
+```
+
+Current workflow steps:
+
+```txt
+Checkout repository
+Setup Node.js 20
+npm ci
+npm run db:generate -w apps/product-service
+npm run test
+npm run typecheck
+npm run build
+docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
+docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
+```
+
+Current CI validation scope:
+
+* Clean dependency installation with `npm ci`.
+* Prisma Client generation for Product Service.
+* Automated test execution.
+* TypeScript typecheck.
+* Production build.
+* API Gateway Docker image build.
+* Product Service Docker image build.
+* GitHub workflow pass/fail reporting.
+* README CI badge status.
+
+Current CI limitations:
+
+* CI does not deploy automatically yet.
+* CI does not push Docker images to a registry yet.
+* CI does not run the full Docker Compose runtime stack yet.
+* CI does not manage production secrets yet.
+* CI is intentionally lightweight at this stage.
+
+Design reason:
+
+* The repository should prove that it can be validated from a clean runner.
+* The main branch should remain stable after each push.
+* Pull requests should have automated checks before merging.
+* CI should catch test, typecheck, build, Prisma generation, and Docker image build failures early.
+* Deployment can be planned later after runtime and environment decisions are clearer.
+
+---
+
+## 16. Database Design
 
 Product Service owns the current Product data.
 
@@ -1733,10 +1927,11 @@ Design notes:
 * API Gateway only communicates with Product Service through HTTP.
 * Product Service reads from PostgreSQL through Prisma.
 * The Product response shape remains compatible with the earlier mock response shape.
+* Prisma Client is generated in CI before typecheck and build.
 
 ---
 
-## 16. Current Tech Stack
+## 17. Current Tech Stack
 
 Currently implemented:
 
@@ -1754,6 +1949,7 @@ Currently implemented:
 * prom-client
 * Prometheus
 * Grafana
+* GitHub Actions
 
 Currently implemented Gateway capabilities:
 
@@ -1803,6 +1999,21 @@ Currently implemented observability capabilities:
 * Grafana dashboard provisioning.
 * API Gateway overview dashboard.
 
+Currently implemented CI/CD capabilities:
+
+* GitHub Actions workflow.
+* Push validation for `main`.
+* Pull request validation for `main`.
+* Node.js 20 setup.
+* Clean dependency installation with `npm ci`.
+* Prisma Client generation.
+* Automated test validation.
+* TypeScript typecheck validation.
+* Production build validation.
+* API Gateway Docker image build validation.
+* Product Service Docker image build validation.
+* README CI badge.
+
 Not implemented yet:
 
 * Kafka
@@ -1814,16 +2025,22 @@ Not implemented yet:
 * k6
 * Admin Dashboard
 * Developer Portal
+* Docker image registry push
+* Automatic deployment
 * Production cloud deployment
 
 ---
 
-## 17. Monorepo Structure
+## 18. Monorepo Structure
 
 Current repository structure:
 
 ```txt
 pulsegate/
+  .github/
+    workflows/
+      ci.yml
+
   apps/
     api-gateway/
       Dockerfile
@@ -1956,7 +2173,7 @@ pulsegate/
 
 ---
 
-## 18. Automated Test Architecture
+## 19. Automated Test and CI Architecture
 
 PulseGate uses Vitest for API Gateway unit and integration tests.
 
@@ -1971,6 +2188,18 @@ Current test status:
 ```txt
 24 test files passed
 139 tests passed
+```
+
+Current CI-equivalent local validation command:
+
+```powershell
+npm ci
+npm run db:generate -w apps/product-service
+npm run test
+npm run typecheck
+npm run build
+docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
+docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
 ```
 
 Current unit test coverage:
@@ -2100,25 +2329,37 @@ GET /api/products with valid API key and valid JWT but downstream times out
   -> 504 DOWNSTREAM_TIMEOUT
 ```
 
+Current CI validation coverage:
+
+```txt
+npm ci
+Prisma Client generation
+npm run test
+npm run typecheck
+npm run build
+API Gateway Docker image build
+Product Service Docker image build
+```
+
 ---
 
-## 19. Current Design Principles
+## 20. Current Design Principles
 
 PulseGate follows these principles:
 
-### 19.1 Local First
+### 20.1 Local First
 
 The project should run locally before adding cloud deployment.
 
-### 19.2 Cost Safe
+### 20.2 Cost Safe
 
 Early versions should not require paid cloud infrastructure.
 
-### 19.3 Small Steps
+### 20.3 Small Steps
 
 New technologies should be added only after the previous layer is stable.
 
-### 19.4 Clean Structure
+### 20.4 Clean Structure
 
 Each service should separate:
 
@@ -2153,11 +2394,17 @@ Infrastructure and observability config are separated under:
 observability/
 ```
 
-### 19.5 Observable by Design
+CI/CD config is separated under:
+
+```txt
+.github/workflows/
+```
+
+### 20.5 Observable by Design
 
 Request ID, structured access logs, response time headers, metrics, Prometheus, and Grafana are part of the Gateway foundation.
 
-### 19.6 Policy-Driven Gateway Behavior
+### 20.6 Policy-Driven Gateway Behavior
 
 Gateway route behavior should be controlled by route policies instead of being hardcoded directly inside route handlers.
 
@@ -2173,25 +2420,40 @@ responseTransform
 retry
 ```
 
-### 19.7 Behavior First, Infrastructure Later
+### 20.7 CI-Validated by Design
+
+Repository health should be validated automatically before the main branch is considered stable.
+
+Current CI validates:
+
+```txt
+npm ci
+Prisma Client generation
+automated tests
+TypeScript typecheck
+production build
+Docker image builds
+```
+
+### 20.8 Behavior First, Infrastructure Later
 
 Gateway behavior is implemented and tested before adding more advanced distributed systems.
 
-### 19.8 Test Before Scaling
+### 20.9 Test Before Scaling
 
 Core Gateway behavior should be protected by automated tests before infrastructure and distributed systems are added.
 
-### 19.9 Infrastructure After Stable Gateway Behavior
+### 20.10 Infrastructure After Stable Gateway Behavior
 
 Docker, PostgreSQL, Redis, Prisma, Prometheus, and Grafana were added only after routing, auth, downstream resilience, and traffic protection were stable.
 
-### 19.10 Provision Infrastructure Configuration
+### 20.11 Provision Infrastructure Configuration
 
 Prometheus and Grafana configuration should be file-based where possible so the local stack is reproducible.
 
 ---
 
-## 20. Future Target Architecture
+## 21. Future Target Architecture
 
 Long-term architecture:
 
@@ -2229,13 +2491,15 @@ Observability
 
 Infrastructure
   -> Docker Compose for local development
+  -> GitHub Actions CI
+  -> Docker image registry later
   -> Kubernetes later
-  -> CI/CD with GitHub Actions
+  -> Cloud deployment later
 ```
 
 ---
 
-## 21. Planned Evolution
+## 22. Planned Evolution
 
 ### Sprint 0 - Core Setup & Basic Gateway Flow
 
@@ -2362,6 +2626,34 @@ Goal:
 Status:
 
 ```txt
+Done
+```
+
+---
+
+### Sprint 6 - CI/CD Foundation
+
+Goal:
+
+* Review current root and workspace package scripts.
+* Add GitHub Actions workflow.
+* Run CI on push to `main`.
+* Run CI on pull request to `main`.
+* Use Node.js 20 in CI.
+* Install dependencies with `npm ci`.
+* Generate Prisma Client in CI.
+* Run automated tests in CI.
+* Run TypeScript typecheck in CI.
+* Run production build in CI.
+* Validate API Gateway Docker image build in CI.
+* Validate Product Service Docker image build in CI.
+* Add README CI badge.
+* Validate GitHub Actions CI on GitHub.
+* Keep deployment, registry push, and Kubernetes out of scope for this sprint.
+
+Status:
+
+```txt
 Technical implementation complete
 ```
 
@@ -2371,7 +2663,6 @@ Technical implementation complete
 
 Possible directions:
 
-* CI/CD foundation with GitHub Actions.
 * More realistic multi-route Gateway policy expansion.
 * OpenTelemetry tracing foundation.
 * k6 load testing foundation.
@@ -2414,7 +2705,8 @@ Planned features:
 * OpenTelemetry tracing.
 * Jaeger or Tempo.
 * Loki.
-* GitHub Actions CI/CD.
+* Docker image registry push.
+* Deployment automation.
 * Kubernetes deployment.
 * Cloud lightweight demo.
 

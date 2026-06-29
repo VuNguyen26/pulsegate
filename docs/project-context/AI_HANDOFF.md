@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.6.0
+v0.7.0
 
 ## Current Sprint
 
-Sprint 5 - Advanced Gateway Policies
+Sprint 6 - CI/CD Foundation
 
 ## Current Status
 
@@ -24,11 +24,13 @@ Sprint 3 is complete.
 
 Sprint 4 is complete.
 
-Sprint 5 technical implementation is complete.
+Sprint 5 is complete.
 
-Sprint 5 final documentation update is in progress.
+Sprint 6 technical implementation is complete.
 
-PulseGate currently has a stable local-first API Gateway and infrastructure foundation with:
+Sprint 6 final documentation update is in progress.
+
+PulseGate currently has a stable local-first API Gateway, infrastructure foundation, observability foundation, route policy foundation, and CI/CD foundation with:
 
 * Docker Compose.
 * API Gateway container.
@@ -65,6 +67,17 @@ PulseGate currently has a stable local-first API Gateway and infrastructure foun
 * Upstream retry policy foundation.
 * Route policy integration tests.
 * Automated tests.
+* GitHub Actions CI workflow.
+* CI trigger on push to `main`.
+* CI trigger on pull request to `main`.
+* Clean dependency installation with `npm ci`.
+* Prisma Client generation in CI.
+* Automated test validation in CI.
+* TypeScript typecheck validation in CI.
+* Build validation in CI.
+* API Gateway Docker image build validation in CI.
+* Product Service Docker image build validation in CI.
+* README CI status badge.
 
 Current automated test status:
 
@@ -76,23 +89,27 @@ Current automated test status:
 Latest validation status:
 
 ```txt
+npm run db:generate -w apps/product-service -> passed
 npm run test       -> passed
 npm run typecheck  -> passed
 npm run build      -> passed
+docker build API Gateway image -> passed
+docker build Product Service image -> passed
+GitHub Actions CI -> passed
 docker compose up -d --build -> passed
 docker compose ps -> passed
 GET /health -> status ok
 GET /metrics -> 200 OK
-git status -> working tree clean before documentation update
+git status -> working tree clean before final Sprint 6 documentation update
 ```
 
 Current technical implementation is ready for:
 
 ```txt
-Sprint 5 - Final Documentation Update
+Sprint 6 - Final Documentation Update
 ```
 
-After final documentation update, the project can move to:
+After final Sprint 6 documentation update, the project can move to:
 
 ```txt
 Next sprint planning
@@ -102,14 +119,13 @@ Recommended next sprint direction should be decided after reviewing priorities.
 
 Possible next directions:
 
-1. CI/CD foundation with GitHub Actions.
-2. More realistic multi-route Gateway policy expansion.
-3. OpenTelemetry tracing foundation.
-4. k6 load testing foundation.
-5. More downstream services to make Gateway routing more realistic.
-6. Admin Dashboard foundation later.
-7. Developer Portal foundation later.
-8. Kafka and RabbitMQ later, after Gateway core remains stable.
+1. More realistic multi-route Gateway policy expansion.
+2. OpenTelemetry tracing foundation.
+3. k6 load testing foundation.
+4. More downstream services to make Gateway routing more realistic.
+5. Admin Dashboard foundation later.
+6. Developer Portal foundation later.
+7. Kafka and RabbitMQ later, after Gateway core remains stable.
 
 Do not jump to Kafka, RabbitMQ, Kubernetes, Admin Dashboard, Developer Portal, or production cloud deployment unless explicitly planned.
 
@@ -129,7 +145,7 @@ When continuing this project in a new chat, provide this file first so the assis
 * What should not be added too early.
 * What behavior is already stable.
 * What tests currently exist.
-* How Docker, PostgreSQL, Prisma, Redis, rate limiting, caching, Prometheus, Grafana, and route policies currently work.
+* How Docker, PostgreSQL, Prisma, Redis, rate limiting, caching, Prometheus, Grafana, route policies, and GitHub Actions CI/CD currently work.
 
 ---
 
@@ -151,7 +167,8 @@ The assistant should follow this workflow:
 12. Always run `npm run test`, `npm run typecheck`, and `npm run build` before committing.
 13. For Docker or infrastructure changes, also run `docker compose up --build -d` and `docker compose ps`.
 14. For observability changes, validate `/metrics`, Prometheus target health, Grafana datasource, and Grafana dashboard provisioning when relevant.
-15. For final sprint validation, validate `/health`, `/metrics`, Docker runtime, and Git status before documentation update.
+15. For CI/CD changes, validate GitHub Actions, `npm ci`, Prisma Client generation, tests, typecheck, build, and Docker image build steps.
+16. For final sprint validation, validate `/health`, `/metrics`, Docker runtime, and Git status before documentation update.
 
 Preferred response style:
 
@@ -199,6 +216,7 @@ Long-term problems PulseGate should solve:
 * Add request logging.
 * Add metrics monitoring.
 * Add dashboard visibility.
+* Validate code health automatically with GitHub Actions CI/CD.
 * Centralize route behavior through Gateway policies.
 * Support per-route timeout rules.
 * Support per-route cache rules.
@@ -218,7 +236,7 @@ Long-term problems PulseGate should solve:
 
 ## Current Architecture
 
-Current stable architecture after Sprint 5:
+Current stable architecture after Sprint 6:
 
 ```txt
 Client
@@ -269,6 +287,13 @@ Prometheus :9090
 Grafana :3002
   -> Uses Prometheus datasource
   -> Displays PulseGate API Gateway Overview dashboard
+
+GitHub Actions
+  -> Runs on push and pull request to main
+  -> Installs dependencies with npm ci
+  -> Generates Prisma Client
+  -> Runs tests, typecheck, and build
+  -> Builds API Gateway and Product Service Docker images
 ```
 
 Current Docker services:
@@ -334,6 +359,43 @@ Local Grafana login:
 ```txt
 username: admin
 password: admin
+```
+
+Current CI/CD workflow:
+
+```txt
+.github/workflows/ci.yml
+```
+
+Current CI workflow name:
+
+```txt
+CI
+```
+
+Current CI job:
+
+```txt
+Test, Typecheck, and Build
+```
+
+Current CI triggers:
+
+```txt
+push to main
+pull_request to main
+```
+
+Current CI validation steps:
+
+```txt
+npm ci
+npm run db:generate -w apps/product-service
+npm run test
+npm run typecheck
+npm run build
+docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
+docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
 ```
 
 ---
@@ -413,6 +475,25 @@ Prometheus
     -> Grafana reads those metrics from Prometheus
 ```
 
+Current CI flow:
+
+```txt
+Developer
+  -> Pushes code to main or opens pull request into main
+    -> GitHub Actions starts CI workflow
+    -> GitHub Actions checks out repository
+    -> GitHub Actions sets up Node.js 20
+    -> GitHub Actions runs npm ci
+    -> GitHub Actions generates Prisma Client
+    -> GitHub Actions runs automated tests
+    -> GitHub Actions runs TypeScript typecheck
+    -> GitHub Actions runs production build
+    -> GitHub Actions builds API Gateway Docker image
+    -> GitHub Actions builds Product Service Docker image
+    -> GitHub Actions reports pass/fail status to GitHub
+    -> README CI badge reflects workflow status
+```
+
 ---
 
 ## Current Tech Stack
@@ -433,6 +514,7 @@ Currently used:
 * prom-client
 * Prometheus
 * Grafana
+* GitHub Actions
 
 Currently implemented:
 
@@ -475,6 +557,8 @@ Currently implemented:
 * Grafana datasource provisioning.
 * Grafana dashboard provider provisioning.
 * Grafana API Gateway overview dashboard.
+* GitHub Actions CI workflow.
+* CI validation for `npm ci`, Prisma generate, tests, typecheck, build, and Docker image builds.
 * Unit tests.
 * Integration tests.
 * GitHub-ready README.
@@ -502,6 +586,9 @@ Not added yet:
 
 ```txt
 pulsegate/
+  .github/
+    workflows/
+      ci.yml
   apps/
     api-gateway/
       src/
@@ -929,6 +1016,68 @@ but retry is disabled in the default route policy.
 
 This keeps runtime behavior stable while preparing the Gateway for future safe retry scenarios.
 ```
+
+---
+
+## Current CI/CD Foundation
+
+Sprint 6 added GitHub Actions CI/CD foundation.
+
+Workflow file:
+
+```txt
+.github/workflows/ci.yml
+```
+
+Workflow name:
+
+```txt
+CI
+```
+
+Job name:
+
+```txt
+Test, Typecheck, and Build
+```
+
+Trigger behavior:
+
+```txt
+push to main
+pull_request to main
+```
+
+Current workflow steps:
+
+```txt
+Checkout repository
+Setup Node.js 20
+npm ci
+npm run db:generate -w apps/product-service
+npm run test
+npm run typecheck
+npm run build
+docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
+docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
+```
+
+Current CI validation status:
+
+```txt
+GitHub Actions CI -> passed
+README CI badge -> passing
+```
+
+Why Sprint 6 matters:
+
+* It makes every push to `main` automatically validated.
+* It makes every pull request into `main` automatically validated.
+* It proves the repository can install dependencies cleanly with `npm ci`.
+* It prevents Prisma Client generation issues on clean runners.
+* It ensures tests, typecheck, and build stay healthy.
+* It validates Docker image builds for both runtime services.
+* It makes the GitHub repository more professional for portfolio and hiring review.
 
 ---
 
@@ -1974,6 +2123,18 @@ Build:
 npm run build
 ```
 
+Run CI-equivalent validation locally:
+
+```powershell
+npm ci
+npm run db:generate -w apps/product-service
+npm run test
+npm run typecheck
+npm run build
+docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
+docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
+```
+
 Seed Product Service database:
 
 ```powershell
@@ -2475,7 +2636,44 @@ Sprint 5 completed:
 
 ---
 
+## Completed in Sprint 6
+
+Sprint 6 completed:
+
+* Reviewed current root and workspace package scripts.
+* Confirmed root `npm run test`, `npm run typecheck`, and `npm run build` are CI-ready.
+* Confirmed Product Service requires Prisma Client generation before typecheck/build in clean environments.
+* Added GitHub Actions workflow at `.github/workflows/ci.yml`.
+* Configured CI to run on push to `main`.
+* Configured CI to run on pull request to `main`.
+* Configured CI to use Node.js 20.
+* Configured CI to install dependencies with `npm ci`.
+* Configured CI to generate Prisma Client with `npm run db:generate -w apps/product-service`.
+* Configured CI to run automated tests with `npm run test`.
+* Configured CI to run TypeScript validation with `npm run typecheck`.
+* Configured CI to run production build with `npm run build`.
+* Added Docker image build validation for API Gateway.
+* Added Docker image build validation for Product Service.
+* Validated GitHub Actions CI run successfully on GitHub.
+* Added live CI badge to README.
+* Ran local final validation.
+* Ran Docker Compose final validation.
+* Validated API Gateway `/health`.
+* Validated API Gateway `/metrics`.
+* Confirmed working tree clean before final documentation update.
+* Pushed stable checkpoints to GitHub.
+
+---
+
 ## Current Stable Commits
+
+### Sprint 6
+
+```txt
+b2b8929 ci: add github actions workflow
+e102aa0 ci: add docker image build validation
+d06e0e7 docs: add ci badge to readme
+```
 
 ### Sprint 5
 
@@ -2566,7 +2764,7 @@ a12605f feat(gateway): add request size limit
 Recommended next step:
 
 ```txt
-Sprint 5 - Final Documentation Update
+Sprint 6 - Final Documentation Update
 ```
 
 Currently updating these files:
@@ -2580,17 +2778,18 @@ docs/sdlc/requirements.md
 docs/architecture/overview.md
 ```
 
-After all Sprint 5 documentation files are updated:
+After all Sprint 6 documentation files are updated:
 
 ```txt
 1. Run git diff
 2. Run git status
 3. Commit docs with:
-   docs: finalize sprint 5 documentation
+   docs: finalize sprint 6 documentation
 4. Push to GitHub
+5. Confirm GitHub Actions CI passes
 ```
 
-After Sprint 5 documentation is committed, move to:
+After Sprint 6 documentation is committed, move to:
 
 ```txt
 Next sprint planning
@@ -2599,7 +2798,6 @@ Next sprint planning
 Possible next sprint candidates:
 
 ```txt
-CI/CD Foundation
 More Gateway Route Policy Expansion
 OpenTelemetry Tracing Foundation
 k6 Load Testing Foundation
@@ -2614,7 +2812,7 @@ Choose the next sprint based on which skill should be showcased next on GitHub.
 
 ## Important Development Rules
 
-Do not jump directly to advanced infrastructure before the current Gateway policy layer is documented and stable.
+Do not jump directly to advanced infrastructure before the current CI/CD foundation and project context documentation are documented and stable.
 
 Do not add these without a planned sprint:
 
@@ -2627,18 +2825,18 @@ Do not add these without a planned sprint:
 * Complex service discovery
 * Production cloud deployment
 
-Sprint 5 documentation should focus on:
+Sprint 6 documentation should focus on:
 
-* Route policy configuration.
-* Route config validation.
-* Per-route timeout policy.
-* Per-route cache policy.
-* Per-route rate limit policy.
-* Request transformation foundation.
-* Response transformation foundation.
-* Upstream retry policy foundation.
-* Unit tests.
-* Integration tests.
+* GitHub Actions CI workflow.
+* CI triggers for push and pull request to `main`.
+* `npm ci` clean dependency installation.
+* Prisma Client generation in CI.
+* Automated test execution in CI.
+* Typecheck execution in CI.
+* Build execution in CI.
+* API Gateway Docker image build validation.
+* Product Service Docker image build validation.
+* README CI badge.
 * Final validation results.
 
 The project should continue with small, stable checkpoints.
@@ -2662,10 +2860,10 @@ Each new feature should follow this workflow:
 When continuing from this file, the assistant should continue with:
 
 ```txt
-Sprint 5 - Final Documentation Update
+Sprint 6 - Final Documentation Update
 ```
 
-If Sprint 5 final documentation update is already complete, continue with:
+If Sprint 6 final documentation update is already complete, continue with:
 
 ```txt
 Next sprint planning
