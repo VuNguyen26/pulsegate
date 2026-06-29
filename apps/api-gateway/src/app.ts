@@ -2,6 +2,7 @@ import Fastify from "fastify";
 
 import { RedisResponseCacheStore } from "./cache/redis-response-cache-store.js";
 import { env } from "./config/env.js";
+import { registerAccessLogMiddleware } from "./middlewares/access-log.middleware.js";
 import { registerErrorHandlers } from "./middlewares/error-handler.middleware.js";
 import { generateRequestId } from "./middlewares/request-id.middleware.js";
 import { createRequestSizeLimitMiddleware } from "./middlewares/request-size-limit.middleware.js";
@@ -36,6 +37,8 @@ export async function buildApiGatewayApp(
     reply.header("x-request-id", request.id);
   });
 
+  registerAccessLogMiddleware(app);
+
   app.addHook("onRequest", securityHeadersMiddleware);
 
   app.addHook(
@@ -50,8 +53,7 @@ export async function buildApiGatewayApp(
   const redisClient = getRedisClient();
 
   const productProxyOptions =
-    options.productProxy ??
-    {
+    options.productProxy ?? {
       rateLimitStore: new RedisRateLimitStore(redisClient),
       responseCacheStore: new RedisResponseCacheStore(redisClient),
       responseCacheTtlSeconds: 30,
