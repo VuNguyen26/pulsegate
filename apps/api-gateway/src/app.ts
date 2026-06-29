@@ -12,6 +12,7 @@ import { createHttpMetrics, type HttpMetrics } from "./observability/metrics.js"
 import { RedisRateLimitStore } from "./rate-limit/redis-rate-limit-store.js";
 import { disconnectRedis, getRedisClient } from "./redis/redis-client.js";
 import { healthRoute } from "./routes/health.route.js";
+import { metricsRoute } from "./routes/metrics.route.js";
 import {
   productProxyRoute,
   type ProductProxyRouteOptions,
@@ -66,6 +67,7 @@ export async function buildApiGatewayApp(
     };
 
   await app.register(healthRoute);
+  await app.register(metricsRoute, { metrics });
   await app.register(productProxyRoute, productProxyOptions);
 
   return app;
