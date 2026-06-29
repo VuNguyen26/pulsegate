@@ -12,8 +12,6 @@ import {
 import { getRedisClient } from "../redis/redis-client.js";
 import { RedisRateLimitStore } from "../rate-limit/redis-rate-limit-store.js";
 
-const DEFAULT_RESPONSE_CACHE_TTL_SECONDS = 30;
-
 export type ProductProxyRouteOptions = {
   rateLimitStore?: RateLimitStore;
   responseCacheStore?: ResponseCacheStore;
@@ -26,37 +24,47 @@ export function buildResponseCacheKey(method: string, routePath: string): string
 
 export async function productProxyRoute(
   app: FastifyInstance,
-  options: ProductProxyRouteOptions = {}
+  options: ProductProxyRouteOptions = {},
 ): Promise<void> {
   const routeConfig = productProductsRouteConfig;
+  const routePolicies = routeConfig.policies;
+
   const rateLimitStore =
     options.rateLimitStore ?? new RedisRateLimitStore(getRedisClient());
+
   const responseCacheStore = options.responseCacheStore;
+  const isResponseCacheEnabled =
+    routePolicies.cache.enabled && responseCacheStore !== undefined;
+
   const responseCacheTtlSeconds =
-    options.responseCacheTtlSeconds ?? DEFAULT_RESPONSE_CACHE_TTL_SECONDS;
+    options.responseCacheTtlSeconds ?? routePolicies.cache.ttlSeconds;
 
   app.get(
     routeConfig.gatewayPath,
     {
       preHandler: [
-        ...(routeConfig.auth.requireApiKey ? [apiKeyAuthMiddleware] : []),
-        createRateLimitMiddleware({
-          limit: routeConfig.rateLimit.limit,
-          windowMs: routeConfig.rateLimit.windowMs,
-          routePath: routeConfig.gatewayPath,
-          identityType: "api-key",
-          store: rateLimitStore,
-        }),
-        ...(routeConfig.auth.requireJwt ? [jwtAuthMiddleware] : []),
+        ...(routePolicies.auth.requireApiKey ? [apiKeyAuthMiddleware] : []),
+        ...(routePolicies.rateLimit.enabled
+          ? [
+              createRateLimitMiddleware({
+                limit: routePolicies.rateLimit.limit,
+                windowMs: routePolicies.rateLimit.windowMs,
+                routePath: routeConfig.gatewayPath,
+                identityType: "api-key",
+                store: rateLimitStore,
+              }),
+            ]
+          : []),
+        ...(routePolicies.auth.requireJwt ? [jwtAuthMiddleware] : []),
       ],
     },
     async (request, reply) => {
       const cacheKey = buildResponseCacheKey(
         routeConfig.method,
-        routeConfig.gatewayPath
+        routeConfig.gatewayPath,
       );
 
-      if (responseCacheStore) {
+      if (isResponseCacheEnabled && responseCacheStore) {
         const cachedResponse = await responseCacheStore.get(cacheKey);
 
         if (cachedResponse.hit) {
@@ -70,9 +78,13 @@ export async function productProxyRoute(
 
       const controller = new AbortController();
 
-      const timeout = setTimeout(() => {
-        controller.abort();
-      }, routeConfig.timeoutMs);
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+
+      if (routePolicies.timeout.enabled) {
+        timeout = setTimeout(() => {
+          controller.abort();
+        }, routePolicies.timeout.timeoutMs);
+      }
 
       let response: Response;
 
@@ -82,7 +94,9 @@ export async function productProxyRoute(
           headers: {
             "x-request-id": request.id,
           },
-          signal: controller.signal,
+          signal: routePolicies.timeout.enabled
+            ? controller.signal
+            : undefined,
         });
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {
@@ -103,7 +117,9 @@ export async function productProxyRoute(
           originalError: error,
         });
       } finally {
-        clearTimeout(timeout);
+        if (timeout) {
+          clearTimeout(timeout);
+        }
       }
 
       if (!response.ok) {
@@ -115,7 +131,7 @@ export async function productProxyRoute(
         });
       }
 
-            let data: unknown;
+      let data: unknown;
 
       try {
         data = await response.json();
@@ -129,7 +145,7 @@ export async function productProxyRoute(
         });
       }
 
-      if (responseCacheStore) {
+      if (isResponseCacheEnabled && responseCacheStore) {
         try {
           await responseCacheStore.set(
             cacheKey,
@@ -139,7 +155,7 @@ export async function productProxyRoute(
             },
             {
               ttlSeconds: responseCacheTtlSeconds,
-            }
+            },
           );
         } catch (error) {
           request.log.error(
@@ -148,14 +164,14 @@ export async function productProxyRoute(
               cacheKey,
               requestId: request.id,
             },
-            "Failed to store response cache"
+            "Failed to store response cache",
           );
         }
       }
 
-      reply.header("x-cache", responseCacheStore ? "MISS" : "BYPASS");
+      reply.header("x-cache", isResponseCacheEnabled ? "MISS" : "BYPASS");
 
       return reply.status(200).send(data);
-    }
+    },
   );
 }

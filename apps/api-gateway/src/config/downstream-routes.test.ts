@@ -6,7 +6,7 @@ afterEach(() => {
 });
 
 describe("downstream route config", () => {
-  it("should read product route rate limit config from environment variables", async () => {
+  it("should read product route rate limit policy from environment variables", async () => {
     vi.stubEnv("PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS", "7");
     vi.stubEnv("PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS", "30000");
 
@@ -14,20 +14,65 @@ describe("downstream route config", () => {
       "./downstream-routes.js"
     );
 
-    expect(productProductsRouteConfig.rateLimit).toEqual({
+    expect(productProductsRouteConfig.policies.rateLimit).toEqual({
+      enabled: true,
       limit: 7,
       windowMs: 30000,
     });
   });
 
-  it("should define product route auth requirements", async () => {
+  it("should define product route auth policy", async () => {
     const { productProductsRouteConfig } = await import(
       "./downstream-routes.js"
     );
 
-    expect(productProductsRouteConfig.auth).toEqual({
+    expect(productProductsRouteConfig.policies.auth).toEqual({
       requireApiKey: true,
       requireJwt: true,
+    });
+  });
+
+  it("should define product route timeout policy", async () => {
+    vi.stubEnv("DOWNSTREAM_REQUEST_TIMEOUT_MS", "2500");
+
+    const { productProductsRouteConfig } = await import(
+      "./downstream-routes.js"
+    );
+
+    expect(productProductsRouteConfig.policies.timeout).toEqual({
+      enabled: true,
+      timeoutMs: 2500,
+    });
+  });
+
+  it("should define product route cache policy", async () => {
+    const { productProductsRouteConfig } = await import(
+      "./downstream-routes.js"
+    );
+
+    expect(productProductsRouteConfig.policies.cache).toEqual({
+      enabled: true,
+      ttlSeconds: 30,
+    });
+  });
+
+  it("should define disabled transformation and retry policy foundations", async () => {
+    const { productProductsRouteConfig } = await import(
+      "./downstream-routes.js"
+    );
+
+    expect(productProductsRouteConfig.policies.requestTransform).toEqual({
+      enabled: false,
+    });
+
+    expect(productProductsRouteConfig.policies.responseTransform).toEqual({
+      enabled: false,
+    });
+
+    expect(productProductsRouteConfig.policies.retry).toEqual({
+      enabled: false,
+      attempts: 0,
+      retryOnStatuses: [502, 503, 504],
     });
   });
 });

@@ -63,7 +63,6 @@ export async function buildApiGatewayApp(
     options.productProxy ?? {
       rateLimitStore: new RedisRateLimitStore(redisClient),
       responseCacheStore: new RedisResponseCacheStore(redisClient),
-      responseCacheTtlSeconds: 30,
     };
 
   await app.register(healthRoute);
