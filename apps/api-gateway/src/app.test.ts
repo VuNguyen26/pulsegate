@@ -3,10 +3,9 @@ import { SignJWT } from "jose";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildApiGatewayApp } from "./app.js";
+import type { ResponseCacheStore } from "./cache/redis-response-cache-store.js";
 import { env } from "./config/env.js";
-
 import { securityHeaders } from "./middlewares/security-headers.middleware.js";
-
 import { InMemoryRateLimitStore } from "./rate-limit/in-memory-rate-limit-store.js";
 
 let app: FastifyInstance;
@@ -37,14 +36,48 @@ async function createValidAuthHeaders(): Promise<Record<string, string>> {
   };
 }
 
-beforeEach(async () => {
-  app = await buildApiGatewayApp({
+function createInMemoryResponseCacheStore(): ResponseCacheStore {
+  const cache = new Map<
+    string,
+    {
+      statusCode: number;
+      body: unknown;
+    }
+  >();
+
+  return {
+    get: async (key) => {
+      const value = cache.get(key);
+
+      if (!value) {
+        return {
+          hit: false as const,
+        };
+      }
+
+      return {
+        hit: true as const,
+        value,
+      };
+    },
+    set: async (key, value) => {
+      cache.set(key, value);
+    },
+  };
+}
+
+async function buildDefaultTestApp(): Promise<FastifyInstance> {
+  return buildApiGatewayApp({
     logger: false,
     productProxy: {
       rateLimitStore: new InMemoryRateLimitStore(),
     },
   });
-});;
+}
+
+beforeEach(async () => {
+  app = await buildDefaultTestApp();
+});
 
 afterEach(async () => {
   vi.unstubAllGlobals();
@@ -66,12 +99,13 @@ describe("API Gateway app", () => {
     expect(body.status).toBe("ok");
     expect(typeof body.timestamp).toBe("string");
     expect(response.headers["x-request-id"]).toBeDefined();
-        for (const [headerName, headerValue] of Object.entries(securityHeaders)) {
+
+    for (const [headerName, headerValue] of Object.entries(securityHeaders)) {
       expect(response.headers[headerName]).toBe(headerValue);
     }
   });
 
-    it("should return 413 when request body is too large", async () => {
+  it("should return 413 when request body is too large", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/products",
@@ -215,7 +249,7 @@ describe("API Gateway app", () => {
         headers: {
           "content-type": "application/json",
         },
-      })
+      }),
     );
 
     vi.stubGlobal("fetch", fetchMock);
@@ -238,16 +272,77 @@ describe("API Gateway app", () => {
           "x-request-id": expect.any(String),
         }),
         signal: expect.any(AbortSignal),
-      })
+      }),
     );
 
+    expect(response.headers["x-cache"]).toBe("BYPASS");
     expect(response.headers["x-request-id"]).toBeDefined();
     expect(response.headers["x-ratelimit-limit"]).toBe("5");
     expect(response.headers["x-ratelimit-remaining"]).toBe("4");
     expect(response.headers["x-ratelimit-reset"]).toBeDefined();
   });
 
-    it("should return 429 when product route rate limit is exceeded", async () => {
+  it("should return cached products on cache hit when response cache store is configured", async () => {
+    await app.close();
+
+    const responseCacheStore = createInMemoryResponseCacheStore();
+
+    app = await buildApiGatewayApp({
+      logger: false,
+      productProxy: {
+        rateLimitStore: new InMemoryRateLimitStore(),
+        responseCacheStore,
+        responseCacheTtlSeconds: 15,
+      },
+    });
+
+    const mockProductsResponse = {
+      data: [
+        {
+          id: "prod_001",
+          name: "Mechanical Keyboard",
+          price: 120,
+        },
+      ],
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(mockProductsResponse), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      }),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const headers = await createValidAuthHeaders();
+
+    const firstResponse = await app.inject({
+      method: "GET",
+      url: "/api/products",
+      headers,
+    });
+
+    expect(firstResponse.statusCode).toBe(200);
+    expect(firstResponse.json()).toEqual(mockProductsResponse);
+    expect(firstResponse.headers["x-cache"]).toBe("MISS");
+
+    const secondResponse = await app.inject({
+      method: "GET",
+      url: "/api/products",
+      headers,
+    });
+
+    expect(secondResponse.statusCode).toBe(200);
+    expect(secondResponse.json()).toEqual(mockProductsResponse);
+    expect(secondResponse.headers["x-cache"]).toBe("HIT");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("should return 429 when product route rate limit is exceeded", async () => {
     const mockProductsResponse = {
       data: [
         {
@@ -265,8 +360,8 @@ describe("API Gateway app", () => {
           headers: {
             "content-type": "application/json",
           },
-        })
-      )
+        }),
+      ),
     );
 
     vi.stubGlobal("fetch", fetchMock);
@@ -333,6 +428,7 @@ describe("API Gateway app", () => {
       },
     });
 
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(response.headers["x-request-id"]).toBeDefined();
   });
 
@@ -349,8 +445,8 @@ describe("API Gateway app", () => {
           headers: {
             "content-type": "application/json",
           },
-        }
-      )
+        },
+      ),
     );
 
     vi.stubGlobal("fetch", fetchMock);
@@ -374,6 +470,7 @@ describe("API Gateway app", () => {
       },
     });
 
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(response.headers["x-request-id"]).toBeDefined();
   });
 
@@ -384,7 +481,7 @@ describe("API Gateway app", () => {
         headers: {
           "content-type": "application/json",
         },
-      })
+      }),
     );
 
     vi.stubGlobal("fetch", fetchMock);
@@ -438,6 +535,7 @@ describe("API Gateway app", () => {
       },
     });
 
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(response.headers["x-request-id"]).toBeDefined();
   });
 });
