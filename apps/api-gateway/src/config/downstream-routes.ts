@@ -1,5 +1,6 @@
-import { env } from "./env.js";
 import type { RoutePolicies } from "../policies/route-policy.types.js";
+import { env } from "./env.js";
+import { validateDownstreamRoutes } from "./validate-downstream-routes.js";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -47,3 +48,7 @@ export const productProductsRouteConfig: DownstreamRouteConfig = {
     },
   },
 };
+
+export const downstreamRouteConfigs = validateDownstreamRoutes([
+  productProductsRouteConfig,
+]);
