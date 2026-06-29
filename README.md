@@ -11,6 +11,9 @@
 <p align="center">
   <img src="https://img.shields.io/badge/status-Sprint%205%20Complete-brightgreen" />
   <img src="https://img.shields.io/badge/version-v0.6.0-blue" />
+  <a href="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml">
+    <img src="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
+  </a>
   <img src="https://img.shields.io/badge/tests-139%20passing-brightgreen" />
   <img src="https://img.shields.io/badge/typecheck-passing-brightgreen" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
