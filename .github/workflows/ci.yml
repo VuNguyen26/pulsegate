@@ -40,3 +40,9 @@ jobs:
 
       - name: Run build
         run: npm run build
+
+      - name: Build API Gateway Docker image
+        run: docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
+
+      - name: Build Product Service Docker image
+        run: docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
