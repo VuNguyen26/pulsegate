@@ -5,13 +5,13 @@
 </p>
 
 <p align="center">
-  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, and a microservice-oriented architecture.
+  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, and a microservice-oriented architecture.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Sprint%203%20Complete-brightgreen" />
-  <img src="https://img.shields.io/badge/version-v0.4.0-blue" />
-  <img src="https://img.shields.io/badge/tests-85%20passing-brightgreen" />
+  <img src="https://img.shields.io/badge/status-Sprint%204%20Complete-brightgreen" />
+  <img src="https://img.shields.io/badge/version-v0.5.0-blue" />
+  <img src="https://img.shields.io/badge/tests-101%20passing-brightgreen" />
   <img src="https://img.shields.io/badge/typecheck-passing-brightgreen" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
   <img src="https://img.shields.io/badge/Node.js-20%2B-green" />
@@ -22,6 +22,8 @@
   <img src="https://img.shields.io/badge/Cache-Redis-red" />
   <img src="https://img.shields.io/badge/Database-PostgreSQL-blue" />
   <img src="https://img.shields.io/badge/ORM-Prisma-2D3748" />
+  <img src="https://img.shields.io/badge/Metrics-Prometheus-orange" />
+  <img src="https://img.shields.io/badge/Dashboard-Grafana-F46800" />
   <img src="https://img.shields.io/badge/Docker%20Compose-enabled-blue" />
   <img src="https://img.shields.io/badge/License-MIT-lightgrey" />
 </p>
@@ -38,7 +40,7 @@
 * Apigee
 * AWS API Gateway
 
-The project is designed to demonstrate backend engineering skills around API routing, microservice communication, authentication, traffic protection, caching, data persistence, request tracing, error handling, testing, observability preparation, scalability, and production-oriented system design.
+The project is designed to demonstrate backend engineering skills around API routing, microservice communication, authentication, traffic protection, caching, data persistence, request tracing, error handling, testing, observability, scalability, and production-oriented system design.
 
 PulseGate starts small and grows step by step.
 
@@ -48,6 +50,8 @@ Current stable flow:
 Client
   -> API Gateway :3000
     -> Request ID handling
+    -> Structured access log timer
+    -> Metrics timer
     -> Basic security headers
     -> Request size limit
     -> API key authentication
@@ -65,36 +69,50 @@ Client
              -> PostgreSQL :5432
              -> Database-backed Product response
            -> Store response in Redis cache
+    -> Add x-response-time-ms
+    -> Record Prometheus metrics
+    -> Write structured access log
     -> Return response to Client
+
+API Gateway
+  -> Exposes /metrics
+
+Prometheus :9090
+  -> Scrapes API Gateway /metrics
+
+Grafana :3002
+  -> Uses Prometheus datasource
+  -> Displays PulseGate API Gateway Overview dashboard
 ```
 
 Current version:
 
 ```txt
-v0.4.0
+v0.5.0
 ```
 
 Current sprint status:
 
 ```txt
-Sprint 3 - Data & Infrastructure Foundation Complete
+Sprint 4 - Observability Foundation Complete
 ```
 
 ---
 
 ## Project Status
 
-| Area            | Status                                                                               | Notes                                                     |
-| --------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                | Core setup and basic Gateway flow                         |
-| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                | API Gateway core features                                 |
-| Sprint 2        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                | Gateway traffic protection                                |
-| Sprint 3        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                | Data and infrastructure foundation                        |
-| Current Version | ![v0.4.0](https://img.shields.io/badge/version-v0.4.0-blue)                          | Docker, PostgreSQL, Prisma, Redis rate limit, Redis cache |
-| Automated Tests | ![85 Passing](https://img.shields.io/badge/tests-85%20passing-brightgreen)           | Unit and integration tests                                |
-| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)               | TypeScript validation passes                              |
-| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)                   | Production build passes                                   |
-| Next Sprint     | ![Sprint 4](https://img.shields.io/badge/Sprint%204-Observability%20Foundation-blue) | Structured logs, latency, metrics, Prometheus, Grafana    |
+| Area            | Status                                                                                  | Notes                                                  |
+| --------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                   | Core setup and basic Gateway flow                      |
+| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                   | API Gateway core features                              |
+| Sprint 2        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                   | Gateway traffic protection                             |
+| Sprint 3        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                   | Data and infrastructure foundation                     |
+| Sprint 4        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                   | Observability foundation                               |
+| Current Version | ![v0.5.0](https://img.shields.io/badge/version-v0.5.0-blue)                             | Docker, PostgreSQL, Prisma, Redis, Prometheus, Grafana |
+| Automated Tests | ![101 Passing](https://img.shields.io/badge/tests-101%20passing-brightgreen)            | Unit and integration tests                             |
+| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)                  | TypeScript validation passes                           |
+| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)                      | Production build passes                                |
+| Next Sprint     | ![Sprint 5](https://img.shields.io/badge/Sprint%205-Advanced%20Gateway%20Policies-blue) | Route policies, transformations, retry foundation      |
 
 ---
 
@@ -114,11 +132,13 @@ Long-term goals:
 * Add Redis caching to reduce backend load.
 * Store service data in PostgreSQL.
 * Log requests with request IDs.
+* Produce structured access logs.
 * Expose metrics for monitoring.
-* Add distributed tracing.
-* Stream events with Kafka.
-* Process background jobs with RabbitMQ.
-* Run load tests with k6.
+* Visualize Gateway behavior with Grafana dashboards.
+* Add distributed tracing later.
+* Stream events with Kafka later.
+* Process background jobs with RabbitMQ later.
+* Run load tests with k6 later.
 * Support Docker Compose and later Kubernetes.
 * Provide an Admin Dashboard and Developer Portal later.
 
@@ -197,6 +217,26 @@ Long-term goals:
 | Cache HIT when Product Service is down | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Cached response survives downstream outage           |
 | Cache write failure isolation          | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Cache write errors do not break valid responses      |
 
+### Sprint 4 - Observability Foundation
+
+| Feature                             | Status                                                        | Notes                                                    |
+| ----------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------- |
+| Structured access logs              | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Logs method, path, route, status, latency, cache status  |
+| Sensitive header protection in logs | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Does not log API keys, JWT tokens, or cookies            |
+| Request latency measurement         | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Uses high-resolution timing                              |
+| `x-response-time-ms` header         | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Returns latency in milliseconds                          |
+| HTTP metrics registry               | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Uses `prom-client`                                       |
+| Request count metric                | ![Done](https://img.shields.io/badge/status-done-brightgreen) | `http_requests_total`                                    |
+| Request duration metric             | ![Done](https://img.shields.io/badge/status-done-brightgreen) | `http_request_duration_seconds`                          |
+| Cache outcome metric                | ![Done](https://img.shields.io/badge/status-done-brightgreen) | `http_response_cache_total`                              |
+| Metrics middleware                  | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Records metrics after response completion                |
+| Prometheus `/metrics` endpoint      | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Exposes Prometheus text format                           |
+| Prometheus Docker service           | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Scrapes API Gateway through Docker internal DNS          |
+| Grafana Docker service              | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Runs on local port `3002`                                |
+| Grafana Prometheus datasource       | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Provisioned from repository config                       |
+| Grafana dashboard foundation        | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Provisioned dashboard JSON                               |
+| API Gateway overview dashboard      | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Request rate, request count, p95 latency, cache outcomes |
+
 ---
 
 ## Current Architecture
@@ -206,7 +246,9 @@ flowchart LR
     Client[Client / API Consumer] --> Gateway[PulseGate API Gateway<br/>Port 3000]
 
     Gateway --> ReqId[Request ID Middleware]
-    ReqId --> SecurityHeaders[Security Headers Middleware]
+    ReqId --> AccessLogStart[Access Log Timer]
+    AccessLogStart --> MetricsStart[Metrics Timer]
+    MetricsStart --> SecurityHeaders[Security Headers Middleware]
     SecurityHeaders --> SizeLimit[Request Size Limit]
     SizeLimit --> ApiKey[API Key Authentication]
     ApiKey --> RateLimit[Redis-Backed Rate Limiting]
@@ -214,7 +256,7 @@ flowchart LR
     Jwt --> Cache{Redis Response Cache}
 
     Cache -->|HIT| CachedResponse[Cached Product Response]
-    CachedResponse --> Gateway
+    CachedResponse --> ResponseHeaders[Response Headers<br/>x-response-time-ms]
 
     Cache -->|MISS| RouteConfig[Downstream Route Config]
     RouteConfig --> Product[Product Service<br/>Port 3001]
@@ -222,14 +264,20 @@ flowchart LR
     Prisma --> Postgres[(PostgreSQL<br/>Port 5432)]
     Postgres --> Prisma
     Prisma --> Product
-    Product --> Gateway
-    Gateway --> CacheStore[Store Response in Redis Cache]
-    CacheStore --> Redis[(Redis<br/>Port 6379)]
+    Product --> CacheStore[Store Response in Redis Cache]
+    CacheStore --> ResponseHeaders
 
-    RateLimit --> Redis
+    RateLimit --> Redis[(Redis<br/>Port 6379)]
     Cache --> Redis
+    CacheStore --> Redis
 
-    Gateway --> Client
+    ResponseHeaders --> MetricsRecord[Record HTTP Metrics]
+    MetricsRecord --> AccessLogWrite[Write Structured Access Log]
+    AccessLogWrite --> Client
+
+    Gateway --> MetricsEndpoint[/GET /metrics/]
+    Prometheus[Prometheus<br/>Port 9090] -->|Scrapes| MetricsEndpoint
+    Grafana[Grafana<br/>Port 3002] -->|Reads datasource| Prometheus
 ```
 
 Current protected request flow:
@@ -240,6 +288,8 @@ GET http://localhost:3000/api/products
 Client
   -> API Gateway
     -> Create or reuse x-request-id
+    -> Start structured access log timer
+    -> Start metrics timer
     -> Add security headers
     -> Apply request size limit
     -> Check x-api-key
@@ -262,6 +312,9 @@ Client
            -> API Gateway stores response in Redis cache
            -> Return products
            -> x-cache: MISS
+    -> Add x-response-time-ms
+    -> Record Prometheus metrics
+    -> Write structured access log
 ```
 
 Current public request flow:
@@ -272,9 +325,25 @@ GET http://localhost:3000/health
 Client
   -> API Gateway
     -> Create or reuse x-request-id
+    -> Start structured access log timer
+    -> Start metrics timer
     -> Add security headers
     -> Apply request size limit
     -> Health response
+    -> Add x-response-time-ms
+    -> Record Prometheus metrics
+    -> Write structured access log
+```
+
+Current observability flow:
+
+```txt
+Prometheus
+  -> GET http://api-gateway:3000/metrics inside Docker network
+    -> API Gateway returns Prometheus text format
+    -> Prometheus stores time-series metrics
+    -> Grafana reads metrics from Prometheus datasource
+    -> Grafana displays PulseGate API Gateway Overview dashboard
 ```
 
 ---
@@ -301,11 +370,15 @@ pulsegate/
           downstream-service-error.ts
           downstream-service-error.test.ts
         middlewares/
+          access-log.middleware.ts
+          access-log.middleware.test.ts
           api-key-auth.middleware.ts
           api-key-auth.middleware.test.ts
           error-handler.middleware.ts
           jwt-auth.middleware.ts
           jwt-auth.middleware.test.ts
+          metrics.middleware.ts
+          metrics.middleware.test.ts
           rate-limit.middleware.ts
           rate-limit.middleware.test.ts
           request-id.middleware.ts
@@ -314,6 +387,9 @@ pulsegate/
           request-size-limit.middleware.test.ts
           security-headers.middleware.ts
           security-headers.middleware.test.ts
+        observability/
+          metrics.ts
+          metrics.test.ts
         rate-limit/
           in-memory-rate-limit-store.ts
           in-memory-rate-limit-store.test.ts
@@ -323,6 +399,8 @@ pulsegate/
           redis-client.ts
         routes/
           health.route.ts
+          metrics.route.ts
+          metrics.route.test.ts
           product-proxy.route.ts
         server.ts
       package.json
@@ -355,6 +433,18 @@ pulsegate/
         server.ts
       package.json
       tsconfig.json
+
+  observability/
+    prometheus/
+      prometheus.yml
+    grafana/
+      dashboards/
+        api-gateway-overview.json
+      provisioning/
+        dashboards/
+          dashboards.yml
+        datasources/
+          prometheus.yml
 
   docs/
     architecture/
@@ -398,6 +488,7 @@ Endpoints:
 
 ```txt
 GET /health
+GET /metrics
 GET /api/products
 ```
 
@@ -406,6 +497,9 @@ Route protection:
 ```txt
 GET /health
   -> Public
+
+GET /metrics
+  -> Public for local Docker observability
 
 GET /api/products
   -> Requires API key
@@ -420,6 +514,7 @@ Responsibilities:
 * Receives client requests.
 * Creates or reuses request IDs.
 * Adds `x-request-id` response header.
+* Adds `x-response-time-ms` response header.
 * Adds basic security headers.
 * Applies request size limit.
 * Routes product API requests to Product Service on cache MISS.
@@ -433,6 +528,9 @@ Responsibilities:
 * Normalizes downstream service errors.
 * Handles basic 404 and 500 errors.
 * Logs requests in JSON format.
+* Writes structured access logs.
+* Records Prometheus metrics.
+* Exposes metrics at `/metrics`.
 * Supports automated integration tests using `app.inject()`.
 * Supports Docker Compose local development.
 
@@ -539,6 +637,98 @@ response-cache:GET:/api/products
 
 ---
 
+### Prometheus
+
+Port:
+
+```txt
+9090
+```
+
+Responsibilities:
+
+* Scrapes API Gateway metrics.
+* Stores time-series metrics.
+* Provides PromQL query API.
+* Provides metrics datasource for Grafana.
+
+Current local URL:
+
+```txt
+http://localhost:9090
+```
+
+Current scrape target inside Docker:
+
+```txt
+http://api-gateway:3000/metrics
+```
+
+Config file:
+
+```txt
+observability/prometheus/prometheus.yml
+```
+
+---
+
+### Grafana
+
+Port:
+
+```txt
+3002
+```
+
+Responsibilities:
+
+* Reads metrics from Prometheus.
+* Provides local observability dashboard.
+* Loads datasource from provisioning config.
+* Loads dashboard from repository JSON.
+
+Current local URL:
+
+```txt
+http://localhost:3002
+```
+
+Local development login:
+
+```txt
+username: admin
+password: admin
+```
+
+Provisioned datasource:
+
+```txt
+name: Prometheus
+uid: pulsegate-prometheus
+type: prometheus
+url: http://prometheus:9090
+isDefault: true
+```
+
+Provisioned dashboard:
+
+```txt
+title: PulseGate API Gateway Overview
+uid: pulsegate-api-gateway-overview
+folder: PulseGate
+```
+
+Dashboard panels:
+
+```txt
+Request Rate
+Request Count by Route
+Latency p95 by Route
+Cache Outcomes
+```
+
+---
+
 ## Tech Stack
 
 Currently implemented:
@@ -550,6 +740,7 @@ Currently implemented:
 | Web Framework      | Fastify                             | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Monorepo           | npm workspaces                      | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Logging            | Fastify JSON logger                 | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Access Logs        | Structured JSON logs                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Authentication     | API Key, JWT                        | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | JWT Library        | jose                                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Traffic Protection | Redis-backed rate limit, size limit | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
@@ -557,23 +748,25 @@ Currently implemented:
 | Cache              | Redis response cache                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Database           | PostgreSQL                          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | ORM                | Prisma                              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Metrics Library    | prom-client                         | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Metrics Backend    | Prometheus                          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Dashboard          | Grafana                             | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Containerization   | Docker, Docker Compose              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Testing            | Vitest                              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Architecture       | API Gateway + Microservice          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 
 Planned later:
 
-| Category        | Technology                   | Status                                                            |
-| --------------- | ---------------------------- | ----------------------------------------------------------------- |
-| Metrics         | Prometheus                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Dashboard       | Grafana                      | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Tracing         | OpenTelemetry + Jaeger/Tempo | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Logs            | Loki                         | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Event Streaming | Kafka                        | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Background Jobs | RabbitMQ                     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Load Testing    | k6                           | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Orchestration   | Kubernetes                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| CI/CD           | GitHub Actions               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Category         | Technology                               | Status                                                            |
+| ---------------- | ---------------------------------------- | ----------------------------------------------------------------- |
+| Gateway Policies | Route policies, transformations, retries | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Tracing          | OpenTelemetry + Jaeger/Tempo             | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Logs             | Loki                                     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Event Streaming  | Kafka                                    | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Background Jobs  | RabbitMQ                                 | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Load Testing     | k6                                       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Orchestration    | Kubernetes                               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| CI/CD            | GitHub Actions                           | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 
 ---
 
@@ -610,12 +803,14 @@ DATABASE_URL=postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate
 
 ### Docker Compose Internal Values
 
-Inside Docker Compose, API Gateway and Product Service use internal service names:
+Inside Docker Compose, services use internal service names:
 
 ```txt
 PRODUCT_SERVICE_URL=http://product-service:3001
 DATABASE_URL=postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate
 REDIS_URL=redis://redis:6379
+Prometheus scrape target=http://api-gateway:3000/metrics
+Grafana Prometheus datasource=http://prometheus:9090
 ```
 
 See `.env.example` for the full list.
@@ -641,7 +836,7 @@ npm install
 
 ## Run with Docker Compose
 
-This is the recommended workflow after Sprint 3.
+This is the recommended workflow after Sprint 4.
 
 ### 1. Start PostgreSQL and Redis
 
@@ -714,9 +909,32 @@ pulsegate-postgres         healthy
 pulsegate-redis            healthy
 pulsegate-product-service  healthy
 pulsegate-api-gateway      up
+pulsegate-prometheus       up
+pulsegate-grafana          up
 ```
 
-### 5. Stop the stack
+### 5. Open observability tools
+
+Prometheus:
+
+```txt
+http://localhost:9090
+```
+
+Grafana:
+
+```txt
+http://localhost:3002
+```
+
+Grafana local login:
+
+```txt
+username: admin
+password: admin
+```
+
+### 6. Stop the stack
 
 ```powershell
 docker compose down
@@ -820,10 +1038,10 @@ Expected response:
 ### API Gateway Health Check
 
 ```powershell
-Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
+Invoke-WebRequest http://localhost:3000/health -UseBasicParsing
 ```
 
-Expected response:
+Expected response body:
 
 ```json
 {
@@ -831,6 +1049,18 @@ Expected response:
   "status": "ok",
   "timestamp": "2026-06-25T00:00:00.000Z"
 }
+```
+
+Expected response headers include:
+
+```txt
+x-request-id
+x-response-time-ms
+x-content-type-options
+x-frame-options
+referrer-policy
+permissions-policy
+content-security-policy
 ```
 
 ---
@@ -857,9 +1087,9 @@ $headers = @{
 This route requires both API key and JWT.
 
 ```powershell
-Invoke-RestMethod http://localhost:3000/api/products `
-  -Headers $headers |
-  ConvertTo-Json -Depth 10
+Invoke-WebRequest http://localhost:3000/api/products `
+  -Headers $headers `
+  -UseBasicParsing
 ```
 
 Expected response:
@@ -879,6 +1109,17 @@ Expected response:
     }
   ]
 }
+```
+
+Expected response headers include:
+
+```txt
+x-request-id
+x-response-time-ms
+x-cache
+x-ratelimit-limit
+x-ratelimit-remaining
+x-ratelimit-reset
 ```
 
 ---
@@ -1132,6 +1373,7 @@ $res1 = Invoke-WebRequest http://localhost:3000/api/products `
 
 $res1.StatusCode
 $res1.Headers["x-cache"]
+$res1.Headers["x-response-time-ms"]
 $res1.Content
 
 $res2 = Invoke-WebRequest http://localhost:3000/api/products `
@@ -1140,6 +1382,7 @@ $res2 = Invoke-WebRequest http://localhost:3000/api/products `
 
 $res2.StatusCode
 $res2.Headers["x-cache"]
+$res2.Headers["x-response-time-ms"]
 $res2.Content
 ```
 
@@ -1148,6 +1391,7 @@ Expected behavior:
 ```txt
 Request 1 -> 200, x-cache: MISS
 Request 2 -> 200, x-cache: HIT
+Both responses include x-response-time-ms
 ```
 
 Check Redis cache key:
@@ -1192,6 +1436,278 @@ Request 2 -> 200, x-cache: HIT
 ```
 
 This confirms that a valid Redis cache HIT can serve data even when Product Service is temporarily unavailable.
+
+---
+
+## Observability Behavior
+
+Sprint 4 adds the first production-oriented observability foundation.
+
+Current observability layers:
+
+```txt
+Request ID
+Structured access logs
+Response latency header
+Prometheus metrics registry
+/metrics endpoint
+Prometheus scraping
+Grafana datasource
+Grafana dashboard
+```
+
+### Structured Access Logs
+
+API Gateway writes structured access logs after requests complete.
+
+Current event name:
+
+```txt
+http_request_completed
+```
+
+Current log fields:
+
+```txt
+requestId
+method
+path
+route
+statusCode
+durationMs
+cacheStatus
+userAgent
+remoteAddress
+```
+
+Sensitive values are intentionally not logged:
+
+```txt
+x-api-key
+authorization
+cookie
+```
+
+Conceptual log payload:
+
+```json
+{
+  "event": "http_request_completed",
+  "requestId": "example-request-id",
+  "method": "GET",
+  "path": "/health",
+  "route": "/health",
+  "statusCode": 200,
+  "durationMs": 3.25,
+  "userAgent": "PowerShell",
+  "remoteAddress": "127.0.0.1"
+}
+```
+
+### Response Time Header
+
+API Gateway adds:
+
+```txt
+x-response-time-ms
+```
+
+Example:
+
+```txt
+x-response-time-ms: 4.32
+```
+
+The value is measured in milliseconds and formatted with two decimal places.
+
+### Metrics Endpoint
+
+API Gateway exposes Prometheus-compatible metrics:
+
+```txt
+GET /metrics
+```
+
+Test metrics:
+
+```powershell
+Invoke-WebRequest http://localhost:3000/metrics -UseBasicParsing
+```
+
+Expected metric names include:
+
+```txt
+http_requests_total
+http_request_duration_seconds
+http_response_cache_total
+```
+
+Current metric behavior:
+
+```txt
+http_requests_total
+  -> Counts requests by method, route, and status_code
+
+http_request_duration_seconds
+  -> Records request duration in seconds by method, route, and status_code
+
+http_response_cache_total
+  -> Counts cache outcomes by route and cache_status
+```
+
+Supported cache statuses:
+
+```txt
+HIT
+MISS
+BYPASS
+```
+
+### Prometheus
+
+Prometheus runs through Docker Compose.
+
+Local URL:
+
+```txt
+http://localhost:9090
+```
+
+Config file:
+
+```txt
+observability/prometheus/prometheus.yml
+```
+
+Current scrape target inside Docker:
+
+```txt
+http://api-gateway:3000/metrics
+```
+
+Test Prometheus health:
+
+```powershell
+Invoke-WebRequest http://localhost:9090/-/healthy -UseBasicParsing
+```
+
+Expected result:
+
+```txt
+Prometheus Server is Healthy.
+```
+
+Test Prometheus targets:
+
+```powershell
+Invoke-RestMethod http://localhost:9090/api/v1/targets | ConvertTo-Json -Depth 10
+```
+
+Expected target:
+
+```txt
+job: pulsegate-api-gateway
+scrapeUrl: http://api-gateway:3000/metrics
+health: up
+```
+
+### Grafana
+
+Grafana runs through Docker Compose.
+
+Local URL:
+
+```txt
+http://localhost:3002
+```
+
+Local development login:
+
+```txt
+username: admin
+password: admin
+```
+
+Datasource config:
+
+```txt
+observability/grafana/provisioning/datasources/prometheus.yml
+```
+
+Dashboard provider config:
+
+```txt
+observability/grafana/provisioning/dashboards/dashboards.yml
+```
+
+Dashboard JSON:
+
+```txt
+observability/grafana/dashboards/api-gateway-overview.json
+```
+
+Provisioned datasource:
+
+```txt
+name: Prometheus
+uid: pulsegate-prometheus
+type: prometheus
+url: http://prometheus:9090
+isDefault: true
+```
+
+Provisioned dashboard:
+
+```txt
+title: PulseGate API Gateway Overview
+uid: pulsegate-api-gateway-overview
+folder: PulseGate
+```
+
+Dashboard panels:
+
+```txt
+Request Rate
+Request Count by Route
+Latency p95 by Route
+Cache Outcomes
+```
+
+Test Grafana health:
+
+```powershell
+Invoke-RestMethod http://localhost:3002/api/health | ConvertTo-Json -Depth 10
+```
+
+Test Grafana datasource:
+
+```powershell
+$pair = "admin:admin"
+$encoded = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
+$headers = @{
+  Authorization = "Basic $encoded"
+}
+
+Invoke-RestMethod http://localhost:3002/api/datasources `
+  -Headers $headers |
+  ConvertTo-Json -Depth 10
+```
+
+Test Grafana dashboard search:
+
+```powershell
+Invoke-RestMethod http://localhost:3002/api/search?query=PulseGate `
+  -Headers $headers |
+  ConvertTo-Json -Depth 10
+```
+
+Test Grafana dashboard detail:
+
+```powershell
+Invoke-RestMethod http://localhost:3002/api/dashboards/uid/pulsegate-api-gateway-overview `
+  -Headers $headers |
+  ConvertTo-Json -Depth 10
+```
 
 ---
 
@@ -1282,6 +1798,7 @@ Why this matters:
 * Better request tracking.
 * Foundation for distributed tracing.
 * Helps connect logs across services.
+* Helps connect Gateway access logs with downstream service logs.
 
 ---
 
@@ -1346,8 +1863,8 @@ npm run test
 Current result:
 
 ```txt
-13 test files passed
-85 tests passed
+17 test files passed
+101 tests passed
 ```
 
 Current unit test coverage:
@@ -1356,11 +1873,17 @@ Current unit test coverage:
 request-id.middleware.test.ts
   -> Request ID generation and reuse
 
+access-log.middleware.test.ts
+  -> Duration calculation, safe access log payload, response time header behavior
+
 api-key-auth.middleware.test.ts
   -> Missing, invalid, valid, and array header API key cases
 
 jwt-auth.middleware.test.ts
   -> Bearer token extraction, JWT verification, missing token, invalid token, valid token
+
+metrics.middleware.test.ts
+  -> Route label extraction, cache header reading, request metrics, cache metrics
 
 rate-limit/in-memory-rate-limit-store.test.ts
   -> In-memory rate limit store behavior, counters, window reset, cleanup, validation
@@ -1388,6 +1911,12 @@ env.test.ts
 
 downstream-routes.test.ts
   -> Route-level rate limit config and auth requirements
+
+observability/metrics.test.ts
+  -> Metrics registry, request metrics, cache metrics, cache status normalization
+
+routes/metrics.route.test.ts
+  -> /metrics endpoint and Prometheus text format
 ```
 
 Current integration test coverage:
@@ -1397,6 +1926,10 @@ GET /health
   -> 200 OK
   -> includes x-request-id
   -> includes basic security headers
+
+GET /metrics
+  -> 200 OK
+  -> returns Prometheus text format
 
 POST /api/products with oversized content-length
   -> 413 REQUEST_BODY_TOO_LARGE
@@ -1460,6 +1993,12 @@ Run with Docker Compose in detached mode:
 
 ```powershell
 docker compose up --build -d
+```
+
+Check Docker Compose services:
+
+```powershell
+docker compose ps
 ```
 
 Stop Docker Compose services:
@@ -1594,18 +2133,37 @@ Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
 
 ### Sprint 4 - Observability Foundation
 
+Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
+
+| Feature                         | Status                                                        |
+| ------------------------------- | ------------------------------------------------------------- |
+| Add structured access logs      | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add request latency tracking    | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add `x-response-time-ms` header | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add basic metrics registry      | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add metrics middleware          | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add `/metrics` endpoint         | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add Prometheus service          | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add Grafana service             | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add Grafana datasource          | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add dashboard foundation        | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+
+### Sprint 5 - Advanced Gateway Policies
+
 Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
 
-| Feature                      | Status                                                            |
-| ---------------------------- | ----------------------------------------------------------------- |
-| Add structured access logs   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add request latency tracking | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add basic metrics endpoint   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add Prometheus service       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add Grafana service          | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add dashboard foundation     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Feature                                | Status                                                            |
+| -------------------------------------- | ----------------------------------------------------------------- |
+| Review current route config model      | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add route policy type foundation       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add per-route timeout policy           | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add per-route cache policy             | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add per-route rate limit policy        | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add request transformation foundation  | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add response transformation foundation | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add upstream retry policy foundation   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 
-### Sprint 5 - Event-Driven Architecture
+### Later - Event-Driven Architecture
 
 Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
 
@@ -1622,6 +2180,8 @@ Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
 | ---------------------- | --------------------------------------------------------------- |
 | Admin Dashboard        | ![Future](https://img.shields.io/badge/status-future-lightgrey) |
 | Developer Portal       | ![Future](https://img.shields.io/badge/status-future-lightgrey) |
+| OpenTelemetry tracing  | ![Future](https://img.shields.io/badge/status-future-lightgrey) |
+| Loki log aggregation   | ![Future](https://img.shields.io/badge/status-future-lightgrey) |
 | k6 load testing        | ![Future](https://img.shields.io/badge/status-future-lightgrey) |
 | GitHub Actions CI/CD   | ![Future](https://img.shields.io/badge/status-future-lightgrey) |
 | Kubernetes deployment  | ![Future](https://img.shields.io/badge/status-future-lightgrey) |
@@ -1631,7 +2191,7 @@ Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
 
 ## Current Status
 
-PulseGate currently has a stable local-first API Gateway and infrastructure foundation with Docker Compose, PostgreSQL, Prisma, Redis-backed traffic protection, database-backed Product Service data, and Redis response caching.
+PulseGate currently has a stable local-first API Gateway and infrastructure foundation with Docker Compose, PostgreSQL, Prisma, Redis-backed traffic protection, database-backed Product Service data, Redis response caching, structured access logs, Prometheus metrics, Prometheus scraping, Grafana datasource provisioning, and Grafana dashboard provisioning.
 
 Stable flow:
 
@@ -1639,6 +2199,8 @@ Stable flow:
 Client
   -> API Gateway :3000
     -> Request ID handling
+    -> Structured access logs
+    -> Response time measurement
     -> Basic security headers
     -> Request size limit
     -> API key authentication
@@ -1652,6 +2214,16 @@ Client
       -> Prisma
       -> PostgreSQL
       -> Database-backed Product Response
+
+API Gateway
+  -> /metrics
+
+Prometheus
+  -> Scrapes API Gateway /metrics
+
+Grafana
+  -> Reads Prometheus datasource
+  -> Displays PulseGate API Gateway Overview dashboard
 ```
 
 Docker Compose flow:
@@ -1663,6 +2235,24 @@ Client
       -> Redis container for rate limiting and caching
       -> Product Service container
         -> PostgreSQL container
+
+Prometheus container
+  -> Scrapes API Gateway container
+
+Grafana container
+  -> Reads Prometheus container
+```
+
+Latest stable Sprint 4 commits:
+
+```txt
+75eacfb feat(gateway): add structured access logs
+b0da511 feat(gateway): add response time header
+fb17516 feat(gateway): add basic http metrics registry
+31cae03 feat(gateway): expose prometheus metrics endpoint
+13789a3 chore(observability): add prometheus service
+6bb7de2 chore(observability): add grafana service
+87490cf chore(observability): add grafana dashboard foundation
 ```
 
 Latest stable Sprint 3 commits:
@@ -1701,6 +2291,7 @@ PulseGate follows these principles:
 * Automated tests before major refactors.
 * Behavior first, infrastructure later.
 * GitHub-ready documentation.
+* Reproducible infrastructure through configuration files.
 
 ---
 

@@ -1549,3 +1549,578 @@ Not included at the beginning of Sprint 4:
 Status:
 
 Accepted.
+
+---
+
+## 2026-06-29 - Add Structured Access Logs to API Gateway
+
+Decision:
+
+Add structured access logs to API Gateway for completed HTTP requests.
+
+Reason:
+
+* API Gateway should provide clear request-level visibility.
+* Logs should be machine-readable and useful for debugging.
+* Structured logs make it easier to search by request ID, route, status code, latency, and cache status.
+* Logs should prepare the project for future log aggregation tools such as Loki or cloud log systems.
+* Sensitive authentication data should not be logged.
+
+Implemented behavior:
+
+```txt
+API Gateway request completes
+  -> Write structured JSON access log
+```
+
+Current access log event:
+
+```txt
+http_request_completed
+```
+
+Current structured access log fields:
+
+```txt
+requestId
+method
+path
+route
+statusCode
+durationMs
+cacheStatus
+userAgent
+remoteAddress
+```
+
+Sensitive values intentionally not logged:
+
+```txt
+x-api-key
+authorization
+cookie
+```
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/middlewares/access-log.middleware.ts
+apps/api-gateway/src/middlewares/access-log.middleware.test.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Add Response Time Header
+
+Decision:
+
+Add `x-response-time-ms` response header to API Gateway responses.
+
+Reason:
+
+* Clients and developers should be able to quickly see request latency.
+* Response latency is useful during manual testing.
+* It supports observability without requiring Prometheus or Grafana for every local check.
+* It prepares the project for latency metrics and dashboard panels.
+
+Implemented behavior:
+
+```txt
+API Gateway response
+  -> Includes x-response-time-ms
+```
+
+Example:
+
+```txt
+x-response-time-ms: 4.32
+```
+
+Implementation notes:
+
+* The value is measured using high-resolution time.
+* The value is formatted in milliseconds.
+* The value uses two decimal places.
+* The header is added before the response is sent.
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/middlewares/access-log.middleware.ts
+apps/api-gateway/src/middlewares/access-log.middleware.test.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Use prom-client for Prometheus Metrics
+
+Decision:
+
+Use `prom-client` to create Prometheus-compatible metrics inside API Gateway.
+
+Reason:
+
+* Prometheus is a common production monitoring standard.
+* `prom-client` is a widely used Node.js library for Prometheus metrics.
+* It supports counters, histograms, registries, and Prometheus text format.
+* It allows the project to expose metrics without building a custom metrics format.
+* It keeps the implementation local-first and Docker-friendly.
+
+Implemented metrics:
+
+```txt
+http_requests_total
+http_request_duration_seconds
+http_response_cache_total
+```
+
+Metric behavior:
+
+```txt
+http_requests_total
+  -> Counts HTTP requests by method, route, and status_code
+
+http_request_duration_seconds
+  -> Records request duration in seconds by method, route, and status_code
+
+http_response_cache_total
+  -> Counts cache outcomes by route and cache_status
+```
+
+Supported cache statuses:
+
+```txt
+HIT
+MISS
+BYPASS
+```
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/observability/metrics.ts
+apps/api-gateway/src/observability/metrics.test.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Add Metrics Middleware to API Gateway
+
+Decision:
+
+Add metrics middleware to record HTTP request metrics after each response completes.
+
+Reason:
+
+* Metrics collection should be automatic for all Gateway requests.
+* Route handlers should not manually update metrics.
+* Metrics should capture final response status code.
+* Metrics should use route labels instead of raw URLs to avoid high-cardinality metrics.
+* Cache metrics should be recorded from the `x-cache` response header.
+
+Implemented behavior:
+
+```txt
+API Gateway request starts
+  -> Store metrics start time
+
+API Gateway response completes
+  -> Record request count
+  -> Record request duration
+  -> Record cache outcome if x-cache exists
+```
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/middlewares/metrics.middleware.ts
+apps/api-gateway/src/middlewares/metrics.middleware.test.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Expose Prometheus Metrics Endpoint
+
+Decision:
+
+Expose a public local `/metrics` endpoint from API Gateway.
+
+Reason:
+
+* Prometheus needs an HTTP endpoint to scrape metrics.
+* Keeping `/metrics` public in local Docker development makes Prometheus setup simple.
+* The endpoint returns standard Prometheus text format.
+* Production access control can be handled later through internal networking, firewall rules, or dedicated auth.
+
+Implemented endpoint:
+
+```txt
+GET /metrics
+```
+
+Current behavior:
+
+```txt
+GET /metrics
+  -> 200 OK
+  -> Prometheus text format
+  -> No API key required in local development
+  -> No JWT required in local development
+```
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/routes/metrics.route.ts
+apps/api-gateway/src/routes/metrics.route.test.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Add Prometheus Service Through Docker Compose
+
+Decision:
+
+Add Prometheus as a Docker Compose service.
+
+Reason:
+
+* Metrics should be scraped automatically in the local development stack.
+* Prometheus is the standard backend for time-series metrics.
+* Docker Compose allows Prometheus to reach API Gateway through Docker internal DNS.
+* Adding Prometheus before Grafana keeps the observability stack incremental and easy to validate.
+
+Implemented service:
+
+```txt
+prometheus
+```
+
+Current container:
+
+```txt
+pulsegate-prometheus
+```
+
+Current exposed port:
+
+```txt
+9090
+```
+
+Current Prometheus URL:
+
+```txt
+http://localhost:9090
+```
+
+Current scrape target:
+
+```txt
+http://api-gateway:3000/metrics
+```
+
+Current scrape job:
+
+```txt
+pulsegate-api-gateway
+```
+
+Current scrape interval:
+
+```txt
+5s
+```
+
+Implemented files:
+
+```txt
+docker-compose.yml
+observability/prometheus/prometheus.yml
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Use Docker Internal Service Names for Observability Services
+
+Decision:
+
+Use Docker internal service names for Prometheus and Grafana communication.
+
+Reason:
+
+* Containers in the same Docker Compose network should communicate by service name.
+* `localhost` inside a container refers to the container itself, not the host machine.
+* Service names make the stack portable and predictable.
+* This mirrors production-style internal service communication.
+
+Current internal URLs:
+
+```txt
+Prometheus -> API Gateway:
+http://api-gateway:3000/metrics
+
+Grafana -> Prometheus:
+http://prometheus:9090
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Add Grafana Service Through Docker Compose
+
+Decision:
+
+Add Grafana as a Docker Compose service.
+
+Reason:
+
+* Prometheus stores metrics, but Grafana makes metrics easier to visualize.
+* Dashboards make the project more demo-friendly for GitHub and CV presentation.
+* Grafana is widely used in production observability stacks.
+* Adding Grafana after Prometheus keeps the observability layer incremental.
+
+Implemented service:
+
+```txt
+grafana
+```
+
+Current container:
+
+```txt
+pulsegate-grafana
+```
+
+Current exposed port:
+
+```txt
+3002
+```
+
+Reason for port choice:
+
+```txt
+3000 -> API Gateway
+3001 -> Product Service
+3002 -> Grafana
+9090 -> Prometheus
+```
+
+Current local Grafana URL:
+
+```txt
+http://localhost:3002
+```
+
+Current local development login:
+
+```txt
+username: admin
+password: admin
+```
+
+Implemented files:
+
+```txt
+docker-compose.yml
+observability/grafana/provisioning/datasources/prometheus.yml
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Provision Grafana Prometheus Datasource
+
+Decision:
+
+Provision Grafana Prometheus datasource through configuration files instead of creating it manually in the UI.
+
+Reason:
+
+* The observability stack should be reproducible after `docker compose up`.
+* Manual UI setup is easy to forget and hard to document.
+* Provisioned datasource makes the local environment predictable.
+* A stable datasource UID is useful for dashboard JSON provisioning.
+
+Current datasource:
+
+```txt
+name: Prometheus
+uid: pulsegate-prometheus
+type: prometheus
+url: http://prometheus:9090
+isDefault: true
+```
+
+Implemented file:
+
+```txt
+observability/grafana/provisioning/datasources/prometheus.yml
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Provision Grafana Dashboard Foundation
+
+Decision:
+
+Provision a basic API Gateway overview dashboard through Grafana dashboard JSON.
+
+Reason:
+
+* The dashboard should load automatically when Grafana starts.
+* The project should demonstrate a real observability flow from Gateway metrics to Prometheus to Grafana.
+* A dashboard foundation makes future observability improvements easier.
+* Provisioned dashboards are better than manual UI-created dashboards for a GitHub project.
+
+Current dashboard:
+
+```txt
+PulseGate API Gateway Overview
+```
+
+Current dashboard UID:
+
+```txt
+pulsegate-api-gateway-overview
+```
+
+Current Grafana folder:
+
+```txt
+PulseGate
+```
+
+Current panels:
+
+```txt
+Request Rate
+Request Count by Route
+Latency p95 by Route
+Cache Outcomes
+```
+
+Implemented files:
+
+```txt
+observability/grafana/provisioning/dashboards/dashboards.yml
+observability/grafana/dashboards/api-gateway-overview.json
+docker-compose.yml
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Keep OpenTelemetry for a Later Sprint
+
+Decision:
+
+Do not add OpenTelemetry, Jaeger, Tempo, or distributed tracing in Sprint 4.
+
+Reason:
+
+* Sprint 4 should focus on foundational observability first.
+* Structured logs, basic latency measurement, Prometheus metrics, Prometheus scraping, and Grafana dashboards are enough for the first observability layer.
+* Distributed tracing adds more concepts and infrastructure.
+* Tracing will be more valuable after the Gateway has more downstream services and more complex routing policies.
+* Keeping OpenTelemetry for later prevents Sprint 4 from becoming too large.
+
+Not included in Sprint 4:
+
+```txt
+OpenTelemetry
+Jaeger
+Tempo
+Distributed tracing spans
+Trace context propagation beyond x-request-id
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Move Next Sprint Toward Advanced Gateway Policies
+
+Decision:
+
+After Sprint 4 final documentation update, move the next technical sprint toward advanced Gateway policy configuration.
+
+Reason:
+
+* Gateway routing, authentication, traffic protection, data infrastructure, Redis caching, and observability are now stable.
+* The next valuable API Gateway capability is more flexible route-level behavior.
+* Policy configuration should be improved before adding Kafka, RabbitMQ, Kubernetes, Admin Dashboard, or Developer Portal.
+* Better policies will make future routes and services easier to manage.
+
+Recommended Sprint 5 direction:
+
+```txt
+1. Review current route configuration model.
+2. Add route policy type foundation.
+3. Add per-route timeout policy.
+4. Add per-route cache policy.
+5. Add per-route rate limit policy.
+6. Add request transformation foundation.
+7. Add response transformation foundation.
+8. Add upstream retry policy foundation.
+9. Add route config validation improvements.
+10. Add tests for each policy behavior.
+```
+
+Not included at the beginning of Sprint 5:
+
+```txt
+Kafka
+RabbitMQ
+Kubernetes
+Admin Dashboard
+Developer Portal
+Advanced OpenTelemetry tracing
+Complex service discovery
+Production cloud deployment
+```
+
+Status:
+
+Accepted.
+

@@ -7,20 +7,20 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 ## 2. Current Version
 
 ```txt
-v0.4.0
+v0.5.0
 ```
 
 ## 3. Current Sprint
 
 ```txt
-Sprint 3 - Data & Infrastructure Foundation
+Sprint 4 - Observability Foundation
 ```
 
 ## 4. Project Purpose
 
 PulseGate is a mini API Gateway, API Management, and Observability Platform.
 
-The project is built to demonstrate backend engineering skills, API Gateway design, microservice communication, authentication, traffic protection, caching, local infrastructure, database-backed services, observability preparation, scalability, and production-oriented system design.
+The project is built to demonstrate backend engineering skills, API Gateway design, microservice communication, authentication, traffic protection, caching, local infrastructure, database-backed services, observability, scalability, and production-oriented system design.
 
 The project is inspired by:
 
@@ -50,8 +50,11 @@ PulseGate aims to solve the following problems:
 * APIs need centralized authentication and authorization.
 * APIs need protection from spam, abuse, excessive traffic, and unsafe payloads.
 * API traffic should be logged for debugging.
-* API performance should be monitored.
-* Distributed request flow should be traceable across services.
+* API latency should be visible during local testing.
+* API performance should be monitored through metrics.
+* Gateway metrics should be scrapeable by Prometheus.
+* Gateway behavior should be visible through Grafana dashboards.
+* Distributed request flow should be traceable across services later.
 * Downstream services should be protected from unnecessary repeated requests.
 * Selected responses should be cached to reduce downstream load.
 * Product data should come from a real database instead of hard-coded mock data.
@@ -61,12 +64,14 @@ PulseGate aims to solve the following problems:
 
 ## 7. Current System Overview
 
-Current stable architecture after Sprint 3:
+Current stable architecture after Sprint 4:
 
 ```txt
 Client
   -> API Gateway :3000
     -> Request ID handling
+    -> Structured access log timer
+    -> Metrics timer
     -> Basic security headers
     -> Request size limit
     -> API key authentication
@@ -78,10 +83,23 @@ Client
       -> Cache MISS:
            -> Call Product Service
            -> Store response in Redis cache
+    -> Add x-response-time-ms
+    -> Record Prometheus metrics
+    -> Write structured access log
     -> Product Service :3001
       -> Prisma Client
       -> PostgreSQL :5432
       -> Database-backed product data
+
+API Gateway
+  -> Exposes /metrics
+
+Prometheus :9090
+  -> Scrapes API Gateway /metrics
+
+Grafana :3002
+  -> Uses Prometheus datasource
+  -> Displays PulseGate API Gateway Overview dashboard
 ```
 
 Current Docker services:
@@ -91,6 +109,8 @@ pulsegate-api-gateway
 pulsegate-product-service
 pulsegate-postgres
 pulsegate-redis
+pulsegate-prometheus
+pulsegate-grafana
 ```
 
 Current exposed ports:
@@ -98,14 +118,17 @@ Current exposed ports:
 ```txt
 API Gateway      -> 3000
 Product Service  -> 3001
+Grafana          -> 3002
 PostgreSQL       -> 5432
 Redis            -> 6379
+Prometheus       -> 9090
 ```
 
-Current public endpoint:
+Current public endpoints:
 
 ```txt
 GET /health
+GET /metrics
 ```
 
 Current protected endpoint:
@@ -119,6 +142,16 @@ Protected endpoint requirements:
 ```txt
 x-api-key: dev-api-key
 Authorization: Bearer <jwt-token>
+```
+
+Current observability endpoints:
+
+```txt
+Prometheus:
+http://localhost:9090
+
+Grafana:
+http://localhost:3002
 ```
 
 ---
@@ -193,7 +226,7 @@ Sprint 2 completed:
 Status:
 
 ```txt
-Technical implementation complete
+Done
 ```
 
 Sprint 3 completed:
@@ -218,8 +251,35 @@ Sprint 3 completed:
 * Cache HIT behavior when Product Service is down.
 * Redis fail-fast behavior.
 * Response cache write failure isolation.
-* Automated tests updated to `13 test files passed`, `85 tests passed`.
 * Manual Docker validation completed.
+
+### Sprint 4 - Observability Foundation
+
+Status:
+
+```txt
+Technical implementation complete
+```
+
+Sprint 4 completed:
+
+* Structured access logs.
+* Request latency measurement.
+* `x-response-time-ms` response header.
+* Basic HTTP metrics registry.
+* Metrics middleware.
+* Prometheus-compatible `/metrics` endpoint.
+* Prometheus Docker Compose service.
+* Prometheus scrape configuration for API Gateway.
+* Grafana Docker Compose service.
+* Grafana Prometheus datasource provisioning.
+* Grafana dashboard provider provisioning.
+* API Gateway overview dashboard foundation.
+* Dashboard panels for request rate, request count, p95 latency, and cache outcomes.
+* Automated tests updated to `17 test files passed`, `101 tests passed`.
+* Prometheus target validation completed.
+* Grafana datasource validation completed.
+* Grafana dashboard provisioning validation completed.
 
 ---
 
@@ -237,16 +297,19 @@ Acceptance criteria:
 * API Gateway uses TypeScript.
 * API Gateway has JSON logging enabled.
 * API Gateway has a health check endpoint.
+* API Gateway has a Prometheus metrics endpoint.
 * API Gateway can be run locally.
 * API Gateway can be run through Docker Compose.
 
-Current endpoint:
+Current endpoints:
 
 ```txt
 GET /health
+GET /metrics
+GET /api/products
 ```
 
-Expected response example:
+Expected health response example:
 
 ```json
 {
@@ -327,6 +390,7 @@ Acceptance criteria:
 * Client does not need to call Product Service directly.
 * Product Service URL is configurable through `PRODUCT_SERVICE_URL`.
 * API Gateway supports Docker internal Product Service URL.
+* API Gateway can return cached response without calling Product Service on cache HIT.
 
 Current Gateway endpoint:
 
@@ -367,6 +431,7 @@ Acceptance criteria:
 * Product Service reuses the request ID from API Gateway.
 * Error responses include request ID.
 * Logs from API Gateway and Product Service can be connected using the same request ID.
+* Structured access logs include request ID.
 
 Header:
 
@@ -427,6 +492,9 @@ Acceptance criteria:
 * Health response includes service name.
 * Health response includes status.
 * Health response includes timestamp.
+* API Gateway health response includes `x-request-id`.
+* API Gateway health response includes `x-response-time-ms`.
+* API Gateway health response includes basic security headers.
 
 Status:
 
@@ -523,6 +591,7 @@ Acceptance criteria:
 * Valid API key allows request to continue.
 * API key header name is configurable.
 * API key list is configurable through environment variables.
+* Sensitive API key values are not logged in structured access logs.
 
 Current header:
 
@@ -581,6 +650,7 @@ Acceptance criteria:
 * JWT configuration is controlled through environment variables.
 * JWT validation checks signature, issuer, audience, and expiration.
 * Verified JWT payload is attached to `request.jwtPayload`.
+* Sensitive JWT values are not logged in structured access logs.
 
 Current header:
 
@@ -681,6 +751,7 @@ Acceptance criteria:
 
 * Gateway adds basic security headers globally.
 * Health route responses include security headers.
+* Metrics route responses include security headers.
 * Protected route responses include security headers.
 * Error responses receive baseline security headers.
 * Security header behavior is covered by automated tests.
@@ -850,10 +921,14 @@ Acceptance criteria:
 * Product Service can run in Docker Compose.
 * PostgreSQL can run in Docker Compose.
 * Redis can run in Docker Compose.
+* Prometheus can run in Docker Compose.
+* Grafana can run in Docker Compose.
 * PostgreSQL has a healthcheck.
 * Redis has a healthcheck.
 * Product Service waits for healthy PostgreSQL.
 * API Gateway waits for healthy Redis and healthy Product Service.
+* Prometheus can scrape API Gateway.
+* Grafana can connect to Prometheus.
 * Developer can start the local stack with one command.
 
 Current command:
@@ -869,6 +944,8 @@ api-gateway
 product-service
 postgres
 redis
+prometheus
+grafana
 ```
 
 Status:
@@ -1034,6 +1111,7 @@ Acceptance criteria:
 * Product Service down + cache HIT returns cached response successfully.
 * Product Service down + cache MISS returns normalized downstream error.
 * Redis cache commands fail fast when Redis is unavailable.
+* Cache outcome can be recorded by metrics when `x-cache` exists.
 
 Current Redis cache key:
 
@@ -1082,6 +1160,7 @@ Acceptance criteria:
 * Test output does not include unnecessary Fastify JSON logs.
 * Unit tests cover middleware and helper behavior.
 * Integration tests cover protected route behavior.
+* Metrics and observability helpers are covered by tests.
 * Test, typecheck, and build must pass before committing stable checkpoints.
 
 Current test framework:
@@ -1093,14 +1172,390 @@ Vitest
 Current automated test status:
 
 ```txt
-13 test files passed
-85 tests passed
+17 test files passed
+101 tests passed
 ```
 
 Current test command:
 
 ```powershell
 npm run test
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-021: Structured Access Logs
+
+API Gateway must write structured access logs for completed requests.
+
+Acceptance criteria:
+
+* API Gateway writes structured access logs after responses complete.
+* Access logs use a stable event name.
+* Access logs include request ID.
+* Access logs include HTTP method.
+* Access logs include request path.
+* Access logs include route label.
+* Access logs include response status code.
+* Access logs include request duration in milliseconds.
+* Access logs include cache status when available.
+* Access logs include user agent when available.
+* Access logs include remote address when available.
+* Access logs do not include sensitive authentication headers.
+
+Current event name:
+
+```txt
+http_request_completed
+```
+
+Current structured fields:
+
+```txt
+requestId
+method
+path
+route
+statusCode
+durationMs
+cacheStatus
+userAgent
+remoteAddress
+```
+
+Sensitive values intentionally not logged:
+
+```txt
+x-api-key
+authorization
+cookie
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-022: Response Time Header
+
+API Gateway must include a request latency response header.
+
+Acceptance criteria:
+
+* API Gateway returns `x-response-time-ms`.
+* Header value is measured using high-resolution time.
+* Header value is formatted in milliseconds.
+* Header value uses two decimal places.
+* Header is added before the response is sent.
+* Health responses include the header.
+* Protected route responses include the header.
+
+Current header:
+
+```txt
+x-response-time-ms
+```
+
+Example:
+
+```txt
+x-response-time-ms: 4.32
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-023: Prometheus Metrics Registry
+
+API Gateway must maintain Prometheus-compatible HTTP metrics.
+
+Acceptance criteria:
+
+* API Gateway has a metrics registry.
+* API Gateway records total HTTP request count.
+* API Gateway records HTTP request duration.
+* API Gateway records cache outcome counts.
+* Request metrics include method label.
+* Request metrics include route label.
+* Request metrics include status code label.
+* Cache metrics include route label.
+* Cache metrics include cache status label.
+* Metrics use route labels instead of raw high-cardinality URLs where possible.
+
+Current metrics:
+
+```txt
+http_requests_total
+http_request_duration_seconds
+http_response_cache_total
+```
+
+Supported cache statuses:
+
+```txt
+HIT
+MISS
+BYPASS
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-024: Metrics Middleware
+
+API Gateway must automatically record metrics for requests.
+
+Acceptance criteria:
+
+* Metrics middleware starts timing when a request begins.
+* Metrics middleware records request count after response completion.
+* Metrics middleware records request duration after response completion.
+* Metrics middleware records final response status code.
+* Metrics middleware records cache outcome when `x-cache` exists.
+* Route handlers do not need to manually update request metrics.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-025: Metrics Endpoint
+
+API Gateway must expose Prometheus-compatible metrics.
+
+Acceptance criteria:
+
+* API Gateway exposes `GET /metrics`.
+* `/metrics` returns `200 OK`.
+* `/metrics` returns Prometheus text format.
+* `/metrics` can be scraped by Prometheus.
+* `/metrics` is public in local Docker development.
+* `/metrics` does not require API key in local development.
+* `/metrics` does not require JWT in local development.
+
+Current endpoint:
+
+```txt
+GET /metrics
+```
+
+Current behavior:
+
+```txt
+GET /metrics
+  -> 200 OK
+  -> Prometheus text format
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-026: Prometheus Service
+
+The system must include Prometheus for local metrics scraping.
+
+Acceptance criteria:
+
+* Prometheus runs through Docker Compose.
+* Prometheus is exposed on local port `9090`.
+* Prometheus has a configuration file.
+* Prometheus scrapes API Gateway `/metrics`.
+* Prometheus uses Docker internal service name for API Gateway.
+* Prometheus target health can be validated.
+* Prometheus stores scraped time-series metrics in a Docker volume.
+
+Current local URL:
+
+```txt
+http://localhost:9090
+```
+
+Current scrape target:
+
+```txt
+http://api-gateway:3000/metrics
+```
+
+Current config file:
+
+```txt
+observability/prometheus/prometheus.yml
+```
+
+Expected target status:
+
+```txt
+health: up
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-027: Grafana Service
+
+The system must include Grafana for local metrics visualization.
+
+Acceptance criteria:
+
+* Grafana runs through Docker Compose.
+* Grafana is exposed on local port `3002`.
+* Grafana can be opened in the browser.
+* Grafana has local development admin credentials.
+* Grafana can connect to Prometheus.
+* Grafana stores local data in a Docker volume.
+
+Current local URL:
+
+```txt
+http://localhost:3002
+```
+
+Current local login:
+
+```txt
+username: admin
+password: admin
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-028: Grafana Prometheus Datasource Provisioning
+
+Grafana must automatically provision Prometheus as a datasource.
+
+Acceptance criteria:
+
+* Grafana datasource is configured by file.
+* Datasource is automatically available after Docker Compose startup.
+* Datasource uses Docker internal Prometheus URL.
+* Datasource has a stable UID.
+* Datasource is the default Grafana datasource.
+* Datasource can be validated through Grafana API.
+
+Current datasource file:
+
+```txt
+observability/grafana/provisioning/datasources/prometheus.yml
+```
+
+Current datasource:
+
+```txt
+name: Prometheus
+uid: pulsegate-prometheus
+type: prometheus
+url: http://prometheus:9090
+isDefault: true
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-029: Grafana Dashboard Provisioning
+
+Grafana must automatically provision a basic API Gateway dashboard.
+
+Acceptance criteria:
+
+* Grafana dashboard provider is configured by file.
+* Dashboard JSON is stored in the repository.
+* Dashboard loads automatically after Docker Compose startup.
+* Dashboard is placed in the `PulseGate` Grafana folder.
+* Dashboard has a stable UID.
+* Dashboard uses the provisioned Prometheus datasource.
+* Dashboard can be validated through Grafana API.
+
+Current dashboard provider:
+
+```txt
+observability/grafana/provisioning/dashboards/dashboards.yml
+```
+
+Current dashboard JSON:
+
+```txt
+observability/grafana/dashboards/api-gateway-overview.json
+```
+
+Current dashboard:
+
+```txt
+title: PulseGate API Gateway Overview
+uid: pulsegate-api-gateway-overview
+folder: PulseGate
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-030: API Gateway Observability Dashboard
+
+The system must provide a basic API Gateway observability dashboard.
+
+Acceptance criteria:
+
+* Dashboard shows request rate.
+* Dashboard shows request count by route.
+* Dashboard shows p95 latency by route.
+* Dashboard shows cache outcomes.
+* Dashboard refreshes automatically.
+* Dashboard uses Prometheus metrics from API Gateway.
+
+Current dashboard panels:
+
+```txt
+Request Rate
+Request Count by Route
+Latency p95 by Route
+Cache Outcomes
 ```
 
 Status:
@@ -1123,6 +1578,8 @@ Acceptance criteria:
 * Product Service can run locally.
 * PostgreSQL can run locally through Docker Compose.
 * Redis can run locally through Docker Compose.
+* Prometheus can run locally through Docker Compose.
+* Grafana can run locally through Docker Compose.
 * No paid cloud infrastructure is required.
 * Developer can test the full flow from local terminal.
 
@@ -1143,6 +1600,7 @@ Acceptance criteria:
 * Current system does not require AWS, GCP, Azure, or paid hosting.
 * Current system does not require managed databases.
 * Current system does not require managed message brokers.
+* Current system does not require managed observability services.
 * All current features run locally.
 
 Status:
@@ -1159,9 +1617,11 @@ The codebase must be organized clearly.
 
 Acceptance criteria:
 
-* API Gateway separates app building, config, routes, middlewares, errors, Redis client, cache stores, rate limit stores, tests, and server startup.
+* API Gateway separates app building, config, routes, middlewares, errors, Redis client, cache stores, rate limit stores, observability code, tests, and server startup.
 * Product Service separates config, database helper, repositories, routes, middlewares, and server startup.
 * Prisma files are located under Product Service.
+* Prometheus configuration is located under `observability/prometheus`.
+* Grafana configuration is located under `observability/grafana`.
 * `app.ts` builds the API Gateway app and can be reused by integration tests.
 * `server.ts` mainly starts the server.
 * Business routes live in `routes`.
@@ -1199,7 +1659,7 @@ Done
 
 ## NFR-005: Observability Foundation
 
-The project must prepare for future observability.
+The project must provide a local observability foundation.
 
 Acceptance criteria:
 
@@ -1208,8 +1668,12 @@ Acceptance criteria:
 * Request ID is propagated across services.
 * Error responses include request ID.
 * API Gateway forwards `x-request-id` to Product Service.
-* Integration tests verify request ID response header and downstream forwarding behavior.
-* Gateway already has enough request flow structure to add structured access logs and metrics in Sprint 4.
+* API Gateway writes structured access logs.
+* API Gateway includes request latency response header.
+* API Gateway exposes Prometheus-compatible metrics.
+* Prometheus scrapes API Gateway metrics.
+* Grafana visualizes API Gateway metrics.
+* Grafana dashboard is provisioned from repository files.
 
 Status:
 
@@ -1230,7 +1694,9 @@ Acceptance criteria:
 * API Gateway can be tested without opening port `3000`.
 * API Gateway integration tests can use `app.inject()`.
 * Tests can inject in-memory rate limit store instead of Redis when needed.
+* Tests can inject metrics registry when needed.
 * Test output does not include unnecessary Fastify JSON logs.
+* Observability helper behavior is covered by tests.
 
 Status:
 
@@ -1251,6 +1717,29 @@ Acceptance criteria:
 * Redis internal errors are not exposed to clients.
 * Cache write failure does not fail a successful Product Service response.
 * Cache HIT can serve data even when Product Service is temporarily down.
+* Cache metrics are optional and should not change business response behavior.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## NFR-008: Reproducible Local Observability
+
+The local observability stack must be reproducible from repository files.
+
+Acceptance criteria:
+
+* Prometheus config is committed to the repository.
+* Grafana datasource config is committed to the repository.
+* Grafana dashboard provider config is committed to the repository.
+* Grafana dashboard JSON is committed to the repository.
+* Developer does not need to manually create Prometheus target.
+* Developer does not need to manually create Grafana datasource.
+* Developer does not need to manually create Grafana dashboard.
 
 Status:
 
@@ -1262,7 +1751,7 @@ Done
 
 # 11. Current System Constraints
 
-Current constraints after Sprint 3 completion:
+Current constraints after Sprint 4 completion:
 
 * API Gateway currently proxies only Product Service.
 * API key list is still environment-based.
@@ -1274,10 +1763,12 @@ Current constraints after Sprint 3 completion:
 * Response cache TTL is currently fixed in code at 30 seconds.
 * Redis-backed rate limiting is implemented for `GET /api/products`, not for multiple dynamic routes yet.
 * Redis failure currently causes protected product route to return generic `500`.
-* There is no metrics endpoint yet.
-* There is no Prometheus service yet.
-* There is no Grafana dashboard yet.
+* `/metrics` is public in local development.
+* Prometheus and Grafana are local Docker services only.
+* Grafana local credentials are development-only.
+* Dashboard is a foundation dashboard, not a complete production dashboard.
 * There is no distributed tracing yet.
+* There is no OpenTelemetry instrumentation yet.
 * There is no Kafka or RabbitMQ yet.
 * There is no Admin Dashboard yet.
 * There is no Developer Portal yet.
@@ -1294,6 +1785,8 @@ Current constraints after Sprint 3 completion:
 Client
   -> GET http://localhost:3000/api/products
     -> API Gateway creates or reuses x-request-id
+    -> API Gateway starts access log timer
+    -> API Gateway starts metrics timer
     -> API Gateway adds basic security headers
     -> API Gateway applies request size limit
       -> If request body is too large:
@@ -1325,6 +1818,9 @@ Client
                     -> Product Service returns product data
                     -> API Gateway stores response in Redis cache
                     -> API Gateway returns 200 with x-cache: MISS
+    -> API Gateway adds x-response-time-ms
+    -> API Gateway records Prometheus metrics
+    -> API Gateway writes structured access log
 ```
 
 ## Public Health Flow
@@ -1333,9 +1829,25 @@ Client
 Client
   -> GET http://localhost:3000/health
     -> API Gateway creates or reuses x-request-id
+    -> API Gateway starts access log timer
+    -> API Gateway starts metrics timer
     -> API Gateway adds basic security headers
     -> API Gateway applies request size limit
     -> API Gateway returns health response
+    -> API Gateway adds x-response-time-ms
+    -> API Gateway records Prometheus metrics
+    -> API Gateway writes structured access log
+```
+
+## Metrics Flow
+
+```txt
+Prometheus
+  -> GET http://api-gateway:3000/metrics
+    -> API Gateway returns Prometheus text format
+    -> Prometheus stores time-series metrics
+    -> Grafana reads metrics from Prometheus datasource
+    -> Grafana displays PulseGate API Gateway Overview dashboard
 ```
 
 ## Downstream Failure Behavior
@@ -1408,6 +1920,13 @@ Docker internal value:
 
 ```txt
 DATABASE_URL=postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate
+```
+
+## Observability Internal Values
+
+```txt
+Prometheus scrape target=http://api-gateway:3000/metrics
+Grafana Prometheus datasource=http://prometheus:9090
 ```
 
 ---
@@ -1504,6 +2023,60 @@ Test API Gateway health:
 Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
 ```
 
+Test API Gateway metrics:
+
+```powershell
+Invoke-WebRequest http://localhost:3000/metrics -UseBasicParsing
+```
+
+Test Prometheus health:
+
+```powershell
+Invoke-WebRequest http://localhost:9090/-/healthy -UseBasicParsing
+```
+
+Test Prometheus targets:
+
+```powershell
+Invoke-RestMethod http://localhost:9090/api/v1/targets | ConvertTo-Json -Depth 10
+```
+
+Test Grafana health:
+
+```powershell
+Invoke-RestMethod http://localhost:3002/api/health | ConvertTo-Json -Depth 10
+```
+
+Test Grafana datasource:
+
+```powershell
+$pair = "admin:admin"
+$encoded = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
+$headers = @{
+  Authorization = "Basic $encoded"
+}
+
+Invoke-RestMethod http://localhost:3002/api/datasources `
+  -Headers $headers |
+  ConvertTo-Json -Depth 10
+```
+
+Test Grafana dashboard search:
+
+```powershell
+Invoke-RestMethod http://localhost:3002/api/search?query=PulseGate `
+  -Headers $headers |
+  ConvertTo-Json -Depth 10
+```
+
+Test Grafana dashboard detail:
+
+```powershell
+Invoke-RestMethod http://localhost:3002/api/dashboards/uid/pulsegate-api-gateway-overview `
+  -Headers $headers |
+  ConvertTo-Json -Depth 10
+```
+
 Create local development JWT token:
 
 ```powershell
@@ -1586,6 +2159,7 @@ $res1 = Invoke-WebRequest http://localhost:3000/api/products `
 
 $res1.StatusCode
 $res1.Headers["x-cache"]
+$res1.Headers["x-response-time-ms"]
 $res1.Content
 
 $res2 = Invoke-WebRequest http://localhost:3000/api/products `
@@ -1594,6 +2168,7 @@ $res2 = Invoke-WebRequest http://localhost:3000/api/products `
 
 $res2.StatusCode
 $res2.Headers["x-cache"]
+$res2.Headers["x-response-time-ms"]
 $res2.Content
 ```
 
@@ -1602,6 +2177,7 @@ Expected result:
 ```txt
 Request 1 -> 200, x-cache: MISS
 Request 2 -> 200, x-cache: HIT
+Both responses include x-response-time-ms
 ```
 
 Check Redis response cache key:
@@ -1683,8 +2259,8 @@ Vitest
 Current test result:
 
 ```txt
-13 test files passed
-85 tests passed
+17 test files passed
+101 tests passed
 ```
 
 Current unit tests:
@@ -1693,11 +2269,17 @@ Current unit tests:
 apps/api-gateway/src/middlewares/request-id.middleware.test.ts
   -> 4 tests
 
+apps/api-gateway/src/middlewares/access-log.middleware.test.ts
+  -> 6 tests
+
 apps/api-gateway/src/middlewares/api-key-auth.middleware.test.ts
   -> 4 tests
 
 apps/api-gateway/src/middlewares/jwt-auth.middleware.test.ts
   -> 9 tests
+
+apps/api-gateway/src/middlewares/metrics.middleware.test.ts
+  -> 4 tests
 
 apps/api-gateway/src/rate-limit/in-memory-rate-limit-store.test.ts
   -> 9 tests
@@ -1725,6 +2307,12 @@ apps/api-gateway/src/config/env.test.ts
 
 apps/api-gateway/src/config/downstream-routes.test.ts
   -> 2 tests
+
+apps/api-gateway/src/observability/metrics.test.ts
+  -> 4 tests
+
+apps/api-gateway/src/routes/metrics.route.test.ts
+  -> 2 tests
 ```
 
 Current integration tests:
@@ -1741,6 +2329,10 @@ GET /health
   -> 200 OK
   -> includes x-request-id
   -> includes basic security headers
+
+GET /metrics
+  -> 200 OK
+  -> returns Prometheus text format
 
 POST /api/products with oversized content-length
   -> 413 REQUEST_BODY_TOO_LARGE
@@ -1901,6 +2493,41 @@ Sprint 3 is done when:
 Current Sprint 3 status:
 
 ```txt
+Done
+```
+
+## Sprint 4 Definition of Done
+
+Sprint 4 is done when:
+
+* API Gateway has structured access logs.
+* API Gateway avoids logging sensitive auth headers.
+* API Gateway measures request latency.
+* API Gateway returns `x-response-time-ms`.
+* API Gateway has basic Prometheus metrics registry.
+* API Gateway records request count metrics.
+* API Gateway records request duration metrics.
+* API Gateway records cache outcome metrics.
+* API Gateway exposes `GET /metrics`.
+* `/metrics` returns Prometheus text format.
+* Prometheus service is available through Docker Compose.
+* Prometheus scrapes `api-gateway:3000/metrics`.
+* Prometheus target health is `up`.
+* Grafana service is available through Docker Compose.
+* Grafana Prometheus datasource is provisioned automatically.
+* Grafana API Gateway dashboard is provisioned automatically.
+* Dashboard includes request rate, request count, p95 latency, and cache outcome panels.
+* `npm run test` passes.
+* `npm run typecheck` passes.
+* `npm run build` passes.
+* Docker validation passes.
+* Prometheus validation passes.
+* Grafana validation passes.
+* Code is pushed to GitHub.
+
+Current Sprint 4 status:
+
+```txt
 Technical implementation complete
 ```
 
@@ -1910,66 +2537,25 @@ Technical implementation complete
 
 These requirements are planned for later sprints.
 
-## Future FR: Observability Metrics
+## Future FR: Advanced Gateway Policies
 
-API Gateway should expose basic metrics.
+API Gateway should support more flexible route-level policies.
 
 Planned features:
 
-* Request count metrics.
-* Request duration metrics.
-* Route-level metrics.
-* Status-code-level metrics.
-* Basic `/metrics` endpoint.
-* Prometheus scraping.
+* Route policy type foundation.
+* Per-route timeout policy.
+* Per-route cache policy.
+* Per-route rate limit policy.
+* Request transformation foundation.
+* Response transformation foundation.
+* Upstream retry policy foundation.
+* Improved route config validation.
 
 Status:
 
 ```txt
-Planned for Sprint 4
-```
-
----
-
-## Future FR: Grafana Dashboard
-
-The system should provide a local Grafana dashboard.
-
-Planned features:
-
-* Prometheus service.
-* Grafana service.
-* API Gateway dashboard.
-* Request rate panel.
-* Latency panel.
-* Error rate panel.
-
-Status:
-
-```txt
-Planned for Sprint 4
-```
-
----
-
-## Future FR: Structured Access Logs
-
-API Gateway should produce structured access logs.
-
-Planned features:
-
-* Log method.
-* Log route.
-* Log status code.
-* Log request ID.
-* Log latency.
-* Log cache status.
-* Log downstream service when relevant.
-
-Status:
-
-```txt
-Planned for Sprint 4
+Planned for Sprint 5
 ```
 
 ---
@@ -1984,6 +2570,7 @@ Planned features:
 * Trace ID propagation.
 * Span generation.
 * Jaeger or Tempo trace viewer.
+* Trace context propagation across Gateway and downstream services.
 
 Status:
 
@@ -2078,27 +2665,29 @@ Planned for later sprint
 Recommended next step:
 
 ```txt
-Sprint 3 - Final Documentation Update
+Sprint 4 - Final Documentation Update
 ```
 
-After Sprint 3 final documentation update, move to:
+After Sprint 4 final documentation update, move to:
 
 ```txt
-Sprint 4 - Observability Foundation
+Sprint 5 - Advanced Gateway Policies
 ```
 
-Recommended Sprint 4 order:
+Recommended Sprint 5 order:
 
-1. Add structured access logs.
-2. Add request latency measurement.
-3. Add basic metrics endpoint.
-4. Add Prometheus service.
-5. Add Grafana service.
-6. Add dashboard foundation.
-7. Add gateway-level observability documentation.
-8. Keep advanced OpenTelemetry tracing for a later sprint unless explicitly needed.
+1. Review current route configuration model.
+2. Add route policy type foundation.
+3. Add per-route timeout policy.
+4. Add per-route cache policy.
+5. Add per-route rate limit policy.
+6. Add request transformation foundation.
+7. Add response transformation foundation.
+8. Add upstream retry policy foundation.
+9. Add route config validation improvements.
+10. Add tests for each policy behavior.
 
-Do not add these before the Sprint 4 foundation is stable:
+Do not add these before the Sprint 5 Gateway policy foundation is stable:
 
 * Kafka
 * RabbitMQ
