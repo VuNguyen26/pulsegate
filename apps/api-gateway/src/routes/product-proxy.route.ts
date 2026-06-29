@@ -16,6 +16,10 @@ import {
 import { resolveRouteRateLimitPolicy } from "../policies/rate-limit.policy.js";
 import { applyRequestHeaderTransform } from "../policies/request-transform.policy.js";
 import { applyResponseHeaderTransform } from "../policies/response-transform.policy.js";
+import {
+  executeWithRetry,
+  shouldRetryStatus,
+} from "../policies/retry.policy.js";
 import { createDownstreamTimeout } from "../policies/timeout.policy.js";
 import { RedisRateLimitStore } from "../rate-limit/redis-rate-limit-store.js";
 import { getRedisClient } from "../redis/redis-client.js";
@@ -35,6 +39,16 @@ function applyHeadersToReply(
   for (const [headerName, headerValue] of Object.entries(headers)) {
     reply.header(headerName, headerValue);
   }
+}
+
+function shouldRetryDownstreamError(
+  error: unknown,
+  retryOnStatuses: number[],
+): boolean {
+  return (
+    error instanceof DownstreamServiceError &&
+    retryOnStatuses.includes(error.statusCode)
+  );
 }
 
 export async function productProxyRoute(
@@ -103,8 +117,6 @@ export async function productProxyRoute(
         }
       }
 
-      const downstreamTimeout = createDownstreamTimeout(routePolicies.timeout);
-
       const downstreamRequestHeaders = applyRequestHeaderTransform(
         {
           "x-request-id": request.id,
@@ -112,43 +124,81 @@ export async function productProxyRoute(
         routePolicies.requestTransform,
       );
 
-      let response: Response;
+      const fetchDownstreamResponse = async (): Promise<Response> => {
+        const downstreamTimeout = createDownstreamTimeout(
+          routePolicies.timeout,
+        );
 
-      try {
-        response = await fetch(routeConfig.downstreamUrl, {
-          method: routeConfig.method,
-          headers: downstreamRequestHeaders,
-          signal: downstreamTimeout.signal,
-        });
-      } catch (error) {
-        if (error instanceof Error && error.name === "AbortError") {
+        try {
+          const downstreamResponse = await fetch(routeConfig.downstreamUrl, {
+            method: routeConfig.method,
+            headers: downstreamRequestHeaders,
+            signal: downstreamTimeout.signal,
+          });
+
+          if (!downstreamResponse.ok) {
+            throw new DownstreamServiceError({
+              code: "DOWNSTREAM_HTTP_ERROR",
+              message: "Product Service returned an error",
+              service: routeConfig.serviceName,
+              statusCode:
+                downstreamResponse.status >= 500
+                  ? 502
+                  : downstreamResponse.status,
+            });
+          }
+
+          return downstreamResponse;
+        } catch (error) {
+          if (error instanceof DownstreamServiceError) {
+            throw error;
+          }
+
+          if (error instanceof Error && error.name === "AbortError") {
+            throw new DownstreamServiceError({
+              code: "DOWNSTREAM_TIMEOUT",
+              message: "Product Service did not respond in time",
+              service: routeConfig.serviceName,
+              statusCode: 504,
+              originalError: error,
+            });
+          }
+
           throw new DownstreamServiceError({
-            code: "DOWNSTREAM_TIMEOUT",
-            message: "Product Service did not respond in time",
+            code: "DOWNSTREAM_SERVICE_UNAVAILABLE",
+            message: "Product Service is currently unavailable",
             service: routeConfig.serviceName,
-            statusCode: 504,
+            statusCode: 503,
             originalError: error,
           });
+        } finally {
+          downstreamTimeout.cleanup();
         }
+      };
 
-        throw new DownstreamServiceError({
-          code: "DOWNSTREAM_SERVICE_UNAVAILABLE",
-          message: "Product Service is currently unavailable",
-          service: routeConfig.serviceName,
-          statusCode: 503,
-          originalError: error,
-        });
-      } finally {
-        downstreamTimeout.cleanup();
-      }
+      const response = await executeWithRetry({
+        method: routeConfig.method,
+        policy: routePolicies.retry,
+        operation: fetchDownstreamResponse,
+        shouldRetryError: (error) =>
+          shouldRetryDownstreamError(
+            error,
+            routePolicies.retry.retryOnStatuses,
+          ),
+      });
 
-      if (!response.ok) {
-        throw new DownstreamServiceError({
-          code: "DOWNSTREAM_HTTP_ERROR",
-          message: "Product Service returned an error",
-          service: routeConfig.serviceName,
-          statusCode: response.status >= 500 ? 502 : response.status,
-        });
+      if (
+        shouldRetryStatus(routePolicies.retry, response.status) &&
+        routePolicies.retry.enabled
+      ) {
+        request.log.warn(
+          {
+            requestId: request.id,
+            statusCode: response.status,
+            route: routeConfig.gatewayPath,
+          },
+          "Received retryable downstream response after retry execution",
+        );
       }
 
       let data: unknown;
