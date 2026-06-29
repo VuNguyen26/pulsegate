@@ -100,6 +100,22 @@ services:
     depends_on:
       - api-gateway
 
+  grafana:
+    image: grafana/grafana:latest
+    container_name: pulsegate-grafana
+    ports:
+      - "3002:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - pulsegate_grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
   pulsegate_postgres_data:
   pulsegate_prometheus_data:
+  pulsegate_grafana_data:
