@@ -1,16 +1,16 @@
-# PulseGate
+﻿# PulseGate
 
 <p align="center">
   <strong>High-Traffic API Gateway & Observability Platform</strong>
 </p>
 
 <p align="center">
-  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, route policy foundations, and a microservice-oriented architecture.
+  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, GitHub Actions CI/CD, route policy foundations, and a microservice-oriented architecture.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Sprint%205%20Complete-brightgreen" />
-  <img src="https://img.shields.io/badge/version-v0.6.0-blue" />
+  <img src="https://img.shields.io/badge/status-Sprint%206%20Complete-brightgreen" />
+  <img src="https://img.shields.io/badge/version-v0.7.0-blue" />
   <a href="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml">
     <img src="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
   </a>
@@ -100,18 +100,25 @@ Prometheus :9090
 Grafana :3002
   -> Uses Prometheus datasource
   -> Displays PulseGate API Gateway Overview dashboard
+
+GitHub Actions
+  -> Runs on push and pull request to main
+  -> Installs dependencies with npm ci
+  -> Generates Prisma Client
+  -> Runs tests, typecheck, and build
+  -> Builds API Gateway and Product Service Docker images
 ```
 
 Current version:
 
 ```txt
-v0.6.0
+v0.7.0
 ```
 
 Current sprint status:
 
 ```txt
-Sprint 5 - Advanced Gateway Policies Complete
+Sprint 6 - CI/CD Foundation Complete
 ```
 
 ---
@@ -126,11 +133,13 @@ Sprint 5 - Advanced Gateway Policies Complete
 | Sprint 3        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                    | Data and infrastructure foundation                                                |
 | Sprint 4        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                    | Observability foundation                                                          |
 | Sprint 5        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                    | Advanced Gateway policies                                                         |
-| Current Version | ![v0.6.0](https://img.shields.io/badge/version-v0.6.0-blue)                              | Docker, PostgreSQL, Prisma, Redis, Prometheus, Grafana, Gateway policies          |
+| Sprint 6        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                    | CI/CD foundation with GitHub Actions                                               |
+| Current Version | ![v0.7.0](https://img.shields.io/badge/version-v0.7.0-blue)                              | Docker, PostgreSQL, Prisma, Redis, Prometheus, Grafana, Gateway policies, CI/CD   |
 | Automated Tests | ![139 Passing](https://img.shields.io/badge/tests-139%20passing-brightgreen)             | Unit and integration tests                                                        |
 | Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)                   | TypeScript validation passes                                                      |
 | Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)                       | Production build passes                                                           |
-| Next Sprint     | ![To Be Planned](https://img.shields.io/badge/next%20sprint-to%20be%20planned-lightgrey) | Further Gateway hardening, CI/CD, tracing, event-driven features, or load testing |
+| CI/CD           | ![Passing](https://img.shields.io/badge/ci-passing-brightgreen)                          | GitHub Actions validates npm and Docker builds                                    |
+| Next Sprint     | ![To Be Planned](https://img.shields.io/badge/next%20sprint-to%20be%20planned-lightgrey) | Further Gateway hardening, tracing, load testing, or multi-route expansion         |
 
 ---
 
@@ -153,6 +162,7 @@ Long-term goals:
 * Produce structured access logs.
 * Expose metrics for monitoring.
 * Visualize Gateway behavior with Grafana dashboards.
+* Validate test, typecheck, build, and Docker image build automatically with GitHub Actions.
 * Centralize route behavior through policies.
 * Support per-route timeout, cache, rate limit, transform, and retry rules.
 * Add distributed tracing later.
@@ -271,6 +281,21 @@ Long-term goals:
 | Response transformation policy foundation | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Supports add/remove response headers through policy helper        |
 | Upstream retry policy foundation          | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Supports retry helper for safe GET retry scenarios                |
 | Route policy integration tests            | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Covers cache MISS/HIT flow and policy-driven app behavior         |
+
+### Sprint 6 - CI/CD Foundation
+
+| Feature                              | Status                                                        | Notes                                                       |
+| ------------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------------- |
+| Review current package scripts       | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Confirmed npm workspace scripts are CI-ready                |
+| Add GitHub Actions workflow          | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Runs on push and pull request to `main`                     |
+| Install dependencies with `npm ci`   | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Uses lockfile-based clean install                           |
+| Generate Prisma Client in CI         | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Prevents Prisma Client issues on clean GitHub runners       |
+| Run automated tests in CI            | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Runs `npm run test`                                         |
+| Run TypeScript typecheck in CI       | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Runs `npm run typecheck`                                    |
+| Run production build in CI           | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Runs `npm run build`                                        |
+| Build API Gateway Docker image       | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Validates `apps/api-gateway/Dockerfile`                     |
+| Build Product Service Docker image   | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Validates `apps/product-service/Dockerfile` and Prisma flow |
+| Add CI badge to README               | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Shows live GitHub Actions status on the repository page     |
 
 ---
 
@@ -397,6 +422,9 @@ Prometheus
 
 ```txt
 pulsegate/
+  .github/
+    workflows/
+      ci.yml
   apps/
     api-gateway/
       Dockerfile
@@ -823,6 +851,7 @@ Currently implemented:
 | Metrics Backend    | Prometheus                                        | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Dashboard          | Grafana                                           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Containerization   | Docker, Docker Compose                            | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| CI/CD              | GitHub Actions                                    | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Testing            | Vitest                                            | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Architecture       | API Gateway + Microservice                        | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 
@@ -836,7 +865,6 @@ Planned later:
 | Background Jobs | RabbitMQ                     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Load Testing    | k6                           | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Orchestration   | Kubernetes                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| CI/CD           | GitHub Actions               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 
 ---
 
@@ -906,7 +934,7 @@ npm install
 
 ## Run with Docker Compose
 
-This is the recommended workflow after Sprint 5.
+This is the recommended workflow after Sprint 6.
 
 ### 1. Start PostgreSQL and Redis
 
@@ -1901,6 +1929,58 @@ Invoke-RestMethod http://localhost:3002/api/dashboards/uid/pulsegate-api-gateway
 
 ---
 
+## CI/CD Foundation
+
+Sprint 6 adds GitHub Actions CI for automated validation.
+
+Workflow file:
+
+```txt
+.github/workflows/ci.yml
+```
+
+Current workflow name:
+
+```txt
+CI
+```
+
+Current trigger behavior:
+
+```txt
+push to main
+pull_request to main
+```
+
+Current CI steps:
+
+```txt
+Checkout repository
+Setup Node.js 20
+npm ci
+npm run db:generate -w apps/product-service
+npm run test
+npm run typecheck
+npm run build
+docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
+docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
+```
+
+Current CI validates:
+
+* Clean dependency installation through `npm ci`.
+* Prisma Client generation in a clean runner.
+* Automated unit and integration tests.
+* TypeScript type safety.
+* Production build for all workspaces.
+* API Gateway Docker image build.
+* Product Service Docker image build.
+* README CI badge status.
+
+This makes the repository more professional because every push and pull request must pass the same core validation before the code is considered healthy.
+
+---
+
 ## Downstream Error Behavior
 
 PulseGate normalizes downstream Product Service failures.
@@ -2254,6 +2334,18 @@ Seed database:
 npm run db:seed -w apps/product-service
 ```
 
+CI validation commands:
+
+```powershell
+npm ci
+npm run db:generate -w apps/product-service
+npm run test
+npm run typecheck
+npm run build
+docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
+docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
+```
+
 ---
 
 ## Documentation
@@ -2382,6 +2474,23 @@ Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
 | Add upstream retry policy foundation   | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
 | Add route policy integration tests     | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
 
+### Sprint 6 - CI/CD Foundation
+
+Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
+
+| Feature                              | Status                                                        |
+| ------------------------------------ | ------------------------------------------------------------- |
+| Review package scripts               | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add GitHub Actions workflow          | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Run `npm ci` in CI                   | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Generate Prisma Client in CI         | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Run automated tests in CI            | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Run TypeScript typecheck in CI       | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Run production build in CI           | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Build API Gateway Docker image in CI | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Build Product Service Docker image   | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add CI badge to README               | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+
 ### Later - Event-Driven Architecture
 
 Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
@@ -2402,7 +2511,6 @@ Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
 | OpenTelemetry tracing  | ![Future](https://img.shields.io/badge/status-future-lightgrey) |
 | Loki log aggregation   | ![Future](https://img.shields.io/badge/status-future-lightgrey) |
 | k6 load testing        | ![Future](https://img.shields.io/badge/status-future-lightgrey) |
-| GitHub Actions CI/CD   | ![Future](https://img.shields.io/badge/status-future-lightgrey) |
 | Kubernetes deployment  | ![Future](https://img.shields.io/badge/status-future-lightgrey) |
 | Cloud lightweight demo | ![Future](https://img.shields.io/badge/status-future-lightgrey) |
 
@@ -2410,7 +2518,7 @@ Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
 
 ## Current Status
 
-PulseGate currently has a stable local-first API Gateway and infrastructure foundation with Docker Compose, PostgreSQL, Prisma, Redis-backed traffic protection, database-backed Product Service data, Redis response caching, structured access logs, Prometheus metrics, Prometheus scraping, Grafana datasource provisioning, Grafana dashboard provisioning, and advanced Gateway route policy foundations.
+PulseGate currently has a stable local-first API Gateway and infrastructure foundation with Docker Compose, PostgreSQL, Prisma, Redis-backed traffic protection, database-backed Product Service data, Redis response caching, structured access logs, Prometheus metrics, Prometheus scraping, Grafana datasource provisioning, Grafana dashboard provisioning, advanced Gateway route policy foundations, and GitHub Actions CI/CD validation.
 
 Stable flow:
 
@@ -2446,6 +2554,9 @@ Prometheus
 Grafana
   -> Reads Prometheus datasource
   -> Displays PulseGate API Gateway Overview dashboard
+
+GitHub Actions
+  -> Validates npm ci, Prisma generate, tests, typecheck, build, and Docker image builds
 ```
 
 Docker Compose flow:
@@ -2463,6 +2574,14 @@ Prometheus container
 
 Grafana container
   -> Reads Prometheus container
+```
+
+Latest stable Sprint 6 commits:
+
+```txt
+b2b8929 ci: add github actions workflow
+e102aa0 ci: add docker image build validation
+d06e0e7 docs: add ci badge to readme
 ```
 
 Latest stable Sprint 5 commits:
@@ -2535,3 +2654,4 @@ PulseGate follows these principles:
 ## License
 
 This project is licensed under the MIT License.
+
