@@ -17,13 +17,20 @@ PulseGate is designed to help backend teams manage, protect, monitor, and scale 
 Current version:
 
 ```txt
-v0.5.0
+v0.6.0
 ```
 
 Current status:
 
 ```txt
-Sprint 4 - Observability Foundation Technical Implementation Complete
+Sprint 5 - Advanced Gateway Policies Technical Implementation Complete
+```
+
+Current automated test status:
+
+```txt
+24 test files passed
+139 tests passed
 ```
 
 ---
@@ -55,6 +62,8 @@ PulseGate aims to solve these problems:
 * Expose Prometheus-compatible HTTP metrics.
 * Scrape and store time-series metrics through Prometheus.
 * Visualize Gateway behavior through Grafana dashboards.
+* Configure Gateway route behavior through route policies.
+* Support per-route auth, timeout, cache, rate limit, transform, and retry rules.
 * Prepare for distributed tracing.
 * Support local infrastructure through Docker Compose.
 * Support future event streaming and background jobs.
@@ -64,7 +73,7 @@ PulseGate aims to solve these problems:
 
 ## 4. Current Architecture
 
-Current stable architecture after Sprint 4:
+Current stable architecture after Sprint 5:
 
 ```txt
 Client
@@ -74,21 +83,33 @@ Client
     -> Metrics timer
     -> Basic security headers
     -> Request size limit
+    -> Downstream route policy configuration
+      -> Auth policy
+      -> Timeout policy
+      -> Cache policy
+      -> Rate limit policy
+      -> Request transform policy
+      -> Response transform policy
+      -> Retry policy foundation
     -> API key authentication for protected routes
     -> Redis-backed rate limiting by API key and route
     -> JWT authentication for protected routes
     -> Redis response cache
       -> Cache HIT:
+           -> Apply response transform foundation
            -> Return cached product response
       -> Cache MISS:
-           -> Downstream route configuration
-           -> Downstream timeout handling
+           -> Apply request transform foundation
+           -> Downstream timeout policy helper
+           -> Upstream retry policy foundation
            -> Normalized downstream error handling
            -> Product Service :3001
              -> Prisma Client
              -> PostgreSQL :5432
              -> Database-backed product response
            -> Store response in Redis cache
+           -> Apply response transform foundation
+    -> Add x-cache
     -> Add x-response-time-ms
     -> Record Prometheus metrics
     -> Write structured access log
@@ -116,22 +137,27 @@ flowchart LR
     AccessLogStart --> MetricsStart[Metrics Timer]
     MetricsStart --> SecurityHeaders[Security Headers Middleware]
     SecurityHeaders --> SizeLimit[Request Size Limit]
-    SizeLimit --> ApiKey[API Key Authentication]
+    SizeLimit --> RoutePolicy[Route Policy Configuration<br/>Auth / Timeout / Cache / Rate Limit / Transform / Retry]
+    RoutePolicy --> ApiKey[API Key Authentication]
     ApiKey --> RateLimit[Redis-Backed Rate Limiting]
     RateLimit --> Jwt[JWT Authentication]
     Jwt --> Cache{Redis Response Cache}
 
-    Cache -->|HIT| CachedResponse[Cached Product Response]
-    CachedResponse --> ResponseHeaders[Response Headers<br/>x-response-time-ms]
+    Cache -->|HIT| ResponseTransformHit[Response Transform Foundation]
+    ResponseTransformHit --> CachedResponse[Cached Product Response]
+    CachedResponse --> ResponseHeaders[Response Headers<br/>x-cache / x-response-time-ms]
 
-    Cache -->|MISS| RouteConfig[Downstream Route Config]
-    RouteConfig --> Product[Product Service<br/>Port 3001]
+    Cache -->|MISS| RequestTransform[Request Transform Foundation]
+    RequestTransform --> RetryPolicy[Upstream Retry Policy Foundation]
+    RetryPolicy --> TimeoutPolicy[Downstream Timeout Policy]
+    TimeoutPolicy --> Product[Product Service<br/>Port 3001]
     Product --> Prisma[Prisma Client]
     Prisma --> Postgres[(PostgreSQL<br/>Port 5432)]
     Postgres --> Prisma
     Prisma --> Product
     Product --> CacheStore[Store Response in Redis Cache]
-    CacheStore --> ResponseHeaders
+    CacheStore --> ResponseTransformMiss[Response Transform Foundation]
+    ResponseTransformMiss --> ResponseHeaders
 
     RateLimit --> Redis[(Redis<br/>Port 6379)]
     Cache --> Redis
@@ -154,26 +180,32 @@ Current behavior:
 4. API Gateway starts metrics timing.
 5. API Gateway adds baseline security headers.
 6. API Gateway checks request body size.
-7. API Gateway checks API key for protected routes.
-8. API Gateway applies Redis-backed rate limiting for protected routes.
-9. API Gateway checks JWT for protected routes.
-10. API Gateway checks Redis response cache.
-11. If cache HIT, API Gateway returns cached response with `x-cache: HIT`.
-12. If cache MISS, API Gateway uses route config to determine downstream service information.
-13. API Gateway calls Product Service.
-14. API Gateway forwards the same `x-request-id` header.
-15. Product Service receives the request.
-16. Product Service reuses the same request ID.
-17. Product Service reads product data from PostgreSQL using Prisma.
-18. Product Service returns database-backed product data.
-19. API Gateway stores the response in Redis cache.
-20. API Gateway returns the response with `x-cache: MISS`.
-21. API Gateway adds `x-response-time-ms`.
-22. API Gateway records Prometheus metrics.
-23. API Gateway writes a structured access log.
-24. API Gateway normalizes downstream errors when needed.
-25. Prometheus scrapes API Gateway `/metrics`.
-26. Grafana reads metrics from Prometheus and displays the API Gateway overview dashboard.
+7. API Gateway loads downstream route policy configuration.
+8. API Gateway checks API key for protected routes.
+9. API Gateway resolves route rate limit policy.
+10. API Gateway applies Redis-backed rate limiting for protected routes.
+11. API Gateway checks JWT for protected routes.
+12. API Gateway resolves route cache policy.
+13. API Gateway checks Redis response cache.
+14. If cache HIT, API Gateway applies response transform foundation.
+15. If cache HIT, API Gateway returns cached response with `x-cache: HIT`.
+16. If cache MISS, API Gateway applies request transform foundation.
+17. If cache MISS, API Gateway uses timeout and retry helpers for the downstream request.
+18. API Gateway calls Product Service.
+19. API Gateway forwards the same `x-request-id` header.
+20. Product Service receives the request.
+21. Product Service reuses the same request ID.
+22. Product Service reads product data from PostgreSQL using Prisma.
+23. Product Service returns database-backed product data.
+24. API Gateway stores the response in Redis cache.
+25. API Gateway applies response transform foundation.
+26. API Gateway returns the response with `x-cache: MISS`.
+27. API Gateway adds `x-response-time-ms`.
+28. API Gateway records Prometheus metrics.
+29. API Gateway writes a structured access log.
+30. API Gateway normalizes downstream errors when needed.
+31. Prometheus scrapes API Gateway `/metrics`.
+32. Grafana reads metrics from Prometheus and displays the API Gateway overview dashboard.
 
 ---
 
@@ -239,7 +271,7 @@ Current Docker Compose responsibilities:
 Current Docker command:
 
 ```powershell
-docker compose up --build -d
+docker compose up -d --build
 ```
 
 Expected Docker status:
@@ -293,6 +325,7 @@ GET /api/products
   -> Redis-backed rate limited by API key and route
   -> Requires JWT Bearer token
   -> Uses Redis response cache
+  -> Uses route policy configuration
 ```
 
 Responsibilities:
@@ -312,8 +345,15 @@ Responsibilities:
 * Applies JWT authentication.
 * Attaches verified JWT payload to `request.jwtPayload`.
 * Uses downstream route configuration.
-* Uses route-level auth configuration.
-* Uses route-level rate limit configuration.
+* Uses route policy configuration.
+* Validates downstream route configuration.
+* Uses route-level auth policy.
+* Uses route-level timeout policy.
+* Uses route-level cache policy.
+* Uses route-level rate limit policy.
+* Uses request transform policy foundation.
+* Uses response transform policy foundation.
+* Uses upstream retry policy foundation.
 * Applies downstream request timeout.
 * Normalizes downstream service errors.
 * Handles basic 404 errors.
@@ -338,6 +378,8 @@ apps/api-gateway/src/
     downstream-routes.test.ts
     env.ts
     env.test.ts
+    validate-downstream-routes.ts
+    validate-downstream-routes.test.ts
   errors/
     downstream-service-error.ts
     downstream-service-error.test.ts
@@ -362,6 +404,20 @@ apps/api-gateway/src/
   observability/
     metrics.ts
     metrics.test.ts
+  policies/
+    cache.policy.ts
+    cache.policy.test.ts
+    rate-limit.policy.ts
+    rate-limit.policy.test.ts
+    request-transform.policy.ts
+    request-transform.policy.test.ts
+    response-transform.policy.ts
+    response-transform.policy.test.ts
+    retry.policy.ts
+    retry.policy.test.ts
+    route-policy.types.ts
+    timeout.policy.ts
+    timeout.policy.test.ts
   rate-limit/
     in-memory-rate-limit-store.ts
     in-memory-rate-limit-store.test.ts
@@ -763,12 +819,14 @@ Client
     -> API Gateway applies request size limit
       -> If request body is too large:
         -> 413 REQUEST_BODY_TOO_LARGE
+    -> API Gateway loads route policy configuration
     -> API Gateway checks x-api-key
       -> If missing:
         -> 401 API_KEY_MISSING
       -> If invalid:
         -> 403 API_KEY_INVALID
       -> If valid:
+        -> API Gateway resolves route rate limit policy
         -> API Gateway applies Redis-backed rate limit by API key and route
           -> If exceeded:
             -> 429 TOO_MANY_REQUESTS
@@ -779,17 +837,21 @@ Client
               -> If invalid:
                 -> 403 JWT_TOKEN_INVALID
               -> If valid:
+                -> API Gateway resolves route cache policy
                 -> API Gateway checks Redis response cache
                   -> If cache HIT:
+                    -> Apply response transform foundation
                     -> 200 with x-cache: HIT
                     -> Return cached product response
                   -> If cache MISS:
-                    -> API Gateway calls Product Service
+                    -> Apply request transform foundation
+                    -> API Gateway calls Product Service through timeout and retry helpers
                       -> GET http://product-service:3001/products in Docker
                       -> GET http://127.0.0.1:3001/products in local host mode
                     -> Product Service reads products from PostgreSQL using Prisma
                     -> Product Service returns database-backed product data
                     -> API Gateway stores response in Redis cache
+                    -> Apply response transform foundation
                     -> API Gateway returns 200 with x-cache: MISS
     -> API Gateway adds x-response-time-ms
     -> API Gateway records Prometheus metrics
@@ -884,6 +946,13 @@ Valid API key
   -> Continue to Redis-backed route-level rate limiting
 ```
 
+Route policy:
+
+```txt
+auth:
+  requireApiKey: true
+```
+
 ---
 
 ### 9.2 JWT Authentication
@@ -937,6 +1006,13 @@ Verified JWT payload is attached to:
 
 ```txt
 request.jwtPayload
+```
+
+Route policy:
+
+```txt
+auth:
+  requireJwt: true
 ```
 
 ---
@@ -1018,6 +1094,15 @@ Expected status:
 429
 ```
 
+Current route policy:
+
+```txt
+rateLimit:
+  enabled: true
+  limit: PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS
+  windowMs: PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS
+```
+
 Current Redis failure behavior:
 
 ```txt
@@ -1032,6 +1117,7 @@ Implementation notes:
 * `InMemoryRateLimitStore` still exists for tests and flexible dependency injection.
 * `RedisRateLimitStore` is used by the normal Docker/runtime flow.
 * Rate limit middleware supports async stores.
+* Rate limit runtime values are resolved through the rate limit policy helper.
 
 ---
 
@@ -1135,6 +1221,14 @@ Current cache TTL:
 30 seconds
 ```
 
+Current route policy:
+
+```txt
+cache:
+  enabled: true
+  ttlSeconds: 30
+```
+
 Current response cache headers:
 
 ```txt
@@ -1178,6 +1272,12 @@ Product Service returns valid JSON
        -> API Gateway still returns 200 response to client
 ```
 
+Implementation notes:
+
+* Cache key generation is handled by the cache policy helper.
+* Cache enabled state is resolved from route policy and runtime cache store availability.
+* Cache TTL can be overridden in tests.
+
 ---
 
 ## 12. Downstream Resilience Design
@@ -1215,6 +1315,31 @@ Example unavailable response:
   }
 }
 ```
+
+Current timeout policy:
+
+```txt
+timeout:
+  enabled: true
+  timeoutMs: DOWNSTREAM_REQUEST_TIMEOUT_MS
+```
+
+Current retry policy:
+
+```txt
+retry:
+  enabled: false
+  attempts: 0
+  retryOnStatuses: [502, 503, 504]
+```
+
+Retry design notes:
+
+* Retry foundation exists.
+* Retry is wired into the downstream call flow.
+* Retry is allowed only for safe `GET` requests.
+* Retry is disabled by default for the product route to avoid hidden behavior changes.
+* Retry can be enabled later for carefully selected read-only routes.
 
 ---
 
@@ -1406,12 +1531,26 @@ Cache Outcomes
 
 ---
 
-## 14. Route Configuration Design
+## 14. Route Policy Design
+
+Sprint 5 introduced a route policy foundation.
 
 Current route config file:
 
 ```txt
 apps/api-gateway/src/config/downstream-routes.ts
+```
+
+Current route policy type file:
+
+```txt
+apps/api-gateway/src/policies/route-policy.types.ts
+```
+
+Current route validation file:
+
+```txt
+apps/api-gateway/src/config/validate-downstream-routes.ts
 ```
 
 Current product route config includes:
@@ -1421,34 +1560,124 @@ serviceName
 gatewayPath
 downstreamUrl
 method
-timeoutMs
-auth
-rateLimit
+policies
 ```
 
-Current product route auth config:
+Current route policy model:
+
+```txt
+RoutePolicies
+  -> auth
+  -> timeout
+  -> cache
+  -> rateLimit
+  -> requestTransform
+  -> responseTransform
+  -> retry
+```
+
+Current product route policy:
 
 ```txt
 GET /api/products
-  -> requireApiKey: true
-  -> requireJwt: true
+  -> auth:
+       requireApiKey: true
+       requireJwt: true
+
+  -> timeout:
+       enabled: true
+       timeoutMs: DOWNSTREAM_REQUEST_TIMEOUT_MS
+
+  -> cache:
+       enabled: true
+       ttlSeconds: 30
+
+  -> rateLimit:
+       enabled: true
+       limit: PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS
+       windowMs: PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS
+
+  -> requestTransform:
+       enabled: false
+
+  -> responseTransform:
+       enabled: false
+
+  -> retry:
+       enabled: false
+       attempts: 0
+       retryOnStatuses: [502, 503, 504]
 ```
 
-Current product route rate limit config:
+Current route validation checks:
 
 ```txt
-GET /api/products
-  -> limit: PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS
-  -> windowMs: PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS
+serviceName must be present
+gatewayPath must start with /
+method must be supported
+downstreamUrl must be a valid http or https URL
+timeoutMs must be positive when timeout policy is enabled
+cache ttlSeconds must be positive when cache policy is enabled
+rate limit limit/windowMs must be positive when rate limit policy is enabled
+request transform header names must be valid HTTP header names
+response transform header names must be valid HTTP header names
+retry attempts must be non-negative
+retry attempts must be greater than 0 when retry is enabled
+retryOnStatuses must not be empty when retry is enabled
+retryOnStatuses must contain valid HTTP status codes
+duplicate method + gatewayPath routes are rejected
+```
+
+Current policy helper files:
+
+```txt
+apps/api-gateway/src/policies/timeout.policy.ts
+apps/api-gateway/src/policies/cache.policy.ts
+apps/api-gateway/src/policies/rate-limit.policy.ts
+apps/api-gateway/src/policies/request-transform.policy.ts
+apps/api-gateway/src/policies/response-transform.policy.ts
+apps/api-gateway/src/policies/retry.policy.ts
+```
+
+Current policy helper behavior:
+
+```txt
+timeout.policy.ts
+  -> Creates per-request AbortController when timeout is enabled
+  -> Returns cleanup function to clear timeout safely
+
+cache.policy.ts
+  -> Builds stable response cache keys
+  -> Resolves cache enabled state from route policy and runtime cache store
+  -> Supports TTL override for tests
+
+rate-limit.policy.ts
+  -> Resolves route rate limit policy into runtime middleware config
+
+request-transform.policy.ts
+  -> Adds configured request headers
+  -> Removes configured request headers case-insensitively
+  -> Does not mutate original header object
+
+response-transform.policy.ts
+  -> Adds configured response headers
+  -> Removes configured response headers case-insensitively
+  -> Does not mutate original header object
+
+retry.policy.ts
+  -> Allows retry only for GET requests
+  -> Supports retry by result or error predicate
+  -> Treats attempts as additional retries after the first request
 ```
 
 Purpose:
 
 * Keep route behavior configuration close to route definitions.
 * Avoid hard-coding all Gateway behavior directly in route handlers.
-* Prepare for future route-level policies.
 * Prepare for more downstream services later.
-* Prepare for Sprint 5 advanced Gateway policy configuration.
+* Prepare for future Admin Dashboard or config-driven route management.
+* Make the Gateway closer to production API Gateway products.
+* Keep route behavior testable through unit and integration tests.
 
 ---
 
@@ -1535,12 +1764,17 @@ Currently implemented Gateway capabilities:
 * API key authentication.
 * JWT authentication.
 * Downstream route configuration.
+* Route policy configuration.
+* Route config validation.
 * Downstream timeout handling.
 * Normalized downstream error handling.
 * Redis-backed rate limiting.
 * Request size limit.
 * Basic security headers.
 * Redis response caching.
+* Request transform foundation.
+* Response transform foundation.
+* Upstream retry policy foundation.
 * Prometheus-compatible metrics endpoint.
 * Unit tests.
 * Integration tests.
@@ -1604,6 +1838,8 @@ pulsegate/
           downstream-routes.test.ts
           env.ts
           env.test.ts
+          validate-downstream-routes.ts
+          validate-downstream-routes.test.ts
         errors/
           downstream-service-error.ts
           downstream-service-error.test.ts
@@ -1628,6 +1864,20 @@ pulsegate/
         observability/
           metrics.ts
           metrics.test.ts
+        policies/
+          cache.policy.ts
+          cache.policy.test.ts
+          rate-limit.policy.ts
+          rate-limit.policy.test.ts
+          request-transform.policy.ts
+          request-transform.policy.test.ts
+          response-transform.policy.ts
+          response-transform.policy.test.ts
+          retry.policy.ts
+          retry.policy.test.ts
+          route-policy.types.ts
+          timeout.policy.ts
+          timeout.policy.test.ts
         rate-limit/
           in-memory-rate-limit-store.ts
           in-memory-rate-limit-store.test.ts
@@ -1719,8 +1969,8 @@ npm run test
 Current test status:
 
 ```txt
-17 test files passed
-101 tests passed
+24 test files passed
+139 tests passed
 ```
 
 Current unit test coverage:
@@ -1766,13 +2016,34 @@ env.test.ts
   -> Number, CSV, and string env parsing
 
 downstream-routes.test.ts
-  -> Route-level rate limit config and auth requirements
+  -> Route policy config, auth policy, timeout policy, cache policy, transform foundation, retry foundation
+
+validate-downstream-routes.test.ts
+  -> Route config validation, duplicate route detection, invalid policy detection
 
 observability/metrics.test.ts
   -> Metrics registry, request metrics, cache metrics, cache status normalization
 
 metrics.route.test.ts
   -> /metrics endpoint and Prometheus text format
+
+timeout.policy.test.ts
+  -> Timeout policy signal creation, abort behavior, and cleanup
+
+cache.policy.test.ts
+  -> Cache key generation, enabled/disabled resolution, TTL override
+
+rate-limit.policy.test.ts
+  -> Runtime rate limit policy resolution
+
+request-transform.policy.test.ts
+  -> Request header add/remove behavior and immutability
+
+response-transform.policy.test.ts
+  -> Response header add/remove behavior and immutability
+
+retry.policy.test.ts
+  -> Retryable HTTP method checks, retryable status checks, result retry, error retry, retry exhaustion
 ```
 
 Current integration test coverage:
@@ -1804,7 +2075,13 @@ GET /api/products with valid API key but invalid JWT
 
 GET /api/products with valid API key and valid JWT
   -> 200 and product data
+  -> includes x-cache: BYPASS when no response cache store is configured in test app
   -> includes rate limit headers
+
+GET /api/products with response cache store configured
+  -> First request returns x-cache: MISS
+  -> Second request returns x-cache: HIT
+  -> Product Service is only called once
 
 GET /api/products when rate limit is exceeded
   -> 429 TOO_MANY_REQUESTS
@@ -1858,6 +2135,9 @@ API Gateway also separates:
 * Rate limit stores
 * Response cache stores
 * Downstream route configuration
+* Route policy types
+* Route policy helpers
+* Route config validation
 * Observability metrics registry
 * Observability middlewares
 
@@ -1877,19 +2157,35 @@ observability/
 
 Request ID, structured access logs, response time headers, metrics, Prometheus, and Grafana are part of the Gateway foundation.
 
-### 19.6 Behavior First, Infrastructure Later
+### 19.6 Policy-Driven Gateway Behavior
+
+Gateway route behavior should be controlled by route policies instead of being hardcoded directly inside route handlers.
+
+Current policies include:
+
+```txt
+auth
+timeout
+cache
+rateLimit
+requestTransform
+responseTransform
+retry
+```
+
+### 19.7 Behavior First, Infrastructure Later
 
 Gateway behavior is implemented and tested before adding more advanced distributed systems.
 
-### 19.7 Test Before Scaling
+### 19.8 Test Before Scaling
 
 Core Gateway behavior should be protected by automated tests before infrastructure and distributed systems are added.
 
-### 19.8 Infrastructure After Stable Gateway Behavior
+### 19.9 Infrastructure After Stable Gateway Behavior
 
 Docker, PostgreSQL, Redis, Prisma, Prometheus, and Grafana were added only after routing, auth, downstream resilience, and traffic protection were stable.
 
-### 19.9 Provision Infrastructure Configuration
+### 19.10 Provision Infrastructure Configuration
 
 Prometheus and Grafana configuration should be file-based where possible so the local stack is reproducible.
 
@@ -1907,6 +2203,15 @@ Client / Frontend / External API Consumer
     -> Order Service
     -> Payment Service
     -> Notification Service
+
+Gateway Policy Layer
+  -> Route policies
+  -> Auth policies
+  -> Timeout policies
+  -> Cache policies
+  -> Rate limit policies
+  -> Transform policies
+  -> Retry policies
 
 Services
   -> PostgreSQL
@@ -2033,30 +2338,51 @@ Goal:
 Status:
 
 ```txt
-Technical implementation complete
+Done
 ```
 
 ---
 
 ### Sprint 5 - Advanced Gateway Policies
 
-Planned goal:
+Goal:
 
 * Review current route configuration model.
 * Add route policy type foundation.
+* Add route config validation improvements.
 * Add per-route timeout policy.
 * Add per-route cache policy.
 * Add per-route rate limit policy.
 * Add request transformation foundation.
 * Add response transformation foundation.
 * Add upstream retry policy foundation.
-* Add route config validation improvements.
 * Add tests for each policy behavior.
+* Add integration test coverage for route policy behavior.
 
 Status:
 
 ```txt
-Planned
+Technical implementation complete
+```
+
+---
+
+### Possible Next Sprint - To Be Planned
+
+Possible directions:
+
+* CI/CD foundation with GitHub Actions.
+* More realistic multi-route Gateway policy expansion.
+* OpenTelemetry tracing foundation.
+* k6 load testing foundation.
+* Additional downstream service routing.
+* Admin Dashboard foundation later.
+* Developer Portal foundation later.
+
+Status:
+
+```txt
+To be planned
 ```
 
 ---

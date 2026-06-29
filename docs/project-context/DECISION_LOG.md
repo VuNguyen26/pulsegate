@@ -2124,3 +2124,536 @@ Status:
 
 Accepted.
 
+---
+
+## 2026-06-29 - Use Route Policies for Advanced Gateway Behavior
+
+Decision:
+
+Introduce a centralized route policy model for API Gateway routes.
+
+Reason:
+
+* The product proxy route had multiple behaviors mixed directly into the route handler.
+* API Gateway behavior should be configurable per route.
+* Future routes may need different auth, timeout, cache, rate limit, transform, and retry behavior.
+* A policy model makes the Gateway closer to production API Gateway products such as Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
+* Centralizing route behavior prepares the project for future Admin Dashboard or configuration-driven Gateway management.
+
+Implemented policy model:
+
+```txt
+RoutePolicies
+  -> auth
+  -> timeout
+  -> cache
+  -> rateLimit
+  -> requestTransform
+  -> responseTransform
+  -> retry
+```
+
+Implemented file:
+
+```txt
+apps/api-gateway/src/policies/route-policy.types.ts
+```
+
+Current product route policy:
+
+```txt
+GET /api/products
+  -> auth:
+       requireApiKey: true
+       requireJwt: true
+
+  -> timeout:
+       enabled: true
+       timeoutMs: DOWNSTREAM_REQUEST_TIMEOUT_MS
+
+  -> cache:
+       enabled: true
+       ttlSeconds: 30
+
+  -> rateLimit:
+       enabled: true
+       limit: PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS
+       windowMs: PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS
+
+  -> requestTransform:
+       enabled: false
+
+  -> responseTransform:
+       enabled: false
+
+  -> retry:
+       enabled: false
+       attempts: 0
+       retryOnStatuses: [502, 503, 504]
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Validate Downstream Route Configuration at Startup
+
+Decision:
+
+Validate downstream route configuration before the Gateway starts using it.
+
+Reason:
+
+* Invalid Gateway route configuration can cause runtime bugs that are hard to debug.
+* Route config should fail fast if a route has invalid URL, invalid method, invalid policy values, invalid headers, or duplicate route keys.
+* Gateway configuration should be treated as production-critical.
+* Validation makes route policies safer before adding more routes later.
+
+Implemented validation checks:
+
+```txt
+serviceName must be present
+gatewayPath must start with /
+method must be supported
+downstreamUrl must be a valid http or https URL
+timeoutMs must be positive when timeout policy is enabled
+cache ttlSeconds must be positive when cache policy is enabled
+rate limit limit/windowMs must be positive when rate limit policy is enabled
+request transform header names must be valid HTTP header names
+response transform header names must be valid HTTP header names
+retry attempts must be non-negative
+retry attempts must be greater than 0 when retry is enabled
+retryOnStatuses must not be empty when retry is enabled
+retryOnStatuses must contain valid HTTP status codes
+duplicate method + gatewayPath routes are rejected
+```
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/config/validate-downstream-routes.ts
+apps/api-gateway/src/config/validate-downstream-routes.test.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Extract Timeout Behavior into a Per-Route Timeout Policy Helper
+
+Decision:
+
+Move downstream timeout creation and cleanup into a dedicated timeout policy helper.
+
+Reason:
+
+* Timeout behavior is part of route policy.
+* Route handlers should not manually manage `AbortController` and `setTimeout` logic inline.
+* Each downstream request attempt should have its own timeout signal.
+* Cleanup should always happen after the downstream request completes or fails.
+* The timeout helper makes the behavior easier to test and reuse.
+
+Implemented behavior:
+
+```txt
+timeout policy disabled
+  -> no AbortSignal is created
+
+timeout policy enabled
+  -> create AbortController
+  -> abort signal after configured timeoutMs
+  -> expose cleanup function
+```
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/policies/timeout.policy.ts
+apps/api-gateway/src/policies/timeout.policy.test.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Extract Cache Behavior into a Per-Route Cache Policy Helper
+
+Decision:
+
+Move response cache key generation and cache policy resolution into a dedicated cache policy helper.
+
+Reason:
+
+* Cache behavior should be driven by route policy.
+* Cache should only be enabled when both the route policy is enabled and a runtime cache store is available.
+* Cache key generation should be stable and tested.
+* Route handlers should not directly decide cache enabled state.
+* This prepares the Gateway for future per-route cache TTLs and cache invalidation strategies.
+
+Implemented behavior:
+
+```txt
+buildResponseCacheKey(method, routePath)
+  -> returns METHOD:/route/path
+
+resolveRouteCachePolicy()
+  -> enabled only when policy.enabled is true and cache store exists
+  -> uses route policy TTL by default
+  -> supports TTL override for tests
+```
+
+Current product response cache key:
+
+```txt
+response-cache:GET:/api/products
+```
+
+Current product response cache TTL:
+
+```txt
+30 seconds
+```
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/policies/cache.policy.ts
+apps/api-gateway/src/policies/cache.policy.test.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Extract Rate Limit Behavior into a Per-Route Rate Limit Policy Helper
+
+Decision:
+
+Move rate limit runtime policy resolution into a dedicated rate limit policy helper.
+
+Reason:
+
+* Rate limit behavior should be driven by route policy.
+* Route handlers should not directly spread route config values into middleware.
+* A resolved rate limit policy makes route handling clearer.
+* The helper prepares the Gateway for future rate limit identity types such as user ID, organization ID, IP address, API plan, or client ID.
+
+Implemented behavior:
+
+```txt
+resolveRouteRateLimitPolicy()
+  -> returns enabled state
+  -> returns limit
+  -> returns windowMs
+  -> returns routePath
+  -> returns identityType
+  -> returns store
+```
+
+Current rate limit identity type:
+
+```txt
+api-key
+```
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/policies/rate-limit.policy.ts
+apps/api-gateway/src/policies/rate-limit.policy.test.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Add Request Transformation Policy Foundation
+
+Decision:
+
+Add a request header transformation policy foundation.
+
+Reason:
+
+* API Gateways commonly modify requests before forwarding them to upstream services.
+* Future routes may need to add headers such as gateway name, tenant ID, client ID, or forwarding metadata.
+* Future routes may also need to remove internal or unsafe request headers.
+* Header transformation should be policy-driven and tested.
+* Sprint 5 should add the foundation without changing current runtime behavior.
+
+Implemented behavior:
+
+```txt
+requestTransform.enabled = false
+  -> request headers are copied without changes
+
+requestTransform.enabled = true
+  -> remove configured request headers case-insensitively
+  -> add configured request headers
+  -> added headers win after removal
+  -> original headers object is not mutated
+```
+
+Current product route behavior:
+
+```txt
+requestTransform:
+  enabled: false
+```
+
+Current forwarded header remains:
+
+```txt
+x-request-id
+```
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/policies/request-transform.policy.ts
+apps/api-gateway/src/policies/request-transform.policy.test.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Add Response Transformation Policy Foundation
+
+Decision:
+
+Add a response header transformation policy foundation.
+
+Reason:
+
+* API Gateways commonly modify responses before returning them to clients.
+* Future routes may need to add headers such as `x-served-by`, `x-gateway-name`, or policy metadata.
+* Future routes may also need to remove upstream/internal response headers.
+* Response transformation should be policy-driven and tested.
+* Gateway-owned headers such as `x-cache` should still be controlled by the Gateway.
+
+Implemented behavior:
+
+```txt
+responseTransform.enabled = false
+  -> response headers are copied without changes
+
+responseTransform.enabled = true
+  -> remove configured response headers case-insensitively
+  -> add configured response headers
+  -> added headers win after removal
+  -> original headers object is not mutated
+```
+
+Current product route behavior:
+
+```txt
+responseTransform:
+  enabled: false
+```
+
+Gateway-owned response headers still apply:
+
+```txt
+x-cache
+x-response-time-ms
+x-request-id
+x-ratelimit-limit
+x-ratelimit-remaining
+x-ratelimit-reset
+```
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/policies/response-transform.policy.ts
+apps/api-gateway/src/policies/response-transform.policy.test.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Add Upstream Retry Policy Foundation
+
+Decision:
+
+Add an upstream retry policy foundation for downstream calls.
+
+Reason:
+
+* API Gateways often retry temporary upstream failures for safe read-only requests.
+* Retry behavior must be carefully controlled to avoid unsafe duplicate writes.
+* The first retry foundation should only allow retry for `GET` requests.
+* Retry should be policy-driven and disabled by default until explicitly enabled.
+* This keeps current runtime behavior stable while preparing the Gateway for future resilience improvements.
+
+Implemented retry rules:
+
+```txt
+Retry is allowed only for GET requests.
+Retry is disabled by default for the product route.
+attempts means additional retries after the first request.
+Retry can be based on result predicate or error predicate.
+Retryable statuses are configured by route policy.
+```
+
+Current product route retry policy:
+
+```txt
+retry:
+  enabled: false
+  attempts: 0
+  retryOnStatuses: [502, 503, 504]
+```
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/policies/retry.policy.ts
+apps/api-gateway/src/policies/retry.policy.test.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Keep Retry Disabled by Default for the Product Route
+
+Decision:
+
+Wire retry foundation into the downstream call flow, but keep retry disabled by default for `GET /api/products`.
+
+Reason:
+
+* Sprint 5 focuses on policy foundation, not changing runtime behavior aggressively.
+* Retry can hide real upstream errors if enabled too early.
+* The Gateway should first prove that retry policy wiring and tests are stable.
+* Product route behavior should remain compatible with previous Sprint 4 behavior.
+* Retry can be enabled later when more realistic upstream failure scenarios and metrics are added.
+
+Current behavior:
+
+```txt
+Product Service unavailable + cache MISS
+  -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
+
+Product Service timeout + cache MISS
+  -> 504 DOWNSTREAM_TIMEOUT
+
+Product Service returns 5xx + cache MISS
+  -> 502 DOWNSTREAM_HTTP_ERROR
+```
+
+Current retry config:
+
+```txt
+enabled: false
+attempts: 0
+retryOnStatuses: [502, 503, 504]
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Add Route Policy Integration Test Coverage
+
+Decision:
+
+Add integration test coverage for route policy behavior in the API Gateway app flow.
+
+Reason:
+
+* Unit tests prove helper behavior, but integration tests prove the real route flow.
+* The Gateway should verify that cache policy behavior works through `buildApiGatewayApp()`.
+* The test should prove that cache MISS calls downstream and cache HIT avoids another downstream call.
+* Integration tests should also confirm `x-cache: BYPASS` when no cache store is configured.
+
+Implemented behavior covered by integration tests:
+
+```txt
+GET /api/products with no response cache store
+  -> x-cache: BYPASS
+
+GET /api/products with response cache store
+  -> First request returns x-cache: MISS
+  -> Second request returns x-cache: HIT
+  -> Product Service fetch is called only once
+```
+
+Implemented file:
+
+```txt
+apps/api-gateway/src/app.test.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-29 - Keep Sprint 5 Focused on Advanced Gateway Policies
+
+Decision:
+
+Keep Sprint 5 focused on advanced Gateway policies only.
+
+Reason:
+
+* The project already had routing, auth, traffic protection, data infrastructure, Redis cache, Prometheus, and Grafana.
+* The next production-like Gateway capability was policy-driven route behavior.
+* Adding Kafka, RabbitMQ, Kubernetes, Admin Dashboard, Developer Portal, OpenTelemetry, or cloud deployment during Sprint 5 would create scope creep.
+* Policy foundation should be stable before adding more infrastructure or UI layers.
+
+Included in Sprint 5:
+
+```txt
+Route policy type foundation
+Route config validation
+Per-route timeout policy
+Per-route cache policy
+Per-route rate limit policy
+Request transformation foundation
+Response transformation foundation
+Upstream retry policy foundation
+Unit tests
+Integration tests
+Documentation
+```
+
+Not included in Sprint 5:
+
+```txt
+Kafka
+RabbitMQ
+Kubernetes
+Admin Dashboard
+Developer Portal
+Advanced OpenTelemetry tracing
+Complex service discovery
+Production cloud deployment
+```
+
+Status:
+
+Accepted.

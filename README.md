@@ -5,13 +5,13 @@
 </p>
 
 <p align="center">
-  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, and a microservice-oriented architecture.
+  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, route policy foundations, and a microservice-oriented architecture.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Sprint%204%20Complete-brightgreen" />
-  <img src="https://img.shields.io/badge/version-v0.5.0-blue" />
-  <img src="https://img.shields.io/badge/tests-101%20passing-brightgreen" />
+  <img src="https://img.shields.io/badge/status-Sprint%205%20Complete-brightgreen" />
+  <img src="https://img.shields.io/badge/version-v0.6.0-blue" />
+  <img src="https://img.shields.io/badge/tests-139%20passing-brightgreen" />
   <img src="https://img.shields.io/badge/typecheck-passing-brightgreen" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
   <img src="https://img.shields.io/badge/Node.js-20%2B-green" />
@@ -20,6 +20,8 @@
   <img src="https://img.shields.io/badge/Auth-API%20Key%20%2B%20JWT-purple" />
   <img src="https://img.shields.io/badge/Rate%20Limit-Redis-red" />
   <img src="https://img.shields.io/badge/Cache-Redis-red" />
+  <img src="https://img.shields.io/badge/Policies-Route%20Policies-indigo" />
+  <img src="https://img.shields.io/badge/Retry-Foundation-blueviolet" />
   <img src="https://img.shields.io/badge/Database-PostgreSQL-blue" />
   <img src="https://img.shields.io/badge/ORM-Prisma-2D3748" />
   <img src="https://img.shields.io/badge/Metrics-Prometheus-orange" />
@@ -40,7 +42,7 @@
 * Apigee
 * AWS API Gateway
 
-The project is designed to demonstrate backend engineering skills around API routing, microservice communication, authentication, traffic protection, caching, data persistence, request tracing, error handling, testing, observability, scalability, and production-oriented system design.
+The project is designed to demonstrate backend engineering skills around API routing, microservice communication, authentication, traffic protection, caching, data persistence, request tracing, error handling, testing, observability, route policies, gateway resilience, scalability, and production-oriented system design.
 
 PulseGate starts small and grows step by step.
 
@@ -54,21 +56,33 @@ Client
     -> Metrics timer
     -> Basic security headers
     -> Request size limit
+    -> Downstream route policy configuration
+      -> Auth policy
+      -> Timeout policy
+      -> Cache policy
+      -> Rate limit policy
+      -> Request transform policy
+      -> Response transform policy
+      -> Retry policy foundation
     -> API key authentication
     -> Redis-backed rate limiting
     -> JWT authentication
     -> Redis response cache
       -> Cache HIT:
+           -> Apply response transform foundation
            -> Return cached Product response
       -> Cache MISS:
-           -> Downstream route configuration
-           -> Downstream timeout handling
+           -> Apply request transform foundation
+           -> Downstream timeout policy helper
+           -> Upstream retry policy foundation
            -> Normalized downstream error handling
            -> Product Service :3001
              -> Prisma Client
              -> PostgreSQL :5432
              -> Database-backed Product response
            -> Store response in Redis cache
+           -> Apply response transform foundation
+    -> Add x-cache
     -> Add x-response-time-ms
     -> Record Prometheus metrics
     -> Write structured access log
@@ -88,37 +102,38 @@ Grafana :3002
 Current version:
 
 ```txt
-v0.5.0
+v0.6.0
 ```
 
 Current sprint status:
 
 ```txt
-Sprint 4 - Observability Foundation Complete
+Sprint 5 - Advanced Gateway Policies Complete
 ```
 
 ---
 
 ## Project Status
 
-| Area            | Status                                                                                  | Notes                                                  |
-| --------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                   | Core setup and basic Gateway flow                      |
-| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                   | API Gateway core features                              |
-| Sprint 2        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                   | Gateway traffic protection                             |
-| Sprint 3        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                   | Data and infrastructure foundation                     |
-| Sprint 4        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                   | Observability foundation                               |
-| Current Version | ![v0.5.0](https://img.shields.io/badge/version-v0.5.0-blue)                             | Docker, PostgreSQL, Prisma, Redis, Prometheus, Grafana |
-| Automated Tests | ![101 Passing](https://img.shields.io/badge/tests-101%20passing-brightgreen)            | Unit and integration tests                             |
-| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)                  | TypeScript validation passes                           |
-| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)                      | Production build passes                                |
-| Next Sprint     | ![Sprint 5](https://img.shields.io/badge/Sprint%205-Advanced%20Gateway%20Policies-blue) | Route policies, transformations, retry foundation      |
+| Area            | Status                                                                                   | Notes                                                                             |
+| --------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                    | Core setup and basic Gateway flow                                                 |
+| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                    | API Gateway core features                                                         |
+| Sprint 2        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                    | Gateway traffic protection                                                        |
+| Sprint 3        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                    | Data and infrastructure foundation                                                |
+| Sprint 4        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                    | Observability foundation                                                          |
+| Sprint 5        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                    | Advanced Gateway policies                                                         |
+| Current Version | ![v0.6.0](https://img.shields.io/badge/version-v0.6.0-blue)                              | Docker, PostgreSQL, Prisma, Redis, Prometheus, Grafana, Gateway policies          |
+| Automated Tests | ![139 Passing](https://img.shields.io/badge/tests-139%20passing-brightgreen)             | Unit and integration tests                                                        |
+| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)                   | TypeScript validation passes                                                      |
+| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)                       | Production build passes                                                           |
+| Next Sprint     | ![To Be Planned](https://img.shields.io/badge/next%20sprint-to%20be%20planned-lightgrey) | Further Gateway hardening, CI/CD, tracing, event-driven features, or load testing |
 
 ---
 
 ## Why PulseGate?
 
-Modern backend systems often contain many services. Without an API Gateway, clients may need to call each service directly, which creates problems around routing, security, rate limiting, logging, monitoring, caching, resilience, and scaling.
+Modern backend systems often contain many services. Without an API Gateway, clients may need to call each service directly, which creates problems around routing, security, rate limiting, logging, monitoring, caching, resilience, traffic control, policy management, and scaling.
 
 PulseGate aims to solve these problems by acting as a single entry point for APIs.
 
@@ -135,6 +150,8 @@ Long-term goals:
 * Produce structured access logs.
 * Expose metrics for monitoring.
 * Visualize Gateway behavior with Grafana dashboards.
+* Centralize route behavior through policies.
+* Support per-route timeout, cache, rate limit, transform, and retry rules.
 * Add distributed tracing later.
 * Stream events with Kafka later.
 * Process background jobs with RabbitMQ later.
@@ -237,6 +254,21 @@ Long-term goals:
 | Grafana dashboard foundation        | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Provisioned dashboard JSON                               |
 | API Gateway overview dashboard      | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Request rate, request count, p95 latency, cache outcomes |
 
+### Sprint 5 - Advanced Gateway Policies
+
+| Feature                                   | Status                                                        | Notes                                                             |
+| ----------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Current route configuration review        | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Identified hardcoded route behavior that should be policy-driven  |
+| Route policy type foundation              | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Central `RoutePolicies` model                                     |
+| Route config validation improvements      | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Validates route URL, method, policy values, headers, retry config |
+| Per-route timeout policy helper           | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Isolates downstream timeout creation and cleanup                  |
+| Per-route cache policy helper             | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Resolves cache enabled state, TTL, and cache key behavior         |
+| Per-route rate limit policy helper        | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Resolves rate limit runtime configuration                         |
+| Request transformation policy foundation  | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Supports add/remove request headers through policy helper         |
+| Response transformation policy foundation | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Supports add/remove response headers through policy helper        |
+| Upstream retry policy foundation          | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Supports retry helper for safe GET retry scenarios                |
+| Route policy integration tests            | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Covers cache MISS/HIT flow and policy-driven app behavior         |
+
 ---
 
 ## Current Architecture
@@ -250,22 +282,27 @@ flowchart LR
     AccessLogStart --> MetricsStart[Metrics Timer]
     MetricsStart --> SecurityHeaders[Security Headers Middleware]
     SecurityHeaders --> SizeLimit[Request Size Limit]
-    SizeLimit --> ApiKey[API Key Authentication]
+    SizeLimit --> RoutePolicy[Route Policy Configuration<br/>Auth / Timeout / Cache / Rate Limit / Transform / Retry]
+    RoutePolicy --> ApiKey[API Key Authentication]
     ApiKey --> RateLimit[Redis-Backed Rate Limiting]
     RateLimit --> Jwt[JWT Authentication]
     Jwt --> Cache{Redis Response Cache}
 
-    Cache -->|HIT| CachedResponse[Cached Product Response]
-    CachedResponse --> ResponseHeaders[Response Headers<br/>x-response-time-ms]
+    Cache -->|HIT| ResponseTransformHit[Response Transform Foundation]
+    ResponseTransformHit --> CachedResponse[Cached Product Response]
+    CachedResponse --> ResponseHeaders[Response Headers<br/>x-cache / x-response-time-ms]
 
-    Cache -->|MISS| RouteConfig[Downstream Route Config]
-    RouteConfig --> Product[Product Service<br/>Port 3001]
+    Cache -->|MISS| RequestTransform[Request Transform Foundation]
+    RequestTransform --> RetryPolicy[Upstream Retry Policy Foundation]
+    RetryPolicy --> TimeoutPolicy[Downstream Timeout Policy]
+    TimeoutPolicy --> Product[Product Service<br/>Port 3001]
     Product --> Prisma[Prisma Client]
     Prisma --> Postgres[(PostgreSQL<br/>Port 5432)]
     Postgres --> Prisma
     Prisma --> Product
     Product --> CacheStore[Store Response in Redis Cache]
-    CacheStore --> ResponseHeaders
+    CacheStore --> ResponseTransformMiss[Response Transform Foundation]
+    ResponseTransformMiss --> ResponseHeaders
 
     RateLimit --> Redis[(Redis<br/>Port 6379)]
     Cache --> Redis
@@ -292,6 +329,7 @@ Client
     -> Start metrics timer
     -> Add security headers
     -> Apply request size limit
+    -> Load route policy configuration
     -> Check x-api-key
       -> Missing: 401 API_KEY_MISSING
       -> Invalid: 403 API_KEY_INVALID
@@ -300,16 +338,20 @@ Client
     -> Check Authorization Bearer token
       -> Missing: 401 JWT_TOKEN_MISSING
       -> Invalid: 403 JWT_TOKEN_INVALID
+    -> Resolve response cache policy
     -> Check Redis response cache
       -> HIT:
+           -> Apply response transform foundation
            -> Return cached products
            -> x-cache: HIT
       -> MISS:
-           -> Call Product Service
+           -> Apply request transform foundation
+           -> Call Product Service through timeout and retry helpers
               -> Local npm: http://127.0.0.1:3001/products
               -> Docker Compose: http://product-service:3001/products
            -> Product Service reads PostgreSQL through Prisma
            -> API Gateway stores response in Redis cache
+           -> Apply response transform foundation
            -> Return products
            -> x-cache: MISS
     -> Add x-response-time-ms
@@ -366,6 +408,8 @@ pulsegate/
           downstream-routes.test.ts
           env.ts
           env.test.ts
+          validate-downstream-routes.ts
+          validate-downstream-routes.test.ts
         errors/
           downstream-service-error.ts
           downstream-service-error.test.ts
@@ -390,6 +434,20 @@ pulsegate/
         observability/
           metrics.ts
           metrics.test.ts
+        policies/
+          cache.policy.ts
+          cache.policy.test.ts
+          rate-limit.policy.ts
+          rate-limit.policy.test.ts
+          request-transform.policy.ts
+          request-transform.policy.test.ts
+          response-transform.policy.ts
+          response-transform.policy.test.ts
+          retry.policy.ts
+          retry.policy.test.ts
+          route-policy.types.ts
+          timeout.policy.ts
+          timeout.policy.test.ts
         rate-limit/
           in-memory-rate-limit-store.ts
           in-memory-rate-limit-store.test.ts
@@ -506,6 +564,7 @@ GET /api/products
   -> Redis-backed rate limited by API key and route
   -> Requires JWT Bearer token
   -> Uses Redis response cache
+  -> Uses route policy configuration
 ```
 
 Responsibilities:
@@ -524,6 +583,14 @@ Responsibilities:
 * Applies Redis-backed rate limiting.
 * Applies JWT authentication.
 * Attaches verified JWT payload to `request.jwtPayload`.
+* Applies route policy configuration.
+* Validates downstream route configuration at startup.
+* Resolves per-route timeout policy.
+* Resolves per-route cache policy.
+* Resolves per-route rate limit policy.
+* Supports request header transformation foundation.
+* Supports response header transformation foundation.
+* Supports upstream retry policy foundation.
 * Applies downstream request timeout.
 * Normalizes downstream service errors.
 * Handles basic 404 and 500 errors.
@@ -733,40 +800,40 @@ Cache Outcomes
 
 Currently implemented:
 
-| Category           | Technology                          | Status                                                            |
-| ------------------ | ----------------------------------- | ----------------------------------------------------------------- |
-| Runtime            | Node.js 20+                         | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Language           | TypeScript strict mode              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Web Framework      | Fastify                             | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Monorepo           | npm workspaces                      | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Logging            | Fastify JSON logger                 | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Access Logs        | Structured JSON logs                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Authentication     | API Key, JWT                        | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| JWT Library        | jose                                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Traffic Protection | Redis-backed rate limit, size limit | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| HTTP Security      | Basic security headers              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Cache              | Redis response cache                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Database           | PostgreSQL                          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| ORM                | Prisma                              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Metrics Library    | prom-client                         | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Metrics Backend    | Prometheus                          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Dashboard          | Grafana                             | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Containerization   | Docker, Docker Compose              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Testing            | Vitest                              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Architecture       | API Gateway + Microservice          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Category           | Technology                                        | Status                                                            |
+| ------------------ | ------------------------------------------------- | ----------------------------------------------------------------- |
+| Runtime            | Node.js 20+                                       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Language           | TypeScript strict mode                            | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Web Framework      | Fastify                                           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Monorepo           | npm workspaces                                    | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Logging            | Fastify JSON logger                               | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Access Logs        | Structured JSON logs                              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Authentication     | API Key, JWT                                      | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| JWT Library        | jose                                              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Traffic Protection | Redis-backed rate limit, size limit               | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| HTTP Security      | Basic security headers                            | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Cache              | Redis response cache                              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Gateway Policies   | Route policies, transformations, retry foundation | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Database           | PostgreSQL                                        | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| ORM                | Prisma                                            | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Metrics Library    | prom-client                                       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Metrics Backend    | Prometheus                                        | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Dashboard          | Grafana                                           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Containerization   | Docker, Docker Compose                            | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Testing            | Vitest                                            | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Architecture       | API Gateway + Microservice                        | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 
 Planned later:
 
-| Category         | Technology                               | Status                                                            |
-| ---------------- | ---------------------------------------- | ----------------------------------------------------------------- |
-| Gateway Policies | Route policies, transformations, retries | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Tracing          | OpenTelemetry + Jaeger/Tempo             | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Logs             | Loki                                     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Event Streaming  | Kafka                                    | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Background Jobs  | RabbitMQ                                 | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Load Testing     | k6                                       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Orchestration    | Kubernetes                               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| CI/CD            | GitHub Actions                           | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Category        | Technology                   | Status                                                            |
+| --------------- | ---------------------------- | ----------------------------------------------------------------- |
+| Tracing         | OpenTelemetry + Jaeger/Tempo | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Logs            | Loki                         | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Event Streaming | Kafka                        | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Background Jobs | RabbitMQ                     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Load Testing    | k6                           | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Orchestration   | Kubernetes                   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| CI/CD           | GitHub Actions               | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 
 ---
 
@@ -836,7 +903,7 @@ npm install
 
 ## Run with Docker Compose
 
-This is the recommended workflow after Sprint 4.
+This is the recommended workflow after Sprint 5.
 
 ### 1. Start PostgreSQL and Redis
 
@@ -913,7 +980,22 @@ pulsegate-prometheus       up
 pulsegate-grafana          up
 ```
 
-### 5. Open observability tools
+### 5. Validate API Gateway runtime
+
+```powershell
+Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
+
+Invoke-WebRequest http://localhost:3000/metrics -UseBasicParsing
+```
+
+Expected:
+
+```txt
+GET /health  -> status ok
+GET /metrics -> 200 OK with Prometheus text format
+```
+
+### 6. Open observability tools
 
 Prometheus:
 
@@ -934,7 +1016,7 @@ username: admin
 password: admin
 ```
 
-### 6. Stop the stack
+### 7. Stop the stack
 
 ```powershell
 docker compose down
@@ -1120,6 +1202,111 @@ x-cache
 x-ratelimit-limit
 x-ratelimit-remaining
 x-ratelimit-reset
+```
+
+---
+
+## Gateway Route Policy Behavior
+
+Sprint 5 adds a route policy foundation for API Gateway behavior.
+
+Current route policy model:
+
+```txt
+RoutePolicies
+  -> auth
+  -> timeout
+  -> cache
+  -> rateLimit
+  -> requestTransform
+  -> responseTransform
+  -> retry
+```
+
+Current protected product route policy:
+
+```txt
+GET /api/products
+  -> auth:
+       requireApiKey: true
+       requireJwt: true
+  -> timeout:
+       enabled: true
+       timeoutMs: DOWNSTREAM_REQUEST_TIMEOUT_MS
+  -> cache:
+       enabled: true
+       ttlSeconds: 30
+  -> rateLimit:
+       enabled: true
+       limit: PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS
+       windowMs: PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS
+  -> requestTransform:
+       enabled: false
+  -> responseTransform:
+       enabled: false
+  -> retry:
+       enabled: false
+       attempts: 0
+       retryOnStatuses: [502, 503, 504]
+```
+
+Current route policy validation checks:
+
+```txt
+serviceName must be present
+gatewayPath must start with /
+method must be supported
+downstreamUrl must be valid http or https URL
+timeoutMs must be positive when timeout policy is enabled
+cache ttlSeconds must be positive when cache policy is enabled
+rate limit limit/windowMs must be positive when rate limit policy is enabled
+request transform header names must be valid HTTP header names
+response transform header names must be valid HTTP header names
+retry attempts must be non-negative
+retry attempts must be greater than 0 when retry is enabled
+retryOnStatuses must not be empty when retry is enabled
+retryOnStatuses must contain valid HTTP status codes
+duplicate method + gatewayPath routes are rejected
+```
+
+Current policy helper behavior:
+
+```txt
+timeout.policy.ts
+  -> Creates per-request AbortController when timeout is enabled
+  -> Returns cleanup function to clear timeout safely
+
+cache.policy.ts
+  -> Builds stable response cache keys
+  -> Resolves cache enabled state from route policy and runtime cache store
+  -> Supports TTL override for tests
+
+rate-limit.policy.ts
+  -> Resolves route rate limit policy into runtime middleware config
+
+request-transform.policy.ts
+  -> Adds configured request headers
+  -> Removes configured request headers case-insensitively
+  -> Does not mutate original header object
+
+response-transform.policy.ts
+  -> Adds configured response headers
+  -> Removes configured response headers case-insensitively
+  -> Does not mutate original header object
+
+retry.policy.ts
+  -> Allows retry only for GET requests
+  -> Supports retry by result or error predicate
+  -> Treats attempts as additional retries after the first request
+```
+
+Retry note:
+
+```txt
+The current product route has retry foundation wired into the route flow,
+but retry is disabled in the default route policy.
+
+This keeps runtime behavior stable while preparing the Gateway for future safe retry scenarios.
 ```
 
 ---
@@ -1863,8 +2050,8 @@ npm run test
 Current result:
 
 ```txt
-17 test files passed
-101 tests passed
+24 test files passed
+139 tests passed
 ```
 
 Current unit test coverage:
@@ -1910,13 +2097,34 @@ env.test.ts
   -> Number, CSV, and string env parsing
 
 downstream-routes.test.ts
-  -> Route-level rate limit config and auth requirements
+  -> Route policy config, auth policy, timeout policy, cache policy, transform foundation, retry foundation
+
+validate-downstream-routes.test.ts
+  -> Route config validation, duplicate route detection, invalid policy detection
 
 observability/metrics.test.ts
   -> Metrics registry, request metrics, cache metrics, cache status normalization
 
 routes/metrics.route.test.ts
   -> /metrics endpoint and Prometheus text format
+
+policies/timeout.policy.test.ts
+  -> Timeout policy signal creation, abort behavior, and cleanup
+
+policies/cache.policy.test.ts
+  -> Cache key generation, enabled/disabled resolution, TTL override
+
+policies/rate-limit.policy.test.ts
+  -> Runtime rate limit policy resolution
+
+policies/request-transform.policy.test.ts
+  -> Request header add/remove behavior and immutability
+
+policies/response-transform.policy.test.ts
+  -> Response header add/remove behavior and immutability
+
+policies/retry.policy.test.ts
+  -> Retryable HTTP method checks, retryable status checks, result retry, error retry, retry exhaustion
 ```
 
 Current integration test coverage:
@@ -1948,7 +2156,13 @@ GET /api/products with valid API key but invalid JWT
 
 GET /api/products with valid API key and valid JWT
   -> 200 and product data
+  -> includes x-cache: BYPASS when no response cache store is configured in test app
   -> includes rate limit headers
+
+GET /api/products with response cache store configured
+  -> First request returns x-cache: MISS
+  -> Second request returns x-cache: HIT
+  -> Product Service is only called once
 
 GET /api/products when rate limit is exceeded
   -> 429 TOO_MANY_REQUESTS
@@ -2150,18 +2364,20 @@ Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
 
 ### Sprint 5 - Advanced Gateway Policies
 
-Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
+Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
 
-| Feature                                | Status                                                            |
-| -------------------------------------- | ----------------------------------------------------------------- |
-| Review current route config model      | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add route policy type foundation       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add per-route timeout policy           | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add per-route cache policy             | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add per-route rate limit policy        | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add request transformation foundation  | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add response transformation foundation | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add upstream retry policy foundation   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Feature                                | Status                                                        |
+| -------------------------------------- | ------------------------------------------------------------- |
+| Review current route config model      | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add route policy type foundation       | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add route config validation            | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add per-route timeout policy           | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add per-route cache policy             | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add per-route rate limit policy        | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add request transformation foundation  | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add response transformation foundation | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add upstream retry policy foundation   | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add route policy integration tests     | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
 
 ### Later - Event-Driven Architecture
 
@@ -2191,7 +2407,7 @@ Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
 
 ## Current Status
 
-PulseGate currently has a stable local-first API Gateway and infrastructure foundation with Docker Compose, PostgreSQL, Prisma, Redis-backed traffic protection, database-backed Product Service data, Redis response caching, structured access logs, Prometheus metrics, Prometheus scraping, Grafana datasource provisioning, and Grafana dashboard provisioning.
+PulseGate currently has a stable local-first API Gateway and infrastructure foundation with Docker Compose, PostgreSQL, Prisma, Redis-backed traffic protection, database-backed Product Service data, Redis response caching, structured access logs, Prometheus metrics, Prometheus scraping, Grafana datasource provisioning, Grafana dashboard provisioning, and advanced Gateway route policy foundations.
 
 Stable flow:
 
@@ -2203,12 +2419,15 @@ Client
     -> Response time measurement
     -> Basic security headers
     -> Request size limit
+    -> Route policy configuration
     -> API key authentication
     -> Redis-backed rate limiting
     -> JWT authentication
     -> Redis response cache
-    -> Downstream route configuration
-    -> Downstream timeout handling
+    -> Request transform foundation
+    -> Downstream timeout policy
+    -> Upstream retry policy foundation
+    -> Response transform foundation
     -> Normalized downstream error handling
     -> Product Service :3001
       -> Prisma
@@ -2241,6 +2460,20 @@ Prometheus container
 
 Grafana container
   -> Reads Prometheus container
+```
+
+Latest stable Sprint 5 commits:
+
+```txt
+9138e16 feat(gateway): add route policy type foundation
+dbd2607 feat(gateway): validate route policy configuration
+6bf7eb1 feat(gateway): add per-route timeout policy helper
+75d63f7 feat(gateway): add per-route cache policy helper
+7480632 feat(gateway): add per-route rate limit policy helper
+13ee083 feat(gateway): add request transformation policy foundation
+57bdd38 feat(gateway): add response transformation policy foundation
+806022a feat(gateway): add upstream retry policy foundation
+84b3fed test(gateway): cover route policy integration behavior
 ```
 
 Latest stable Sprint 4 commits:
@@ -2290,6 +2523,7 @@ PulseGate follows these principles:
 * Production-oriented learning.
 * Automated tests before major refactors.
 * Behavior first, infrastructure later.
+* Policy foundation before Admin UI.
 * GitHub-ready documentation.
 * Reproducible infrastructure through configuration files.
 
