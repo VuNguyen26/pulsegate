@@ -16,6 +16,7 @@ import {
 import { createDownstreamTimeout } from "../policies/timeout.policy.js";
 import { RedisRateLimitStore } from "../rate-limit/redis-rate-limit-store.js";
 import { getRedisClient } from "../redis/redis-client.js";
+import { resolveRouteRateLimitPolicy } from "../policies/rate-limit.policy.js";
 
 export { buildResponseCacheKey } from "../policies/cache.policy.js";
 
@@ -35,6 +36,13 @@ export async function productProxyRoute(
   const rateLimitStore =
     options.rateLimitStore ?? new RedisRateLimitStore(getRedisClient());
 
+  const rateLimit = resolveRouteRateLimitPolicy({
+    policy: routePolicies.rateLimit,
+    routePath: routeConfig.gatewayPath,
+    identityType: "api-key",
+    store: rateLimitStore,
+  });
+
   const responseCache = resolveRouteCachePolicy({
     policy: routePolicies.cache,
     store: options.responseCacheStore,
@@ -46,14 +54,14 @@ export async function productProxyRoute(
     {
       preHandler: [
         ...(routePolicies.auth.requireApiKey ? [apiKeyAuthMiddleware] : []),
-        ...(routePolicies.rateLimit.enabled
+        ...(rateLimit.enabled
           ? [
               createRateLimitMiddleware({
-                limit: routePolicies.rateLimit.limit,
-                windowMs: routePolicies.rateLimit.windowMs,
-                routePath: routeConfig.gatewayPath,
-                identityType: "api-key",
-                store: rateLimitStore,
+                limit: rateLimit.limit,
+                windowMs: rateLimit.windowMs,
+                routePath: rateLimit.routePath,
+                identityType: rateLimit.identityType,
+                store: rateLimit.store,
               }),
             ]
           : []),
