@@ -11,6 +11,7 @@ import {
 } from "../middlewares/rate-limit.middleware.js";
 import { getRedisClient } from "../redis/redis-client.js";
 import { RedisRateLimitStore } from "../rate-limit/redis-rate-limit-store.js";
+import { createDownstreamTimeout } from "../policies/timeout.policy.js";
 
 export type ProductProxyRouteOptions = {
   rateLimitStore?: RateLimitStore;
@@ -76,15 +77,7 @@ export async function productProxyRoute(
         }
       }
 
-      const controller = new AbortController();
-
-      let timeout: ReturnType<typeof setTimeout> | undefined;
-
-      if (routePolicies.timeout.enabled) {
-        timeout = setTimeout(() => {
-          controller.abort();
-        }, routePolicies.timeout.timeoutMs);
-      }
+      const downstreamTimeout = createDownstreamTimeout(routePolicies.timeout);
 
       let response: Response;
 
@@ -94,9 +87,7 @@ export async function productProxyRoute(
           headers: {
             "x-request-id": request.id,
           },
-          signal: routePolicies.timeout.enabled
-            ? controller.signal
-            : undefined,
+          signal: downstreamTimeout.signal,
         });
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {
@@ -117,9 +108,7 @@ export async function productProxyRoute(
           originalError: error,
         });
       } finally {
-        if (timeout) {
-          clearTimeout(timeout);
-        }
+        downstreamTimeout.cleanup();
       }
 
       if (!response.ok) {
