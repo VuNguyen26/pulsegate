@@ -1,7 +1,10 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 
 import type { ResponseCacheStore } from "../cache/redis-response-cache-store.js";
-import { productProductsRouteConfig } from "../config/downstream-routes.js";
+import {
+  productProductsRouteConfig,
+  type DownstreamRouteConfig,
+} from "../config/downstream-routes.js";
 import { DownstreamServiceError } from "../errors/downstream-service-error.js";
 import { apiKeyAuthMiddleware } from "../middlewares/api-key-auth.middleware.js";
 import { jwtAuthMiddleware } from "../middlewares/jwt-auth.middleware.js";
@@ -32,6 +35,10 @@ export type ProductProxyRouteOptions = {
   responseCacheTtlSeconds?: number;
 };
 
+export type DownstreamProxyRouteOptions = ProductProxyRouteOptions & {
+  routeConfigs?: readonly DownstreamRouteConfig[];
+};
+
 function applyHeadersToReply(
   reply: FastifyReply,
   headers: Record<string, string>,
@@ -51,32 +58,66 @@ function shouldRetryDownstreamError(
   );
 }
 
-export async function productProxyRoute(
+function toServiceDisplayName(serviceName: string): string {
+  return serviceName
+    .split("-")
+    .filter((word) => word.length > 0)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function buildDownstreamHttpErrorMessage(
+  routeConfig: DownstreamRouteConfig,
+): string {
+  return `${toServiceDisplayName(routeConfig.serviceName)} returned an error`;
+}
+
+function buildDownstreamTimeoutMessage(
+  routeConfig: DownstreamRouteConfig,
+): string {
+  return `${toServiceDisplayName(routeConfig.serviceName)} did not respond in time`;
+}
+
+function buildDownstreamUnavailableMessage(
+  routeConfig: DownstreamRouteConfig,
+): string {
+  return `${toServiceDisplayName(routeConfig.serviceName)} is currently unavailable`;
+}
+
+function buildDownstreamInvalidResponseMessage(
+  routeConfig: DownstreamRouteConfig,
+): string {
+  return `${toServiceDisplayName(routeConfig.serviceName)} returned an invalid response`;
+}
+
+export async function downstreamProxyRoute(
   app: FastifyInstance,
-  options: ProductProxyRouteOptions = {},
+  options: DownstreamProxyRouteOptions = {},
 ): Promise<void> {
-  const routeConfig = productProductsRouteConfig;
-  const routePolicies = routeConfig.policies;
+  const routeConfigs = options.routeConfigs ?? [productProductsRouteConfig];
 
   const rateLimitStore =
     options.rateLimitStore ?? new RedisRateLimitStore(getRedisClient());
 
-  const rateLimit = resolveRouteRateLimitPolicy({
-    policy: routePolicies.rateLimit,
-    routePath: routeConfig.gatewayPath,
-    identityType: "api-key",
-    store: rateLimitStore,
-  });
+  for (const routeConfig of routeConfigs) {
+    const routePolicies = routeConfig.policies;
 
-  const responseCache = resolveRouteCachePolicy({
-    policy: routePolicies.cache,
-    store: options.responseCacheStore,
-    ttlSecondsOverride: options.responseCacheTtlSeconds,
-  });
+    const rateLimit = resolveRouteRateLimitPolicy({
+      policy: routePolicies.rateLimit,
+      routePath: routeConfig.gatewayPath,
+      identityType: "api-key",
+      store: rateLimitStore,
+    });
 
-  app.get(
-    routeConfig.gatewayPath,
-    {
+    const responseCache = resolveRouteCachePolicy({
+      policy: routePolicies.cache,
+      store: options.responseCacheStore,
+      ttlSecondsOverride: options.responseCacheTtlSeconds,
+    });
+
+    app.route({
+      method: routeConfig.method,
+      url: routeConfig.gatewayPath,
       preHandler: [
         ...(routePolicies.auth.requireApiKey ? [apiKeyAuthMiddleware] : []),
         ...(rateLimit.enabled
@@ -92,157 +133,167 @@ export async function productProxyRoute(
           : []),
         ...(routePolicies.auth.requireJwt ? [jwtAuthMiddleware] : []),
       ],
-    },
-    async (request, reply) => {
-      const cacheKey = buildResponseCacheKey(
-        routeConfig.method,
-        routeConfig.gatewayPath,
-      );
-
-      const transformedResponseHeaders = applyResponseHeaderTransform(
-        {},
-        routePolicies.responseTransform,
-      );
-
-      if (responseCache.enabled && responseCache.store) {
-        const cachedResponse = await responseCache.store.get(cacheKey);
-
-        if (cachedResponse.hit) {
-          applyHeadersToReply(reply, transformedResponseHeaders);
-          reply.header("x-cache", "HIT");
-
-          return reply
-            .status(cachedResponse.value.statusCode)
-            .send(cachedResponse.value.body);
-        }
-      }
-
-      const downstreamRequestHeaders = applyRequestHeaderTransform(
-        {
-          "x-request-id": request.id,
-        },
-        routePolicies.requestTransform,
-      );
-
-      const fetchDownstreamResponse = async (): Promise<Response> => {
-        const downstreamTimeout = createDownstreamTimeout(
-          routePolicies.timeout,
+      handler: async (request, reply) => {
+        const cacheKey = buildResponseCacheKey(
+          routeConfig.method,
+          routeConfig.gatewayPath,
         );
 
-        try {
-          const downstreamResponse = await fetch(routeConfig.downstreamUrl, {
-            method: routeConfig.method,
-            headers: downstreamRequestHeaders,
-            signal: downstreamTimeout.signal,
-          });
+        const transformedResponseHeaders = applyResponseHeaderTransform(
+          {},
+          routePolicies.responseTransform,
+        );
 
-          if (!downstreamResponse.ok) {
-            throw new DownstreamServiceError({
-              code: "DOWNSTREAM_HTTP_ERROR",
-              message: "Product Service returned an error",
-              service: routeConfig.serviceName,
-              statusCode:
-                downstreamResponse.status >= 500
-                  ? 502
-                  : downstreamResponse.status,
+        if (responseCache.enabled && responseCache.store) {
+          const cachedResponse = await responseCache.store.get(cacheKey);
+
+          if (cachedResponse.hit) {
+            applyHeadersToReply(reply, transformedResponseHeaders);
+            reply.header("x-cache", "HIT");
+
+            return reply
+              .status(cachedResponse.value.statusCode)
+              .send(cachedResponse.value.body);
+          }
+        }
+
+        const downstreamRequestHeaders = applyRequestHeaderTransform(
+          {
+            "x-request-id": request.id,
+          },
+          routePolicies.requestTransform,
+        );
+
+        const fetchDownstreamResponse = async (): Promise<Response> => {
+          const downstreamTimeout = createDownstreamTimeout(
+            routePolicies.timeout,
+          );
+
+          try {
+            const downstreamResponse = await fetch(routeConfig.downstreamUrl, {
+              method: routeConfig.method,
+              headers: downstreamRequestHeaders,
+              signal: downstreamTimeout.signal,
             });
-          }
 
-          return downstreamResponse;
-        } catch (error) {
-          if (error instanceof DownstreamServiceError) {
-            throw error;
-          }
+            if (!downstreamResponse.ok) {
+              throw new DownstreamServiceError({
+                code: "DOWNSTREAM_HTTP_ERROR",
+                message: buildDownstreamHttpErrorMessage(routeConfig),
+                service: routeConfig.serviceName,
+                statusCode:
+                  downstreamResponse.status >= 500
+                    ? 502
+                    : downstreamResponse.status,
+              });
+            }
 
-          if (error instanceof Error && error.name === "AbortError") {
+            return downstreamResponse;
+          } catch (error) {
+            if (error instanceof DownstreamServiceError) {
+              throw error;
+            }
+
+            if (error instanceof Error && error.name === "AbortError") {
+              throw new DownstreamServiceError({
+                code: "DOWNSTREAM_TIMEOUT",
+                message: buildDownstreamTimeoutMessage(routeConfig),
+                service: routeConfig.serviceName,
+                statusCode: 504,
+                originalError: error,
+              });
+            }
+
             throw new DownstreamServiceError({
-              code: "DOWNSTREAM_TIMEOUT",
-              message: "Product Service did not respond in time",
+              code: "DOWNSTREAM_SERVICE_UNAVAILABLE",
+              message: buildDownstreamUnavailableMessage(routeConfig),
               service: routeConfig.serviceName,
-              statusCode: 504,
+              statusCode: 503,
               originalError: error,
             });
+          } finally {
+            downstreamTimeout.cleanup();
           }
+        };
 
+        const response = await executeWithRetry({
+          method: routeConfig.method,
+          policy: routePolicies.retry,
+          operation: fetchDownstreamResponse,
+          shouldRetryError: (error) =>
+            shouldRetryDownstreamError(
+              error,
+              routePolicies.retry.retryOnStatuses,
+            ),
+        });
+
+        if (
+          shouldRetryStatus(routePolicies.retry, response.status) &&
+          routePolicies.retry.enabled
+        ) {
+          request.log.warn(
+            {
+              requestId: request.id,
+              statusCode: response.status,
+              route: routeConfig.gatewayPath,
+            },
+            "Received retryable downstream response after retry execution",
+          );
+        }
+
+        let data: unknown;
+
+        try {
+          data = await response.json();
+        } catch (error) {
           throw new DownstreamServiceError({
-            code: "DOWNSTREAM_SERVICE_UNAVAILABLE",
-            message: "Product Service is currently unavailable",
+            code: "DOWNSTREAM_INVALID_RESPONSE",
+            message: buildDownstreamInvalidResponseMessage(routeConfig),
             service: routeConfig.serviceName,
-            statusCode: 503,
+            statusCode: 502,
             originalError: error,
           });
-        } finally {
-          downstreamTimeout.cleanup();
         }
-      };
 
-      const response = await executeWithRetry({
-        method: routeConfig.method,
-        policy: routePolicies.retry,
-        operation: fetchDownstreamResponse,
-        shouldRetryError: (error) =>
-          shouldRetryDownstreamError(
-            error,
-            routePolicies.retry.retryOnStatuses,
-          ),
-      });
-
-      if (
-        shouldRetryStatus(routePolicies.retry, response.status) &&
-        routePolicies.retry.enabled
-      ) {
-        request.log.warn(
-          {
-            requestId: request.id,
-            statusCode: response.status,
-            route: routeConfig.gatewayPath,
-          },
-          "Received retryable downstream response after retry execution",
-        );
-      }
-
-      let data: unknown;
-
-      try {
-        data = await response.json();
-      } catch (error) {
-        throw new DownstreamServiceError({
-          code: "DOWNSTREAM_INVALID_RESPONSE",
-          message: "Product Service returned an invalid response",
-          service: routeConfig.serviceName,
-          statusCode: 502,
-          originalError: error,
-        });
-      }
-
-      if (responseCache.enabled && responseCache.store) {
-        try {
-          await responseCache.store.set(
-            cacheKey,
-            {
-              statusCode: 200,
-              body: data,
-            },
-            {
-              ttlSeconds: responseCache.ttlSeconds,
-            },
-          );
-        } catch (error) {
-          request.log.error(
-            {
-              error,
+        if (responseCache.enabled && responseCache.store) {
+          try {
+            await responseCache.store.set(
               cacheKey,
-              requestId: request.id,
-            },
-            "Failed to store response cache",
-          );
+              {
+                statusCode: response.status,
+                body: data,
+              },
+              {
+                ttlSeconds: responseCache.ttlSeconds,
+              },
+            );
+          } catch (error) {
+            request.log.error(
+              {
+                error,
+                cacheKey,
+                requestId: request.id,
+              },
+              "Failed to store response cache",
+            );
+          }
         }
-      }
 
-      applyHeadersToReply(reply, transformedResponseHeaders);
-      reply.header("x-cache", responseCache.enabled ? "MISS" : "BYPASS");
+        applyHeadersToReply(reply, transformedResponseHeaders);
+        reply.header("x-cache", responseCache.enabled ? "MISS" : "BYPASS");
 
-      return reply.status(200).send(data);
-    },
-  );
+        return reply.status(response.status).send(data);
+      },
+    });
+  }
+}
+
+export async function productProxyRoute(
+  app: FastifyInstance,
+  options: ProductProxyRouteOptions = {},
+): Promise<void> {
+  await downstreamProxyRoute(app, {
+    ...options,
+    routeConfigs: [productProductsRouteConfig],
+  });
 }
