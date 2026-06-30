@@ -1,6 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { SignJWT } from "jose";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { buildApiGatewayApp } from "./app.js";
 import type { ResponseCacheStore } from "./cache/redis-response-cache-store.js";
@@ -12,7 +19,8 @@ let app: FastifyInstance;
 
 async function createValidJwtToken(): Promise<string> {
   const secretKey = new TextEncoder().encode(env.JWT_SECRET);
-  const expiresAt = Math.floor(Date.now() / 1000) + env.JWT_EXPIRES_IN_SECONDS;
+  const expiresAt =
+    Math.floor(Date.now() / 1000) + env.JWT_EXPIRES_IN_SECONDS;
 
   return new SignJWT({
     role: "user",
@@ -81,6 +89,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.unstubAllGlobals();
+
   await app.close();
 });
 
@@ -98,11 +107,56 @@ describe("API Gateway app", () => {
     expect(body.service).toBe("api-gateway");
     expect(body.status).toBe("ok");
     expect(typeof body.timestamp).toBe("string");
+
     expect(response.headers["x-request-id"]).toBeDefined();
 
     for (const [headerName, headerValue] of Object.entries(securityHeaders)) {
       expect(response.headers[headerName]).toBe(headerValue);
     }
+  });
+
+  it("should proxy product service health route without API key or JWT", async () => {
+    const mockHealthResponse = {
+      service: "product-service",
+      status: "ok",
+      timestamp: "2026-06-30T00:00:00.000Z",
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(mockHealthResponse), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      }),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/product-service/health",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(mockHealthResponse);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:3001/health",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          "x-request-id": expect.any(String),
+        }),
+        signal: expect.any(AbortSignal),
+      }),
+    );
+
+    expect(response.headers["x-cache"]).toBe("BYPASS");
+    expect(response.headers["x-request-id"]).toBeDefined();
+    expect(response.headers["x-response-time-ms"]).toBeDefined();
+    expect(response.headers["x-ratelimit-limit"]).toBeUndefined();
   });
 
   it("should return 413 when request body is too large", async () => {
