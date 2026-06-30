@@ -188,7 +188,7 @@ Reason:
 * Kubernetes is not needed for the first working version.
 * The project should stay local-first and cost-safe.
 
-Planned order:
+Planned order at that time:
 
 ```txt
 Sprint 0: Local Node.js services
@@ -196,8 +196,7 @@ Sprint 1: API Gateway core features
 Sprint 2: Gateway traffic protection
 Sprint 3: Data and infrastructure foundation
 Sprint 4: Observability
-Sprint 5: Event-driven architecture
-Later: Kubernetes
+Later: Event-driven architecture and Kubernetes
 ```
 
 Status:
@@ -408,7 +407,7 @@ Implementation:
 apps/api-gateway/src/config/downstream-routes.ts
 ```
 
-Current configured route:
+Current configured route at that time:
 
 ```txt
 GET /api/products
@@ -486,7 +485,7 @@ Current test command:
 npm run test
 ```
 
-Current test status:
+Initial test status when accepted:
 
 ```txt
 6 test files passed
@@ -671,7 +670,7 @@ GET /api/products
   -> Exceeded limit returns 429 TOO_MANY_REQUESTS
 ```
 
-Current limitation:
+Current limitation at that time:
 
 * Counters are stored in API Gateway memory.
 * Counters reset when the API Gateway process restarts.
@@ -989,7 +988,7 @@ docker compose up --build -d
   -> redis
 ```
 
-Current Docker services:
+Current Docker services at that time:
 
 ```txt
 pulsegate-api-gateway
@@ -2852,7 +2851,7 @@ npm run typecheck
 npm run build
 ```
 
-Current validation status:
+Sprint 6 validation status at the time:
 
 ```txt
 24 test files passed
@@ -2965,6 +2964,488 @@ Kubernetes deployment
 Production secrets management
 Environment promotion
 Release versioning automation
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-30 - Keep Sprint 7 Focused on Multi-Route Gateway Expansion
+
+Decision:
+
+Keep Sprint 7 focused on expanding the Gateway from a single protected Product proxy route into a static multi-route Gateway foundation.
+
+Reason:
+
+* Sprint 6 completed CI/CD validation, so the repository is now safer to refactor.
+* The Gateway still behaved like a single-route proxy instead of a real API Gateway with multiple routes.
+* A real API Gateway must support multiple Gateway routes with different policies.
+* Multi-route routing should be implemented before database-backed dynamic route configuration.
+* Keeping Sprint 7 focused avoids mixing route refactor, database persistence, service registry, Admin APIs, and UI concerns in one sprint.
+
+Included in Sprint 7:
+
+```txt
+Generic downstream proxy route foundation
+Static multi-route downstream route configuration
+Product Service health proxy route
+Public route policy behavior
+Preserve protected Product route behavior
+Multi-route tests
+Docker runtime validation
+Documentation update
+```
+
+Not included in Sprint 7:
+
+```txt
+Dynamic route config from database
+Service registry
+API consumer database
+API key lifecycle
+Usage plans and quotas
+Admin Dashboard
+Developer Portal
+OpenTelemetry
+Loki
+k6
+Kafka
+RabbitMQ
+Kubernetes
+Production cloud deployment
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-30 - Refactor Product Proxy into Generic Downstream Proxy Route
+
+Decision:
+
+Refactor the Product-specific proxy route into a reusable generic downstream proxy route while preserving the existing Product route behavior.
+
+Reason:
+
+* The existing proxy implementation was tightly coupled to `GET /api/products`.
+* Future Gateway routes should reuse the same downstream proxy flow.
+* Route behavior should come from `DownstreamRouteConfig` and `RoutePolicies`.
+* The Gateway should be able to register multiple route configs without duplicating proxy logic.
+* This makes the Gateway closer to production API Gateway architecture.
+
+Implemented behavior:
+
+```txt
+downstreamProxyRoute()
+  -> accepts routeConfigs
+  -> registers each configured route
+  -> resolves route-specific policies
+  -> applies API key policy when enabled
+  -> applies rate limit policy when enabled
+  -> applies JWT policy when enabled
+  -> applies cache policy when enabled
+  -> applies request transform foundation
+  -> applies timeout policy helper
+  -> applies retry policy foundation
+  -> applies response transform foundation
+  -> returns normalized downstream errors
+```
+
+Current file:
+
+```txt
+apps/api-gateway/src/routes/product-proxy.route.ts
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-30 - Keep productProxyRoute Compatibility Wrapper
+
+Decision:
+
+Keep `productProxyRoute()` as a compatibility wrapper around the new `downstreamProxyRoute()`.
+
+Reason:
+
+* Existing tests and app options still referenced the Product proxy concept.
+* Removing the old function immediately would create unnecessary breaking changes.
+* Sprint 7 should focus on behavior expansion, not aggressive naming cleanup.
+* Keeping the wrapper allows a safe migration toward the generic proxy model.
+* A future cleanup sprint can rename files and options when the Gateway is more stable.
+
+Current behavior:
+
+```txt
+productProxyRoute()
+  -> wraps downstreamProxyRoute()
+  -> defaults routeConfigs to [productProductsRouteConfig]
+```
+
+Naming note:
+
+```txt
+The file name is still product-proxy.route.ts.
+The generic downstreamProxyRoute() now lives inside that file.
+A future cleanup can rename this file to downstream-proxy.route.ts.
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-30 - Add Product Service Health Proxy Route
+
+Decision:
+
+Add a new Gateway route:
+
+```txt
+GET /api/product-service/health
+  -> Product Service GET /health
+```
+
+Reason:
+
+* Sprint 7 needs a second real Gateway route to prove multi-route registration works.
+* Product Service already has a stable `/health` endpoint.
+* A health proxy route is a safe first public route because it does not expose product data.
+* This route proves that public and protected routes can coexist.
+* It also validates that route policies can disable auth, rate limiting, and cache per route.
+
+Implemented route config:
+
+```txt
+productServiceHealthRouteConfig
+  -> serviceName: product-service
+  -> gatewayPath: /api/product-service/health
+  -> downstreamUrl: PRODUCT_SERVICE_URL + /health
+  -> method: GET
+```
+
+Runtime behavior:
+
+```txt
+GET /api/product-service/health
+  -> No API key required
+  -> No JWT required
+  -> No Redis-backed rate limiting
+  -> No Redis response cache
+  -> Uses downstream timeout policy
+  -> Proxies to Product Service GET /health
+  -> Returns x-cache: BYPASS
+  -> Returns x-request-id
+  -> Returns x-response-time-ms
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-30 - Use Different Policies for Public and Protected Routes
+
+Decision:
+
+Use different route policies for the protected Product route and the public Product Service health proxy route.
+
+Reason:
+
+* A real API Gateway must support different policies for different routes.
+* Product data should remain protected.
+* Health proxy behavior should be public and lightweight.
+* Rate limiting and response caching should not be forced onto every route.
+* This proves the policy model can support route-level behavior variation.
+
+Current protected route policy:
+
+```txt
+GET /api/products
+  -> auth.requireApiKey: true
+  -> auth.requireJwt: true
+  -> rateLimit.enabled: true
+  -> cache.enabled: true
+  -> timeout.enabled: true
+  -> retry.enabled: false
+```
+
+Current public route policy:
+
+```txt
+GET /api/product-service/health
+  -> auth.requireApiKey: false
+  -> auth.requireJwt: false
+  -> rateLimit.enabled: false
+  -> cache.enabled: false
+  -> timeout.enabled: true
+  -> retry.enabled: false
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-30 - Register Downstream Routes from Static Route Config List
+
+Decision:
+
+Register Gateway downstream routes from `downstreamRouteConfigs` instead of registering only one hardcoded Product proxy route.
+
+Reason:
+
+* The Gateway should not be limited to one route.
+* Static multi-route config is a safe bridge before database-backed route config.
+* `downstreamRouteConfigs` can be validated before being used.
+* The app builder can register all configured routes through the generic downstream proxy route.
+* This prepares the Gateway for Sprint 8 dynamic route config from database.
+
+Current route config list:
+
+```txt
+downstreamRouteConfigs
+  -> productProductsRouteConfig
+  -> productServiceHealthRouteConfig
+```
+
+Current registered Gateway routes:
+
+```txt
+GET /api/products
+GET /api/product-service/health
+```
+
+Implementation:
+
+```txt
+apps/api-gateway/src/app.ts
+  -> imports downstreamRouteConfigs
+  -> registers downstreamProxyRoute()
+  -> passes routeConfigs: downstreamRouteConfigs
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-30 - Preserve Existing Protected Product Route Behavior During Multi-Route Refactor
+
+Decision:
+
+The existing `GET /api/products` route must remain behaviorally stable after the multi-route refactor.
+
+Reason:
+
+* Refactoring the route registration foundation should not break stable user-facing behavior.
+* The protected Product route already had API key, JWT, Redis-backed rate limiting, Redis response caching, timeout, retry foundation, transforms, downstream error normalization, metrics, and logs.
+* Keeping this route stable proves the refactor is safe.
+* Future changes should build on top of stable existing behavior instead of rewriting everything at once.
+
+Validated behavior:
+
+```txt
+GET /api/products with valid API key and JWT
+  -> 200 OK
+
+First valid request after cache clear
+  -> x-cache: MISS
+
+Second valid request within cache TTL
+  -> x-cache: HIT
+
+Rate limit headers still exist
+  -> x-ratelimit-limit
+  -> x-ratelimit-remaining
+  -> x-ratelimit-reset
+
+Product response remains unchanged
+  -> prod_001 Mechanical Keyboard
+  -> prod_002 Gaming Mouse
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-30 - Keep Route Config Static Before Database-Backed Dynamic Config
+
+Decision:
+
+Keep Sprint 7 route configuration static in code and move database-backed route configuration to Sprint 8.
+
+Reason:
+
+* Multi-route registration and database persistence are separate concerns.
+* Static config keeps Sprint 7 safer and easier to validate.
+* The project first needs to prove that multiple routes can be registered and handled correctly.
+* Database-backed route config will need Prisma model design, migration, seed/bootstrap logic, loading behavior, fallback behavior, and tests.
+* Mixing all of that into Sprint 7 would make the sprint too large.
+
+Current status:
+
+```txt
+Sprint 7:
+  -> Static multi-route config complete
+
+Sprint 8:
+  -> Dynamic Route Config from Database
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-30 - Add Multi-Route Test Coverage
+
+Decision:
+
+Add tests that prove the Gateway supports the new public Product Service health proxy route and the expanded route config list.
+
+Reason:
+
+* The route config list should prove both configured routes exist.
+* The public health proxy route should prove no API key or JWT is required.
+* The integration test should prove the Gateway proxies to Product Service `/health`.
+* Tests should verify route-specific policy behavior through observable headers.
+* Existing protected route tests should continue passing.
+
+Implemented coverage:
+
+```txt
+downstream-routes.test.ts
+  -> Product route policy config
+  -> Product Service health route config
+  -> downstreamRouteConfigs includes both routes
+
+app.test.ts
+  -> GET /api/product-service/health returns 200
+  -> Does not require API key
+  -> Does not require JWT
+  -> Proxies to Product Service /health
+  -> Returns x-cache: BYPASS
+  -> Returns x-request-id
+  -> Returns x-response-time-ms
+  -> Does not return rate limit headers
+```
+
+Current automated test status after Sprint 7:
+
+```txt
+24 test files passed
+142 tests passed
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-30 - Validate Sprint 7 Through Docker Runtime
+
+Decision:
+
+Validate Sprint 7 with the full Docker Compose runtime stack before final documentation.
+
+Reason:
+
+* Unit and integration tests prove code behavior in isolation.
+* Docker runtime validation proves the real local stack still works.
+* The new route must work with Docker internal service names.
+* The existing Product route must continue to work with Redis and PostgreSQL in the real runtime stack.
+* Observability routes should still work after the multi-route refactor.
+
+Validated commands:
+
+```powershell
+docker compose up -d --build
+docker compose ps
+Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
+Invoke-WebRequest http://localhost:3000/metrics -UseBasicParsing
+Invoke-WebRequest http://localhost:3000/api/product-service/health -UseBasicParsing
+```
+
+Validated runtime behavior:
+
+```txt
+Docker services started successfully.
+PostgreSQL was healthy.
+Redis was healthy.
+Product Service was healthy.
+API Gateway started successfully.
+Prometheus started successfully.
+Grafana started successfully.
+GET /health returned API Gateway status ok.
+GET /metrics returned 200 OK with Prometheus text.
+GET /api/product-service/health returned 200 OK.
+GET /api/product-service/health returned x-cache: BYPASS.
+GET /api/product-service/health returned x-request-id.
+GET /api/product-service/health returned x-response-time-ms.
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-06-30 - Move Next Sprint Toward Dynamic Route Config from Database
+
+Decision:
+
+After Sprint 7 final documentation update, move Sprint 8 toward dynamic route config from database.
+
+Reason:
+
+* Sprint 7 proved static multi-route Gateway routing.
+* The next product-like API Gateway capability is database-backed route configuration.
+* Dynamic route config is required before future Admin APIs and Admin Dashboard can manage routes.
+* Database-backed route config should be implemented before service registry, API key lifecycle, usage plans, or Developer Portal.
+* The Gateway should keep a safe static fallback during this transition.
+
+Recommended Sprint 8 direction:
+
+```txt
+1. Design route config database model.
+2. Add Prisma model and migration for Gateway route config.
+3. Seed or bootstrap route config records.
+4. Load route config from PostgreSQL.
+5. Keep safe static fallback config during rollout.
+6. Validate database-backed route config.
+7. Add tests for database route config loading.
+8. Prepare future Admin API route management.
+```
+
+Not included at the beginning of Sprint 8:
+
+```txt
+Kafka
+RabbitMQ
+Kubernetes
+Admin Dashboard UI
+Developer Portal UI
+OpenTelemetry
+Loki
+k6
+Production cloud deployment
 ```
 
 Status:

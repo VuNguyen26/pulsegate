@@ -17,27 +17,40 @@ PulseGate is designed to help backend teams manage, protect, monitor, validate, 
 Current version:
 
 ```txt
-v0.7.0
+v0.8.0
 ```
 
 Current status:
 
 ```txt
-Sprint 6 - CI/CD Foundation Technical Implementation Complete
+Sprint 7 - Multi-Route Gateway Expansion Technical Implementation Complete
 ```
 
 Current automated test status:
 
 ```txt
 24 test files passed
-139 tests passed
+142 tests passed
 ```
 
 Current CI/CD status:
 
 ```txt
-GitHub Actions CI -> passed
+GitHub Actions CI -> passing
 README CI badge -> passing
+```
+
+Current architecture level:
+
+```txt
+Local-first API Gateway
+Docker Compose infrastructure
+PostgreSQL-backed Product Service
+Redis-backed traffic protection and response cache
+Prometheus + Grafana observability
+Route policy foundation
+GitHub Actions CI/CD foundation
+Static multi-route Gateway routing
 ```
 
 ---
@@ -51,6 +64,8 @@ PulseGate is designed for:
 * SREs
 * Tech Leads
 * Companies with multiple internal or external APIs
+* Teams that need a centralized API entry point
+* Teams that want API Gateway, API Management, and Observability concepts in one platform
 
 ---
 
@@ -60,6 +75,8 @@ PulseGate aims to solve these problems:
 
 * Provide a single entry point for multiple backend services.
 * Route client requests to the correct downstream service.
+* Support more than one Gateway route.
+* Allow public routes and protected routes to behave differently.
 * Centralize authentication and authorization.
 * Protect APIs from spam, abuse, excessive traffic, and unsafe payloads.
 * Reduce backend load with Redis response caching.
@@ -73,16 +90,18 @@ PulseGate aims to solve these problems:
 * Support per-route auth, timeout, cache, rate limit, transform, and retry rules.
 * Validate repository health automatically with CI.
 * Validate tests, typecheck, build, Prisma generation, and Docker image builds before treating the main branch as stable.
+* Prepare for database-backed dynamic route config.
+* Prepare for service registry and API management features.
 * Prepare for distributed tracing.
 * Support local infrastructure through Docker Compose.
 * Support future event streaming and background jobs.
-* Provide a foundation for future API management features.
+* Provide a foundation for future Admin Dashboard and Developer Portal.
 
 ---
 
 ## 4. Current Architecture
 
-Current stable architecture after Sprint 6:
+Current stable architecture after Sprint 7:
 
 ```txt
 Client
@@ -92,6 +111,9 @@ Client
     -> Metrics timer
     -> Basic security headers
     -> Request size limit
+    -> Static downstream route configuration
+      -> GET /api/products
+      -> GET /api/product-service/health
     -> Downstream route policy configuration
       -> Auth policy
       -> Timeout policy
@@ -100,24 +122,40 @@ Client
       -> Request transform policy
       -> Response transform policy
       -> Retry policy foundation
-    -> API key authentication for protected routes
-    -> Redis-backed rate limiting by API key and route
-    -> JWT authentication for protected routes
-    -> Redis response cache
-      -> Cache HIT:
-           -> Apply response transform foundation
-           -> Return cached product response
-      -> Cache MISS:
-           -> Apply request transform foundation
-           -> Downstream timeout policy helper
-           -> Upstream retry policy foundation
-           -> Normalized downstream error handling
-           -> Product Service :3001
-             -> Prisma Client
-             -> PostgreSQL :5432
-             -> Database-backed product response
-           -> Store response in Redis cache
-           -> Apply response transform foundation
+
+    -> Protected Product route:
+      -> GET /api/products
+      -> API key authentication
+      -> Redis-backed rate limiting by API key and route
+      -> JWT authentication
+      -> Redis response cache
+        -> Cache HIT:
+             -> Apply response transform foundation
+             -> Return cached product response
+             -> x-cache: HIT
+        -> Cache MISS:
+             -> Apply request transform foundation
+             -> Downstream timeout policy helper
+             -> Upstream retry policy foundation
+             -> Normalized downstream error handling
+             -> Product Service :3001 /products
+               -> Prisma Client
+               -> PostgreSQL :5432
+               -> Database-backed product response
+             -> Store response in Redis cache
+             -> Apply response transform foundation
+             -> x-cache: MISS
+
+    -> Public Product Service health proxy route:
+      -> GET /api/product-service/health
+      -> No API key required
+      -> No JWT required
+      -> No Redis-backed rate limiting
+      -> No Redis response cache
+      -> Downstream timeout policy helper
+      -> Product Service :3001 /health
+      -> x-cache: BYPASS
+
     -> Add x-cache
     -> Add x-response-time-ms
     -> Record Prometheus metrics
@@ -154,33 +192,44 @@ flowchart LR
     AccessLogStart --> MetricsStart[Metrics Timer]
     MetricsStart --> SecurityHeaders[Security Headers Middleware]
     SecurityHeaders --> SizeLimit[Request Size Limit]
-    SizeLimit --> RoutePolicy[Route Policy Configuration<br/>Auth / Timeout / Cache / Rate Limit / Transform / Retry]
-    RoutePolicy --> ApiKey[API Key Authentication]
+    SizeLimit --> RouteConfig[Static Downstream Route Configs<br/>/api/products<br/>/api/product-service/health]
+
+    RouteConfig --> ProductRoute[Protected Product Route<br/>GET /api/products]
+    RouteConfig --> ProductHealthRoute[Public Product Service Health Proxy<br/>GET /api/product-service/health]
+
+    ProductRoute --> ProductPolicy[Route Policy Configuration<br/>Auth / Timeout / Cache / Rate Limit / Transform / Retry]
+    ProductPolicy --> ApiKey[API Key Authentication]
     ApiKey --> RateLimit[Redis-Backed Rate Limiting]
     RateLimit --> Jwt[JWT Authentication]
     Jwt --> Cache{Redis Response Cache}
 
     Cache -->|HIT| ResponseTransformHit[Response Transform Foundation]
     ResponseTransformHit --> CachedResponse[Cached Product Response]
-    CachedResponse --> ResponseHeaders[Response Headers<br/>x-cache / x-response-time-ms]
+    CachedResponse --> ProductResponseHeaders[Response Headers<br/>x-cache: HIT<br/>x-response-time-ms]
 
     Cache -->|MISS| RequestTransform[Request Transform Foundation]
     RequestTransform --> RetryPolicy[Upstream Retry Policy Foundation]
     RetryPolicy --> TimeoutPolicy[Downstream Timeout Policy]
-    TimeoutPolicy --> Product[Product Service<br/>Port 3001]
-    Product --> Prisma[Prisma Client]
+    TimeoutPolicy --> ProductProducts[Product Service<br/>GET /products<br/>Port 3001]
+    ProductProducts --> Prisma[Prisma Client]
     Prisma --> Postgres[(PostgreSQL<br/>Port 5432)]
     Postgres --> Prisma
-    Prisma --> Product
-    Product --> CacheStore[Store Response in Redis Cache]
+    Prisma --> ProductProducts
+    ProductProducts --> CacheStore[Store Response in Redis Cache]
     CacheStore --> ResponseTransformMiss[Response Transform Foundation]
-    ResponseTransformMiss --> ResponseHeaders
+    ResponseTransformMiss --> ProductResponseHeaders
+
+    ProductHealthRoute --> HealthPolicy[Route Policy Configuration<br/>Public / No Cache / No Rate Limit]
+    HealthPolicy --> HealthTimeout[Downstream Timeout Policy]
+    HealthTimeout --> ProductHealth[Product Service<br/>GET /health<br/>Port 3001]
+    ProductHealth --> HealthResponse[Health Response<br/>x-cache: BYPASS]
 
     RateLimit --> Redis[(Redis<br/>Port 6379)]
     Cache --> Redis
     CacheStore --> Redis
 
-    ResponseHeaders --> MetricsRecord[Record HTTP Metrics]
+    ProductResponseHeaders --> MetricsRecord[Record HTTP Metrics]
+    HealthResponse --> MetricsRecord
     MetricsRecord --> AccessLogWrite[Write Structured Access Log]
     AccessLogWrite --> Client
 
@@ -208,37 +257,45 @@ Current behavior:
 4. API Gateway starts metrics timing.
 5. API Gateway adds baseline security headers.
 6. API Gateway checks request body size.
-7. API Gateway loads downstream route policy configuration.
-8. API Gateway checks API key for protected routes.
-9. API Gateway resolves route rate limit policy.
-10. API Gateway applies Redis-backed rate limiting for protected routes.
-11. API Gateway checks JWT for protected routes.
-12. API Gateway resolves route cache policy.
-13. API Gateway checks Redis response cache.
-14. If cache HIT, API Gateway applies response transform foundation.
-15. If cache HIT, API Gateway returns cached response with `x-cache: HIT`.
-16. If cache MISS, API Gateway applies request transform foundation.
-17. If cache MISS, API Gateway uses timeout and retry helpers for the downstream request.
-18. API Gateway calls Product Service.
-19. API Gateway forwards the same `x-request-id` header.
-20. Product Service receives the request.
-21. Product Service reuses the same request ID.
-22. Product Service reads product data from PostgreSQL using Prisma.
-23. Product Service returns database-backed product data.
-24. API Gateway stores the response in Redis cache.
-25. API Gateway applies response transform foundation.
-26. API Gateway returns the response with `x-cache: MISS`.
-27. API Gateway adds `x-response-time-ms`.
-28. API Gateway records Prometheus metrics.
-29. API Gateway writes a structured access log.
-30. API Gateway normalizes downstream errors when needed.
-31. Prometheus scrapes API Gateway `/metrics`.
-32. Grafana reads metrics from Prometheus and displays the API Gateway overview dashboard.
-33. GitHub Actions validates every push to `main`.
-34. GitHub Actions validates every pull request targeting `main`.
-35. GitHub Actions runs `npm ci`, Prisma generate, tests, typecheck, build, and Docker image build validation.
-36. GitHub reports CI pass/fail status.
-37. README badge reflects the current CI workflow status.
+7. API Gateway matches a static downstream route configuration.
+8. API Gateway loads the route-specific policy configuration.
+9. API Gateway applies policy behavior depending on the matched route.
+10. For `GET /api/products`, API Gateway checks API key.
+11. For `GET /api/products`, API Gateway resolves route rate limit policy.
+12. For `GET /api/products`, API Gateway applies Redis-backed rate limiting.
+13. For `GET /api/products`, API Gateway checks JWT.
+14. For `GET /api/products`, API Gateway resolves route cache policy.
+15. For `GET /api/products`, API Gateway checks Redis response cache.
+16. If cache HIT, API Gateway applies response transform foundation.
+17. If cache HIT, API Gateway returns cached response with `x-cache: HIT`.
+18. If cache MISS, API Gateway applies request transform foundation.
+19. If cache MISS, API Gateway uses timeout and retry helpers for the downstream request.
+20. API Gateway calls Product Service `GET /products`.
+21. API Gateway forwards the same `x-request-id` header.
+22. Product Service receives the request.
+23. Product Service reuses the same request ID.
+24. Product Service reads product data from PostgreSQL using Prisma.
+25. Product Service returns database-backed product data.
+26. API Gateway stores the response in Redis cache.
+27. API Gateway applies response transform foundation.
+28. API Gateway returns the response with `x-cache: MISS`.
+29. For `GET /api/product-service/health`, API Gateway does not require API key.
+30. For `GET /api/product-service/health`, API Gateway does not require JWT.
+31. For `GET /api/product-service/health`, API Gateway does not apply Redis-backed rate limiting.
+32. For `GET /api/product-service/health`, API Gateway does not use Redis response cache.
+33. API Gateway calls Product Service `GET /health`.
+34. API Gateway returns Product Service health response with `x-cache: BYPASS`.
+35. API Gateway adds `x-response-time-ms`.
+36. API Gateway records Prometheus metrics.
+37. API Gateway writes a structured access log.
+38. API Gateway normalizes downstream errors when needed.
+39. Prometheus scrapes API Gateway `/metrics`.
+40. Grafana reads metrics from Prometheus and displays the API Gateway overview dashboard.
+41. GitHub Actions validates every push to `main`.
+42. GitHub Actions validates every pull request targeting `main`.
+43. GitHub Actions runs `npm ci`, Prisma generate, tests, typecheck, build, and Docker image build validation.
+44. GitHub reports CI pass/fail status.
+45. README badge reflects the current CI workflow status.
 
 ---
 
@@ -342,6 +399,7 @@ Current endpoints:
 GET /health
 GET /metrics
 GET /api/products
+GET /api/product-service/health
 ```
 
 Route protection:
@@ -354,11 +412,23 @@ GET /metrics
   -> Public for local Docker observability
 
 GET /api/products
+  -> Protected
   -> Requires API key
   -> Redis-backed rate limited by API key and route
   -> Requires JWT Bearer token
   -> Uses Redis response cache
   -> Uses route policy configuration
+  -> Proxies to Product Service GET /products on cache MISS
+
+GET /api/product-service/health
+  -> Public
+  -> Does not require API key
+  -> Does not require JWT
+  -> Does not use Redis-backed rate limiting
+  -> Does not use Redis response cache
+  -> Uses route policy configuration
+  -> Uses downstream timeout policy
+  -> Proxies to Product Service GET /health
 ```
 
 Responsibilities:
@@ -370,12 +440,14 @@ Responsibilities:
 * Adds `x-response-time-ms` response header.
 * Adds basic security headers.
 * Applies request size limit.
-* Routes `/api/products` to Product Service on cache MISS.
+* Registers multiple downstream routes from static route configuration.
+* Routes `/api/products` to Product Service `GET /products` on cache MISS.
+* Routes `/api/product-service/health` to Product Service `GET /health`.
 * Returns cached product response on cache HIT.
 * Forwards `x-request-id` to downstream service.
-* Applies API key authentication.
-* Applies Redis-backed rate limiting.
-* Applies JWT authentication.
+* Applies API key authentication when route policy requires it.
+* Applies Redis-backed rate limiting when route policy requires it.
+* Applies JWT authentication when route policy requires it.
 * Attaches verified JWT payload to `request.jwtPayload`.
 * Uses downstream route configuration.
 * Uses route policy configuration.
@@ -467,6 +539,18 @@ apps/api-gateway/src/
   server.ts
 ```
 
+Important Sprint 7 naming note:
+
+```txt
+The file name is still product-proxy.route.ts.
+
+Sprint 7 refactored the internals so this file now contains the reusable generic downstreamProxyRoute().
+
+productProxyRoute() remains as a compatibility wrapper to preserve old behavior and avoid breaking existing tests or app options too aggressively.
+
+A future cleanup sprint may rename product-proxy.route.ts to downstream-proxy.route.ts if desired.
+```
+
 ---
 
 ### 6.2 Product Service
@@ -493,6 +577,7 @@ GET /products
 Responsibilities:
 
 * Provides product-related APIs.
+* Provides service health response.
 * Returns database-backed product data.
 * Reads product data from PostgreSQL using Prisma Client.
 * Generates or reuses request ID.
@@ -842,7 +927,7 @@ Expected response:
 {
   "service": "api-gateway",
   "status": "ok",
-  "timestamp": "2026-06-25T00:00:00.000Z"
+  "timestamp": "2026-06-30T00:00:00.000Z"
 }
 ```
 
@@ -901,7 +986,7 @@ Expected response:
 {
   "service": "product-service",
   "status": "ok",
-  "timestamp": "2026-06-25T00:00:00.000Z"
+  "timestamp": "2026-06-30T00:00:00.000Z"
 }
 ```
 
@@ -919,6 +1004,7 @@ Client
     -> API Gateway applies request size limit
       -> If request body is too large:
         -> 413 REQUEST_BODY_TOO_LARGE
+    -> API Gateway matches route config: GET /api/products
     -> API Gateway loads route policy configuration
     -> API Gateway checks x-api-key
       -> If missing:
@@ -979,7 +1065,57 @@ Expected response:
 
 ---
 
-### 7.5 CI Validation Flow
+### 7.5 Public Product Service Health Proxy Flow
+
+```txt
+Client
+  -> GET http://localhost:3000/api/product-service/health
+    -> API Gateway creates or reuses x-request-id
+    -> API Gateway starts structured access log timer
+    -> API Gateway starts metrics timer
+    -> API Gateway adds basic security headers
+    -> API Gateway applies request size limit
+    -> API Gateway matches route config: GET /api/product-service/health
+    -> API Gateway loads route policy configuration
+    -> API Gateway does not require API key
+    -> API Gateway does not apply Redis-backed rate limiting
+    -> API Gateway does not require JWT
+    -> API Gateway does not use Redis response cache
+    -> API Gateway applies request transform foundation
+    -> API Gateway calls Product Service through timeout helper
+      -> GET http://product-service:3001/health in Docker
+      -> GET http://127.0.0.1:3001/health in local host mode
+    -> Product Service returns health response
+    -> API Gateway returns Product Service health response
+    -> API Gateway returns x-cache: BYPASS
+    -> API Gateway adds x-response-time-ms
+    -> API Gateway records Prometheus metrics
+    -> API Gateway writes structured access log
+```
+
+Expected response:
+
+```json
+{
+  "service": "product-service",
+  "status": "ok",
+  "timestamp": "2026-06-30T00:00:00.000Z"
+}
+```
+
+Expected response headers include:
+
+```txt
+x-cache: BYPASS
+x-request-id
+x-response-time-ms
+```
+
+This route should not return rate limit headers.
+
+---
+
+### 7.6 CI Validation Flow
 
 ```txt
 Developer
@@ -1028,6 +1164,15 @@ Current request ID header:
 x-request-id
 ```
 
+Current routes using request ID behavior:
+
+```txt
+GET /health
+GET /metrics
+GET /api/products
+GET /api/product-service/health
+```
+
 ---
 
 ## 9. Authentication Design
@@ -1040,6 +1185,14 @@ Protected route:
 
 ```txt
 GET /api/products
+```
+
+Public routes without API key requirement:
+
+```txt
+GET /health
+GET /metrics
+GET /api/product-service/health
 ```
 
 Default header:
@@ -1067,11 +1220,18 @@ Valid API key
   -> Continue to Redis-backed route-level rate limiting
 ```
 
-Route policy:
+Protected route policy:
 
 ```txt
 auth:
   requireApiKey: true
+```
+
+Public Product Service health proxy route policy:
+
+```txt
+auth:
+  requireApiKey: false
 ```
 
 ---
@@ -1084,6 +1244,14 @@ Protected route:
 
 ```txt
 GET /api/products
+```
+
+Public routes without JWT requirement:
+
+```txt
+GET /health
+GET /metrics
+GET /api/product-service/health
 ```
 
 Default header:
@@ -1129,11 +1297,18 @@ Verified JWT payload is attached to:
 request.jwtPayload
 ```
 
-Route policy:
+Protected route policy:
 
 ```txt
 auth:
   requireJwt: true
+```
+
+Public Product Service health proxy route policy:
+
+```txt
+auth:
+  requireJwt: false
 ```
 
 ---
@@ -1148,7 +1323,13 @@ PulseGate currently supports Redis-backed rate limiting for:
 GET /api/products
 ```
 
-Current behavior:
+Rate limiting is intentionally disabled for:
+
+```txt
+GET /api/product-service/health
+```
+
+Current protected route behavior:
 
 ```txt
 Allowed requests within the window
@@ -1215,13 +1396,22 @@ Expected status:
 429
 ```
 
-Current route policy:
+Product route policy:
 
 ```txt
 rateLimit:
   enabled: true
   limit: PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS
   windowMs: PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS
+```
+
+Product Service health proxy route policy:
+
+```txt
+rateLimit:
+  enabled: false
+  limit: 0
+  windowMs: 0
 ```
 
 Current Redis failure behavior:
@@ -1239,6 +1429,7 @@ Implementation notes:
 * `RedisRateLimitStore` is used by the normal Docker/runtime flow.
 * Rate limit middleware supports async stores.
 * Rate limit runtime values are resolved through the rate limit policy helper.
+* Public routes can disable rate limiting through route policy.
 
 ---
 
@@ -1290,6 +1481,7 @@ Implementation notes:
 
 * Request size limit middleware checks `content-length`.
 * Fastify `bodyLimit` is configured with `MAX_REQUEST_BODY_BYTES`.
+* The request size limit applies globally to current Gateway routes.
 
 ---
 
@@ -1330,6 +1522,12 @@ Current cached route:
 GET /api/products
 ```
 
+Current route with cache disabled:
+
+```txt
+GET /api/product-service/health
+```
+
 Current Redis response cache key:
 
 ```txt
@@ -1342,12 +1540,20 @@ Current cache TTL:
 30 seconds
 ```
 
-Current route policy:
+Product route policy:
 
 ```txt
 cache:
   enabled: true
   ttlSeconds: 30
+```
+
+Product Service health proxy route policy:
+
+```txt
+cache:
+  enabled: false
+  ttlSeconds: 0
 ```
 
 Current response cache headers:
@@ -1361,16 +1567,21 @@ x-cache: BYPASS
 Current behavior:
 
 ```txt
-First valid request after cache clear
+GET /api/products first valid request after cache clear
   -> Cache MISS
   -> API Gateway calls Product Service
   -> API Gateway stores response in Redis
   -> Response header: x-cache: MISS
 
-Second valid request within TTL
+GET /api/products second valid request within TTL
   -> Cache HIT
   -> API Gateway returns cached response from Redis
   -> Response header: x-cache: HIT
+
+GET /api/product-service/health
+  -> Cache disabled by route policy
+  -> API Gateway calls Product Service /health
+  -> Response header: x-cache: BYPASS
 ```
 
 Cache resilience behavior:
@@ -1398,6 +1609,7 @@ Implementation notes:
 * Cache key generation is handled by the cache policy helper.
 * Cache enabled state is resolved from route policy and runtime cache store availability.
 * Cache TTL can be overridden in tests.
+* Public routes can disable cache through route policy.
 
 ---
 
@@ -1437,7 +1649,7 @@ Example unavailable response:
 }
 ```
 
-Current timeout policy:
+Product route timeout policy:
 
 ```txt
 timeout:
@@ -1445,7 +1657,15 @@ timeout:
   timeoutMs: DOWNSTREAM_REQUEST_TIMEOUT_MS
 ```
 
-Current retry policy:
+Product Service health proxy timeout policy:
+
+```txt
+timeout:
+  enabled: true
+  timeoutMs: DOWNSTREAM_REQUEST_TIMEOUT_MS
+```
+
+Current retry policy for both current downstream routes:
 
 ```txt
 retry:
@@ -1459,7 +1679,7 @@ Retry design notes:
 * Retry foundation exists.
 * Retry is wired into the downstream call flow.
 * Retry is allowed only for safe `GET` requests.
-* Retry is disabled by default for the product route to avoid hidden behavior changes.
+* Retry is disabled by default for current routes to avoid hidden behavior changes.
 * Retry can be enabled later for carefully selected read-only routes.
 
 ---
@@ -1578,6 +1798,15 @@ MISS
 BYPASS
 ```
 
+Current route labels include:
+
+```txt
+/health
+/metrics
+/api/products
+/api/product-service/health
+```
+
 ### 13.4 Metrics Endpoint
 
 Current metrics endpoint:
@@ -1656,6 +1885,8 @@ Cache Outcomes
 
 Sprint 5 introduced a route policy foundation.
 
+Sprint 7 expanded the Gateway so more than one downstream route can be registered from route configuration.
+
 Current route config file:
 
 ```txt
@@ -1674,7 +1905,13 @@ Current route validation file:
 apps/api-gateway/src/config/validate-downstream-routes.ts
 ```
 
-Current product route config includes:
+Current generic downstream proxy file:
+
+```txt
+apps/api-gateway/src/routes/product-proxy.route.ts
+```
+
+Current route config includes:
 
 ```txt
 serviceName
@@ -1697,6 +1934,18 @@ RoutePolicies
   -> retry
 ```
 
+Current configured downstream routes:
+
+```txt
+productProductsRouteConfig
+  -> Gateway: GET /api/products
+  -> Downstream: Product Service GET /products
+
+productServiceHealthRouteConfig
+  -> Gateway: GET /api/product-service/health
+  -> Downstream: Product Service GET /health
+```
+
 Current product route policy:
 
 ```txt
@@ -1717,6 +1966,39 @@ GET /api/products
        enabled: true
        limit: PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS
        windowMs: PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS
+
+  -> requestTransform:
+       enabled: false
+
+  -> responseTransform:
+       enabled: false
+
+  -> retry:
+       enabled: false
+       attempts: 0
+       retryOnStatuses: [502, 503, 504]
+```
+
+Current Product Service health proxy route policy:
+
+```txt
+GET /api/product-service/health
+  -> auth:
+       requireApiKey: false
+       requireJwt: false
+
+  -> timeout:
+       enabled: true
+       timeoutMs: DOWNSTREAM_REQUEST_TIMEOUT_MS
+
+  -> cache:
+       enabled: false
+       ttlSeconds: 0
+
+  -> rateLimit:
+       enabled: false
+       limit: 0
+       windowMs: 0
 
   -> requestTransform:
        enabled: false
@@ -1795,14 +2077,102 @@ Purpose:
 
 * Keep route behavior configuration close to route definitions.
 * Avoid hard-coding all Gateway behavior directly in route handlers.
+* Allow public and protected routes to use different policies.
 * Prepare for more downstream services later.
+* Prepare for database-backed dynamic route config in Sprint 8.
 * Prepare for future Admin Dashboard or config-driven route management.
 * Make the Gateway closer to production API Gateway products.
 * Keep route behavior testable through unit and integration tests.
 
 ---
 
-## 15. CI/CD Design
+## 15. Multi-Route Gateway Design
+
+Sprint 7 introduced static multi-route Gateway routing.
+
+Before Sprint 7, the Gateway effectively proxied one downstream route:
+
+```txt
+GET /api/products
+  -> Product Service GET /products
+```
+
+After Sprint 7, the Gateway registers multiple downstream routes from config:
+
+```txt
+GET /api/products
+  -> Product Service GET /products
+
+GET /api/product-service/health
+  -> Product Service GET /health
+```
+
+Current route registration flow:
+
+```txt
+downstreamRouteConfigs
+  -> validateDownstreamRoutes()
+  -> app.ts
+  -> downstreamProxyRoute()
+  -> Fastify route registration
+```
+
+Current route config list:
+
+```txt
+downstreamRouteConfigs = [
+  productProductsRouteConfig,
+  productServiceHealthRouteConfig
+]
+```
+
+Current design behavior:
+
+```txt
+Each route has:
+  -> serviceName
+  -> gatewayPath
+  -> downstreamUrl
+  -> method
+  -> policies
+```
+
+Current public/protected route split:
+
+```txt
+GET /api/products
+  -> Protected
+  -> API key required
+  -> JWT required
+  -> Redis rate limit enabled
+  -> Redis cache enabled
+
+GET /api/product-service/health
+  -> Public
+  -> API key not required
+  -> JWT not required
+  -> Redis rate limit disabled
+  -> Redis cache disabled
+```
+
+Why this matters:
+
+* The Gateway is no longer limited to one route.
+* Route behavior is moving toward config-driven routing.
+* The Gateway can now support multiple route policies.
+* Sprint 8 can evolve static route config into database-backed route config.
+* Future Admin APIs can manage route configuration more naturally.
+
+Current limitation:
+
+```txt
+Routes are still static code-based configs.
+They are not loaded from database yet.
+```
+
+---
+
+## 16. CI/CD Design
 
 Sprint 6 introduced a GitHub Actions CI/CD foundation.
 
@@ -1875,7 +2245,7 @@ Design reason:
 
 ---
 
-## 16. Database Design
+## 17. Database Design
 
 Product Service owns the current Product data.
 
@@ -1923,15 +2293,22 @@ prod_002 - Gaming Mouse - 45
 Design notes:
 
 * Product Service owns product data.
-* API Gateway does not connect directly to PostgreSQL.
+* API Gateway does not connect directly to PostgreSQL for product data.
 * API Gateway only communicates with Product Service through HTTP.
 * Product Service reads from PostgreSQL through Prisma.
 * The Product response shape remains compatible with the earlier mock response shape.
 * Prisma Client is generated in CI before typecheck and build.
 
+Sprint 8 expected database evolution:
+
+```txt
+Gateway route configuration will start moving toward database-backed configuration.
+This should be implemented carefully with a safe fallback to static route config.
+```
+
 ---
 
-## 17. Current Tech Stack
+## 18. Current Tech Stack
 
 Currently implemented:
 
@@ -1960,6 +2337,8 @@ Currently implemented Gateway capabilities:
 * API key authentication.
 * JWT authentication.
 * Downstream route configuration.
+* Static multi-route downstream route configuration.
+* Generic downstream proxy route foundation.
 * Route policy configuration.
 * Route config validation.
 * Downstream timeout handling.
@@ -2016,6 +2395,11 @@ Currently implemented CI/CD capabilities:
 
 Not implemented yet:
 
+* Dynamic route config from database
+* Service registry
+* API consumer database
+* API key lifecycle management
+* Usage plans and quotas
 * Kafka
 * RabbitMQ
 * Kubernetes
@@ -2031,7 +2415,7 @@ Not implemented yet:
 
 ---
 
-## 18. Monorepo Structure
+## 19. Monorepo Structure
 
 Current repository structure:
 
@@ -2173,7 +2557,7 @@ pulsegate/
 
 ---
 
-## 19. Automated Test and CI Architecture
+## 20. Automated Test and CI Architecture
 
 PulseGate uses Vitest for API Gateway unit and integration tests.
 
@@ -2187,7 +2571,7 @@ Current test status:
 
 ```txt
 24 test files passed
-139 tests passed
+142 tests passed
 ```
 
 Current CI-equivalent local validation command:
@@ -2245,7 +2629,9 @@ env.test.ts
   -> Number, CSV, and string env parsing
 
 downstream-routes.test.ts
-  -> Route policy config, auth policy, timeout policy, cache policy, transform foundation, retry foundation
+  -> Product route policy config
+  -> Product Service health route config
+  -> Multi-route downstream route config list
 
 validate-downstream-routes.test.ts
   -> Route config validation, duplicate route detection, invalid policy detection
@@ -2282,6 +2668,16 @@ GET /health
   -> 200 OK
   -> includes x-request-id
   -> includes basic security headers
+
+GET /api/product-service/health
+  -> 200 OK
+  -> does not require API key
+  -> does not require JWT
+  -> proxies to Product Service /health
+  -> returns x-cache: BYPASS
+  -> includes x-request-id
+  -> includes x-response-time-ms
+  -> does not return rate limit headers
 
 GET /metrics
   -> 200 OK
@@ -2343,23 +2739,23 @@ Product Service Docker image build
 
 ---
 
-## 20. Current Design Principles
+## 21. Current Design Principles
 
 PulseGate follows these principles:
 
-### 20.1 Local First
+### 21.1 Local First
 
 The project should run locally before adding cloud deployment.
 
-### 20.2 Cost Safe
+### 21.2 Cost Safe
 
 Early versions should not require paid cloud infrastructure.
 
-### 20.3 Small Steps
+### 21.3 Small Steps
 
 New technologies should be added only after the previous layer is stable.
 
-### 20.4 Clean Structure
+### 21.4 Clean Structure
 
 Each service should separate:
 
@@ -2376,9 +2772,11 @@ API Gateway also separates:
 * Rate limit stores
 * Response cache stores
 * Downstream route configuration
+* Static multi-route configuration
 * Route policy types
 * Route policy helpers
 * Route config validation
+* Generic downstream proxy behavior
 * Observability metrics registry
 * Observability middlewares
 
@@ -2400,11 +2798,11 @@ CI/CD config is separated under:
 .github/workflows/
 ```
 
-### 20.5 Observable by Design
+### 21.5 Observable by Design
 
 Request ID, structured access logs, response time headers, metrics, Prometheus, and Grafana are part of the Gateway foundation.
 
-### 20.6 Policy-Driven Gateway Behavior
+### 21.6 Policy-Driven Gateway Behavior
 
 Gateway route behavior should be controlled by route policies instead of being hardcoded directly inside route handlers.
 
@@ -2420,7 +2818,7 @@ responseTransform
 retry
 ```
 
-### 20.7 CI-Validated by Design
+### 21.7 CI-Validated by Design
 
 Repository health should be validated automatically before the main branch is considered stable.
 
@@ -2435,25 +2833,37 @@ production build
 Docker image builds
 ```
 
-### 20.8 Behavior First, Infrastructure Later
+### 21.8 Behavior First, Infrastructure Later
 
 Gateway behavior is implemented and tested before adding more advanced distributed systems.
 
-### 20.9 Test Before Scaling
+### 21.9 Test Before Scaling
 
 Core Gateway behavior should be protected by automated tests before infrastructure and distributed systems are added.
 
-### 20.10 Infrastructure After Stable Gateway Behavior
+### 21.10 Infrastructure After Stable Gateway Behavior
 
 Docker, PostgreSQL, Redis, Prisma, Prometheus, and Grafana were added only after routing, auth, downstream resilience, and traffic protection were stable.
 
-### 20.11 Provision Infrastructure Configuration
+### 21.11 Provision Infrastructure Configuration
 
 Prometheus and Grafana configuration should be file-based where possible so the local stack is reproducible.
 
+### 21.12 Static Route Config Before Database Route Config
+
+Sprint 7 deliberately uses static multi-route config before moving to database-backed dynamic route config.
+
+Reason:
+
+* Keep the refactor safe.
+* Preserve existing Product route behavior.
+* Prove that the Gateway can register multiple routes.
+* Prepare a stable foundation for Sprint 8.
+* Avoid mixing route registration refactor and database persistence in the same sprint.
+
 ---
 
-## 21. Future Target Architecture
+## 22. Future Target Architecture
 
 Long-term architecture:
 
@@ -2465,6 +2875,14 @@ Client / Frontend / External API Consumer
     -> Order Service
     -> Payment Service
     -> Notification Service
+
+Gateway Config Layer
+  -> Database-backed route configuration
+  -> Service registry
+  -> API consumers
+  -> API keys
+  -> Usage plans
+  -> Quotas
 
 Gateway Policy Layer
   -> Route policies
@@ -2489,6 +2907,13 @@ Observability
   -> Jaeger or Tempo
   -> Loki
 
+API Management
+  -> Admin Backend API
+  -> Admin Dashboard
+  -> Developer Portal
+  -> API documentation
+  -> API key request flow
+
 Infrastructure
   -> Docker Compose for local development
   -> GitHub Actions CI
@@ -2499,7 +2924,7 @@ Infrastructure
 
 ---
 
-## 22. Planned Evolution
+## 23. Planned Evolution
 
 ### Sprint 0 - Core Setup & Basic Gateway Flow
 
@@ -2654,26 +3079,102 @@ Goal:
 Status:
 
 ```txt
+Done
+```
+
+---
+
+### Sprint 7 - Multi-Route Gateway Expansion
+
+Goal:
+
+* Refactor the Product proxy route into a generic downstream proxy foundation.
+* Keep existing Product route behavior stable.
+* Add more than one downstream route config.
+* Add a public Product Service health proxy route.
+* Register multiple downstream routes from `downstreamRouteConfigs`.
+* Prove that protected and public Gateway routes can coexist.
+* Validate tests, typecheck, build, and Docker runtime.
+
+Completed:
+
+* Added generic `downstreamProxyRoute()`.
+* Kept `productProxyRoute()` compatibility wrapper.
+* Added `productServiceHealthRouteConfig`.
+* Added `GET /api/product-service/health -> Product Service /health`.
+* Registered route configs through `downstreamRouteConfigs`.
+* Preserved `GET /api/products` API key, JWT, rate limit, and cache behavior.
+* Added route config tests.
+* Added public route integration test.
+* Validated Docker runtime.
+* Validated product route cache `MISS -> HIT`.
+* Updated test status to 142 passing tests.
+
+Status:
+
+```txt
 Technical implementation complete
 ```
 
 ---
 
-### Possible Next Sprint - To Be Planned
+### Sprint 8 - Dynamic Route Config from Database
 
-Possible directions:
+Goal:
 
-* More realistic multi-route Gateway policy expansion.
-* OpenTelemetry tracing foundation.
-* k6 load testing foundation.
-* Additional downstream service routing.
-* Admin Dashboard foundation later.
-* Developer Portal foundation later.
+* Design a database model for Gateway route config.
+* Add Prisma model and migration for route config.
+* Seed or bootstrap route config records.
+* Load route config from PostgreSQL.
+* Keep safe fallback to static route config during rollout.
+* Validate database-backed route config.
+* Add tests for database route config loading.
+* Prepare future Admin API route management.
 
 Status:
 
 ```txt
-To be planned
+Next
+```
+
+---
+
+### Later - Service Registry and API Management Foundation
+
+Planned goal:
+
+* Add service registry foundation.
+* Add API consumer database.
+* Add API key lifecycle.
+* Add usage plans and quotas.
+* Add Admin Backend API.
+* Add Admin Dashboard foundation.
+* Add Developer Portal foundation.
+* Add OpenAPI documentation foundation.
+
+Status:
+
+```txt
+Planned
+```
+
+---
+
+### Later - Observability Expansion
+
+Planned goal:
+
+* Add OpenTelemetry tracing.
+* Add Jaeger or Tempo trace viewer.
+* Add Loki centralized logs.
+* Add advanced Grafana dashboards.
+* Add alerting.
+* Add k6 load testing.
+
+Status:
+
+```txt
+Planned
 ```
 
 ---
@@ -2699,16 +3200,12 @@ Planned
 
 Planned features:
 
-* Admin Dashboard.
-* Developer Portal.
-* k6 load testing.
-* OpenTelemetry tracing.
-* Jaeger or Tempo.
-* Loki.
 * Docker image registry push.
 * Deployment automation.
 * Kubernetes deployment.
+* Production secrets.
 * Cloud lightweight demo.
+* Final product polish.
 
 Status:
 
