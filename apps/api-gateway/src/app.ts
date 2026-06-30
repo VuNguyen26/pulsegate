@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 
 import { RedisResponseCacheStore } from "./cache/redis-response-cache-store.js";
+import { downstreamRouteConfigs } from "./config/downstream-routes.js";
 import { env } from "./config/env.js";
 import { registerAccessLogMiddleware } from "./middlewares/access-log.middleware.js";
 import { registerErrorHandlers } from "./middlewares/error-handler.middleware.js";
@@ -8,19 +9,22 @@ import { registerMetricsMiddleware } from "./middlewares/metrics.middleware.js";
 import { generateRequestId } from "./middlewares/request-id.middleware.js";
 import { createRequestSizeLimitMiddleware } from "./middlewares/request-size-limit.middleware.js";
 import { securityHeadersMiddleware } from "./middlewares/security-headers.middleware.js";
-import { createHttpMetrics, type HttpMetrics } from "./observability/metrics.js";
+import {
+  createHttpMetrics,
+  type HttpMetrics,
+} from "./observability/metrics.js";
 import { RedisRateLimitStore } from "./rate-limit/redis-rate-limit-store.js";
 import { disconnectRedis, getRedisClient } from "./redis/redis-client.js";
 import { healthRoute } from "./routes/health.route.js";
 import { metricsRoute } from "./routes/metrics.route.js";
 import {
-  productProxyRoute,
-  type ProductProxyRouteOptions,
+  downstreamProxyRoute,
+  type DownstreamProxyRouteOptions,
 } from "./routes/product-proxy.route.js";
 
 type BuildApiGatewayAppOptions = {
   logger?: boolean;
-  productProxy?: ProductProxyRouteOptions;
+  productProxy?: DownstreamProxyRouteOptions;
   metrics?: HttpMetrics;
 };
 
@@ -47,7 +51,6 @@ export async function buildApiGatewayApp(
   registerMetricsMiddleware(app, metrics);
 
   app.addHook("onRequest", securityHeadersMiddleware);
-
   app.addHook(
     "onRequest",
     createRequestSizeLimitMiddleware({
@@ -59,15 +62,17 @@ export async function buildApiGatewayApp(
 
   const redisClient = getRedisClient();
 
-  const productProxyOptions =
-    options.productProxy ?? {
+  const downstreamProxyOptions: DownstreamProxyRouteOptions = {
+    ...(options.productProxy ?? {
       rateLimitStore: new RedisRateLimitStore(redisClient),
       responseCacheStore: new RedisResponseCacheStore(redisClient),
-    };
+    }),
+    routeConfigs: downstreamRouteConfigs,
+  };
 
   await app.register(healthRoute);
   await app.register(metricsRoute, { metrics });
-  await app.register(productProxyRoute, productProxyOptions);
+  await app.register(downstreamProxyRoute, downstreamProxyOptions);
 
   return app;
 }
