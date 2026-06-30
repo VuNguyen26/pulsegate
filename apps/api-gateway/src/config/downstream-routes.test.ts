@@ -56,7 +56,7 @@ describe("downstream route config", () => {
     });
   });
 
-  it("should define disabled transformation and retry policy foundations", async () => {
+  it("should define disabled transformation and retry policy foundations for the product route", async () => {
     const { productProductsRouteConfig } = await import(
       "./downstream-routes.js"
     );
@@ -74,5 +74,64 @@ describe("downstream route config", () => {
       attempts: 0,
       retryOnStatuses: [502, 503, 504],
     });
+  });
+
+  it("should define product service health route as a public downstream route", async () => {
+    vi.stubEnv("PRODUCT_SERVICE_URL", "http://product-service.example");
+    vi.stubEnv("DOWNSTREAM_REQUEST_TIMEOUT_MS", "2500");
+
+    const { productServiceHealthRouteConfig } = await import(
+      "./downstream-routes.js"
+    );
+
+    expect(productServiceHealthRouteConfig).toEqual({
+      serviceName: "product-service",
+      gatewayPath: "/api/product-service/health",
+      downstreamUrl: "http://product-service.example/health",
+      method: "GET",
+      policies: {
+        auth: {
+          requireApiKey: false,
+          requireJwt: false,
+        },
+        timeout: {
+          enabled: true,
+          timeoutMs: 2500,
+        },
+        cache: {
+          enabled: false,
+          ttlSeconds: 0,
+        },
+        rateLimit: {
+          enabled: false,
+          limit: 0,
+          windowMs: 0,
+        },
+        requestTransform: {
+          enabled: false,
+        },
+        responseTransform: {
+          enabled: false,
+        },
+        retry: {
+          enabled: false,
+          attempts: 0,
+          retryOnStatuses: [502, 503, 504],
+        },
+      },
+    });
+  });
+
+  it("should include product and product service health routes in downstream route configs", async () => {
+    const {
+      downstreamRouteConfigs,
+      productProductsRouteConfig,
+      productServiceHealthRouteConfig,
+    } = await import("./downstream-routes.js");
+
+    expect(downstreamRouteConfigs).toEqual([
+      productProductsRouteConfig,
+      productServiceHealthRouteConfig,
+    ]);
   });
 });

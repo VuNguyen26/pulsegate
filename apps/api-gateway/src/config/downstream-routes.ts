@@ -49,6 +49,44 @@ export const productProductsRouteConfig: DownstreamRouteConfig = {
   },
 };
 
+export const productServiceHealthRouteConfig: DownstreamRouteConfig = {
+  serviceName: "product-service",
+  gatewayPath: "/api/product-service/health",
+  downstreamUrl: `${env.PRODUCT_SERVICE_URL}/health`,
+  method: "GET",
+  policies: {
+    auth: {
+      requireApiKey: false,
+      requireJwt: false,
+    },
+    timeout: {
+      enabled: true,
+      timeoutMs: env.DOWNSTREAM_REQUEST_TIMEOUT_MS,
+    },
+    cache: {
+      enabled: false,
+      ttlSeconds: 0,
+    },
+    rateLimit: {
+      enabled: false,
+      limit: 0,
+      windowMs: 0,
+    },
+    requestTransform: {
+      enabled: false,
+    },
+    responseTransform: {
+      enabled: false,
+    },
+    retry: {
+      enabled: false,
+      attempts: 0,
+      retryOnStatuses: [502, 503, 504],
+    },
+  },
+};
+
 export const downstreamRouteConfigs = validateDownstreamRoutes([
   productProductsRouteConfig,
+  productServiceHealthRouteConfig,
 ]);
