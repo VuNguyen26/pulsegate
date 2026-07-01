@@ -5,25 +5,27 @@
 </p>
 
 <p align="center">
-  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, GitHub Actions CI/CD, route policy foundations, database-backed dynamic route configuration, safe static fallback, and a microservice-oriented architecture.
+  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, GitHub Actions CI/CD, route policy foundations, database-backed dynamic route configuration, safe static fallback, internal/admin route management APIs, and a microservice-oriented architecture.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Sprint%208%20Complete-brightgreen" />
-  <img src="https://img.shields.io/badge/version-v0.9.0-blue" />
+  <img src="https://img.shields.io/badge/status-Sprint%209%20Complete-brightgreen" />
+  <img src="https://img.shields.io/badge/version-v0.10.0-blue" />
   <a href="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml">
     <img src="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
   </a>
-  <img src="https://img.shields.io/badge/tests-152%20passing-brightgreen" />
+  <img src="https://img.shields.io/badge/tests-168%20passing-brightgreen" />
   <img src="https://img.shields.io/badge/typecheck-passing-brightgreen" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
   <img src="https://img.shields.io/badge/Node.js-20%2B-green" />
   <img src="https://img.shields.io/badge/TypeScript-strict-blue" />
   <img src="https://img.shields.io/badge/Fastify-API%20Gateway-black" />
   <img src="https://img.shields.io/badge/Auth-API%20Key%20%2B%20JWT-purple" />
+  <img src="https://img.shields.io/badge/Admin%20Auth-Admin%20API%20Key-purple" />
   <img src="https://img.shields.io/badge/Rate%20Limit-Redis-red" />
   <img src="https://img.shields.io/badge/Cache-Redis-red" />
   <img src="https://img.shields.io/badge/Dynamic%20Routes-PostgreSQL-blue" />
+  <img src="https://img.shields.io/badge/Route%20Management-Internal%20Admin%20API-blueviolet" />
   <img src="https://img.shields.io/badge/Fallback-Static%20Routes-indigo" />
   <img src="https://img.shields.io/badge/Policies-Route%20Policies-indigo" />
   <img src="https://img.shields.io/badge/Retry-Foundation-blueviolet" />
@@ -47,7 +49,7 @@
 * Apigee
 * AWS API Gateway
 
-The project is designed to demonstrate backend engineering skills around API routing, microservice communication, authentication, traffic protection, caching, data persistence, dynamic route configuration, request tracing, error handling, testing, observability, route policies, gateway resilience, scalability, CI/CD, and production-oriented system design.
+The project is designed to demonstrate backend engineering skills around API routing, microservice communication, authentication, traffic protection, caching, data persistence, dynamic route configuration, route management APIs, request tracing, error handling, testing, observability, route policies, gateway resilience, scalability, CI/CD, and production-oriented system design.
 
 PulseGate starts small and grows step by step.
 
@@ -58,9 +60,9 @@ Client
   -> API Gateway :3000
     -> Runtime route config loading
       -> Try loading database-backed route configs from PostgreSQL gateway.gateway_routes
-      -> If database route configs are valid:
+      -> If database route configs are valid and not empty:
            -> Use database-backed route configs
-      -> If database loading fails or returns no routes:
+      -> If database loading fails or returns no enabled routes:
            -> Safely fall back to static downstream route configs
     -> Request ID handling
     -> Structured access log timer
@@ -78,6 +80,7 @@ Client
       -> Request transform policy
       -> Response transform policy
       -> Retry policy foundation
+
     -> Route: GET /api/products
       -> API key authentication
       -> Redis-backed rate limiting
@@ -86,6 +89,7 @@ Client
         -> Cache HIT:
              -> Apply response transform foundation
              -> Return cached Product response
+             -> x-cache: HIT
         -> Cache MISS:
              -> Apply request transform foundation
              -> Downstream timeout policy helper
@@ -97,6 +101,8 @@ Client
                -> Database-backed Product response
              -> Store response in Redis cache
              -> Apply response transform foundation
+             -> x-cache: MISS
+
     -> Route: GET /api/product-service/health
       -> Public route
       -> No API key required
@@ -105,7 +111,23 @@ Client
       -> No Redis response cache
       -> Downstream timeout policy helper
       -> Product Service :3001 /health
-    -> Add x-cache
+      -> x-cache: BYPASS
+
+    -> Internal/admin route management APIs
+      -> GET /internal/admin/routes
+      -> GET /internal/admin/routes/:id
+      -> POST /internal/admin/routes
+      -> PATCH /internal/admin/routes/:id
+      -> Admin API key authentication
+      -> Route management repository
+      -> Route management mapper
+      -> PostgreSQL gateway.gateway_routes
+      -> Route config validation before persistence
+      -> Duplicate method + gatewayPath conflict detection
+      -> Enable/disable route config through PATCH
+      -> Simple restart-based runtime reload strategy
+
+    -> Add x-cache when applicable
     -> Add x-response-time-ms
     -> Record Prometheus metrics
     -> Write structured access log
@@ -120,6 +142,10 @@ PostgreSQL :5432
        -> API Gateway route config tables
        -> gateway_routes
        -> gateway._prisma_migrations
+
+Redis :6379
+  -> API Gateway rate limit counters
+  -> API Gateway response cache payloads
 
 API Gateway
   -> Exposes /metrics
@@ -143,42 +169,43 @@ GitHub Actions
 Current version:
 
 ```txt
-v0.9.0
+v0.10.0
 ```
 
 Current sprint status:
 
 ```txt
-Sprint 8 - Dynamic Route Config from Database Complete
+Sprint 9 - Route Management API Foundation Complete
 ```
 
 ---
 
 ## Project Status
 
-| Area            | Status                                                                                | Notes                                                                                            |
-| --------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                 | Core setup and basic Gateway flow                                                                |
-| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                 | API Gateway core features                                                                        |
-| Sprint 2        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                 | Gateway traffic protection                                                                       |
-| Sprint 3        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                 | Data and infrastructure foundation                                                               |
-| Sprint 4        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                 | Observability foundation                                                                         |
-| Sprint 5        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                 | Advanced Gateway policies                                                                        |
-| Sprint 6        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                 | CI/CD foundation with GitHub Actions                                                              |
-| Sprint 7        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                 | Multi-route Gateway expansion from downstream route config                                        |
-| Sprint 8        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)                 | Database-backed dynamic route config with safe static fallback                                    |
-| Current Version | ![v0.9.0](https://img.shields.io/badge/version-v0.9.0-blue)                           | Docker, PostgreSQL, Prisma, Redis, Prometheus, Grafana, Gateway policies, CI/CD, DB route config |
-| Automated Tests | ![152 Passing](https://img.shields.io/badge/tests-152%20passing-brightgreen)          | Unit and integration tests                                                                       |
-| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)                | TypeScript validation passes                                                                     |
-| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)                    | Production build passes                                                                          |
-| CI/CD           | ![Passing](https://img.shields.io/badge/ci-passing-brightgreen)                       | GitHub Actions validates npm, Prisma, tests, typecheck, build, and Docker builds                 |
-| Next Sprint     | ![Sprint 9](https://img.shields.io/badge/next%20sprint-route%20management-blue)       | Prepare route management/admin API foundation                                                     |
+| Area            | Status                                                                          | Notes                                                                                                                      |
+| --------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Core setup and basic Gateway flow                                                                                          |
+| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | API Gateway core features                                                                                                  |
+| Sprint 2        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Gateway traffic protection                                                                                                 |
+| Sprint 3        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Data and infrastructure foundation                                                                                         |
+| Sprint 4        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Observability foundation                                                                                                   |
+| Sprint 5        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Advanced Gateway policies                                                                                                  |
+| Sprint 6        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | CI/CD foundation with GitHub Actions                                                                                        |
+| Sprint 7        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Multi-route Gateway expansion from downstream route config                                                                  |
+| Sprint 8        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Database-backed dynamic route config with safe static fallback                                                              |
+| Sprint 9        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Internal/admin route management API foundation                                                                              |
+| Current Version | ![v0.10.0](https://img.shields.io/badge/version-v0.10.0-blue)                   | Docker, PostgreSQL, Prisma, Redis, Prometheus, Grafana, Gateway policies, CI/CD, DB route config, route management APIs     |
+| Automated Tests | ![168 Passing](https://img.shields.io/badge/tests-168%20passing-brightgreen)    | Unit, integration, runtime config, and route management API tests                                                           |
+| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)          | TypeScript validation passes                                                                                                |
+| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)              | Production build passes                                                                                                     |
+| CI/CD           | ![Passing](https://img.shields.io/badge/ci-passing-brightgreen)                 | GitHub Actions validates npm, Prisma, tests, typecheck, build, and Docker builds                                            |
+| Next Sprint     | ![Sprint 10](https://img.shields.io/badge/next%20sprint-route%20hardening-blue) | Route Management Hardening or Admin Dashboard Foundation                                                                    |
 
 ---
 
 ## Why PulseGate?
 
-Modern backend systems often contain many services. Without an API Gateway, clients may need to call each service directly, which creates problems around routing, security, rate limiting, logging, monitoring, caching, resilience, traffic control, policy management, and scaling.
+Modern backend systems often contain many services. Without an API Gateway, clients may need to call each service directly, which creates problems around routing, security, rate limiting, logging, monitoring, caching, resilience, traffic control, policy management, dynamic configuration, and scaling.
 
 PulseGate aims to solve these problems by acting as a single entry point for APIs.
 
@@ -188,7 +215,12 @@ Long-term goals:
 * Support multiple Gateway routes and multiple downstream services.
 * Load Gateway route configuration dynamically from PostgreSQL.
 * Keep safe fallback behavior when dynamic route loading fails.
+* Manage Gateway route configuration through internal/admin APIs.
+* Validate route configs before persistence.
+* Detect duplicate route config conflicts.
+* Enable and disable routes safely.
 * Validate API keys and JWT tokens.
+* Protect internal/admin APIs with separate admin authentication.
 * Apply rate limiting to protect services.
 * Add request size protection.
 * Add security headers.
@@ -202,7 +234,7 @@ Long-term goals:
 * Validate test, typecheck, build, Prisma generation, and Docker image build automatically with GitHub Actions.
 * Centralize route behavior through policies.
 * Support per-route timeout, cache, rate limit, transform, and retry rules.
-* Add route management APIs later.
+* Add route reload or hot reload later.
 * Add service registry foundation later.
 * Add API consumer management later.
 * Add API key lifecycle and usage plans later.
@@ -293,7 +325,7 @@ Long-term goals:
 | Feature                             | Status                                                        | Notes                                                    |
 | ----------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------- |
 | Structured access logs              | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Logs method, path, route, status, latency, cache status  |
-| Sensitive header protection in logs | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Does not log API keys, JWT tokens, or cookies            |
+| Sensitive header protection in logs | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Does not log API keys, admin API keys, JWT tokens, or cookies |
 | Request latency measurement         | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Uses high-resolution timing                              |
 | `x-response-time-ms` header         | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Returns latency in milliseconds                          |
 | HTTP metrics registry               | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Uses `prom-client`                                       |
@@ -367,11 +399,32 @@ Long-term goals:
 | Add tests for mapper and runtime fallback                  | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Test count increased to 26 files / 152 tests                                                |
 | Generate API Gateway Prisma Client in CI                   | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Clean GitHub runner can typecheck/build API Gateway Prisma imports                         |
 | Generate API Gateway Prisma Client inside Docker image     | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Prevents Windows-generated Prisma Client from being used inside Linux Alpine container      |
-| Configure API Gateway Docker runtime `DATABASE_URL`        | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Uses `postgres:5432/pulsegate?schema=gateway` inside Docker Compose                         |
+| Configure API Gateway Docker runtime `DATABASE_URL`        | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Uses `postgres:5432/pulsegate?schema=gateway` inside Docker Compose                        |
 | Validate Docker DB route config loading                    | ![Done](https://img.shields.io/badge/status-done-brightgreen) | API Gateway logs `Loaded downstream route configs from database { routeCount: 2 }`          |
 | Validate public DB-backed health proxy route               | ![Done](https://img.shields.io/badge/status-done-brightgreen) | `/api/product-service/health` returns `200`, `x-cache: BYPASS`, request ID, response time   |
 | Validate protected DB-backed product route                 | ![Done](https://img.shields.io/badge/status-done-brightgreen) | `/api/products` still returns `MISS -> HIT` with API key, JWT, Redis rate limit, and cache  |
 | Final Sprint 8 validation                                  | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Tests, typecheck, build, Docker runtime, DB config loading, public/protected routes passed  |
+
+### Sprint 9 - Route Management API Foundation
+
+| Feature                                                | Status                                                        | Notes                                                                                       |
+| ------------------------------------------------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Add admin API key environment config                   | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Adds `ADMIN_API_KEY_HEADER` and `ADMIN_API_KEY`                                             |
+| Add admin API key middleware                           | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Protects internal/admin route management APIs                                               |
+| Add internal/admin route config list API               | ![Done](https://img.shields.io/badge/status-done-brightgreen) | `GET /internal/admin/routes`                                                               |
+| Add internal/admin route config detail API             | ![Done](https://img.shields.io/badge/status-done-brightgreen) | `GET /internal/admin/routes/:id`                                                           |
+| Add route config create API                            | ![Done](https://img.shields.io/badge/status-done-brightgreen) | `POST /internal/admin/routes`                                                              |
+| Add route config update API                            | ![Done](https://img.shields.io/badge/status-done-brightgreen) | `PATCH /internal/admin/routes/:id`                                                         |
+| Add route config enable/disable foundation             | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Uses `enabled` field through PATCH                                                          |
+| Add route management repository                        | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Prisma-backed read/create/update behavior                                                   |
+| Add route management mapper                            | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Maps admin request/response shapes                                                          |
+| Reuse route validation before persistence              | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Reuses `validateDownstreamRoutes()` for create and update                                    |
+| Add duplicate route conflict detection                 | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Rejects duplicate `method + gatewayPath`                                                    |
+| Add route management API tests                         | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Covers auth, list, detail, create, update, validation, not found, and duplicate conflicts    |
+| Add admin env config tests                             | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Covers default and custom admin API key config                                               |
+| Validate Docker runtime route create/update/disable    | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Created test route, rejected duplicate, disabled route, restarted Gateway, confirmed 404     |
+| Clean temporary test route                             | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Database returned to 2 seeded route configs                                                 |
+| Final Sprint 9 validation                              | ![Done](https://img.shields.io/badge/status-done-brightgreen) | 27 test files / 168 tests, typecheck, build, Docker runtime validation passed                |
 
 ---
 
@@ -380,6 +433,7 @@ Long-term goals:
 ```mermaid
 flowchart LR
     Client[Client / API Consumer] --> Gateway[PulseGate API Gateway<br/>Port 3000]
+    AdminClient[Admin Client / Future Admin Dashboard] --> AdminRoutes[Internal Admin Route Management APIs<br/>/internal/admin/routes]
 
     Gateway --> RuntimeConfig[Runtime Route Config Loader]
     RuntimeConfig --> GatewayPrisma[API Gateway Prisma Client]
@@ -426,13 +480,22 @@ flowchart LR
     ProductHealth --> HealthResponse[Health Response<br/>x-cache: BYPASS]
     HealthResponse --> ResponseHeaders
 
+    AdminRoutes --> AdminApiKey[Admin API Key Authentication<br/>x-admin-api-key]
+    AdminApiKey --> RouteManagement[Route Management Module]
+    RouteManagement --> RouteManagementRepo[Prisma Route Management Repository]
+    RouteManagementRepo --> GatewaySchema
+    RouteManagement --> RouteValidation[Route Config Validation<br/>validateDownstreamRoutes]
+    RouteManagement --> AdminResponse[Admin Route Config Response]
+
     RateLimit --> Redis[(Redis<br/>Port 6379)]
     Cache --> Redis
     CacheStore --> Redis
 
     ResponseHeaders --> MetricsRecord[Record HTTP Metrics]
+    AdminResponse --> MetricsRecord
     MetricsRecord --> AccessLogWrite[Write Structured Access Log]
     AccessLogWrite --> Client
+    AccessLogWrite --> AdminClient
 
     Gateway --> MetricsEndpoint[/GET /metrics/]
     Prometheus[Prometheus<br/>Port 9090] -->|Scrapes| MetricsEndpoint
@@ -459,6 +522,9 @@ API Gateway startup
          -> Fall back to static downstreamRouteConfigs
          -> Log fallback warning
   -> buildApiGatewayApp({ routeConfigs })
+  -> register healthRoute()
+  -> register metricsRoute()
+  -> register adminRouteConfigRoute()
   -> register downstreamProxyRoute() with resolved route configs
   -> connect Redis
   -> listen on port 3000
@@ -496,8 +562,8 @@ Client
       -> MISS:
            -> Apply request transform foundation
            -> Call Product Service through timeout and retry helpers
-              -> Local npm: http://127.0.0.1:3001/products
               -> Docker Compose: http://product-service:3001/products
+              -> Local npm: http://127.0.0.1:3001/products when route config points to local URL
            -> Product Service reads PostgreSQL public.products through Prisma
            -> API Gateway stores response in Redis cache
            -> Apply response transform foundation
@@ -528,14 +594,81 @@ Client
     -> No Redis response cache
     -> Apply request transform foundation
     -> Call Product Service through timeout helper
-       -> Local npm: http://127.0.0.1:3001/health
        -> Docker Compose: http://product-service:3001/health
+       -> Local npm: http://127.0.0.1:3001/health when route config points to local URL
     -> Product Service returns health response
     -> API Gateway returns response
     -> x-cache: BYPASS
     -> Add x-response-time-ms
     -> Record Prometheus metrics
     -> Write structured access log
+```
+
+Current internal/admin route management flow:
+
+```txt
+Admin Client / Future Admin Dashboard
+  -> GET http://localhost:3000/internal/admin/routes
+    -> API Gateway checks x-admin-api-key
+    -> Reads route configs from gateway.gateway_routes
+    -> Returns all route configs including disabled routes
+
+Admin Client / Future Admin Dashboard
+  -> GET http://localhost:3000/internal/admin/routes/:id
+    -> API Gateway checks x-admin-api-key
+    -> Reads one route config by id
+    -> If route does not exist:
+         -> 404 ROUTE_CONFIG_NOT_FOUND
+    -> If route exists:
+         -> 200 with route config response
+
+Admin Client / Future Admin Dashboard
+  -> POST http://localhost:3000/internal/admin/routes
+    -> API Gateway checks x-admin-api-key
+    -> Parses request body
+    -> Maps request body to DownstreamRouteConfig
+    -> Reuses validateDownstreamRoutes()
+    -> Checks duplicate method + gatewayPath
+    -> If invalid:
+         -> 400 ROUTE_CONFIG_INVALID
+    -> If duplicate:
+         -> 409 ROUTE_CONFIG_ALREADY_EXISTS
+    -> If valid:
+         -> Creates route config in gateway.gateway_routes
+         -> Returns 201 Created
+
+Admin Client / Future Admin Dashboard
+  -> PATCH http://localhost:3000/internal/admin/routes/:id
+    -> API Gateway checks x-admin-api-key
+    -> Finds existing route by id
+    -> If route does not exist:
+         -> 404 ROUTE_CONFIG_NOT_FOUND
+    -> If route exists:
+         -> Merges existing route with patch body
+         -> Maps merged body to DownstreamRouteConfig
+         -> Reuses validateDownstreamRoutes()
+         -> Checks conflict with another method + gatewayPath
+         -> If invalid:
+              -> 400 ROUTE_CONFIG_INVALID
+         -> If conflict:
+              -> 409 ROUTE_CONFIG_ALREADY_EXISTS
+         -> If valid:
+              -> Updates route config in gateway.gateway_routes
+              -> Returns 200 OK
+```
+
+Current route enable/disable behavior:
+
+```txt
+PATCH /internal/admin/routes/:id
+Body: { "enabled": false }
+
+Result:
+  -> Route remains stored in gateway.gateway_routes
+  -> Route remains visible in GET /internal/admin/routes
+  -> API Gateway restart loads only enabled route configs
+  -> Disabled route is not registered as an active runtime route
+  -> Client request to disabled route returns 404 Route not found
 ```
 
 Current observability flow:
@@ -594,6 +727,7 @@ pulsegate/
         middlewares/
           access-log.middleware.ts
           access-log.middleware.test.ts
+          admin-api-key-auth.middleware.ts
           api-key-auth.middleware.ts
           api-key-auth.middleware.test.ts
           error-handler.middleware.ts
@@ -633,7 +767,13 @@ pulsegate/
           redis-rate-limit-store.test.ts
         redis/
           redis-client.ts
+        route-management/
+          route-management.mapper.ts
+          route-management.repository.ts
+          route-management.types.ts
         routes/
+          admin-route-config.route.ts
+          admin-route-config.route.test.ts
           health.route.ts
           metrics.route.ts
           metrics.route.test.ts
@@ -727,6 +867,10 @@ GET /health
 GET /metrics
 GET /api/products
 GET /api/product-service/health
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
 ```
 
 Route protection:
@@ -755,6 +899,16 @@ GET /api/product-service/health
   -> Uses route policy configuration loaded from database route config
   -> Uses downstream timeout policy
   -> Proxies to Product Service GET /health
+
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
+  -> Internal/admin APIs
+  -> Require x-admin-api-key
+  -> Do not use consumer x-api-key
+  -> Do not use consumer JWT
+  -> Do not use Product response cache
 ```
 
 Responsibilities:
@@ -787,6 +941,15 @@ Responsibilities:
 * Supports upstream retry policy foundation.
 * Applies downstream request timeout.
 * Normalizes downstream service errors.
+* Protects internal/admin route management APIs with admin API key.
+* Lists route configs through internal/admin API.
+* Reads route config detail through internal/admin API.
+* Creates route configs through internal/admin API.
+* Updates route configs through internal/admin API.
+* Enables or disables route configs through PATCH.
+* Validates route configs before persistence.
+* Rejects duplicate `method + gatewayPath` route conflicts.
+* Uses restart-based runtime route reload strategy.
 * Handles basic 404 and 500 errors.
 * Logs requests in JSON format.
 * Writes structured access logs.
@@ -1030,36 +1193,40 @@ Cache Outcomes
 
 Currently implemented:
 
-| Category             | Technology / Feature                                      | Status                                                            |
-| -------------------- | --------------------------------------------------------- | ----------------------------------------------------------------- |
-| Runtime              | Node.js 20+                                               | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Language             | TypeScript strict mode                                    | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Web Framework        | Fastify                                                   | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Monorepo             | npm workspaces                                            | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Logging              | Fastify JSON logger                                       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Access Logs          | Structured JSON logs                                      | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Authentication       | API Key, JWT                                              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| JWT Library          | jose                                                      | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Traffic Protection   | Redis-backed rate limit, size limit                       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| HTTP Security        | Basic security headers                                    | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Cache                | Redis response cache                                      | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Gateway Routing      | Database-backed route config with static fallback         | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Gateway Policies     | Route policies, transformations, retry foundation         | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Database             | PostgreSQL                                                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| ORM                  | Prisma                                                    | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Metrics Library      | prom-client                                               | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Metrics Backend      | Prometheus                                                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Dashboard            | Grafana                                                   | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Containerization     | Docker, Docker Compose                                    | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| CI/CD                | GitHub Actions                                            | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Testing              | Vitest                                                    | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Architecture         | API Gateway + Microservice                                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Category             | Technology / Feature                                             | Status                                                            |
+| -------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Runtime              | Node.js 20+                                                      | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Language             | TypeScript strict mode                                           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Web Framework        | Fastify                                                          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Monorepo             | npm workspaces                                                   | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Logging              | Fastify JSON logger                                              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Access Logs          | Structured JSON logs                                             | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Consumer Auth        | API Key, JWT                                                     | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Admin Auth           | Admin API key                                                    | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| JWT Library          | jose                                                             | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Traffic Protection   | Redis-backed rate limit, size limit                              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| HTTP Security        | Basic security headers                                           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Cache                | Redis response cache                                             | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Gateway Routing      | Database-backed route config with static fallback                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Route Management     | Internal/admin route config read/create/update APIs              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Gateway Policies     | Route policies, transformations, retry foundation                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Database             | PostgreSQL                                                       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| ORM                  | Prisma                                                           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Metrics Library      | prom-client                                                      | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Metrics Backend      | Prometheus                                                       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Dashboard            | Grafana                                                          | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Containerization     | Docker, Docker Compose                                           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| CI/CD                | GitHub Actions                                                   | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Testing              | Vitest                                                           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Architecture         | API Gateway + Microservice                                       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 
 Planned later:
 
 | Category             | Technology / Feature          | Status                                                            |
 | -------------------- | ----------------------------- | ----------------------------------------------------------------- |
-| Route Management API | Admin-facing route management  | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Runtime Reload       | Route reload / hot reload      | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Route Delete         | Delete or soft delete          | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Audit Log            | Route management audit log     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Service Registry     | Service registry foundation    | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | API Consumers        | Consumer database              | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | API Key Lifecycle    | Key creation, revoke, rotate   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
@@ -1068,6 +1235,8 @@ Planned later:
 | Event Streaming      | Kafka                          | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Background Jobs      | RabbitMQ                       | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Load Testing         | k6                             | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Admin Dashboard      | Web UI for route/API management | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Developer Portal     | Developer-facing API portal     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Orchestration        | Kubernetes                     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 
 ---
@@ -1087,6 +1256,8 @@ DOWNSTREAM_REQUEST_TIMEOUT_MS=3000
 MAX_REQUEST_BODY_BYTES=1048576
 API_KEY_HEADER=x-api-key
 API_KEYS=dev-api-key
+ADMIN_API_KEY_HEADER=x-admin-api-key
+ADMIN_API_KEY=local-admin-key
 JWT_SECRET=local-dev-jwt-secret-change-me
 JWT_ISSUER=pulsegate-api-gateway
 JWT_AUDIENCE=pulsegate-clients
@@ -1094,6 +1265,13 @@ JWT_EXPIRES_IN_SECONDS=900
 PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS=5
 PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS=60000
 REDIS_URL=redis://localhost:6379
+```
+
+Important note:
+
+```txt
+DATABASE_URL is used by Prisma.
+API Gateway DATABASE_URL is not currently parsed through apps/api-gateway/src/config/env.ts.
 ```
 
 ### Product Service Variables
@@ -1113,6 +1291,8 @@ PRODUCT_SERVICE_URL=http://product-service:3001
 API_GATEWAY_DATABASE_URL=postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate?schema=gateway
 PRODUCT_SERVICE_DATABASE_URL=postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate
 REDIS_URL=redis://redis:6379
+ADMIN_API_KEY_HEADER=x-admin-api-key
+ADMIN_API_KEY=local-admin-key
 Prometheus scrape target=http://api-gateway:3000/metrics
 Grafana Prometheus datasource=http://prometheus:9090
 ```
@@ -1140,7 +1320,7 @@ npm install
 
 ## Run with Docker Compose
 
-This is the recommended workflow after Sprint 8.
+This is the recommended workflow after Sprint 9.
 
 ### 1. Start PostgreSQL and Redis
 
@@ -1288,7 +1468,21 @@ GET /metrics                     -> 200 OK with Prometheus text format
 GET /api/product-service/health  -> 200 OK with Product Service health response and x-cache: BYPASS
 ```
 
-### 9. Open observability tools
+### 9. Validate internal/admin route management API
+
+```powershell
+Invoke-RestMethod http://localhost:3000/internal/admin/routes `
+  -Headers @{ "x-admin-api-key" = "local-admin-key" } |
+  ConvertTo-Json -Depth 10
+```
+
+Expected:
+
+```txt
+Returns the 2 seeded Gateway route configs.
+```
+
+### 10. Open observability tools
 
 Prometheus:
 
@@ -1309,7 +1503,7 @@ username: admin
 password: admin
 ```
 
-### 10. Stop the stack
+### 11. Stop the stack
 
 ```powershell
 docker compose down
@@ -1355,7 +1549,7 @@ http://product-service:3001/products
 http://product-service:3001/health
 ```
 
-For the most reliable Sprint 8 runtime validation, use Docker Compose. For local npm mode, update DB route config downstream URLs to `http://127.0.0.1:3001` before starting the API Gateway, or rely on static fallback when database route config loading is unavailable.
+For the most reliable runtime validation, use Docker Compose. For local npm mode, update DB route config downstream URLs to `http://127.0.0.1:3001` before starting the API Gateway, or rely on static fallback when database route config loading is unavailable.
 
 ### 4. Run Product Service
 
@@ -1401,7 +1595,7 @@ Expected response:
 {
   "service": "product-service",
   "status": "ok",
-  "timestamp": "2026-06-25T00:00:00.000Z"
+  "timestamp": "2026-07-01T00:00:00.000Z"
 }
 ```
 
@@ -1442,7 +1636,7 @@ Expected response body:
 {
   "service": "api-gateway",
   "status": "ok",
-  "timestamp": "2026-06-25T00:00:00.000Z"
+  "timestamp": "2026-07-01T00:00:00.000Z"
 }
 ```
 
@@ -1472,7 +1666,7 @@ Expected response body:
 {
   "service": "product-service",
   "status": "ok",
-  "timestamp": "2026-06-25T00:00:00.000Z"
+  "timestamp": "2026-07-01T00:00:00.000Z"
 }
 ```
 
@@ -1548,6 +1742,8 @@ x-ratelimit-reset
 ## Gateway Route Config Behavior
 
 Sprint 8 added database-backed route configuration for the API Gateway.
+
+Sprint 9 added internal/admin APIs to read, create, and update route configuration records.
 
 Current route config source priority:
 
@@ -1645,9 +1841,270 @@ GET | /api/product-service/health | http://product-service:3001/health   | true 
 
 ---
 
+## Internal Admin Route Management API
+
+Sprint 9 added the internal/admin Route Management API foundation.
+
+Current internal/admin endpoints:
+
+```txt
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
+```
+
+Current admin API key header:
+
+```txt
+x-admin-api-key
+```
+
+Current default local admin API key:
+
+```txt
+local-admin-key
+```
+
+Current environment variables:
+
+```txt
+ADMIN_API_KEY_HEADER=x-admin-api-key
+ADMIN_API_KEY=local-admin-key
+```
+
+### Admin Auth Behavior
+
+```txt
+Missing admin API key
+  -> 401 ADMIN_API_KEY_MISSING
+
+Invalid admin API key
+  -> 403 ADMIN_API_KEY_INVALID
+
+Valid admin API key
+  -> Continue to route management behavior
+```
+
+Test valid admin key:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/internal/admin/routes `
+  -Headers @{ "x-admin-api-key" = "local-admin-key" } |
+  ConvertTo-Json -Depth 10
+```
+
+Test missing admin key:
+
+```powershell
+try {
+  Invoke-WebRequest http://localhost:3000/internal/admin/routes `
+    -UseBasicParsing
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+```
+
+Expected:
+
+```txt
+401
+ADMIN_API_KEY_MISSING
+```
+
+Test invalid admin key:
+
+```powershell
+try {
+  Invoke-WebRequest http://localhost:3000/internal/admin/routes `
+    -Headers @{ "x-admin-api-key" = "wrong-admin-key" } `
+    -UseBasicParsing
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+```
+
+Expected:
+
+```txt
+403
+ADMIN_API_KEY_INVALID
+```
+
+### List Route Configs
+
+```powershell
+Invoke-RestMethod http://localhost:3000/internal/admin/routes `
+  -Headers @{ "x-admin-api-key" = "local-admin-key" } |
+  ConvertTo-Json -Depth 10
+```
+
+Expected:
+
+```txt
+Returns all route configs, including disabled route configs.
+```
+
+### Get Route Config Detail
+
+```powershell
+Invoke-RestMethod http://localhost:3000/internal/admin/routes/<route-id> `
+  -Headers @{ "x-admin-api-key" = "local-admin-key" } |
+  ConvertTo-Json -Depth 10
+```
+
+Missing route behavior:
+
+```txt
+404 ROUTE_CONFIG_NOT_FOUND
+```
+
+### Create Route Config
+
+```powershell
+$body = @{
+  serviceName = "product-service"
+  gatewayPath = "/api/product-service/health-copy"
+  downstreamUrl = "http://product-service:3001/health"
+  method = "GET"
+  enabled = $true
+  priority = 300
+  policies = @{
+    auth = @{
+      requireApiKey = $false
+      requireJwt = $false
+    }
+    timeout = @{
+      enabled = $true
+      timeoutMs = 3000
+    }
+    cache = @{
+      enabled = $false
+      ttlSeconds = 0
+    }
+    rateLimit = @{
+      enabled = $false
+      limit = 0
+      windowMs = 0
+    }
+    requestTransform = @{
+      enabled = $false
+    }
+    responseTransform = @{
+      enabled = $false
+    }
+    retry = @{
+      enabled = $false
+      attempts = 0
+      retryOnStatuses = @(502, 503, 504)
+    }
+  }
+} | ConvertTo-Json -Depth 10
+
+Invoke-RestMethod http://localhost:3000/internal/admin/routes `
+  -Method Post `
+  -Headers @{
+    "x-admin-api-key" = "local-admin-key"
+    "content-type" = "application/json"
+  } `
+  -Body $body |
+  ConvertTo-Json -Depth 10
+```
+
+Expected:
+
+```txt
+201 Created
+```
+
+Duplicate route behavior:
+
+```txt
+409 ROUTE_CONFIG_ALREADY_EXISTS
+```
+
+Invalid route config behavior:
+
+```txt
+400 ROUTE_CONFIG_INVALID
+```
+
+### Update Route Config
+
+```powershell
+$patchBody = @{
+  enabled = $false
+  priority = 350
+} | ConvertTo-Json -Depth 10
+
+Invoke-RestMethod http://localhost:3000/internal/admin/routes/<route-id> `
+  -Method Patch `
+  -Headers @{
+    "x-admin-api-key" = "local-admin-key"
+    "content-type" = "application/json"
+  } `
+  -Body $patchBody |
+  ConvertTo-Json -Depth 10
+```
+
+Expected:
+
+```txt
+200 OK
+```
+
+Missing route behavior:
+
+```txt
+404 ROUTE_CONFIG_NOT_FOUND
+```
+
+Invalid merged route behavior:
+
+```txt
+400 ROUTE_CONFIG_INVALID
+```
+
+Duplicate route conflict behavior:
+
+```txt
+409 ROUTE_CONFIG_ALREADY_EXISTS
+```
+
+### Enable or Disable Route Config
+
+Disable request:
+
+```json
+{
+  "enabled": false
+}
+```
+
+Behavior:
+
+```txt
+Route remains stored in gateway.gateway_routes
+Route remains visible in GET /internal/admin/routes
+Route is not loaded as an active runtime route after API Gateway restart
+Client request to disabled route returns 404 Route not found
+```
+
+Current reload strategy:
+
+```txt
+Route config create/update changes are persisted immediately.
+Runtime proxy route changes take effect after API Gateway restart.
+Hot reload is intentionally deferred to a later sprint.
+```
+
+---
+
 ## Gateway Route Policy Behavior
 
-Sprint 5 added the route policy foundation. Sprint 7 expanded the Gateway so multiple downstream routes can be registered. Sprint 8 moved the runtime route config source to PostgreSQL while keeping a safe static fallback.
+Sprint 5 added the route policy foundation. Sprint 7 expanded the Gateway so multiple downstream routes can be registered. Sprint 8 moved the runtime route config source to PostgreSQL while keeping a safe static fallback. Sprint 9 reused route validation before route configs are created or updated through internal/admin APIs.
 
 Current route policy model:
 
@@ -1810,6 +2267,42 @@ Invalid API key
 
 Valid API key
   -> Continue to Redis-backed rate limiting
+```
+
+### Admin API Key Authentication
+
+Internal/admin routes:
+
+```txt
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
+```
+
+Default header:
+
+```txt
+x-admin-api-key
+```
+
+Default local admin API key:
+
+```txt
+local-admin-key
+```
+
+Behavior:
+
+```txt
+Missing admin API key
+  -> 401 ADMIN_API_KEY_MISSING
+
+Invalid admin API key
+  -> 403 ADMIN_API_KEY_INVALID
+
+Valid admin API key
+  -> Continue to route management behavior
 ```
 
 ### JWT Authentication
@@ -2137,6 +2630,7 @@ Sensitive values are intentionally not logged:
 
 ```txt
 x-api-key
+x-admin-api-key
 authorization
 cookie
 ```
@@ -2214,6 +2708,17 @@ Supported cache statuses:
 HIT
 MISS
 BYPASS
+```
+
+Current route labels include:
+
+```txt
+/health
+/metrics
+/api/products
+/api/product-service/health
+/internal/admin/routes
+/internal/admin/routes/:id
 ```
 
 ### Prometheus
@@ -2632,8 +3137,8 @@ npm run test
 Current result:
 
 ```txt
-26 test files passed
-152 tests passed
+27 test files passed
+168 tests passed
 ```
 
 Current unit test coverage:
@@ -2647,6 +3152,16 @@ access-log.middleware.test.ts
 
 api-key-auth.middleware.test.ts
   -> Missing, invalid, valid, and array header API key cases
+
+admin-route-config.route.test.ts
+  -> Admin API key behavior
+  -> Route config list behavior
+  -> Route config detail behavior
+  -> Route config create behavior
+  -> Route config update behavior
+  -> Route config validation behavior
+  -> Route config duplicate conflict behavior
+  -> Route config not found behavior
 
 jwt-auth.middleware.test.ts
   -> Bearer token extraction, JWT verification, missing token, invalid token, valid token
@@ -2676,7 +3191,7 @@ downstream-service-error.test.ts
   -> DownstreamServiceError and type guard behavior
 
 env.test.ts
-  -> Number, CSV, and string env parsing
+  -> Number, CSV, string env parsing, default admin API key config, custom admin API key config
 
 downstream-routes.test.ts
   -> Product route policy config
@@ -2786,6 +3301,32 @@ GET /api/products with valid API key and valid JWT but downstream returns invali
 
 GET /api/products with valid API key and valid JWT but downstream times out
   -> 504 DOWNSTREAM_TIMEOUT
+```
+
+Current route management API test coverage:
+
+```txt
+GET /internal/admin/routes
+  -> 401 when admin API key is missing
+  -> 403 when admin API key is invalid
+  -> 200 and returns all route configs when admin API key is valid
+
+GET /internal/admin/routes/:id
+  -> 200 and returns route config by id
+  -> 404 when route config id does not exist
+
+POST /internal/admin/routes
+  -> 201 and creates route config
+  -> 400 when route config is invalid
+  -> 409 when method + gatewayPath already exists
+  -> 401 when admin API key is missing
+
+PATCH /internal/admin/routes/:id
+  -> 200 and updates route config
+  -> 404 when route config id does not exist
+  -> 400 when merged route config is invalid
+  -> 409 when method + gatewayPath conflicts with another route
+  -> 401 when admin API key is missing
 ```
 
 ---
@@ -3067,15 +3608,34 @@ Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
 
 ### Sprint 9 - Route Management API Foundation
 
-Status: ![Next](https://img.shields.io/badge/status-next-blue)
+Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
 
-| Feature                                     | Status                                                            |
-| ------------------------------------------- | ----------------------------------------------------------------- |
-| Add internal/admin route config read API    | ![Next](https://img.shields.io/badge/status-next-blue)            |
-| Add route config create/update foundation   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add route config enable/disable behavior    | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add validation before persisting route data | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Keep runtime reload strategy simple         | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Feature                                     | Status                                                        |
+| ------------------------------------------- | ------------------------------------------------------------- |
+| Add admin API key middleware                | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add internal/admin route config read API    | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add route config detail API                 | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add route config create API                 | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add route config update API                 | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add route config enable/disable behavior    | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add validation before persisting route data | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add duplicate route conflict detection      | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Keep runtime reload strategy restart-based  | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add route management tests                  | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add admin env config tests                  | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Validate Docker route management behavior   | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+
+### Sprint 10 - Route Management Hardening or Admin Dashboard Foundation
+
+Status: ![Recommended Next](https://img.shields.io/badge/status-recommended%20next-blue)
+
+| Feature                                      | Status                                                            |
+| -------------------------------------------- | ----------------------------------------------------------------- |
+| Add route config delete or soft-delete        | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add safe route reload or hot reload foundation | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add stronger admin authentication if needed   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Add route management audit log foundation     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Start small Admin Dashboard foundation        | ![Optional](https://img.shields.io/badge/status-optional-lightgrey) |
 
 ### Later - Event-Driven Architecture
 
@@ -3112,7 +3672,7 @@ Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
 
 ## Current Status
 
-PulseGate currently has a stable local-first API Gateway and infrastructure foundation with Docker Compose, PostgreSQL, Prisma, Redis-backed traffic protection, database-backed Product Service data, Redis response caching, structured access logs, Prometheus metrics, Prometheus scraping, Grafana datasource provisioning, Grafana dashboard provisioning, advanced Gateway route policy foundations, GitHub Actions CI/CD validation, static multi-route fallback, and database-backed dynamic Gateway route configuration.
+PulseGate currently has a stable local-first API Gateway and infrastructure foundation with Docker Compose, PostgreSQL, Prisma, Redis-backed traffic protection, database-backed Product Service data, Redis response caching, structured access logs, Prometheus metrics, Prometheus scraping, Grafana datasource provisioning, Grafana dashboard provisioning, advanced Gateway route policy foundations, GitHub Actions CI/CD validation, static multi-route fallback, database-backed dynamic Gateway route configuration, and internal/admin route management APIs.
 
 Stable flow:
 
@@ -3150,6 +3710,14 @@ Client
       -> No cache
       -> Downstream timeout policy
       -> Product Service :3001 /health
+    -> Internal/admin route management APIs:
+      -> Admin API key authentication
+      -> List route configs
+      -> Read route config detail
+      -> Create route config
+      -> Update route config
+      -> Enable/disable route config
+      -> Validate route config before persistence
 
 API Gateway
   -> /metrics
@@ -3176,11 +3744,25 @@ Client
       -> Product Service container
         -> PostgreSQL container for product data
 
+Admin Client / Future Admin Dashboard
+  -> localhost:3000/internal/admin/routes
+    -> API Gateway container
+      -> PostgreSQL container gateway.gateway_routes
+
 Prometheus container
   -> Scrapes API Gateway container
 
 Grafana container
   -> Reads Prometheus container
+```
+
+Latest stable Sprint 9 commits:
+
+```txt
+2e0faee feat(gateway): add admin route config read api
+0d6aa66 feat(gateway): add route config create api
+7a828ba feat(gateway): add route config update api
+4f660d6 chore(gateway): document admin route config env
 ```
 
 Latest stable Sprint 8 commits:
@@ -3191,6 +3773,7 @@ ff105f6 feat(gateway): seed route config data
 a1785dc feat(gateway): map database route configs
 6f67cb7 feat(gateway): load runtime route configs with fallback
 951139c chore(gateway): configure database route config runtime
+6d8f6ab docs: finalize sprint 8 documentation
 ```
 
 Latest stable Sprint 7 commits:
@@ -3276,6 +3859,8 @@ PulseGate follows these principles:
 * Policy foundation before Admin UI.
 * Static route config fallback before dynamic database route config rollout.
 * Database-backed config before Admin Dashboard.
+* Backend route management APIs before Admin Dashboard.
+* Restart-based route reload before hot reload.
 * GitHub-ready documentation.
 * Reproducible infrastructure through configuration files.
 

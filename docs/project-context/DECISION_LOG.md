@@ -4099,3 +4099,521 @@ Production cloud deployment
 Status:
 
 Accepted.
+
+---
+
+## 2026-07-01 - Keep Sprint 9 Focused on Route Management API Foundation
+
+Decision:
+
+Keep Sprint 9 focused on backend Route Management API foundation.
+
+Reason:
+
+* Sprint 8 already added PostgreSQL-backed Gateway route config.
+* The next product-like API Gateway capability is managing those route configs through APIs.
+* Admin Dashboard should not be built before backend route management APIs are stable.
+* Route management should reuse the existing route config validation instead of creating a separate validation path.
+* Keeping Sprint 9 backend-only avoids mixing API design, UI, hot reload, audit logs, and stronger admin authentication in one sprint.
+
+Included in Sprint 9:
+
+```txt
+Internal/admin route config read API
+Route config detail API
+Route config create API
+Route config update API
+Route config enable/disable foundation
+Admin API key middleware
+Route management repository
+Route management mapper
+Validation before persistence
+Duplicate method + gatewayPath conflict detection
+Route management API tests
+Environment documentation for admin API key config
+Docker runtime validation
+```
+
+Not included in Sprint 9:
+
+```txt
+Admin Dashboard UI
+Developer Portal UI
+Runtime route hot reload
+Route config delete endpoint
+Route management audit log
+Kafka
+RabbitMQ
+Kubernetes
+OpenTelemetry
+Loki
+k6
+Docker image registry push
+Production cloud deployment
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Protect Internal Admin APIs with Admin API Key
+
+Decision:
+
+Protect internal/admin route management APIs with a separate admin API key.
+
+Reason:
+
+* Route management APIs can change Gateway behavior and should not use the same consumer API key as normal clients.
+* Consumer `x-api-key` is for protected API routes such as `GET /api/products`.
+* Admin `x-admin-api-key` is for internal/admin operations such as reading, creating, and updating route configs.
+* A simple admin API key is enough for the local-first Sprint 9 foundation.
+* Stronger admin authentication can be added later when Admin Dashboard or real admin users are introduced.
+
+Current internal/admin header:
+
+```txt
+x-admin-api-key
+```
+
+Current default local admin API key:
+
+```txt
+local-admin-key
+```
+
+Current environment variables:
+
+```txt
+ADMIN_API_KEY_HEADER=x-admin-api-key
+ADMIN_API_KEY=local-admin-key
+```
+
+Current protected internal/admin APIs:
+
+```txt
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
+```
+
+Current behavior:
+
+```txt
+Missing admin API key
+  -> 401 ADMIN_API_KEY_MISSING
+
+Invalid admin API key
+  -> 403 ADMIN_API_KEY_INVALID
+
+Valid admin API key
+  -> Continue to route management behavior
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Add Internal Admin Route Config Read APIs
+
+Decision:
+
+Add internal/admin APIs to read Gateway route configuration records.
+
+Implemented endpoints:
+
+```txt
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+```
+
+Reason:
+
+* Route config must be observable before it can be safely created or updated through APIs.
+* Future Admin Dashboard needs a backend API to list and inspect routes.
+* Read APIs are the safest first step for route management.
+* Disabled routes should still be visible to admin users even when they are not active at runtime.
+* Keeping read APIs internal/admin-only protects route configuration details from normal API consumers.
+
+Current behavior:
+
+```txt
+GET /internal/admin/routes
+  -> Requires x-admin-api-key
+  -> Returns all route configs
+  -> Includes enabled and disabled routes
+  -> Orders routes by priority and gateway path
+
+GET /internal/admin/routes/:id
+  -> Requires x-admin-api-key
+  -> Returns one route config by id
+  -> Returns 404 ROUTE_CONFIG_NOT_FOUND when route does not exist
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Add Route Config Create API
+
+Decision:
+
+Add an internal/admin API to create Gateway route config records.
+
+Implemented endpoint:
+
+```txt
+POST /internal/admin/routes
+```
+
+Reason:
+
+* A product-like API Gateway should not require manual database edits to add routes.
+* Route config creation is required before future Admin Dashboard route management.
+* New route configs should be validated before they are persisted.
+* The existing `validateDownstreamRoutes()` logic should be reused so runtime route validation and admin API validation stay consistent.
+* Duplicate route identities should be rejected before persistence.
+
+Current create flow:
+
+```txt
+Admin client
+  -> POST /internal/admin/routes
+  -> x-admin-api-key
+  -> Admin API key middleware
+  -> Parse request body
+  -> Map request body to DownstreamRouteConfig
+  -> validateDownstreamRoutes()
+  -> Check duplicate method + gatewayPath
+  -> Insert route into gateway.gateway_routes
+  -> Return 201 Created
+```
+
+Current duplicate rule:
+
+```txt
+method + gatewayPath must be unique
+```
+
+Current duplicate response:
+
+```txt
+409 ROUTE_CONFIG_ALREADY_EXISTS
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Add Route Config Update API with Partial PATCH Semantics
+
+Decision:
+
+Add an internal/admin API to update Gateway route config records using PATCH.
+
+Implemented endpoint:
+
+```txt
+PATCH /internal/admin/routes/:id
+```
+
+Reason:
+
+* Route config updates are required for practical route management.
+* PATCH is suitable because admins often update only part of a route config, such as `enabled`, `priority`, or policy values.
+* The update API should merge the existing route config with the patch body before validation.
+* Reusing `validateDownstreamRoutes()` after merging prevents invalid runtime route configs from being persisted.
+* Duplicate `method + gatewayPath` conflicts should be detected when a route is updated.
+
+Current update flow:
+
+```txt
+Admin client
+  -> PATCH /internal/admin/routes/:id
+  -> x-admin-api-key
+  -> Admin API key middleware
+  -> Find existing route by id
+  -> Return 404 if route does not exist
+  -> Merge existing route config with PATCH body
+  -> Map merged data to DownstreamRouteConfig
+  -> validateDownstreamRoutes()
+  -> Check method + gatewayPath conflict against other routes
+  -> Update route in gateway.gateway_routes
+  -> Return 200 OK
+```
+
+Current update error behavior:
+
+```txt
+Route config not found
+  -> 404 ROUTE_CONFIG_NOT_FOUND
+
+Invalid merged route config
+  -> 400 ROUTE_CONFIG_INVALID
+
+Conflict with another method + gatewayPath
+  -> 409 ROUTE_CONFIG_ALREADY_EXISTS
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Use PATCH `enabled` Field for Route Enable/Disable Foundation
+
+Decision:
+
+Use the route config `enabled` field through `PATCH /internal/admin/routes/:id` as the first enable/disable foundation.
+
+Reason:
+
+* The `gateway.gateway_routes` table already has an `enabled` column.
+* A separate enable/disable endpoint is not necessary for the Sprint 9 foundation.
+* Updating `enabled` through PATCH keeps the API surface small.
+* Disabled routes should remain stored in the database and visible to admins.
+* Runtime loading already filters enabled routes, so disabling a route is naturally supported after Gateway restart.
+
+Current disable request example:
+
+```json
+{
+  "enabled": false
+}
+```
+
+Current behavior:
+
+```txt
+Route remains stored in gateway.gateway_routes
+Route remains visible in GET /internal/admin/routes
+Route is not loaded as an active runtime route after API Gateway restart
+Client requests to the disabled route return 404
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Keep Runtime Route Reload Restart-Based in Sprint 9
+
+Decision:
+
+Keep route config reload strategy simple in Sprint 9: route config changes take effect after API Gateway restart.
+
+Reason:
+
+* Sprint 9 focuses on route management API foundation, not hot reload.
+* Runtime hot reload requires careful handling of route re-registration, stale routes, validation failures, cache behavior, and concurrency.
+* Restart-based reload is predictable and safer for the first route management API version.
+* The Gateway already loads route configs from PostgreSQL at startup.
+* Hot reload can be designed later after create/update/enable/disable behavior is stable.
+
+Current behavior:
+
+```txt
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
+  -> Write changes to gateway.gateway_routes
+
+API Gateway restart
+  -> loadRuntimeDownstreamRouteConfigs()
+  -> Load enabled route configs from database
+  -> Register runtime routes
+```
+
+Deferred:
+
+```txt
+Runtime route hot reload
+Admin-triggered route reload endpoint
+Route config watch mode
+Zero-downtime route replacement
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Reuse Existing Route Validation Before Persistence
+
+Decision:
+
+Reuse `validateDownstreamRoutes()` before creating or updating route configs through internal/admin APIs.
+
+Reason:
+
+* Runtime route validation already exists and is tested.
+* Admin API validation should match runtime validation.
+* Route configs that cannot safely run should not be persisted.
+* Reusing the same validation reduces duplicate logic.
+* This keeps route management behavior consistent with Gateway startup behavior.
+
+Current validation use:
+
+```txt
+POST /internal/admin/routes
+  -> Map request body to DownstreamRouteConfig
+  -> validateDownstreamRoutes([routeConfig])
+  -> Persist only if valid
+
+PATCH /internal/admin/routes/:id
+  -> Merge existing route with patch body
+  -> Map merged body to DownstreamRouteConfig
+  -> validateDownstreamRoutes([routeConfig])
+  -> Persist only if valid
+```
+
+Current validation failure response:
+
+```txt
+400 ROUTE_CONFIG_INVALID
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Add Dedicated Route Management Module
+
+Decision:
+
+Add a dedicated `route-management` module for internal/admin route config read, create, and update behavior.
+
+Reason:
+
+* Route management logic should not be mixed directly into generic proxy routing.
+* Request/response mapping should be separated from Prisma persistence.
+* Repository logic should be abstracted for easier testing.
+* Admin route config APIs should be testable without real PostgreSQL.
+* This structure prepares the project for future route delete, audit log, hot reload, and Admin Dashboard features.
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/route-management/route-management.types.ts
+apps/api-gateway/src/route-management/route-management.mapper.ts
+apps/api-gateway/src/route-management/route-management.repository.ts
+apps/api-gateway/src/routes/admin-route-config.route.ts
+apps/api-gateway/src/routes/admin-route-config.route.test.ts
+```
+
+Current repository behavior:
+
+```txt
+listRoutes()
+findRouteById(id)
+findRouteByMethodAndGatewayPath(method, gatewayPath)
+createRoute(data)
+updateRoute(id, data)
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Document and Test Admin API Key Environment Configuration
+
+Decision:
+
+Document admin API key environment variables in `.env.example` and add tests for admin env parsing.
+
+Reason:
+
+* Sprint 9 introduced new admin security configuration.
+* `.env.example` should stay synchronized with actual runtime env usage.
+* Future developers should understand the difference between consumer API key and admin API key.
+* Tests should confirm default and custom admin API key values are exposed correctly.
+* Keeping env documentation accurate avoids confusion during future Admin Dashboard or deployment work.
+
+Current documented variables:
+
+```txt
+ADMIN_API_KEY_HEADER=x-admin-api-key
+ADMIN_API_KEY=local-admin-key
+```
+
+Current distinction:
+
+```txt
+x-api-key
+  -> Consumer/client API key for protected routes such as GET /api/products
+
+x-admin-api-key
+  -> Internal/admin API key for route management APIs
+```
+
+Current env test coverage:
+
+```txt
+apps/api-gateway/src/config/env.test.ts
+  -> Default admin API key config
+  -> Custom admin API key config
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Move Next Sprint Toward Route Management Hardening or Admin Dashboard Foundation
+
+Decision:
+
+After Sprint 9 final documentation update, move Sprint 10 toward Route Management Hardening or Admin Dashboard Foundation.
+
+Reason:
+
+* Sprint 9 completed the backend route management API foundation.
+* The next step should either strengthen route management backend behavior or begin a small Admin Dashboard foundation.
+* Runtime hot reload, soft-delete, stronger admin authentication, and audit logs are natural backend hardening steps.
+* Admin Dashboard should only start after backend route management behavior is stable.
+* The project should continue with small, stable checkpoints.
+
+Recommended Sprint 10 direction:
+
+```txt
+1. Add route config delete or soft-delete strategy.
+2. Add safe route config reload endpoint or hot reload foundation.
+3. Add stronger admin authentication foundation if needed.
+4. Add route management audit fields or audit log foundation.
+5. Add Admin Dashboard only after backend route management behavior is stable.
+```
+
+Not included automatically:
+
+```txt
+Kafka
+RabbitMQ
+Kubernetes
+Developer Portal
+OpenTelemetry
+Loki
+k6
+Production cloud deployment
+Docker image registry push
+Automatic deployment
+```
+
+Status:
+
+Accepted.

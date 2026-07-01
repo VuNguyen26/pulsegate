@@ -17,20 +17,20 @@ PulseGate is designed to help backend teams manage, protect, monitor, validate, 
 Current version:
 
 ```txt
-v0.9.0
+v0.10.0
 ```
 
 Current status:
 
 ```txt
-Sprint 8 - Dynamic Route Config from Database Complete
+Sprint 9 - Route Management API Foundation Complete
 ```
 
 Current automated test status:
 
 ```txt
-26 test files passed
-152 tests passed
+27 test files passed
+168 tests passed
 ```
 
 Current CI/CD status:
@@ -47,12 +47,15 @@ Local-first API Gateway
 Docker Compose infrastructure
 PostgreSQL-backed Product Service
 PostgreSQL-backed API Gateway route configuration
+Internal/admin route management API foundation
+Admin API key authentication for internal/admin APIs
 Redis-backed traffic protection and response cache
 Prometheus + Grafana observability
 Route policy foundation
 GitHub Actions CI/CD foundation
 Database-backed dynamic Gateway route config
 Safe static route config fallback
+Simple restart-based route config reload strategy
 ```
 
 ---
@@ -86,6 +89,13 @@ PulseGate aims to solve these problems:
 * Store Gateway route configuration in PostgreSQL.
 * Load Gateway route configuration dynamically at runtime startup.
 * Keep the Gateway safe by falling back to static route config when DB route loading fails.
+* Manage Gateway route configuration through internal/admin APIs.
+* Read route configs through internal/admin APIs.
+* Create route configs through internal/admin APIs.
+* Update route configs through internal/admin APIs.
+* Enable or disable route configs through internal/admin APIs.
+* Validate route configuration before persistence.
+* Reject duplicate route identities before persistence.
 * Add request logging for debugging.
 * Add latency visibility for local testing.
 * Expose Prometheus-compatible HTTP metrics.
@@ -95,7 +105,7 @@ PulseGate aims to solve these problems:
 * Support per-route auth, timeout, cache, rate limit, transform, and retry rules.
 * Validate repository health automatically with CI.
 * Validate tests, typecheck, build, Prisma generation, and Docker image builds before treating the main branch as stable.
-* Prepare for route management APIs.
+* Prepare for Admin Dashboard.
 * Prepare for service registry and API management features.
 * Prepare for distributed tracing.
 * Support local infrastructure through Docker Compose.
@@ -106,7 +116,7 @@ PulseGate aims to solve these problems:
 
 ## 4. Current Architecture
 
-Current stable architecture after Sprint 8:
+Current stable architecture after Sprint 9:
 
 ```txt
 Client
@@ -174,7 +184,21 @@ Client
       -> Product Service :3001 /health
       -> x-cache: BYPASS
 
-    -> Add x-cache
+    -> Internal/admin route management APIs:
+      -> GET /internal/admin/routes
+      -> GET /internal/admin/routes/:id
+      -> POST /internal/admin/routes
+      -> PATCH /internal/admin/routes/:id
+      -> Admin API key authentication
+      -> Route management repository
+      -> Route management mapper
+      -> PostgreSQL gateway.gateway_routes
+      -> Route config validation before persistence
+      -> Duplicate method + gatewayPath conflict detection
+      -> Enable/disable route config through PATCH
+      -> Simple restart-based runtime reload strategy
+
+    -> Add x-cache when applicable
     -> Add x-response-time-ms
     -> Record Prometheus metrics
     -> Write structured access log
@@ -219,6 +243,7 @@ Current architecture diagram:
 ```mermaid
 flowchart LR
     Client[Client / API Consumer] --> Gateway[PulseGate API Gateway<br/>Port 3000]
+    AdminClient[Admin Client / Future Admin Dashboard] --> AdminApis[Internal Admin Route Management APIs<br/>/internal/admin/routes]
 
     Gateway --> RuntimeConfig[Runtime Route Config Loader]
     RuntimeConfig --> GatewayPrisma[API Gateway Prisma Client]
@@ -265,14 +290,23 @@ flowchart LR
     HealthTimeout --> ProductHealth[Product Service<br/>GET /health<br/>Port 3001]
     ProductHealth --> HealthResponse[Health Response<br/>x-cache: BYPASS]
 
+    AdminApis --> AdminKey[Admin API Key Authentication<br/>x-admin-api-key]
+    AdminKey --> RouteManagement[Route Management Module]
+    RouteManagement --> RouteRepo[Prisma Route Management Repository]
+    RouteRepo --> GatewaySchema
+    RouteManagement --> RouteValidation[validateDownstreamRoutes Before Persistence]
+    RouteManagement --> AdminResponse[Route Management Response<br/>List / Detail / Create / Update]
+
     RateLimit --> Redis[(Redis<br/>Port 6379)]
     Cache --> Redis
     CacheStore --> Redis
 
     ProductResponseHeaders --> MetricsRecord[Record HTTP Metrics]
     HealthResponse --> MetricsRecord
+    AdminResponse --> MetricsRecord
     MetricsRecord --> AccessLogWrite[Write Structured Access Log]
     AccessLogWrite --> Client
+    AccessLogWrite --> AdminClient
 
     Gateway --> MetricsEndpoint[/GET /metrics/]
     Prometheus[Prometheus<br/>Port 9090] -->|Scrapes| MetricsEndpoint
@@ -334,17 +368,27 @@ Current behavior:
 39. For `GET /api/product-service/health`, API Gateway does not use Redis response cache.
 40. API Gateway calls Product Service `GET /health`.
 41. API Gateway returns Product Service health response with `x-cache: BYPASS`.
-42. API Gateway adds `x-response-time-ms`.
-43. API Gateway records Prometheus metrics.
-44. API Gateway writes a structured access log.
-45. API Gateway normalizes downstream errors when needed.
-46. Prometheus scrapes API Gateway `/metrics`.
-47. Grafana reads metrics from Prometheus and displays the API Gateway overview dashboard.
-48. GitHub Actions validates every push to `main`.
-49. GitHub Actions validates every pull request targeting `main`.
-50. GitHub Actions runs `npm ci`, Prisma generate, tests, typecheck, build, and Docker image build validation.
-51. GitHub reports CI pass/fail status.
-52. README badge reflects the current CI workflow status.
+42. For internal/admin route management APIs, API Gateway checks `x-admin-api-key`.
+43. If admin API key is missing, API Gateway returns `401 ADMIN_API_KEY_MISSING`.
+44. If admin API key is invalid, API Gateway returns `403 ADMIN_API_KEY_INVALID`.
+45. If admin API key is valid, API Gateway executes route management behavior.
+46. `GET /internal/admin/routes` returns all route configs, including disabled routes.
+47. `GET /internal/admin/routes/:id` returns one route config or `404 ROUTE_CONFIG_NOT_FOUND`.
+48. `POST /internal/admin/routes` validates and creates a route config.
+49. `PATCH /internal/admin/routes/:id` merges, validates, and updates a route config.
+50. Disabled route configs remain stored in DB and visible to admins.
+51. Disabled route configs are not loaded as active runtime routes after API Gateway restart.
+52. API Gateway adds `x-response-time-ms`.
+53. API Gateway records Prometheus metrics.
+54. API Gateway writes a structured access log.
+55. API Gateway normalizes downstream errors when needed.
+56. Prometheus scrapes API Gateway `/metrics`.
+57. Grafana reads metrics from Prometheus and displays the API Gateway overview dashboard.
+58. GitHub Actions validates every push to `main`.
+59. GitHub Actions validates every pull request targeting `main`.
+60. GitHub Actions runs `npm ci`, Prisma generate, tests, typecheck, build, and Docker image build validation.
+61. GitHub reports CI pass/fail status.
+62. README badge reflects the current CI workflow status.
 
 ---
 
@@ -400,6 +444,7 @@ Current Docker Compose responsibilities:
 * Starts API Gateway after PostgreSQL, Redis, and Product Service are healthy.
 * Provides API Gateway `DATABASE_URL` for the PostgreSQL `gateway` schema.
 * Provides Product Service `DATABASE_URL` for the PostgreSQL `public` schema.
+* Provides API Gateway admin API key environment values.
 * Starts Prometheus after API Gateway.
 * Starts Grafana after Prometheus.
 * Provides persistent Docker volume for PostgreSQL.
@@ -426,7 +471,7 @@ pulsegate-prometheus       up
 pulsegate-grafana          up
 ```
 
-Expected API Gateway startup log after Sprint 8:
+Expected API Gateway startup log after Sprint 9 with clean seeded DB:
 
 ```txt
 Loaded downstream route configs from database { routeCount: 2 }
@@ -457,6 +502,10 @@ GET /health
 GET /metrics
 GET /api/products
 GET /api/product-service/health
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
 ```
 
 Route protection:
@@ -486,6 +535,16 @@ GET /api/product-service/health
   -> Uses route policy configuration loaded from resolved route config
   -> Uses downstream timeout policy
   -> Proxies to Product Service GET /health
+
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
+  -> Internal/admin APIs
+  -> Require x-admin-api-key
+  -> Do not use consumer x-api-key
+  -> Do not use consumer JWT
+  -> Do not use Product response cache
 ```
 
 Responsibilities:
@@ -526,6 +585,15 @@ Responsibilities:
 * Writes structured access logs after request completion.
 * Records HTTP metrics after request completion.
 * Exposes Prometheus-compatible metrics at `/metrics`.
+* Protects internal/admin route management APIs with admin API key.
+* Lists route configs through internal/admin API.
+* Reads route config detail through internal/admin API.
+* Creates route configs through internal/admin API.
+* Updates route configs through internal/admin API.
+* Enables or disables route configs through PATCH.
+* Validates route configs before persistence.
+* Rejects duplicate `method + gatewayPath` conflicts before persistence.
+* Supports simple restart-based runtime route reload strategy.
 * Supports automated integration tests using Fastify `app.inject()`.
 * Generates Prisma Client in GitHub Actions CI.
 * Generates Prisma Client inside the Docker image to avoid host/runtime mismatch.
@@ -569,6 +637,7 @@ apps/api-gateway/
     middlewares/
       access-log.middleware.ts
       access-log.middleware.test.ts
+      admin-api-key-auth.middleware.ts
       api-key-auth.middleware.ts
       api-key-auth.middleware.test.ts
       error-handler.middleware.ts
@@ -608,7 +677,13 @@ apps/api-gateway/
       redis-rate-limit-store.test.ts
     redis/
       redis-client.ts
+    route-management/
+      route-management.mapper.ts
+      route-management.repository.ts
+      route-management.types.ts
     routes/
+      admin-route-config.route.ts
+      admin-route-config.route.test.ts
       health.route.ts
       metrics.route.ts
       metrics.route.test.ts
@@ -1089,6 +1164,7 @@ API Gateway process starts
   -> buildApiGatewayApp({ routeConfigs })
   -> Register health route
   -> Register metrics route
+  -> Register internal/admin route management route
   -> Register downstreamProxyRoute() with resolved route configs
   -> Connect Redis
   -> Listen on configured host and port
@@ -1099,7 +1175,8 @@ Why this matters:
 * The Gateway can now be controlled by persisted route configuration.
 * Runtime startup does not depend only on code-defined route configs.
 * Existing static config still protects the app from DB startup/config mistakes.
-* This is the foundation for future route management APIs and Admin Dashboard.
+* Internal/admin route management APIs can manage persisted route configs.
+* This is the foundation for future Admin Dashboard route management.
 
 ---
 
@@ -1315,7 +1392,75 @@ This route should not return rate limit headers.
 
 ---
 
-### 7.7 CI Validation Flow
+### 7.7 Internal Admin Route Management Flow
+
+```txt
+Admin Client / Future Admin Dashboard
+  -> GET http://localhost:3000/internal/admin/routes
+    -> API Gateway checks x-admin-api-key
+    -> API Gateway reads route configs from gateway.gateway_routes
+    -> API Gateway returns all route configs including disabled routes
+
+Admin Client / Future Admin Dashboard
+  -> GET http://localhost:3000/internal/admin/routes/:id
+    -> API Gateway checks x-admin-api-key
+    -> API Gateway reads one route config by id
+    -> If route does not exist:
+         -> 404 ROUTE_CONFIG_NOT_FOUND
+    -> If route exists:
+         -> 200 with route config response
+
+Admin Client / Future Admin Dashboard
+  -> POST http://localhost:3000/internal/admin/routes
+    -> API Gateway checks x-admin-api-key
+    -> API Gateway validates request body
+    -> API Gateway maps request body to DownstreamRouteConfig
+    -> API Gateway reuses validateDownstreamRoutes()
+    -> API Gateway checks duplicate method + gatewayPath
+    -> If duplicate exists:
+         -> 409 ROUTE_CONFIG_ALREADY_EXISTS
+    -> If valid and not duplicate:
+         -> API Gateway creates route config in gateway.gateway_routes
+         -> API Gateway returns 201 Created
+
+Admin Client / Future Admin Dashboard
+  -> PATCH http://localhost:3000/internal/admin/routes/:id
+    -> API Gateway checks x-admin-api-key
+    -> API Gateway reads existing route by id
+    -> If route does not exist:
+         -> 404 ROUTE_CONFIG_NOT_FOUND
+    -> If route exists:
+         -> API Gateway merges existing route with patch body
+         -> API Gateway maps merged body to DownstreamRouteConfig
+         -> API Gateway reuses validateDownstreamRoutes()
+         -> API Gateway checks conflict with another method + gatewayPath
+         -> API Gateway updates route config in gateway.gateway_routes
+         -> API Gateway returns 200 OK
+```
+
+Current admin API key header:
+
+```txt
+x-admin-api-key
+```
+
+Current default local admin API key:
+
+```txt
+local-admin-key
+```
+
+Current runtime reload behavior:
+
+```txt
+Route config create/update changes are persisted immediately.
+Runtime proxy route changes take effect after API Gateway restart.
+Hot reload is intentionally deferred to a later sprint.
+```
+
+---
+
+### 7.8 CI Validation Flow
 
 ```txt
 Developer
@@ -1372,6 +1517,10 @@ GET /health
 GET /metrics
 GET /api/products
 GET /api/product-service/health
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
 ```
 
 ---
@@ -1396,7 +1545,16 @@ GET /metrics
 GET /api/product-service/health
 ```
 
-Default header:
+Internal/admin routes do not use consumer API key authentication:
+
+```txt
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
+```
+
+Default consumer API key header:
 
 ```txt
 x-api-key
@@ -1437,7 +1595,54 @@ auth:
 
 ---
 
-### 9.2 JWT Authentication
+### 9.2 Admin API Key Authentication
+
+Admin API key authentication is used for internal/admin route management APIs.
+
+Protected internal/admin routes:
+
+```txt
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
+```
+
+Default admin API key header:
+
+```txt
+x-admin-api-key
+```
+
+Default local admin API key:
+
+```txt
+local-admin-key
+```
+
+Behavior:
+
+```txt
+Missing admin API key
+  -> 401 ADMIN_API_KEY_MISSING
+
+Invalid admin API key
+  -> 403 ADMIN_API_KEY_INVALID
+
+Valid admin API key
+  -> Continue to route management behavior
+```
+
+Reason:
+
+* Consumer API keys and admin API keys have different purposes.
+* Consumer API keys protect API consumption.
+* Admin API keys protect route management operations.
+* Route management APIs can change Gateway behavior and must not be exposed to normal API consumers.
+
+---
+
+### 9.3 JWT Authentication
 
 JWT authentication is used for user or session-level authentication.
 
@@ -1453,6 +1658,15 @@ Public routes without JWT requirement:
 GET /health
 GET /metrics
 GET /api/product-service/health
+```
+
+Internal/admin routes do not require consumer JWT in Sprint 9:
+
+```txt
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
 ```
 
 Default header:
@@ -1528,6 +1742,15 @@ Rate limiting is intentionally disabled for:
 
 ```txt
 GET /api/product-service/health
+```
+
+Consumer rate limiting is not currently applied to:
+
+```txt
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
 ```
 
 Current protected route behavior:
@@ -1727,6 +1950,15 @@ Current route with cache disabled:
 
 ```txt
 GET /api/product-service/health
+```
+
+Current internal/admin routes do not use Product response cache:
+
+```txt
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
 ```
 
 Current Redis response cache key:
@@ -1930,6 +2162,7 @@ Sensitive values are intentionally not logged:
 
 ```txt
 x-api-key
+x-admin-api-key
 authorization
 cookie
 ```
@@ -2006,6 +2239,8 @@ Current route labels include:
 /metrics
 /api/products
 /api/product-service/health
+/internal/admin/routes
+/internal/admin/routes/:id
 ```
 
 ### 13.4 Metrics Endpoint
@@ -2090,6 +2325,8 @@ Sprint 7 expanded the Gateway so more than one downstream route can be registere
 
 Sprint 8 moved the primary runtime route config source from static TypeScript config to PostgreSQL-backed database config while keeping static fallback.
 
+Sprint 9 added route management APIs that reuse existing route validation before persisting route configs.
+
 Static route config file:
 
 ```txt
@@ -2112,6 +2349,12 @@ Database route config mapper file:
 
 ```txt
 apps/api-gateway/src/config/database-route-config.mapper.ts
+```
+
+Route management mapper file:
+
+```txt
+apps/api-gateway/src/route-management/route-management.mapper.ts
 ```
 
 Route policy type file:
@@ -2301,6 +2544,7 @@ Purpose:
 * Allow public and protected routes to use different policies.
 * Prepare for more downstream services later.
 * Use PostgreSQL as the primary route config persistence foundation.
+* Allow internal/admin APIs to manage route config records.
 * Prepare for future Admin Dashboard or config-driven route management.
 * Make the Gateway closer to production API Gateway products.
 * Keep route behavior testable through unit and integration tests.
@@ -2337,6 +2581,15 @@ Before Sprint 8:
 After Sprint 8:
   -> PostgreSQL gateway.gateway_routes first
   -> static downstreamRouteConfigs fallback if DB loading fails or returns no routes
+```
+
+Sprint 9 added APIs to manage the database route config records:
+
+```txt
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
 ```
 
 Current route registration flow:
@@ -2377,17 +2630,18 @@ GET /api/product-service/health
 Why this matters:
 
 * The Gateway is no longer limited to one route.
-* Route behavior is now moving from code-only config to database-backed config.
+* Route behavior has moved from code-only config to database-backed config.
 * The Gateway can support multiple route policies.
 * Existing route behavior remains safe due to static fallback.
-* Future Admin APIs can manage route configuration more naturally.
+* Admin APIs can now manage route configuration records.
+* Future Admin Dashboard can build on existing backend route management behavior.
 
 Current limitation:
 
 ```txt
 Routes are loaded from database at startup.
 There is no runtime hot reload yet.
-There is no Admin API for route create/update yet.
+There is no route config delete endpoint yet.
 There is no Admin Dashboard yet.
 ```
 
@@ -2396,6 +2650,8 @@ There is no Admin Dashboard yet.
 ## 16. Dynamic Route Config Design
 
 Sprint 8 introduced database-backed dynamic route configuration.
+
+Sprint 9 added internal/admin APIs to manage route config records.
 
 ### 16.1 Database Model
 
@@ -2589,11 +2845,255 @@ Why this matters:
 * The Gateway can still start when route config DB is unavailable.
 * Existing protected product route behavior remains stable.
 * Existing public product health proxy route behavior remains stable.
-* Sprint 8 can roll out DB route config without making the Gateway fragile.
+* Database-backed route config can roll out safely.
+* Route management APIs can be introduced without removing safe runtime fallback.
 
 ---
 
-## 17. CI/CD Design
+## 17. Route Management API Design
+
+Sprint 9 introduced the internal/admin Route Management API foundation.
+
+Current route management endpoints:
+
+```txt
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+POST /internal/admin/routes
+PATCH /internal/admin/routes/:id
+```
+
+Current admin authentication:
+
+```txt
+Header: x-admin-api-key
+Default local value: local-admin-key
+```
+
+Current admin env variables:
+
+```txt
+ADMIN_API_KEY_HEADER=x-admin-api-key
+ADMIN_API_KEY=local-admin-key
+```
+
+Route management module files:
+
+```txt
+apps/api-gateway/src/middlewares/admin-api-key-auth.middleware.ts
+apps/api-gateway/src/routes/admin-route-config.route.ts
+apps/api-gateway/src/routes/admin-route-config.route.test.ts
+apps/api-gateway/src/route-management/route-management.types.ts
+apps/api-gateway/src/route-management/route-management.mapper.ts
+apps/api-gateway/src/route-management/route-management.repository.ts
+```
+
+### 17.1 Read Design
+
+Read endpoints:
+
+```txt
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+```
+
+Behavior:
+
+```txt
+GET /internal/admin/routes
+  -> Requires x-admin-api-key
+  -> Returns all route configs
+  -> Includes enabled and disabled routes
+  -> Orders routes by priority and gatewayPath
+
+GET /internal/admin/routes/:id
+  -> Requires x-admin-api-key
+  -> Returns one route config by id
+  -> Returns 404 ROUTE_CONFIG_NOT_FOUND if missing
+```
+
+Why read APIs were added first:
+
+* Admin clients need visibility before making changes.
+* Future Admin Dashboard needs route list and detail APIs.
+* Disabled routes should remain visible to admins.
+* Read behavior is safer than write behavior and helps validate repository and mapper design.
+
+---
+
+### 17.2 Create Design
+
+Create endpoint:
+
+```txt
+POST /internal/admin/routes
+```
+
+Create flow:
+
+```txt
+Admin client
+  -> POST /internal/admin/routes
+  -> x-admin-api-key
+  -> Admin API key middleware
+  -> Parse request body
+  -> Map request body to DownstreamRouteConfig
+  -> validateDownstreamRoutes()
+  -> Check duplicate method + gatewayPath
+  -> Insert route into gateway.gateway_routes
+  -> Return 201 Created
+```
+
+Create validation rules:
+
+```txt
+Request body must be a valid route config shape.
+Mapped DownstreamRouteConfig must pass validateDownstreamRoutes().
+method + gatewayPath must not already exist.
+Database unique constraint remains as a second safety layer.
+```
+
+Duplicate response:
+
+```txt
+409 ROUTE_CONFIG_ALREADY_EXISTS
+```
+
+Invalid route config response:
+
+```txt
+400 ROUTE_CONFIG_INVALID
+```
+
+---
+
+### 17.3 Update Design
+
+Update endpoint:
+
+```txt
+PATCH /internal/admin/routes/:id
+```
+
+Update flow:
+
+```txt
+Admin client
+  -> PATCH /internal/admin/routes/:id
+  -> x-admin-api-key
+  -> Admin API key middleware
+  -> Find existing route by id
+  -> Return 404 if route does not exist
+  -> Merge existing route config with PATCH body
+  -> Map merged data to DownstreamRouteConfig
+  -> validateDownstreamRoutes()
+  -> Check method + gatewayPath conflict against other routes
+  -> Update route in gateway.gateway_routes
+  -> Return 200 OK
+```
+
+Why PATCH is used:
+
+* Admin users often update only one field such as `enabled`, `priority`, or policy values.
+* Partial update keeps the API easier to use.
+* Merging before validation ensures the complete route config remains valid.
+* Validation happens before persistence.
+
+Current update error responses:
+
+```txt
+Route config not found
+  -> 404 ROUTE_CONFIG_NOT_FOUND
+
+Invalid merged route config
+  -> 400 ROUTE_CONFIG_INVALID
+
+Conflict with another method + gatewayPath
+  -> 409 ROUTE_CONFIG_ALREADY_EXISTS
+```
+
+---
+
+### 17.4 Enable/Disable Design
+
+Enable/disable is handled through PATCH:
+
+```txt
+PATCH /internal/admin/routes/:id
+Body: { "enabled": false }
+```
+
+Current behavior:
+
+```txt
+Route remains stored in gateway.gateway_routes.
+Route remains visible in admin read API.
+Route is not loaded as an active runtime route after API Gateway restart.
+Client requests to the disabled route return 404.
+```
+
+Why no separate enable/disable endpoint yet:
+
+* The `enabled` field already exists.
+* PATCH keeps the API surface small.
+* Dedicated enable/disable endpoints can be added later if needed.
+* Sprint 9 focuses on API foundation, not full management ergonomics.
+
+---
+
+### 17.5 Runtime Reload Strategy
+
+Current strategy:
+
+```txt
+Route config create/update writes to PostgreSQL.
+API Gateway loads route configs only at startup.
+Route config changes take effect after API Gateway restart.
+```
+
+Why hot reload is deferred:
+
+* Runtime route hot reload requires careful route replacement design.
+* Fastify route re-registration has lifecycle and stale route concerns.
+* Hot reload must handle validation failures safely.
+* Hot reload must define cache and rate limit behavior for changed routes.
+* Restart-based reload is simpler and safer for Sprint 9.
+
+Deferred:
+
+```txt
+Runtime route hot reload
+Admin-triggered reload endpoint
+Route config watch mode
+Zero-downtime route replacement
+```
+
+---
+
+### 17.6 Route Management Error Design
+
+Current route management error responses:
+
+```txt
+Missing admin API key
+  -> 401 ADMIN_API_KEY_MISSING
+
+Invalid admin API key
+  -> 403 ADMIN_API_KEY_INVALID
+
+Route config not found
+  -> 404 ROUTE_CONFIG_NOT_FOUND
+
+Invalid route config
+  -> 400 ROUTE_CONFIG_INVALID
+
+Duplicate method + gatewayPath
+  -> 409 ROUTE_CONFIG_ALREADY_EXISTS
+```
+
+---
+
+## 18. CI/CD Design
 
 Sprint 6 introduced a GitHub Actions CI/CD foundation.
 
@@ -2672,11 +3172,11 @@ Design reason:
 
 ---
 
-## 18. Database Design
+## 19. Database Design
 
 PulseGate currently uses PostgreSQL in two separate ownership areas.
 
-### 18.1 Product Service Database Ownership
+### 19.1 Product Service Database Ownership
 
 Product Service owns product data.
 
@@ -2738,7 +3238,7 @@ Design notes:
 
 ---
 
-### 18.2 API Gateway Route Config Database Ownership
+### 19.2 API Gateway Route Config Database Ownership
 
 API Gateway owns route config data.
 
@@ -2787,10 +3287,12 @@ Design notes:
 * The `gateway` schema avoids Prisma migration drift with the Product Service `public` schema.
 * API Gateway route config migration history is stored separately in `gateway._prisma_migrations`.
 * This separation keeps service ownership clearer and avoids cross-service schema conflicts.
+* Route management APIs read and write records in `gateway.gateway_routes`.
+* Runtime route config loading reads enabled records from `gateway.gateway_routes`.
 
 ---
 
-## 19. Current Tech Stack
+## 20. Current Tech Stack
 
 Currently implemented:
 
@@ -2817,6 +3319,7 @@ Currently implemented Gateway capabilities:
 * Structured access logging.
 * Response time measurement.
 * API key authentication.
+* Admin API key authentication.
 * JWT authentication.
 * Static downstream route configuration fallback.
 * Database-backed downstream route configuration.
@@ -2826,6 +3329,12 @@ Currently implemented Gateway capabilities:
 * Generic downstream proxy route foundation.
 * Route policy configuration.
 * Route config validation.
+* Route management API foundation.
+* Route config list API.
+* Route config detail API.
+* Route config create API.
+* Route config update API.
+* Route config enable/disable foundation.
 * Downstream timeout handling.
 * Normalized downstream error handling.
 * Redis-backed rate limiting.
@@ -2838,6 +3347,7 @@ Currently implemented Gateway capabilities:
 * Prometheus-compatible metrics endpoint.
 * Unit tests.
 * Integration tests.
+* Route management API tests.
 
 Currently implemented Product Service capabilities:
 
@@ -2881,8 +3391,10 @@ Currently implemented CI/CD capabilities:
 
 Not implemented yet:
 
-* Route management API
 * Runtime route hot reload
+* Route config delete or soft-delete endpoint
+* Route management audit log
+* Stronger admin authentication beyond local admin API key
 * Service registry
 * API consumer database
 * API key lifecycle management
@@ -2902,7 +3414,7 @@ Not implemented yet:
 
 ---
 
-## 20. Monorepo Structure
+## 21. Monorepo Structure
 
 Current repository structure:
 
@@ -2948,6 +3460,7 @@ pulsegate/
         middlewares/
           access-log.middleware.ts
           access-log.middleware.test.ts
+          admin-api-key-auth.middleware.ts
           api-key-auth.middleware.ts
           api-key-auth.middleware.test.ts
           error-handler.middleware.ts
@@ -2987,7 +3500,13 @@ pulsegate/
           redis-rate-limit-store.test.ts
         redis/
           redis-client.ts
+        route-management/
+          route-management.mapper.ts
+          route-management.repository.ts
+          route-management.types.ts
         routes/
+          admin-route-config.route.ts
+          admin-route-config.route.test.ts
           health.route.ts
           metrics.route.ts
           metrics.route.test.ts
@@ -3058,7 +3577,7 @@ pulsegate/
 
 ---
 
-## 21. Automated Test and CI Architecture
+## 22. Automated Test and CI Architecture
 
 PulseGate uses Vitest for API Gateway unit and integration tests.
 
@@ -3071,8 +3590,8 @@ npm run test
 Current test status:
 
 ```txt
-26 test files passed
-152 tests passed
+27 test files passed
+168 tests passed
 ```
 
 Current CI-equivalent local validation command:
@@ -3128,7 +3647,7 @@ downstream-service-error.test.ts
   -> DownstreamServiceError and type guard behavior
 
 env.test.ts
-  -> Number, CSV, and string env parsing
+  -> Number, CSV, string env parsing, default admin API key config, custom admin API key config
 
 downstream-routes.test.ts
   -> Product route policy config
@@ -3156,6 +3675,16 @@ observability/metrics.test.ts
 
 metrics.route.test.ts
   -> /metrics endpoint and Prometheus text format
+
+admin-route-config.route.test.ts
+  -> Admin API key guard behavior
+  -> Route config list behavior
+  -> Route config detail behavior
+  -> Route config create behavior
+  -> Route config update behavior
+  -> Validation error behavior
+  -> Duplicate conflict behavior
+  -> Not found behavior
 
 timeout.policy.test.ts
   -> Timeout policy signal creation, abort behavior, and cleanup
@@ -3240,6 +3769,32 @@ GET /api/products with valid API key and valid JWT but downstream times out
   -> 504 DOWNSTREAM_TIMEOUT
 ```
 
+Current route management API test coverage:
+
+```txt
+GET /internal/admin/routes
+  -> 401 when admin API key is missing
+  -> 403 when admin API key is invalid
+  -> 200 and returns all route configs when admin API key is valid
+
+GET /internal/admin/routes/:id
+  -> 200 and returns route config by id
+  -> 404 when route config id does not exist
+
+POST /internal/admin/routes
+  -> 201 and creates route config
+  -> 400 when route config is invalid
+  -> 409 when method + gatewayPath already exists
+  -> 401 when admin API key is missing
+
+PATCH /internal/admin/routes/:id
+  -> 200 and updates route config
+  -> 404 when route config id does not exist
+  -> 400 when merged route config is invalid
+  -> 409 when method + gatewayPath conflicts with another route
+  -> 401 when admin API key is missing
+```
+
 Current CI validation coverage:
 
 ```txt
@@ -3255,23 +3810,23 @@ Product Service Docker image build
 
 ---
 
-## 22. Current Design Principles
+## 23. Current Design Principles
 
 PulseGate follows these principles:
 
-### 22.1 Local First
+### 23.1 Local First
 
 The project should run locally before adding cloud deployment.
 
-### 22.2 Cost Safe
+### 23.2 Cost Safe
 
 Early versions should not require paid cloud infrastructure.
 
-### 22.3 Small Steps
+### 23.3 Small Steps
 
 New technologies should be added only after the previous layer is stable.
 
-### 22.4 Clean Structure
+### 23.4 Clean Structure
 
 Each service should separate:
 
@@ -3292,6 +3847,9 @@ API Gateway also separates:
 * Database route config repository
 * Database route config mapper
 * Gateway Prisma Client wrapper
+* Route management module
+* Route management repository
+* Route management mapper
 * Route policy types
 * Route policy helpers
 * Route config validation
@@ -3317,11 +3875,11 @@ CI/CD config is separated under:
 .github/workflows/
 ```
 
-### 22.5 Observable by Design
+### 23.5 Observable by Design
 
 Request ID, structured access logs, response time headers, metrics, Prometheus, and Grafana are part of the Gateway foundation.
 
-### 22.6 Policy-Driven Gateway Behavior
+### 23.6 Policy-Driven Gateway Behavior
 
 Gateway route behavior should be controlled by route policies instead of being hardcoded directly inside route handlers.
 
@@ -3337,7 +3895,7 @@ responseTransform
 retry
 ```
 
-### 22.7 CI-Validated by Design
+### 23.7 CI-Validated by Design
 
 Repository health should be validated automatically before the main branch is considered stable.
 
@@ -3353,23 +3911,23 @@ production build
 Docker image builds
 ```
 
-### 22.8 Behavior First, Infrastructure Later
+### 23.8 Behavior First, Infrastructure Later
 
 Gateway behavior is implemented and tested before adding more advanced distributed systems.
 
-### 22.9 Test Before Scaling
+### 23.9 Test Before Scaling
 
 Core Gateway behavior should be protected by automated tests before infrastructure and distributed systems are added.
 
-### 22.10 Infrastructure After Stable Gateway Behavior
+### 23.10 Infrastructure After Stable Gateway Behavior
 
 Docker, PostgreSQL, Redis, Prisma, Prometheus, and Grafana were added only after routing, auth, downstream resilience, and traffic protection were stable.
 
-### 22.11 Provision Infrastructure Configuration
+### 23.11 Provision Infrastructure Configuration
 
 Prometheus and Grafana configuration should be file-based where possible so the local stack is reproducible.
 
-### 22.12 Static Fallback Before Dynamic Config Rollout
+### 23.12 Static Fallback Before Dynamic Config Rollout
 
 Sprint 8 deliberately keeps a static route config fallback while adding database-backed route config.
 
@@ -3381,7 +3939,7 @@ Reason:
 * Allow database-backed route config to be rolled out safely.
 * Prepare a stable foundation for future route management APIs.
 
-### 22.13 Database-Backed Config Before Admin UI
+### 23.13 Database-Backed Config Before Admin UI
 
 Route config persistence should exist before building an Admin Dashboard.
 
@@ -3389,11 +3947,34 @@ Reason:
 
 * Admin UI needs a real persistence layer.
 * API Gateway route behavior should already be config-driven.
-* Future Admin APIs can build on the existing `gateway.gateway_routes` model.
+* Admin APIs can build on the existing `gateway.gateway_routes` model.
+
+### 23.14 Backend Route Management Before Admin Dashboard
+
+Sprint 9 adds backend route management APIs before any Admin Dashboard UI.
+
+Reason:
+
+* Admin Dashboard should not be built on manual DB edits.
+* Route list, detail, create, and update behavior should be stable first.
+* Validation and duplicate conflict behavior should be tested before UI workflows are added.
+* Backend route management should remain usable without UI.
+* This keeps the product direction stable and incremental.
+
+### 23.15 Restart-Based Reload Before Hot Reload
+
+Sprint 9 keeps route config reload restart-based.
+
+Reason:
+
+* Runtime route hot reload is a separate complex concern.
+* Restart-based reload is predictable and safe.
+* Create/update/enable/disable behavior can be validated without route replacement complexity.
+* Hot reload can be implemented later as a controlled sprint.
 
 ---
 
-## 23. Future Target Architecture
+## 24. Future Target Architecture
 
 Long-term architecture:
 
@@ -3409,6 +3990,7 @@ Client / Frontend / External API Consumer
 Gateway Config Layer
   -> Database-backed route configuration
   -> Route management APIs
+  -> Route reload APIs
   -> Service registry
   -> API consumers
   -> API keys
@@ -3455,7 +4037,7 @@ Infrastructure
 
 ---
 
-## 24. Planned Evolution
+## 25. Planned Evolution
 
 ### Sprint 0 - Core Setup & Basic Gateway Flow
 
@@ -3698,7 +4280,7 @@ Done
 
 ### Sprint 9 - Route Management API Foundation
 
-Planned goal:
+Goal:
 
 * Add internal/admin route config read API.
 * Add route config create/update foundation.
@@ -3707,10 +4289,62 @@ Planned goal:
 * Keep runtime reload strategy simple.
 * Continue avoiding Admin Dashboard until backend route management behavior is stable.
 
+Completed:
+
+* Added admin API key environment config.
+* Added `ADMIN_API_KEY_HEADER`.
+* Added `ADMIN_API_KEY`.
+* Added admin API key middleware.
+* Added `GET /internal/admin/routes`.
+* Added `GET /internal/admin/routes/:id`.
+* Added `POST /internal/admin/routes`.
+* Added `PATCH /internal/admin/routes/:id`.
+* Added route management types.
+* Added route management mapper.
+* Added route management repository.
+* Added Prisma-backed route management repository.
+* Added route config list behavior.
+* Added route config detail behavior.
+* Added route config create behavior.
+* Added route config update behavior.
+* Added enable/disable behavior through PATCH.
+* Reused `validateDownstreamRoutes()` before create.
+* Reused `validateDownstreamRoutes()` before update.
+* Added duplicate `method + gatewayPath` check before create.
+* Added duplicate `method + gatewayPath` conflict check before update.
+* Added route management API tests.
+* Added admin API key env tests.
+* Updated `.env.example`.
+* Validated create route API in Docker runtime.
+* Validated duplicate create returns `409 ROUTE_CONFIG_ALREADY_EXISTS`.
+* Validated update route API in Docker runtime.
+* Validated disabled route returns `404` after API Gateway restart.
+* Cleaned temporary test route from database.
+* Confirmed clean seeded DB has 2 route configs.
+* Updated test status to 168 passing tests.
+
 Status:
 
 ```txt
-Next
+Done
+```
+
+---
+
+### Sprint 10 - Route Management Hardening or Admin Dashboard Foundation
+
+Recommended goal:
+
+* Add route config delete or soft-delete strategy.
+* Add safe route config reload endpoint or hot reload foundation.
+* Add stronger admin authentication foundation if needed.
+* Add route management audit fields or audit log foundation.
+* Add Admin Dashboard only after backend route management behavior is stable.
+
+Status:
+
+```txt
+Recommended Next
 ```
 
 ---
