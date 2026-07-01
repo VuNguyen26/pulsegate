@@ -10,6 +10,6 @@ RUN npm ci
 
 COPY . .
 
-EXPOSE 3000
+RUN DATABASE_URL="postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate?schema=gateway" npm run db:generate -w apps/api-gateway
 
 CMD ["npm", "run", "dev:gateway"]
