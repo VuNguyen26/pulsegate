@@ -1,9 +1,13 @@
 ﻿import { buildApiGatewayApp } from "./app.js";
 import { env } from "./config/env.js";
+import { loadRuntimeDownstreamRouteConfigs } from "./config/runtime-downstream-routes.js";
 import { connectRedis } from "./redis/redis-client.js";
 
 const start = async () => {
-  const app = await buildApiGatewayApp();
+  const routeConfigs = await loadRuntimeDownstreamRouteConfigs();
+  const app = await buildApiGatewayApp({
+    routeConfigs,
+  });
 
   try {
     await connectRedis();

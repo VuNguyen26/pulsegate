@@ -1,8 +1,12 @@
 import Fastify from "fastify";
 
 import { RedisResponseCacheStore } from "./cache/redis-response-cache-store.js";
-import { downstreamRouteConfigs } from "./config/downstream-routes.js";
+import {
+  downstreamRouteConfigs,
+  type DownstreamRouteConfig,
+} from "./config/downstream-routes.js";
 import { env } from "./config/env.js";
+import { disconnectGatewayPrisma } from "./database/gateway-prisma.js";
 import { registerAccessLogMiddleware } from "./middlewares/access-log.middleware.js";
 import { registerErrorHandlers } from "./middlewares/error-handler.middleware.js";
 import { registerMetricsMiddleware } from "./middlewares/metrics.middleware.js";
@@ -26,6 +30,7 @@ type BuildApiGatewayAppOptions = {
   logger?: boolean;
   productProxy?: DownstreamProxyRouteOptions;
   metrics?: HttpMetrics;
+  routeConfigs?: readonly DownstreamRouteConfig[];
 };
 
 export async function buildApiGatewayApp(
@@ -41,6 +46,7 @@ export async function buildApiGatewayApp(
 
   app.addHook("onClose", async () => {
     await disconnectRedis();
+    await disconnectGatewayPrisma();
   });
 
   app.addHook("onRequest", async (request, reply) => {
@@ -67,7 +73,10 @@ export async function buildApiGatewayApp(
       rateLimitStore: new RedisRateLimitStore(redisClient),
       responseCacheStore: new RedisResponseCacheStore(redisClient),
     }),
-    routeConfigs: downstreamRouteConfigs,
+    routeConfigs:
+      options.routeConfigs ??
+      options.productProxy?.routeConfigs ??
+      downstreamRouteConfigs,
   };
 
   await app.register(healthRoute);
