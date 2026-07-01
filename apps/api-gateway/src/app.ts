@@ -19,6 +19,10 @@ import {
 } from "./observability/metrics.js";
 import { RedisRateLimitStore } from "./rate-limit/redis-rate-limit-store.js";
 import { disconnectRedis, getRedisClient } from "./redis/redis-client.js";
+import {
+  adminRouteConfigRoute,
+  type AdminRouteConfigRouteOptions,
+} from "./routes/admin-route-config.route.js";
 import { healthRoute } from "./routes/health.route.js";
 import { metricsRoute } from "./routes/metrics.route.js";
 import {
@@ -31,6 +35,7 @@ type BuildApiGatewayAppOptions = {
   productProxy?: DownstreamProxyRouteOptions;
   metrics?: HttpMetrics;
   routeConfigs?: readonly DownstreamRouteConfig[];
+  routeManagement?: AdminRouteConfigRouteOptions;
 };
 
 export async function buildApiGatewayApp(
@@ -81,6 +86,7 @@ export async function buildApiGatewayApp(
 
   await app.register(healthRoute);
   await app.register(metricsRoute, { metrics });
+  await app.register(adminRouteConfigRoute, options.routeManagement ?? {});
   await app.register(downstreamProxyRoute, downstreamProxyOptions);
 
   return app;

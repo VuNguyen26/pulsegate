@@ -63,6 +63,11 @@ export const env = {
   ),
   API_KEY_HEADER: readStringEnv("API_KEY_HEADER", "x-api-key"),
   API_KEYS: readCsvEnv("API_KEYS", ["dev-api-key"]),
+  ADMIN_API_KEY_HEADER: readStringEnv(
+    "ADMIN_API_KEY_HEADER",
+    "x-admin-api-key"
+  ),
+  ADMIN_API_KEY: readStringEnv("ADMIN_API_KEY", "local-admin-key"),
   JWT_SECRET: readStringEnv(
     "JWT_SECRET",
     "local-dev-jwt-secret-change-me"
