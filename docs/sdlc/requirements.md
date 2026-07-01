@@ -7,13 +7,13 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 ## 2. Current Version
 
 ```txt
-v0.8.0
+v0.9.0
 ```
 
 ## 3. Current Sprint
 
 ```txt
-Sprint 7 - Multi-Route Gateway Expansion
+Sprint 8 - Dynamic Route Config from Database
 ```
 
 ## 4. Project Purpose
@@ -30,6 +30,8 @@ The project demonstrates backend engineering skills through:
 * Redis-backed rate limiting.
 * Redis response caching.
 * Database-backed downstream services.
+* Database-backed Gateway route configuration.
+* Safe static route config fallback.
 * Docker Compose local infrastructure.
 * Observability with logs, metrics, Prometheus, and Grafana.
 * Policy-driven Gateway behavior.
@@ -50,6 +52,7 @@ The long-term target is to grow PulseGate into a product-like API Gateway/API Ma
 * Developer Portal.
 * API key request flow.
 * Dynamic route configuration.
+* Route management APIs.
 * Service registry foundation.
 * API consumer management.
 * Usage plans and quotas.
@@ -92,25 +95,39 @@ PulseGate aims to solve these problems:
 * Gateway metrics should be exposed to Prometheus.
 * Gateway behavior should be visible through Grafana dashboards.
 * Gateway route behavior should be configurable through policies.
+* Gateway route configuration should be persisted in PostgreSQL.
+* Gateway should load route configuration from database at startup.
+* Gateway should keep a safe static fallback when DB route loading fails.
 * Repository health should be validated automatically before the main branch is considered stable.
 * The system should be easy to run locally before cloud deployment.
-* The route configuration foundation should prepare the project for database-backed route config later.
+* The route configuration foundation should prepare the project for route management APIs and future Admin Dashboard.
 
 ---
 
 ## 7. Current System Overview
 
-Current stable architecture after Sprint 7:
+Current stable architecture after Sprint 8:
 
 ```txt
 Client
   -> API Gateway :3000
+    -> Runtime route config loading
+      -> Try loading enabled route configs from PostgreSQL gateway.gateway_routes
+      -> Map database records to DownstreamRouteConfig[]
+      -> Validate mapped route configs
+      -> If database route configs are valid and not empty:
+           -> Use database-backed route configs
+           -> Log: Loaded downstream route configs from database { routeCount: 2 }
+      -> If database loading fails:
+           -> Fall back to static downstreamRouteConfigs
+      -> If database returns no enabled routes:
+           -> Fall back to static downstreamRouteConfigs
     -> Request ID handling
     -> Structured access log timer
     -> Metrics timer
     -> Basic security headers
     -> Request size limit
-    -> Static downstream route configuration
+    -> Resolved downstream route configuration
       -> GET /api/products
       -> GET /api/product-service/health
     -> Route policy configuration
@@ -136,7 +153,7 @@ Client
              -> Call Product Service through timeout and retry helpers
              -> Product Service :3001 /products
                -> Prisma Client
-               -> PostgreSQL :5432
+               -> PostgreSQL public.products
                -> Database-backed product data
              -> Store response in Redis cache
              -> Apply response transform foundation
@@ -156,6 +173,20 @@ Client
     -> Write structured access log
     -> Return response to Client
 
+PostgreSQL :5432
+  -> public schema
+       -> Product Service data
+       -> public.products
+       -> public._prisma_migrations
+  -> gateway schema
+       -> API Gateway route config
+       -> gateway.gateway_routes
+       -> gateway._prisma_migrations
+
+Redis :6379
+  -> API Gateway rate limit counters
+  -> API Gateway response cache payloads
+
 API Gateway
   -> Exposes /metrics
 
@@ -169,7 +200,8 @@ Grafana :3002
 GitHub Actions
   -> Runs on push and pull request to main
   -> Installs dependencies with npm ci
-  -> Generates Prisma Client
+  -> Generates Product Service Prisma Client
+  -> Generates API Gateway Prisma Client
   -> Runs tests, typecheck, and build
   -> Builds API Gateway and Product Service Docker images
   -> Reports pass/fail status to GitHub
@@ -223,6 +255,12 @@ Current downstream Product Service endpoints:
 ```txt
 GET /health
 GET /products
+```
+
+Current Gateway route config table:
+
+```txt
+gateway.gateway_routes
 ```
 
 Current CI workflow:
@@ -383,7 +421,7 @@ Completed:
 * Configured CI on pull request to `main`.
 * Configured Node.js 20 in CI.
 * Configured dependency installation with `npm ci`.
-* Configured Prisma Client generation in CI.
+* Configured Product Service Prisma Client generation in CI.
 * Configured automated tests in CI.
 * Configured TypeScript typecheck in CI.
 * Configured production build in CI.
@@ -402,7 +440,7 @@ Completed:
 Status:
 
 ```txt
-Technical implementation complete
+Done
 ```
 
 Completed:
@@ -412,7 +450,7 @@ Completed:
 * Added `downstreamProxyRoute()`.
 * Kept `productProxyRoute()` as a compatibility wrapper.
 * Preserved existing protected `GET /api/products` behavior.
-* Added Product Service health proxy route config.
+* Added Product Service health route config.
 * Added `GET /api/product-service/health -> Product Service /health`.
 * Configured Product Service health proxy route as public.
 * Configured Product Service health proxy route without API key requirement.
@@ -432,6 +470,50 @@ Completed:
 * API Gateway `/health` validation passed.
 * API Gateway `/metrics` validation passed.
 * API Gateway `/api/product-service/health` validation passed.
+* Final Sprint 7 documentation was completed.
+
+### Sprint 8 - Dynamic Route Config from Database
+
+Status:
+
+```txt
+Technical implementation complete
+```
+
+Completed:
+
+* Added API Gateway Prisma setup.
+* Added API Gateway Prisma schema.
+* Added API Gateway route config database model.
+* Added PostgreSQL schema `gateway`.
+* Added `gateway.gateway_routes` table.
+* Added API Gateway migration `20260701063629_add_gateway_routes`.
+* Added API Gateway route config seed script.
+* Seeded protected `GET /api/products`.
+* Seeded public `GET /api/product-service/health`.
+* Added Gateway Prisma Client wrapper.
+* Added database route config mapper.
+* Added database route config repository.
+* Added runtime route config loader.
+* Implemented DB-first route config loading at API Gateway startup.
+* Implemented safe static route config fallback.
+* Updated `app.ts` to accept resolved runtime route configs.
+* Updated `server.ts` to load route configs before app startup.
+* Updated GitHub Actions CI to generate API Gateway Prisma Client.
+* Updated API Gateway Dockerfile to generate Prisma Client inside Docker image.
+* Updated `.dockerignore` to exclude generated API Gateway Prisma Client.
+* Updated Docker Compose with API Gateway `DATABASE_URL`.
+* Updated Docker Compose dependency ordering for API Gateway.
+* Fixed Prisma Query Engine mismatch between Windows-generated client and Linux Alpine Docker runtime.
+* Added mapper tests.
+* Added runtime loader fallback tests.
+* Validated Docker runtime loads route configs from database.
+* Validated API Gateway log: `Loaded downstream route configs from database { routeCount: 2 }`.
+* Validated public DB-backed `GET /api/product-service/health`.
+* Validated protected DB-backed `GET /api/products`.
+* Validated Redis cache `MISS -> HIT` still works.
+* Final local validation passed.
+* Final Docker Compose validation passed.
 
 ---
 
@@ -453,6 +535,8 @@ Acceptance criteria:
 * API Gateway can run locally.
 * API Gateway can run through Docker Compose.
 * API Gateway Docker image can be built in CI.
+* API Gateway can generate Prisma Client in CI.
+* API Gateway can generate Prisma Client inside Docker image.
 
 Status:
 
@@ -502,7 +586,7 @@ Current health response shape:
 {
   "service": "product-service",
   "status": "ok",
-  "timestamp": "2026-06-30T00:00:00.000Z"
+  "timestamp": "2026-07-01T00:00:00.000Z"
 }
 ```
 
@@ -523,11 +607,13 @@ Acceptance criteria:
 * Client can call `GET /api/products` through API Gateway.
 * API Gateway calls Product Service `GET /products` on cache MISS.
 * API Gateway can return cached response on cache HIT.
-* Product Service URL is configurable through `PRODUCT_SERVICE_URL`.
+* Product Service URL is configurable through route config.
 * Product route behavior is driven by route policy configuration.
 * Product route remains protected by API key and JWT.
 * Product route still uses Redis-backed rate limiting.
 * Product route still uses Redis response caching.
+* Product route can be loaded from database route config.
+* Product route can fall back to static config when DB loading fails.
 
 Status:
 
@@ -551,6 +637,7 @@ Acceptance criteria:
 * Error responses include request ID.
 * Structured access logs include request ID.
 * Multi-route Gateway responses include request ID.
+* DB-backed route config does not break request ID behavior.
 
 Header:
 
@@ -598,6 +685,7 @@ Acceptance criteria:
 * Error response includes request ID.
 * Raw runtime errors are not exposed.
 * Normalized downstream error handling remains compatible with multi-route proxy behavior.
+* Normalized downstream error handling remains compatible with DB-backed route config.
 
 Status:
 
@@ -621,6 +709,7 @@ Acceptance criteria:
 * Sensitive API key values are not logged.
 * API key requirement is controlled by route auth policy.
 * Public routes can disable API key requirement through route policy.
+* DB route config supports API key requirement field.
 
 Current protected route:
 
@@ -668,6 +757,7 @@ Acceptance criteria:
 * Sensitive JWT values are not logged.
 * JWT requirement is controlled by route auth policy.
 * Public routes can disable JWT requirement through route policy.
+* DB route config supports JWT requirement field.
 
 Current protected route:
 
@@ -768,6 +858,7 @@ Acceptance criteria:
 * Redis internal errors are not exposed.
 * Runtime rate limit behavior is resolved from route policy.
 * Public routes can disable rate limiting through route policy.
+* DB route config supports rate limit policy fields.
 
 Default product route rate limit:
 
@@ -812,6 +903,7 @@ Acceptance criteria:
 * Product Service down + cache MISS returns normalized downstream error.
 * Cache behavior is resolved from route policy.
 * Public routes can disable cache through route policy.
+* DB route config supports cache policy fields.
 
 Current Redis cache key:
 
@@ -840,7 +932,7 @@ Done
 
 ---
 
-## FR-013: PostgreSQL and Prisma
+## FR-013: PostgreSQL and Prisma for Product Service
 
 Product Service must use PostgreSQL and Prisma for product data.
 
@@ -849,7 +941,7 @@ Acceptance criteria:
 * PostgreSQL runs through Docker Compose.
 * Product Service uses `DATABASE_URL`.
 * Prisma schema defines Product model.
-* Prisma migration creates `products` table.
+* Prisma migration creates `public.products` table.
 * Product seed script is idempotent.
 * Product Service reads products from PostgreSQL.
 * Prisma Client can be generated locally and in CI.
@@ -858,6 +950,12 @@ Current Prisma schema:
 
 ```txt
 apps/product-service/prisma/schema.prisma
+```
+
+Current table:
+
+```txt
+public.products
 ```
 
 Status:
@@ -882,6 +980,7 @@ Acceptance criteria:
 * Grafana runs in Docker Compose.
 * Developer can start the local stack with one command.
 * Multi-route Gateway behavior can be validated through Docker Compose.
+* DB-backed route config loading can be validated through Docker Compose.
 
 Current command:
 
@@ -951,6 +1050,7 @@ Acceptance criteria:
 * Product Service health proxy route uses policy config.
 * Policy helpers are unit tested.
 * Policy behavior is covered by integration tests.
+* Policy behavior can be mapped from database route config records.
 
 Current policy model:
 
@@ -985,6 +1085,7 @@ Acceptance criteria:
 * Timeout helper provides cleanup function.
 * Product route uses timeout policy helper.
 * Product Service health proxy route uses timeout policy helper.
+* DB route config supports timeout policy fields.
 
 Status:
 
@@ -1006,6 +1107,8 @@ Acceptance criteria:
 * Cache key generation is stable.
 * Product route uses cache policy helper.
 * Product Service health proxy route disables cache through route policy.
+* DB route config supports cache policy fields.
+* Mapper normalizes disabled cache TTL to runtime value `0`.
 
 Status:
 
@@ -1026,6 +1129,8 @@ Acceptance criteria:
 * Rate limit policy includes limit, window, route path, identity type, and store.
 * Product route uses rate limit policy helper.
 * Product Service health proxy route disables rate limiting through route policy.
+* DB route config supports rate limit policy fields.
+* Mapper normalizes disabled rate limit values to runtime `0`.
 
 Status:
 
@@ -1049,6 +1154,8 @@ Acceptance criteria:
 * Downstream proxy route applies response transform for cache HIT, MISS, and BYPASS responses.
 * Current product route keeps transform disabled by default.
 * Current Product Service health proxy route keeps transform disabled by default.
+* DB route config supports transform policy JSON fields.
+* Mapper validates transform JSON fields.
 
 Status:
 
@@ -1070,6 +1177,8 @@ Acceptance criteria:
 * Retryable statuses are configured by route policy.
 * Downstream proxy route is wired to retry helper.
 * Retry remains disabled by default for current routes.
+* DB route config supports retry policy fields.
+* Mapper validates retry status JSON.
 
 Status:
 
@@ -1093,13 +1202,15 @@ Acceptance criteria:
 * Integration tests cover public multi-route behavior.
 * Integration tests cover route policy cache behavior.
 * Metrics and observability helpers are covered by tests.
+* DB route config mapper is covered by tests.
+* Runtime route config loader fallback behavior is covered by tests.
 * Test, typecheck, and build must pass before stable commits.
 
 Current test status:
 
 ```txt
-24 test files passed
-142 tests passed
+26 test files passed
+152 tests passed
 ```
 
 Status:
@@ -1121,7 +1232,8 @@ Acceptance criteria:
 * CI runs on pull request to `main`.
 * CI uses Node.js 20.
 * CI installs dependencies with `npm ci`.
-* CI generates Prisma Client before typecheck and build.
+* CI generates Product Service Prisma Client before typecheck and build.
+* CI generates API Gateway Prisma Client before typecheck and build.
 * CI runs automated tests.
 * CI runs TypeScript typecheck.
 * CI runs production build.
@@ -1141,6 +1253,7 @@ Current CI commands:
 ```powershell
 npm ci
 npm run db:generate -w apps/product-service
+npm run db:generate -w apps/api-gateway
 npm run test
 npm run typecheck
 npm run build
@@ -1171,25 +1284,18 @@ Acceptance criteria:
 * Duplicate route validation still protects against duplicate method + gateway path.
 * Multi-route behavior is covered by tests.
 * Multi-route behavior is validated through Docker Compose runtime.
+* Static multi-route config remains available as safe fallback after Sprint 8.
 
-Current configured routes:
+Current configured fallback routes:
 
 ```txt
 GET /api/products
   -> Product Service GET /products
   -> Protected
-  -> API key required
-  -> JWT required
-  -> Redis-backed rate limit enabled
-  -> Redis response cache enabled
 
 GET /api/product-service/health
   -> Product Service GET /health
   -> Public
-  -> API key not required
-  -> JWT not required
-  -> Redis-backed rate limit disabled
-  -> Redis response cache disabled
 ```
 
 Status:
@@ -1218,6 +1324,90 @@ Acceptance criteria:
 * Route returns Product Service health response.
 * Route is covered by integration test.
 * Route is validated in Docker Compose runtime.
+* Route can be loaded from database route config.
+* Route can fall back to static config when DB loading fails.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-026: Database-Backed Gateway Route Configuration
+
+API Gateway must support loading downstream route configuration from PostgreSQL.
+
+Acceptance criteria:
+
+* API Gateway has its own Prisma schema.
+* API Gateway has its own Prisma migration.
+* API Gateway route config is stored in PostgreSQL schema `gateway`.
+* API Gateway route config table is `gateway.gateway_routes`.
+* Product Service data remains in PostgreSQL schema `public`.
+* Product Service migration history remains in `public._prisma_migrations`.
+* API Gateway migration history is stored in `gateway._prisma_migrations`.
+* Gateway route config supports method, gateway path, downstream URL, enabled flag, priority, and route policies.
+* Gateway route config has unique constraint on method + gateway path.
+* Gateway route config can be seeded idempotently.
+* Current protected Product route can be seeded.
+* Current public Product Service health proxy route can be seeded.
+* Database records can be mapped to runtime `DownstreamRouteConfig[]`.
+* Mapped route configs are validated before use.
+* Invalid DB route config should not be silently accepted.
+* API Gateway loads DB route config at startup.
+* API Gateway uses DB route config when DB loading succeeds and returns routes.
+* API Gateway falls back to static route config when DB loading fails.
+* API Gateway falls back to static route config when DB returns no enabled routes.
+* Docker runtime can load route config from database successfully.
+* Docker logs confirm DB-backed route loading.
+
+Current DB table:
+
+```txt
+gateway.gateway_routes
+```
+
+Current DB-backed routes:
+
+```txt
+GET /api/products
+GET /api/product-service/health
+```
+
+Current startup log:
+
+```txt
+Loaded downstream route configs from database { routeCount: 2 }
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-027: API Gateway Prisma Client Generation
+
+API Gateway must generate Prisma Client in local development, CI, and Docker builds.
+
+Acceptance criteria:
+
+* API Gateway has `db:generate` script.
+* API Gateway generated Prisma Client is ignored by Git.
+* CI generates API Gateway Prisma Client before typecheck and build.
+* API Gateway Docker image generates Prisma Client inside the Linux Alpine image.
+* Docker runtime does not use Windows-generated Prisma Client.
+* Docker runtime avoids Prisma Query Engine mismatch.
+
+Generated client ignore path:
+
+```txt
+apps/api-gateway/src/generated/
+```
 
 Status:
 
@@ -1241,6 +1431,7 @@ Acceptance criteria:
 * No paid cloud infrastructure is required.
 * Developer can test the full flow from local terminal.
 * Developer can validate both protected and public Gateway routes locally.
+* Developer can validate DB-backed route config through local Docker Compose.
 
 Status:
 
@@ -1275,13 +1466,14 @@ The codebase must be organized clearly.
 
 Acceptance criteria:
 
-* API Gateway separates app building, config, routes, middlewares, errors, Redis client, cache stores, rate limit stores, policy helpers, observability code, tests, and server startup.
-* Product Service separates config, database helper, repositories, routes, middlewares, and server startup.
-* Prisma files are located under Product Service.
+* API Gateway separates app building, config, routes, middlewares, errors, Redis client, cache stores, rate limit stores, policy helpers, observability code, tests, database helpers, Prisma schema, route config mapper, route config repository, runtime route config loader, and server startup.
+* Product Service separates config, database helper, repositories, routes, middlewares, Prisma files, and server startup.
+* Product Service Prisma files are located under Product Service.
+* API Gateway Prisma files are located under API Gateway.
 * Prometheus and Grafana config are located under `observability`.
 * CI workflow is located under `.github/workflows`.
 * Downstream route behavior is centralized through route config.
-* Generic downstream proxy behavior is reusable for multiple static routes.
+* Generic downstream proxy behavior is reusable for multiple routes.
 
 Status:
 
@@ -1302,7 +1494,9 @@ Acceptance criteria:
 * `npm run build` passes.
 * Route policies are typed.
 * Downstream route configs are typed.
-* Prisma Client can be generated.
+* Database route record mapper is typed.
+* Product Service Prisma Client can be generated.
+* API Gateway Prisma Client can be generated.
 
 Status:
 
@@ -1344,8 +1538,9 @@ Acceptance criteria:
 * Tests can run with `npm run test`.
 * API Gateway can be tested with `app.inject()`.
 * Tests can inject in-memory stores when Redis is not needed.
-* Middleware, policy helpers, metrics helpers, and route behavior are covered by tests.
+* Middleware, policy helpers, metrics helpers, route config mapper, runtime config loader, and route behavior are covered by tests.
 * Multi-route behavior is covered by route config and integration tests.
+* DB-backed route config mapping and fallback behavior are covered by tests.
 
 Status:
 
@@ -1368,6 +1563,7 @@ Acceptance criteria:
 * Cache HIT can serve data when Product Service is temporarily down.
 * Retry foundation is disabled by default to avoid hidden behavior changes.
 * Public Product Service health proxy route does not depend on Redis because rate limit and cache are disabled for that route.
+* API Gateway can fall back to static route config when DB route config loading fails.
 
 Status:
 
@@ -1384,6 +1580,9 @@ The local infrastructure stack must be reproducible from repository files.
 Acceptance criteria:
 
 * Docker Compose config is committed.
+* PostgreSQL schema/migration files are committed.
+* API Gateway route config seed script is committed.
+* Product Service seed script is committed.
 * Prometheus config is committed.
 * Grafana datasource config is committed.
 * Grafana dashboard provider config is committed.
@@ -1410,6 +1609,7 @@ Acceptance criteria:
 * Policy helpers are unit tested.
 * Policy behavior is covered by integration tests.
 * Different routes can use different policy combinations.
+* Database route config can be mapped to the same route policy model.
 
 Status:
 
@@ -1427,7 +1627,8 @@ Acceptance criteria:
 
 * CI workflow is committed to the repository.
 * CI uses clean dependency installation.
-* CI validates Prisma Client generation.
+* CI validates Product Service Prisma Client generation.
+* CI validates API Gateway Prisma Client generation.
 * CI validates automated tests.
 * CI validates TypeScript typecheck.
 * CI validates production build.
@@ -1451,6 +1652,7 @@ Refactors should preserve existing stable Gateway behavior.
 Acceptance criteria:
 
 * Existing `GET /api/products` behavior must continue working after multi-route refactor.
+* Existing `GET /api/products` behavior must continue working after DB-backed route config rollout.
 * Existing API key behavior must remain unchanged.
 * Existing JWT behavior must remain unchanged.
 * Existing Redis-backed rate limit behavior must remain unchanged.
@@ -1458,6 +1660,29 @@ Acceptance criteria:
 * Existing downstream error behavior must remain unchanged.
 * Existing tests must continue passing.
 * New route additions must not break current runtime flow.
+* DB-backed route config must preserve the same external behavior for current routes.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## NFR-012: Safe Dynamic Config Rollout
+
+Database-backed Gateway route config must be introduced safely.
+
+Acceptance criteria:
+
+* API Gateway uses DB route config when available.
+* API Gateway falls back to static route config when DB loading fails.
+* API Gateway falls back to static route config when DB returns zero enabled routes.
+* Existing static route config remains validated.
+* DB route records are mapped and validated before route registration.
+* Docker runtime confirms DB route config is loaded.
+* Route changes do not require runtime hot reload in Sprint 8.
 
 Status:
 
@@ -1469,22 +1694,25 @@ Done
 
 # 11. Current System Constraints
 
-Current constraints after Sprint 7 completion:
+Current constraints after Sprint 8 technical completion:
 
 * API Gateway currently proxies only Product Service, but now supports more than one Gateway route.
-* Current downstream routes are still static code-based route configs.
-* Route configuration is not database-backed yet.
+* Current downstream routes are loaded from PostgreSQL at startup when available.
+* Static code-based route configs still exist as fallback.
+* Route configuration is database-backed but not manageable through an Admin API yet.
+* Route configuration changes require API Gateway restart to take effect.
+* Runtime route hot reload is not implemented yet.
 * API key list is still environment-based.
 * JWT validation is local-secret based.
 * There is no user service yet.
 * There is no API consumer database yet.
 * Product data is database-backed, but only a minimal Product model exists.
 * Product Service has no create, update, or delete product APIs yet.
-* Redis-backed rate limiting is implemented for `GET /api/products`, not all possible dynamic routes.
+* Redis-backed rate limiting is implemented for `GET /api/products`.
 * `GET /api/product-service/health` intentionally has rate limiting disabled.
 * Redis response caching is implemented for `GET /api/products`.
 * `GET /api/product-service/health` intentionally has response caching disabled.
-* Route policy foundation exists and is now used by multiple routes.
+* Route policy foundation exists and is used by multiple routes.
 * Request and response transformation foundations support headers only.
 * Request and response transformation policies are disabled by default for current routes.
 * Retry foundation exists, but retry is disabled by default for current routes.
@@ -1511,11 +1739,37 @@ Current constraints after Sprint 7 completion:
 
 # 12. Current Runtime Behavior
 
+## Runtime Route Config Loading Flow
+
+```txt
+API Gateway process starts
+  -> loadRuntimeDownstreamRouteConfigs()
+    -> Try loading enabled route configs from PostgreSQL gateway.gateway_routes
+      -> Query enabled routes
+      -> Order by priority ASC and gatewayPath ASC
+      -> Map DB records to DownstreamRouteConfig[]
+      -> Validate mapped route configs
+    -> If DB loading succeeds and routes exist:
+         -> Use database-backed route configs
+         -> Log: Loaded downstream route configs from database { routeCount: 2 }
+    -> If DB loading fails:
+         -> Use static downstreamRouteConfigs fallback
+    -> If DB returns zero enabled routes:
+         -> Use static downstreamRouteConfigs fallback
+  -> buildApiGatewayApp({ routeConfigs })
+  -> Register /health
+  -> Register /metrics
+  -> Register downstream proxy routes
+  -> Connect Redis
+  -> Listen on port 3000
+```
+
 ## Protected Product Flow
 
 ```txt
 Client
   -> GET http://localhost:3000/api/products
+    -> Route was loaded from PostgreSQL gateway.gateway_routes during startup
     -> API Gateway creates or reuses x-request-id
     -> API Gateway starts access log timer
     -> API Gateway starts metrics timer
@@ -1533,7 +1787,7 @@ Client
       -> Cache MISS:
            -> Apply request transform foundation
            -> Call Product Service through timeout and retry helpers
-           -> Product Service reads products from PostgreSQL using Prisma
+           -> Product Service reads products from PostgreSQL public.products using Prisma
            -> Store response in Redis cache
            -> Apply response transform foundation
            -> Return product data with x-cache: MISS
@@ -1547,6 +1801,7 @@ Client
 ```txt
 Client
   -> GET http://localhost:3000/api/product-service/health
+    -> Route was loaded from PostgreSQL gateway.gateway_routes during startup
     -> API Gateway creates or reuses x-request-id
     -> API Gateway starts access log timer
     -> API Gateway starts metrics timer
@@ -1599,7 +1854,8 @@ Developer
     -> GitHub Actions checks out repository
     -> GitHub Actions sets up Node.js 20
     -> GitHub Actions runs npm ci
-    -> GitHub Actions generates Prisma Client
+    -> GitHub Actions generates Product Service Prisma Client
+    -> GitHub Actions generates API Gateway Prisma Client
     -> GitHub Actions runs automated tests
     -> GitHub Actions runs TypeScript typecheck
     -> GitHub Actions runs production build
@@ -1637,14 +1893,14 @@ GET /api/products
        requireJwt: true
   -> timeout:
        enabled: true
-       timeoutMs: DOWNSTREAM_REQUEST_TIMEOUT_MS
+       timeoutMs: 3000
   -> cache:
        enabled: true
        ttlSeconds: 30
   -> rateLimit:
        enabled: true
-       limit: PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS
-       windowMs: PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS
+       limit: 5
+       windowMs: 60000
   -> requestTransform:
        enabled: false
   -> responseTransform:
@@ -1660,7 +1916,7 @@ GET /api/product-service/health
        requireJwt: false
   -> timeout:
        enabled: true
-       timeoutMs: DOWNSTREAM_REQUEST_TIMEOUT_MS
+       timeoutMs: 3000
   -> cache:
        enabled: false
        ttlSeconds: 0
@@ -1699,6 +1955,14 @@ JWT_EXPIRES_IN_SECONDS=900
 PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS=5
 PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS=60000
 REDIS_URL=redis://localhost:6379
+DATABASE_URL=postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway
+```
+
+Important note:
+
+```txt
+API Gateway DATABASE_URL is used by Prisma.
+It is not currently parsed through apps/api-gateway/src/config/env.ts.
 ```
 
 Docker internal values:
@@ -1706,6 +1970,7 @@ Docker internal values:
 ```txt
 PRODUCT_SERVICE_URL=http://product-service:3001
 REDIS_URL=redis://redis:6379
+DATABASE_URL=postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate?schema=gateway
 ```
 
 ## Product Service
@@ -1763,7 +2028,7 @@ Build:
 npm run build
 ```
 
-Generate Prisma Client:
+Generate Product Service Prisma Client:
 
 ```powershell
 npm run db:generate -w apps/product-service
@@ -1775,11 +2040,34 @@ Seed Product Service database:
 npm run db:seed -w apps/product-service
 ```
 
+Generate API Gateway Prisma Client:
+
+```powershell
+npm run db:generate -w apps/api-gateway
+```
+
+Apply API Gateway migration:
+
+```powershell
+$env:DATABASE_URL="postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
+
+npm run db:migrate:deploy -w apps/api-gateway
+```
+
+Seed API Gateway route config:
+
+```powershell
+$env:DATABASE_URL="postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
+
+npm run db:seed -w apps/api-gateway
+```
+
 Run CI-equivalent validation locally:
 
 ```powershell
 npm ci
 npm run db:generate -w apps/product-service
+npm run db:generate -w apps/api-gateway
 npm run test
 npm run typecheck
 npm run build
@@ -1803,6 +2091,24 @@ Test Product Service health through API Gateway:
 
 ```powershell
 Invoke-WebRequest http://localhost:3000/api/product-service/health -UseBasicParsing
+```
+
+Test API Gateway DB route config loading log:
+
+```powershell
+docker compose logs api-gateway --tail=80
+```
+
+Expected log:
+
+```txt
+Loaded downstream route configs from database { routeCount: 2 }
+```
+
+Validate Gateway route configs:
+
+```powershell
+docker compose exec postgres psql -U pulsegate -d pulsegate -c "SELECT method, gateway_path, downstream_url, enabled, priority FROM gateway.gateway_routes ORDER BY priority;"
 ```
 
 Test protected Product route:
@@ -1845,8 +2151,8 @@ Vitest
 Current test result:
 
 ```txt
-24 test files passed
-142 tests passed
+26 test files passed
+152 tests passed
 ```
 
 Current important test areas:
@@ -1866,6 +2172,8 @@ Current important test areas:
 * Downstream route config.
 * Multi-route downstream config.
 * Route config validation.
+* Database route config mapper.
+* Runtime route config loader and fallback.
 * Metrics registry.
 * Metrics route.
 * Timeout policy.
@@ -1899,6 +2207,18 @@ Current integration test coverage:
 * Downstream 500 returns `502`.
 * Downstream invalid JSON returns `502`.
 * Downstream timeout returns `504`.
+
+Sprint 8 test coverage:
+
+* Database route records map to runtime `DownstreamRouteConfig`.
+* Disabled DB routes are filtered out.
+* Enabled DB routes are sorted by priority.
+* Invalid transform JSON is rejected.
+* Invalid retry status JSON is rejected.
+* Mapped route configs are validated.
+* Runtime loader uses DB configs when DB loading succeeds.
+* Runtime loader falls back to static configs when DB returns no routes.
+* Runtime loader falls back to static configs when DB loading fails.
 
 ---
 
@@ -1981,6 +2301,16 @@ Sprint 7 is done when the Gateway can register multiple downstream routes from s
 Current Sprint 7 status:
 
 ```txt
+Done
+```
+
+## Sprint 8 Definition of Done
+
+Sprint 8 is done when API Gateway route config is persisted in PostgreSQL, API Gateway can load route config from database at startup, static fallback is preserved, seeded routes match the current stable Gateway routes, mapper and loader tests pass, typecheck passes, build passes, Docker runtime validation confirms DB route loading, final docs are updated, and GitHub push is complete.
+
+Current Sprint 8 status:
+
+```txt
 Technical implementation complete
 ```
 
@@ -1988,22 +2318,42 @@ Technical implementation complete
 
 # 17. Future Requirements
 
-## Future FR: Dynamic Route Config from Database
+## Future FR: Route Management API Foundation
 
 Planned features:
 
-* Add database model for Gateway route configuration.
-* Store route configs in PostgreSQL.
-* Load route configs from PostgreSQL at Gateway startup.
-* Preserve safe static fallback during rollout.
-* Validate database-backed route configs.
-* Add tests for database-backed route config loading.
-* Prepare future Admin API route management.
+* Add internal/admin route config read API.
+* Add route config create API foundation.
+* Add route config update API foundation.
+* Add route config enable/disable behavior.
+* Validate route config before persisting to database.
+* Reuse existing route validation logic.
+* Keep runtime reload strategy simple.
+* Add route management API tests.
+* Prepare future Admin Dashboard.
 
 Status:
 
 ```txt
-Next sprint - Sprint 8
+Next sprint - Sprint 9
+```
+
+---
+
+## Future FR: Runtime Route Reload
+
+Planned features:
+
+* Reload route config after route management changes.
+* Keep reload safe and validated.
+* Avoid duplicate route registration issues.
+* Decide whether reload is manual, admin-triggered, or periodic.
+* Preserve static fallback behavior.
+
+Status:
+
+```txt
+Planned for later sprint
 ```
 
 ---
@@ -2226,45 +2576,64 @@ Planned for later sprint
 Recommended next step:
 
 ```txt
-Sprint 7 - Final Documentation Update
+Sprint 8 - Final Documentation Update
 ```
 
 Currently updating:
 
 ```txt
 README.md
-docs/project-context/AI_HANDOFF.md
+docs/architecture/overview.md
 docs/project-context/CURRENT_PROGRESS.md
+docs/project-context/AI_HANDOFF.md
 docs/project-context/DECISION_LOG.md
 docs/sdlc/requirements.md
-docs/architecture/overview.md
 ```
 
-After Sprint 7 final documentation update, move to:
+After Sprint 8 final documentation update, run:
+
+```powershell
+npm run test
+npm run typecheck
+npm run build
+git status
+```
+
+Then commit docs:
+
+```powershell
+git add README.md docs/architecture/overview.md docs/project-context/AI_HANDOFF.md docs/project-context/CURRENT_PROGRESS.md docs/project-context/DECISION_LOG.md docs/sdlc/requirements.md
+
+git commit -m "docs: finalize sprint 8 documentation"
+
+git push
+```
+
+After Sprint 8 documentation is committed, move to:
 
 ```txt
-Sprint 8 - Dynamic Route Config from Database
+Sprint 9 - Route Management API Foundation
 ```
 
-Sprint 8 should focus on:
+Sprint 9 should focus on:
 
-1. Route config database model.
-2. Prisma model and migration for Gateway route config.
-3. Seed or bootstrap route config data.
-4. Load route config from PostgreSQL.
-5. Keep safe static fallback config during rollout.
-6. Validate database-backed route config.
-7. Add tests for database route config loading.
-8. Prepare future Admin API route management.
+1. Internal/admin route config read API.
+2. Route config create/update foundation.
+3. Route config enable/disable behavior.
+4. Validation before persisting route data.
+5. Simple runtime reload strategy.
+6. Route management API tests.
+7. Keep Admin Dashboard out of scope until backend route management is stable.
 
 Do not add these before they are explicitly selected as a planned sprint:
 
 * Kafka
 * RabbitMQ
 * Kubernetes
-* Admin Dashboard
-* Developer Portal
+* Admin Dashboard UI
+* Developer Portal UI
 * Advanced OpenTelemetry tracing
 * Loki centralized logs
 * k6 load testing
+* Docker image registry push
 * Production cloud deployment

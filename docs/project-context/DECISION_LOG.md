@@ -3451,3 +3451,651 @@ Production cloud deployment
 Status:
 
 Accepted.
+
+---
+
+## 2026-07-01 - Add API Gateway-Owned Prisma Schema
+
+Decision:
+
+Add a dedicated Prisma schema for API Gateway.
+
+Reason:
+
+* Sprint 8 needs API Gateway to own its own route configuration data.
+* Product Service already owns product data through its own Prisma schema.
+* API Gateway route config should not be mixed into Product Service code.
+* A separate API Gateway Prisma schema keeps ownership clearer.
+* This prepares the Gateway for future route management APIs and Admin Dashboard features.
+
+Implemented files:
+
+```txt
+apps/api-gateway/prisma/schema.prisma
+apps/api-gateway/prisma/migrations/20260701063629_add_gateway_routes/migration.sql
+apps/api-gateway/prisma/seed.ts
+apps/api-gateway/src/database/gateway-prisma.ts
+```
+
+Current API Gateway Prisma scripts:
+
+```txt
+db:generate
+db:migrate
+db:migrate:deploy
+db:seed
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Use Separate PostgreSQL Schema `gateway` for API Gateway Route Config
+
+Decision:
+
+Store API Gateway route config in PostgreSQL schema `gateway` instead of the default `public` schema.
+
+Reason:
+
+* Product Service already uses the `public` schema.
+* Product Service already has its own Prisma migration history in `public._prisma_migrations`.
+* Running API Gateway Prisma migrations in the same `public` schema caused Prisma migration drift.
+* API Gateway route config is owned by API Gateway, not Product Service.
+* Using `gateway` schema separates service ownership and migration history.
+* This makes the database structure cleaner and safer for future growth.
+
+Current schema ownership:
+
+```txt
+public schema
+  -> Product Service
+  -> public.products
+  -> public._prisma_migrations
+
+gateway schema
+  -> API Gateway
+  -> gateway.gateway_routes
+  -> gateway._prisma_migrations
+```
+
+Current API Gateway database URL:
+
+```txt
+postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway
+```
+
+Current Docker API Gateway database URL:
+
+```txt
+postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate?schema=gateway
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Store Gateway Route Config in `gateway.gateway_routes`
+
+Decision:
+
+Create a `gateway.gateway_routes` table to store API Gateway downstream route configuration.
+
+Reason:
+
+* Static TypeScript route config is not enough for a product-like API Gateway.
+* A real API Gateway should be able to persist route definitions.
+* Route configuration must include path, method, downstream URL, enabled state, priority, and policies.
+* This is required before building route management APIs.
+* This is required before building an Admin Dashboard that can manage routes.
+
+Current table:
+
+```txt
+gateway.gateway_routes
+```
+
+Current route identity:
+
+```txt
+method + gateway_path
+```
+
+Current important fields:
+
+```txt
+service_name
+gateway_path
+downstream_url
+method
+enabled
+priority
+require_api_key
+require_jwt
+timeout_enabled
+timeout_ms
+cache_enabled
+cache_ttl_seconds
+rate_limit_enabled
+rate_limit_limit
+rate_limit_window_ms
+request_transform_enabled
+request_add_headers
+request_remove_headers
+response_transform_enabled
+response_add_headers
+response_remove_headers
+retry_enabled
+retry_attempts
+retry_on_statuses
+created_at
+updated_at
+```
+
+Current constraints and indexes:
+
+```txt
+unique(method, gateway_path)
+index(enabled, priority)
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Seed Current Gateway Routes into Database
+
+Decision:
+
+Add an idempotent API Gateway seed script to insert the current Gateway route configs into PostgreSQL.
+
+Reason:
+
+* The Gateway needs initial database route config records.
+* Existing stable routes should continue working after switching to DB-backed route config.
+* Seed data makes local Docker validation repeatable.
+* Idempotent `upsert` behavior prevents duplicate routes when the seed command is run multiple times.
+* The database route config should start by matching the current stable static routes.
+
+Seeded routes:
+
+```txt
+GET /api/products
+  -> Product Service /products
+  -> Protected
+  -> API key required
+  -> JWT required
+  -> Redis rate limit enabled
+  -> Redis response cache enabled
+
+GET /api/product-service/health
+  -> Product Service /health
+  -> Public
+  -> API key not required
+  -> JWT not required
+  -> Redis rate limit disabled
+  -> Redis response cache disabled
+```
+
+Current seed command:
+
+```powershell
+$env:DATABASE_URL="postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
+
+npm run db:seed -w apps/api-gateway
+```
+
+Current seed result:
+
+```txt
+Seeded 2 gateway route config(s).
+GET /api/products -> http://product-service:3001/products | enabled=true
+GET /api/product-service/health -> http://product-service:3001/health | enabled=true
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Use Docker Internal Downstream URLs in Gateway Route Config Seed
+
+Decision:
+
+Seed API Gateway route configs with Docker internal Product Service URLs.
+
+Current seeded downstream URLs:
+
+```txt
+http://product-service:3001/products
+http://product-service:3001/health
+```
+
+Reason:
+
+* The main Sprint 8 runtime validation is done through Docker Compose.
+* API Gateway runs inside Docker and should call Product Service through Docker internal DNS.
+* Inside a Docker container, `localhost` means the container itself, not the Product Service container.
+* `product-service` is the correct Docker Compose service name for container-to-container communication.
+
+Known local npm note:
+
+```txt
+If API Gateway is run directly with npm on the host while DB route config points to http://product-service:3001,
+the host machine may not resolve product-service.
+
+For local npm mode, either:
+1. Use static fallback by making DB loading unavailable, or
+2. Update database route config downstream URLs to http://127.0.0.1:3001, or
+3. Add an environment-aware seed strategy later.
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Map Database Route Records to Runtime `DownstreamRouteConfig[]`
+
+Decision:
+
+Add a mapper that converts `gateway.gateway_routes` database records into runtime `DownstreamRouteConfig[]`.
+
+Reason:
+
+* The existing Gateway route registration already understands `DownstreamRouteConfig`.
+* Database rows should be adapted into the existing route config shape instead of rewriting the proxy flow.
+* Keeping the runtime type stable reduces risk.
+* Mapping gives one place to validate JSON policy fields.
+* Mapping gives one place to normalize disabled policy values.
+
+Implemented file:
+
+```txt
+apps/api-gateway/src/config/database-route-config.mapper.ts
+```
+
+Mapping behavior:
+
+```txt
+gateway_routes row
+  -> DownstreamRouteConfig
+    -> serviceName
+    -> gatewayPath
+    -> downstreamUrl
+    -> method
+    -> policies
+```
+
+Important normalization:
+
+```txt
+cache disabled
+  -> runtime ttlSeconds = 0
+
+rate limit disabled
+  -> runtime limit = 0
+  -> runtime windowMs = 0
+```
+
+JSON validation:
+
+```txt
+request_add_headers must be an object with string values
+response_add_headers must be an object with string values
+request_remove_headers must be an array of strings
+response_remove_headers must be an array of strings
+retry_on_statuses must be an array of integers
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Load Route Config from Database at API Gateway Startup
+
+Decision:
+
+API Gateway should try to load route configuration from PostgreSQL during startup.
+
+Reason:
+
+* Sprint 8 goal is database-backed dynamic route configuration.
+* The Gateway should no longer depend only on static TypeScript route config.
+* Loading at startup is simpler and safer than runtime hot reload for the first DB-backed version.
+* This prepares the project for future route management APIs.
+* Startup loading keeps runtime behavior predictable.
+
+Implemented files:
+
+```txt
+apps/api-gateway/src/config/database-route-config.repository.ts
+apps/api-gateway/src/config/runtime-downstream-routes.ts
+apps/api-gateway/src/server.ts
+apps/api-gateway/src/app.ts
+```
+
+Current startup flow:
+
+```txt
+API Gateway process starts
+  -> loadRuntimeDownstreamRouteConfigs()
+    -> try loadDatabaseDownstreamRouteConfigs(gatewayPrisma)
+      -> query enabled records from gateway.gateway_routes
+      -> order by priority ASC and gatewayPath ASC
+      -> map records into DownstreamRouteConfig[]
+      -> validate mapped route configs
+    -> return DB route configs if valid and not empty
+  -> buildApiGatewayApp({ routeConfigs })
+  -> register downstream proxy routes
+  -> connect Redis
+  -> listen on port 3000
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Keep Static Route Config as Safe Fallback
+
+Decision:
+
+Keep the existing static `downstreamRouteConfigs` as a fallback when database route config loading fails or returns no routes.
+
+Reason:
+
+* Route config is critical for Gateway startup.
+* A DB issue should not immediately make the Gateway unusable during early rollout.
+* Sprint 8 is the first database-backed route config sprint, so safety is important.
+* Existing stable route behavior should remain available.
+* This makes DB-backed route config adoption less risky.
+
+Fallback scenarios:
+
+```txt
+DATABASE_URL missing
+PostgreSQL unavailable
+Prisma Client initialization error
+gateway.gateway_routes unavailable
+DB query error
+DB route mapping error
+DB route validation error
+DB returns zero enabled routes
+```
+
+Fallback result:
+
+```txt
+API Gateway uses static downstreamRouteConfigs
+```
+
+Current fallback static routes:
+
+```txt
+GET /api/products
+GET /api/product-service/health
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Generate API Gateway Prisma Client in CI
+
+Decision:
+
+Update GitHub Actions CI to generate the API Gateway Prisma Client.
+
+Reason:
+
+* API Gateway now imports a generated Prisma Client.
+* Generated Prisma Client files should not be committed to Git.
+* GitHub Actions runners start from a clean environment.
+* Typecheck and build require generated Prisma Client to exist.
+* CI must validate both Product Service Prisma and API Gateway Prisma.
+
+Current CI Prisma generate steps:
+
+```txt
+npm run db:generate -w apps/product-service
+npm run db:generate -w apps/api-gateway
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Do Not Commit API Gateway Generated Prisma Client
+
+Decision:
+
+Ignore the generated API Gateway Prisma Client output.
+
+Ignored path:
+
+```txt
+apps/api-gateway/src/generated/
+```
+
+Reason:
+
+* Generated Prisma Client is build output.
+* Generated files depend on the platform where they are generated.
+* Committing generated Prisma Client can cause runtime mismatch between Windows host and Linux Docker container.
+* Clean CI and Docker builds should generate Prisma Client themselves.
+* Keeping generated files out of Git makes the repository cleaner.
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Generate API Gateway Prisma Client Inside Docker Image
+
+Decision:
+
+Update the API Gateway Dockerfile so it generates Prisma Client inside the Docker image build.
+
+Reason:
+
+* The local developer machine is Windows.
+* The API Gateway Docker image runs on Linux Alpine.
+* Prisma Client generated on Windows is not valid for Linux Alpine runtime.
+* Docker runtime produced a Prisma Query Engine mismatch when the container tried to use a Windows-generated client.
+* Generating Prisma Client inside the Docker image ensures the correct query engine is available for the container runtime.
+
+Observed problem:
+
+```txt
+Prisma Client could not locate the Query Engine for runtime "linux-musl-openssl-3.0.x".
+
+This happened because Prisma Client was generated for "windows",
+but the actual deployment required "linux-musl-openssl-3.0.x".
+```
+
+Implemented Dockerfile behavior:
+
+```txt
+RUN DATABASE_URL="postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate?schema=gateway" npm run db:generate -w apps/api-gateway
+```
+
+Validation result:
+
+```txt
+docker compose build --no-cache api-gateway -> passed
+docker compose up -d api-gateway -> passed
+docker compose logs api-gateway -> Loaded downstream route configs from database { routeCount: 2 }
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Configure API Gateway Docker Runtime with Database URL
+
+Decision:
+
+Add API Gateway `DATABASE_URL` to Docker Compose.
+
+Docker value:
+
+```txt
+postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate?schema=gateway
+```
+
+Reason:
+
+* API Gateway now needs PostgreSQL access for route config loading.
+* The Gateway container must connect to PostgreSQL using Docker internal service DNS.
+* The Gateway must target the `gateway` schema, not the default `public` schema.
+* Docker runtime should match the Sprint 8 DB-backed route config architecture.
+
+Also decided:
+
+```txt
+API Gateway should depend on healthy postgres, redis, and product-service in Docker Compose.
+```
+
+Reason:
+
+* API Gateway needs PostgreSQL for route config loading.
+* API Gateway needs Redis for rate limiting and caching.
+* API Gateway proxies to Product Service.
+* Health-based startup ordering makes local runtime more predictable.
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Keep Runtime Hot Reload Out of Sprint 8
+
+Decision:
+
+Do not add runtime route hot reload in Sprint 8.
+
+Reason:
+
+* Sprint 8 focuses on database-backed route config foundation.
+* Runtime hot reload adds complexity around route re-registration, stale routes, cache invalidation, validation errors, and concurrency.
+* Startup DB loading is enough to prove the architecture.
+* A simple and safe route management API should come before hot reload complexity.
+* The Gateway already has static fallback for safety.
+
+Current behavior:
+
+```txt
+Routes are loaded from database at API Gateway startup.
+Route changes in database require API Gateway restart to take effect.
+```
+
+Deferred:
+
+```txt
+Runtime route reload
+Route config watch mode
+Admin-triggered route reload
+Zero-downtime route replacement
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Keep Admin Dashboard Out of Sprint 8
+
+Decision:
+
+Do not add Admin Dashboard in Sprint 8.
+
+Reason:
+
+* Sprint 8 is a backend architecture sprint.
+* The Gateway first needs route config persistence and runtime loading.
+* Admin Dashboard requires backend route management APIs first.
+* Adding UI before stable backend route management would create scope creep.
+* The next correct step is Route Management API foundation.
+
+Deferred:
+
+```txt
+Admin Dashboard
+Developer Portal
+Route management UI
+API key request UI
+Usage analytics UI
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-01 - Move Next Sprint Toward Route Management API Foundation
+
+Decision:
+
+After Sprint 8 final documentation update, move Sprint 9 toward Route Management API Foundation.
+
+Reason:
+
+* Sprint 8 added PostgreSQL-backed route config.
+* The next product-like API Gateway capability is managing those route configs through APIs.
+* Admin Dashboard should not be built until backend route management APIs exist.
+* Route management API can reuse the existing route validation logic.
+* Route management API can prepare for enable/disable, create, update, and read flows.
+* Runtime reload can remain simple at first.
+
+Recommended Sprint 9 direction:
+
+```txt
+1. Add internal/admin route config read API.
+2. Add route config create/update foundation.
+3. Add route config enable/disable behavior.
+4. Reuse existing route validation before persisting route data.
+5. Keep runtime reload strategy simple.
+6. Add route management API tests.
+7. Keep Admin Dashboard out of scope until backend route management is stable.
+```
+
+Not included at the beginning of Sprint 9:
+
+```txt
+Admin Dashboard UI
+Developer Portal UI
+Kafka
+RabbitMQ
+Kubernetes
+OpenTelemetry
+Loki
+k6
+Docker image registry push
+Production cloud deployment
+```
+
+Status:
+
+Accepted.
