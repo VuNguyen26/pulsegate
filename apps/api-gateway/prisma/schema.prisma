@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GatewayRouteMethod {
+  GET
+  POST
+  PUT
+  PATCH
+  DELETE
+}
+
+model GatewayRoute {
+  id            String             @id @default(cuid())
+  serviceName   String             @map("service_name")
+  gatewayPath   String             @map("gateway_path")
+  downstreamUrl String             @map("downstream_url")
+  method        GatewayRouteMethod
+  enabled       Boolean            @default(true)
+  priority      Int                @default(100)
+
+  requireApiKey Boolean @default(false) @map("require_api_key")
+  requireJwt    Boolean @default(false) @map("require_jwt")
+
+  timeoutEnabled Boolean @default(true) @map("timeout_enabled")
+  timeoutMs      Int     @default(3000) @map("timeout_ms")
+
+  cacheEnabled    Boolean @default(false) @map("cache_enabled")
+  cacheTtlSeconds Int     @default(30) @map("cache_ttl_seconds")
+
+  rateLimitEnabled  Boolean @default(false) @map("rate_limit_enabled")
+  rateLimitLimit    Int     @default(100) @map("rate_limit_limit")
+  rateLimitWindowMs Int     @default(60000) @map("rate_limit_window_ms")
+
+  requestTransformEnabled Boolean @default(false) @map("request_transform_enabled")
+  requestAddHeaders       Json?   @map("request_add_headers")
+  requestRemoveHeaders    Json?   @map("request_remove_headers")
+
+  responseTransformEnabled Boolean @default(false) @map("response_transform_enabled")
+  responseAddHeaders       Json?   @map("response_add_headers")
+  responseRemoveHeaders    Json?   @map("response_remove_headers")
+
+  retryEnabled    Boolean @default(false) @map("retry_enabled")
+  retryAttempts   Int     @default(0) @map("retry_attempts")
+  retryOnStatuses Json    @map("retry_on_statuses")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([method, gatewayPath], name: "gateway_routes_method_gateway_path_key")
+  @@index([enabled, priority], name: "gateway_routes_enabled_priority_idx")
+  @@map("gateway_routes")
+}

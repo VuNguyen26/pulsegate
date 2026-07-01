@@ -6,3 +6,6 @@ coverage
 !.env.example
 .DS_Store
 npm-debug.log*
+
+# API Gateway Prisma generated client
+apps/api-gateway/src/generated/
