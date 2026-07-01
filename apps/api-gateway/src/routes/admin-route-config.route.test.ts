@@ -5,6 +5,7 @@ import { InMemoryRateLimitStore } from "../rate-limit/in-memory-rate-limit-store
 import type {
   RouteConfigCreateData,
   RouteConfigReadModel,
+  RouteConfigUpdateData,
   RouteManagementRepository,
 } from "../route-management/route-management.types.js";
 
@@ -128,6 +129,48 @@ function createTestRepository(
       storedRoutes.push(createdRoute);
 
       return createdRoute;
+    }),
+
+        updateRoute: vi.fn(async (id: string, data: RouteConfigUpdateData) => {
+      const routeIndex = storedRoutes.findIndex((route) => route.id === id);
+
+      if (routeIndex === -1) {
+        throw new Error("Route config not found");
+      }
+
+      const updatedRoute: RouteConfigReadModel = {
+        id,
+        serviceName: data.serviceName,
+        gatewayPath: data.gatewayPath,
+        downstreamUrl: data.downstreamUrl,
+        method: data.method,
+        enabled: data.enabled,
+        priority: data.priority,
+        requireApiKey: data.requireApiKey,
+        requireJwt: data.requireJwt,
+        timeoutEnabled: data.timeoutEnabled,
+        timeoutMs: data.timeoutMs,
+        cacheEnabled: data.cacheEnabled,
+        cacheTtlSeconds: data.cacheTtlSeconds,
+        rateLimitEnabled: data.rateLimitEnabled,
+        rateLimitLimit: data.rateLimitLimit,
+        rateLimitWindowMs: data.rateLimitWindowMs,
+        requestTransformEnabled: data.requestTransformEnabled,
+        requestAddHeaders: data.requestAddHeaders,
+        requestRemoveHeaders: data.requestRemoveHeaders,
+        responseTransformEnabled: data.responseTransformEnabled,
+        responseAddHeaders: data.responseAddHeaders,
+        responseRemoveHeaders: data.responseRemoveHeaders,
+        retryEnabled: data.retryEnabled,
+        retryAttempts: data.retryAttempts,
+        retryOnStatuses: data.retryOnStatuses,
+        createdAt: storedRoutes[routeIndex].createdAt,
+        updatedAt,
+      };
+
+      storedRoutes[routeIndex] = updatedRoute;
+
+      return updatedRoute;
     }),
   };
 }
@@ -418,6 +461,147 @@ it("should reject route config create request when admin API key is missing", as
       gatewayPath: "/api/product-service/new-health",
       downstreamUrl: "http://product-service:3001/health",
       method: "GET",
+    }),
+  });
+
+  expect(response.statusCode).toBe(401);
+
+  expect(response.json()).toMatchObject({
+    error: {
+      code: "ADMIN_API_KEY_MISSING",
+      message: "Admin API key is required",
+      requestId: expect.any(String),
+    },
+  });
+});
+
+it("should update a route config for an authenticated admin request", async () => {
+  const response = await app.inject({
+    method: "PATCH",
+    url: "/internal/admin/routes/route_health",
+    headers: {
+      "content-type": "application/json",
+      "x-admin-api-key": "test-admin-key",
+    },
+    payload: JSON.stringify({
+      enabled: true,
+      priority: 250,
+      policies: {
+        timeout: {
+          timeoutMs: 4000,
+        },
+      },
+    }),
+  });
+
+  expect(response.statusCode).toBe(200);
+
+  expect(response.json()).toMatchObject({
+    data: {
+      id: "route_health",
+      serviceName: "product-service",
+      gatewayPath: "/api/product-service/health",
+      downstreamUrl: "http://product-service:3001/health",
+      method: "GET",
+      enabled: true,
+      priority: 250,
+      policies: {
+        auth: {
+          requireApiKey: false,
+          requireJwt: false,
+        },
+        timeout: {
+          enabled: true,
+          timeoutMs: 4000,
+        },
+      },
+    },
+  });
+});
+
+it("should return 404 when updating a route config that does not exist", async () => {
+  const response = await app.inject({
+    method: "PATCH",
+    url: "/internal/admin/routes/missing_route",
+    headers: {
+      "content-type": "application/json",
+      "x-admin-api-key": "test-admin-key",
+    },
+    payload: JSON.stringify({
+      enabled: false,
+    }),
+  });
+
+  expect(response.statusCode).toBe(404);
+
+  expect(response.json()).toMatchObject({
+    error: {
+      code: "ROUTE_CONFIG_NOT_FOUND",
+      message: "Route config was not found",
+      requestId: expect.any(String),
+    },
+  });
+});
+
+it("should reject route config update request when merged route config is invalid", async () => {
+  const response = await app.inject({
+    method: "PATCH",
+    url: "/internal/admin/routes/route_health",
+    headers: {
+      "content-type": "application/json",
+      "x-admin-api-key": "test-admin-key",
+    },
+    payload: JSON.stringify({
+      downstreamUrl: "not-a-url",
+    }),
+  });
+
+  expect(response.statusCode).toBe(400);
+
+  expect(response.json()).toMatchObject({
+    error: {
+      code: "ROUTE_CONFIG_INVALID",
+      message: "Route config is invalid",
+      details: expect.stringContaining("downstreamUrl must be a valid URL"),
+      requestId: expect.any(String),
+    },
+  });
+});
+
+it("should reject route config update request when method and gateway path conflict with another route", async () => {
+  const response = await app.inject({
+    method: "PATCH",
+    url: "/internal/admin/routes/route_health",
+    headers: {
+      "content-type": "application/json",
+      "x-admin-api-key": "test-admin-key",
+    },
+    payload: JSON.stringify({
+      gatewayPath: "/api/products",
+      method: "GET",
+    }),
+  });
+
+  expect(response.statusCode).toBe(409);
+
+  expect(response.json()).toMatchObject({
+    error: {
+      code: "ROUTE_CONFIG_ALREADY_EXISTS",
+      message: "Route config already exists for this method and gateway path",
+      requestId: expect.any(String),
+    },
+  });
+});
+
+it("should reject route config update request when admin API key is missing", async () => {
+  const response = await app.inject({
+    method: "PATCH",
+    url: "/internal/admin/routes/route_health",
+    headers: {
+      "content-type": "application/json",
+    },
+    payload: JSON.stringify({
+      enabled: false,
     }),
   });
 

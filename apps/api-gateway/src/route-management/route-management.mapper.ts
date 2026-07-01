@@ -7,6 +7,7 @@ import type {
   RouteConfigCreateData,
   RouteConfigReadModel,
   RouteConfigResponse,
+  RouteConfigUpdateData,
 } from "./route-management.types.js";
 
 const SUPPORTED_HTTP_METHODS = new Set<HttpMethod>([
@@ -163,6 +164,127 @@ function mapNumberArray(fieldName: string, value: unknown): number[] {
   }
 
   return value;
+}
+
+function mapRouteConfigReadModelToRequestBody(
+  route: RouteConfigReadModel,
+): Record<string, unknown> {
+  return {
+    serviceName: route.serviceName,
+    gatewayPath: route.gatewayPath,
+    downstreamUrl: route.downstreamUrl,
+    method: route.method,
+    enabled: route.enabled,
+    priority: route.priority,
+    policies: {
+      auth: {
+        requireApiKey: route.requireApiKey,
+        requireJwt: route.requireJwt,
+      },
+      timeout: {
+        enabled: route.timeoutEnabled,
+        timeoutMs: route.timeoutMs,
+      },
+      cache: {
+        enabled: route.cacheEnabled,
+        ttlSeconds: route.cacheTtlSeconds,
+      },
+      rateLimit: {
+        enabled: route.rateLimitEnabled,
+        limit: route.rateLimitLimit,
+        windowMs: route.rateLimitWindowMs,
+      },
+      requestTransform: {
+        enabled: route.requestTransformEnabled,
+        addHeaders: mapHeaderMap("requestAddHeaders", route.requestAddHeaders),
+        removeHeaders: mapStringArray(
+          "requestRemoveHeaders",
+          route.requestRemoveHeaders,
+        ),
+      },
+      responseTransform: {
+        enabled: route.responseTransformEnabled,
+        addHeaders: mapHeaderMap(
+          "responseAddHeaders",
+          route.responseAddHeaders,
+        ),
+        removeHeaders: mapStringArray(
+          "responseRemoveHeaders",
+          route.responseRemoveHeaders,
+        ),
+      },
+      retry: {
+        enabled: route.retryEnabled,
+        attempts: route.retryAttempts,
+        retryOnStatuses: mapNumberArray(
+          "retryOnStatuses",
+          route.retryOnStatuses,
+        ),
+      },
+    },
+  };
+}
+
+function mergePolicyGroup(
+  existingPolicies: Record<string, unknown>,
+  patchPolicies: Record<string, unknown>,
+  policyName: string,
+): Record<string, unknown> {
+  const existingPolicy = getOptionalObject(
+    `existing.policies.${policyName}`,
+    existingPolicies[policyName],
+  );
+
+  const patchPolicy = getOptionalObject(
+    `policies.${policyName}`,
+    patchPolicies[policyName],
+  );
+
+  return {
+    ...existingPolicy,
+    ...patchPolicy,
+  };
+}
+
+function mergeRouteConfigUpdateRequest(
+  existingRoute: RouteConfigReadModel,
+  body: unknown,
+): Record<string, unknown> {
+  const existingBody = mapRouteConfigReadModelToRequestBody(existingRoute);
+  const patchBody = requirePlainObject("body", body);
+
+  const existingPolicies = getOptionalObject(
+    "existing.policies",
+    existingBody.policies,
+  );
+
+  const patchPolicies = getOptionalObject("policies", patchBody.policies);
+
+  return {
+    ...existingBody,
+    ...patchBody,
+    policies: {
+      auth: mergePolicyGroup(existingPolicies, patchPolicies, "auth"),
+      timeout: mergePolicyGroup(existingPolicies, patchPolicies, "timeout"),
+      cache: mergePolicyGroup(existingPolicies, patchPolicies, "cache"),
+      rateLimit: mergePolicyGroup(
+        existingPolicies,
+        patchPolicies,
+        "rateLimit",
+      ),
+      requestTransform: mergePolicyGroup(
+        existingPolicies,
+        patchPolicies,
+        "requestTransform",
+      ),
+      responseTransform: mergePolicyGroup(
+        existingPolicies,
+        patchPolicies,
+        "responseTransform",
+      ),
+      retry: mergePolicyGroup(existingPolicies, patchPolicies, "retry"),
+    },
+  };
 }
 
 export function mapRouteConfigCreateRequestToDownstreamRouteConfig(
@@ -332,6 +454,15 @@ export function mapRouteConfigCreateRequestToCreateData(
     retryAttempts: routeConfig.policies.retry.attempts,
     retryOnStatuses: routeConfig.policies.retry.retryOnStatuses,
   };
+}
+
+export function mapRouteConfigUpdateRequestToUpdateData(
+  existingRoute: RouteConfigReadModel,
+  body: unknown,
+): RouteConfigUpdateData {
+  const mergedBody = mergeRouteConfigUpdateRequest(existingRoute, body);
+
+  return mapRouteConfigCreateRequestToCreateData(mergedBody);
 }
 
 export function mapRouteConfigReadModelToResponse(

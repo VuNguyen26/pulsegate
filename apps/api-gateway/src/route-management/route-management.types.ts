@@ -35,6 +35,8 @@ export type RouteConfigCreateData = {
   retryOnStatuses: number[];
 };
 
+export type RouteConfigUpdateData = RouteConfigCreateData;
+
 export type RouteManagementRepository = {
   listRoutes: () => Promise<RouteConfigReadModel[]>;
   findRouteById: (id: string) => Promise<RouteConfigReadModel | null>;
@@ -43,6 +45,10 @@ export type RouteManagementRepository = {
     gatewayPath: string,
   ) => Promise<RouteConfigReadModel | null>;
   createRoute: (data: RouteConfigCreateData) => Promise<RouteConfigReadModel>;
+  updateRoute: (
+    id: string,
+    data: RouteConfigUpdateData,
+  ) => Promise<RouteConfigReadModel>;
 };
 
 export type RouteConfigResponse = {

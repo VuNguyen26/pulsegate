@@ -4,6 +4,7 @@ import { createAdminApiKeyAuthMiddleware } from "../middlewares/admin-api-key-au
 import {
   mapRouteConfigCreateRequestToCreateData,
   mapRouteConfigReadModelToResponse,
+  mapRouteConfigUpdateRequestToUpdateData,
 } from "../route-management/route-management.mapper.js";
 import { createPrismaRouteManagementRepository } from "../route-management/route-management.repository.js";
 import type { RouteManagementRepository } from "../route-management/route-management.types.js";
@@ -117,6 +118,68 @@ export async function adminRouteConfigRoute(
       return reply.status(201).send({
         data: mapRouteConfigReadModelToResponse(createdRoute),
       });
+    },
+  );
+
+    app.patch<{ Params: RouteIdParams }>(
+    "/internal/admin/routes/:id",
+    {
+      preHandler: requireAdminApiKey,
+    },
+    async (request, reply) => {
+      const existingRoute = await repository.findRouteById(request.params.id);
+
+      if (!existingRoute) {
+        return reply.status(404).send({
+          error: {
+            code: "ROUTE_CONFIG_NOT_FOUND",
+            message: "Route config was not found",
+            requestId: request.id,
+          },
+        });
+      }
+
+      let updateData;
+
+      try {
+        updateData = mapRouteConfigUpdateRequestToUpdateData(
+          existingRoute,
+          request.body,
+        );
+      } catch (error) {
+        return reply.status(400).send({
+          error: {
+            code: "ROUTE_CONFIG_INVALID",
+            message: "Route config is invalid",
+            details: getErrorMessage(error),
+            requestId: request.id,
+          },
+        });
+      }
+
+      const conflictingRoute = await repository.findRouteByMethodAndGatewayPath(
+        updateData.method,
+        updateData.gatewayPath,
+      );
+
+      if (conflictingRoute && conflictingRoute.id !== existingRoute.id) {
+        return reply.status(409).send({
+          error: {
+            code: "ROUTE_CONFIG_ALREADY_EXISTS",
+            message: "Route config already exists for this method and gateway path",
+            requestId: request.id,
+          },
+        });
+      }
+
+      const updatedRoute = await repository.updateRoute(
+        existingRoute.id,
+        updateData,
+      );
+
+      return {
+        data: mapRouteConfigReadModelToResponse(updatedRoute),
+      };
     },
   );
 }
