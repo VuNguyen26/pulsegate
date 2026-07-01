@@ -29,8 +29,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate Prisma Client
+      - name: Generate Product Service Prisma Client
         run: npm run db:generate -w apps/product-service
+        env:
+          DATABASE_URL: postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate
+
+      - name: Generate API Gateway Prisma Client
+        run: npm run db:generate -w apps/api-gateway
+        env:
+          DATABASE_URL: postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway
 
       - name: Run tests
         run: npm run test
