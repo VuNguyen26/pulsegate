@@ -1,7 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { gatewayPrisma } from "../database/gateway-prisma.js";
 import { createAdminApiKeyAuthMiddleware } from "../middlewares/admin-api-key-auth.middleware.js";
-import { mapRouteConfigReadModelToResponse } from "../route-management/route-management.mapper.js";
+import {
+  mapRouteConfigCreateRequestToCreateData,
+  mapRouteConfigReadModelToResponse,
+} from "../route-management/route-management.mapper.js";
 import { createPrismaRouteManagementRepository } from "../route-management/route-management.repository.js";
 import type { RouteManagementRepository } from "../route-management/route-management.types.js";
 
@@ -14,6 +17,14 @@ export type AdminRouteConfigRouteOptions = {
 type RouteIdParams = {
   id: string;
 };
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Invalid route config";
+}
 
 export async function adminRouteConfigRoute(
   app: FastifyInstance,
@@ -62,6 +73,50 @@ export async function adminRouteConfigRoute(
       return {
         data: mapRouteConfigReadModelToResponse(route),
       };
+    },
+  );
+
+  app.post(
+    "/internal/admin/routes",
+    {
+      preHandler: requireAdminApiKey,
+    },
+    async (request, reply) => {
+      let createData;
+
+      try {
+        createData = mapRouteConfigCreateRequestToCreateData(request.body);
+      } catch (error) {
+        return reply.status(400).send({
+          error: {
+            code: "ROUTE_CONFIG_INVALID",
+            message: "Route config is invalid",
+            details: getErrorMessage(error),
+            requestId: request.id,
+          },
+        });
+      }
+
+      const existingRoute = await repository.findRouteByMethodAndGatewayPath(
+        createData.method,
+        createData.gatewayPath,
+      );
+
+      if (existingRoute) {
+        return reply.status(409).send({
+          error: {
+            code: "ROUTE_CONFIG_ALREADY_EXISTS",
+            message: "Route config already exists for this method and gateway path",
+            requestId: request.id,
+          },
+        });
+      }
+
+      const createdRoute = await repository.createRoute(createData);
+
+      return reply.status(201).send({
+        data: mapRouteConfigReadModelToResponse(createdRoute),
+      });
     },
   );
 }

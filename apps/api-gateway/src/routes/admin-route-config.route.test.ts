@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApiGatewayApp } from "../app.js";
 import { InMemoryRateLimitStore } from "../rate-limit/in-memory-rate-limit-store.js";
 import type {
+  RouteConfigCreateData,
   RouteConfigReadModel,
   RouteManagementRepository,
 } from "../route-management/route-management.types.js";
@@ -73,10 +74,60 @@ const disabledHealthRoute: RouteConfigReadModel = {
 function createTestRepository(
   routes: RouteConfigReadModel[],
 ): RouteManagementRepository {
+  const storedRoutes = [...routes];
+
   return {
-    listRoutes: vi.fn(async () => routes),
+    listRoutes: vi.fn(async () => storedRoutes),
+
     findRouteById: vi.fn(async (id: string) => {
-      return routes.find((route) => route.id === id) ?? null;
+      return storedRoutes.find((route) => route.id === id) ?? null;
+    }),
+
+    findRouteByMethodAndGatewayPath: vi.fn(
+      async (method, gatewayPath) => {
+        return (
+          storedRoutes.find(
+            (route) =>
+              route.method === method && route.gatewayPath === gatewayPath,
+          ) ?? null
+        );
+      },
+    ),
+
+    createRoute: vi.fn(async (data: RouteConfigCreateData) => {
+      const createdRoute: RouteConfigReadModel = {
+        id: `route_${storedRoutes.length + 1}`,
+        serviceName: data.serviceName,
+        gatewayPath: data.gatewayPath,
+        downstreamUrl: data.downstreamUrl,
+        method: data.method,
+        enabled: data.enabled,
+        priority: data.priority,
+        requireApiKey: data.requireApiKey,
+        requireJwt: data.requireJwt,
+        timeoutEnabled: data.timeoutEnabled,
+        timeoutMs: data.timeoutMs,
+        cacheEnabled: data.cacheEnabled,
+        cacheTtlSeconds: data.cacheTtlSeconds,
+        rateLimitEnabled: data.rateLimitEnabled,
+        rateLimitLimit: data.rateLimitLimit,
+        rateLimitWindowMs: data.rateLimitWindowMs,
+        requestTransformEnabled: data.requestTransformEnabled,
+        requestAddHeaders: data.requestAddHeaders,
+        requestRemoveHeaders: data.requestRemoveHeaders,
+        responseTransformEnabled: data.responseTransformEnabled,
+        responseAddHeaders: data.responseAddHeaders,
+        responseRemoveHeaders: data.responseRemoveHeaders,
+        retryEnabled: data.retryEnabled,
+        retryAttempts: data.retryAttempts,
+        retryOnStatuses: data.retryOnStatuses,
+        createdAt,
+        updatedAt,
+      };
+
+      storedRoutes.push(createdRoute);
+
+      return createdRoute;
     }),
   };
 }
@@ -231,4 +282,153 @@ describe("adminRouteConfigRoute", () => {
       },
     });
   });
+
+  it("should create a route config for an authenticated admin request", async () => {
+  const response = await app.inject({
+    method: "POST",
+    url: "/internal/admin/routes",
+    headers: {
+      "content-type": "application/json",
+      "x-admin-api-key": "test-admin-key",
+    },
+    payload: JSON.stringify({
+      serviceName: "product-service",
+      gatewayPath: "/api/product-service/new-health",
+      downstreamUrl: "http://product-service:3001/health",
+      method: "GET",
+      enabled: true,
+      priority: 300,
+      policies: {
+        auth: {
+          requireApiKey: false,
+          requireJwt: false,
+        },
+        timeout: {
+          enabled: true,
+          timeoutMs: 3000,
+        },
+        cache: {
+          enabled: false,
+        },
+        rateLimit: {
+          enabled: false,
+        },
+      },
+    }),
+  });
+
+  expect(response.statusCode).toBe(201);
+
+  expect(response.json()).toMatchObject({
+    data: {
+      id: "route_3",
+      serviceName: "product-service",
+      gatewayPath: "/api/product-service/new-health",
+      downstreamUrl: "http://product-service:3001/health",
+      method: "GET",
+      enabled: true,
+      priority: 300,
+      policies: {
+        auth: {
+          requireApiKey: false,
+          requireJwt: false,
+        },
+        timeout: {
+          enabled: true,
+          timeoutMs: 3000,
+        },
+        cache: {
+          enabled: false,
+          ttlSeconds: 30,
+        },
+        rateLimit: {
+          enabled: false,
+          limit: 100,
+          windowMs: 60000,
+        },
+      },
+    },
+  });
+});
+
+it("should reject route config create request when downstreamUrl is invalid", async () => {
+  const response = await app.inject({
+    method: "POST",
+    url: "/internal/admin/routes",
+    headers: {
+      "content-type": "application/json",
+      "x-admin-api-key": "test-admin-key",
+    },
+    payload: JSON.stringify({
+      serviceName: "product-service",
+      gatewayPath: "/api/invalid-route",
+      downstreamUrl: "not-a-url",
+      method: "GET",
+    }),
+  });
+
+  expect(response.statusCode).toBe(400);
+
+  expect(response.json()).toMatchObject({
+    error: {
+      code: "ROUTE_CONFIG_INVALID",
+      message: "Route config is invalid",
+      details: expect.stringContaining("downstreamUrl must be a valid URL"),
+      requestId: expect.any(String),
+    },
+  });
+});
+
+it("should reject route config create request when method and gateway path already exist", async () => {
+  const response = await app.inject({
+    method: "POST",
+    url: "/internal/admin/routes",
+    headers: {
+      "content-type": "application/json",
+      "x-admin-api-key": "test-admin-key",
+    },
+    payload: JSON.stringify({
+      serviceName: "product-service",
+      gatewayPath: "/api/products",
+      downstreamUrl: "http://product-service:3001/products",
+      method: "GET",
+    }),
+  });
+
+  expect(response.statusCode).toBe(409);
+
+  expect(response.json()).toMatchObject({
+    error: {
+      code: "ROUTE_CONFIG_ALREADY_EXISTS",
+      message: "Route config already exists for this method and gateway path",
+      requestId: expect.any(String),
+    },
+  });
+});
+
+it("should reject route config create request when admin API key is missing", async () => {
+  const response = await app.inject({
+    method: "POST",
+    url: "/internal/admin/routes",
+    headers: {
+      "content-type": "application/json",
+    },
+    payload: JSON.stringify({
+      serviceName: "product-service",
+      gatewayPath: "/api/product-service/new-health",
+      downstreamUrl: "http://product-service:3001/health",
+      method: "GET",
+    }),
+  });
+
+  expect(response.statusCode).toBe(401);
+
+  expect(response.json()).toMatchObject({
+    error: {
+      code: "ADMIN_API_KEY_MISSING",
+      message: "Admin API key is required",
+      requestId: expect.any(String),
+    },
+  });
+});
 });

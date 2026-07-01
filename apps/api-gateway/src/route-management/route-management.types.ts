@@ -8,9 +8,41 @@ export type RouteConfigReadModel = DatabaseGatewayRouteRecord & {
   updatedAt: Date;
 };
 
+export type RouteConfigCreateData = {
+  serviceName: string;
+  gatewayPath: string;
+  downstreamUrl: string;
+  method: HttpMethod;
+  enabled: boolean;
+  priority: number;
+  requireApiKey: boolean;
+  requireJwt: boolean;
+  timeoutEnabled: boolean;
+  timeoutMs: number;
+  cacheEnabled: boolean;
+  cacheTtlSeconds: number;
+  rateLimitEnabled: boolean;
+  rateLimitLimit: number;
+  rateLimitWindowMs: number;
+  requestTransformEnabled: boolean;
+  requestAddHeaders: Record<string, string> | null;
+  requestRemoveHeaders: string[] | null;
+  responseTransformEnabled: boolean;
+  responseAddHeaders: Record<string, string> | null;
+  responseRemoveHeaders: string[] | null;
+  retryEnabled: boolean;
+  retryAttempts: number;
+  retryOnStatuses: number[];
+};
+
 export type RouteManagementRepository = {
   listRoutes: () => Promise<RouteConfigReadModel[]>;
   findRouteById: (id: string) => Promise<RouteConfigReadModel | null>;
+  findRouteByMethodAndGatewayPath: (
+    method: HttpMethod,
+    gatewayPath: string,
+  ) => Promise<RouteConfigReadModel | null>;
+  createRoute: (data: RouteConfigCreateData) => Promise<RouteConfigReadModel>;
 };
 
 export type RouteConfigResponse = {
