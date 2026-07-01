@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { readCsvEnv, readNumberEnv, readStringEnv } from "./env.js";
 
@@ -10,6 +10,10 @@ afterEach(() => {
   delete process.env[TEST_NUMBER_ENV];
   delete process.env[TEST_CSV_ENV];
   delete process.env[TEST_STRING_ENV];
+  delete process.env.ADMIN_API_KEY_HEADER;
+  delete process.env.ADMIN_API_KEY;
+
+  vi.resetModules();
 });
 
 describe("readNumberEnv", () => {
@@ -121,5 +125,31 @@ describe("readStringEnv", () => {
     const value = readStringEnv(TEST_STRING_ENV, "fallback-value");
 
     expect(value).toBe("fallback-value");
+  });
+});
+
+describe("env", () => {
+  it("should expose default admin API key configuration", async () => {
+    delete process.env.ADMIN_API_KEY_HEADER;
+    delete process.env.ADMIN_API_KEY;
+
+    vi.resetModules();
+
+    const { env } = await import("./env.js");
+
+    expect(env.ADMIN_API_KEY_HEADER).toBe("x-admin-api-key");
+    expect(env.ADMIN_API_KEY).toBe("local-admin-key");
+  });
+
+  it("should expose custom admin API key configuration", async () => {
+    process.env.ADMIN_API_KEY_HEADER = "x-custom-admin-key";
+    process.env.ADMIN_API_KEY = "custom-admin-key";
+
+    vi.resetModules();
+
+    const { env } = await import("./env.js");
+
+    expect(env.ADMIN_API_KEY_HEADER).toBe("x-custom-admin-key");
+    expect(env.ADMIN_API_KEY).toBe("custom-admin-key");
   });
 });
