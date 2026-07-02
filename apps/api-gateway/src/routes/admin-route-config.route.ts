@@ -202,17 +202,25 @@ export async function adminRouteConfigRoute(
         const validatedRouteConfigs =
           mapGatewayRouteRecordsToDownstreamRouteConfigs(activeRoutes);
 
+        const registryApplyResult =
+          options.routeRuntimeRegistry?.replaceRoutes(validatedRouteConfigs) ??
+          null;
+
         return {
           data: {
-            mode: "validation-only",
+            mode: "runtime-registry-refresh",
+            registryAvailable: Boolean(options.routeRuntimeRegistry),
+            registryApplied: Boolean(registryApplyResult),
             runtimeApplied: false,
             requiresRestart: true,
+            previousVersion: registryApplyResult?.previousVersion ?? null,
+            currentVersion: registryApplyResult?.currentVersion ?? null,
+            loadedAt: registryApplyResult?.loadedAt.toISOString() ?? null,
             routeCount: validatedRouteConfigs.length,
-            routes: activeRoutes.map((route) => ({
+            routes: validatedRouteConfigs.map((route) => ({
               method: route.method,
               gatewayPath: route.gatewayPath,
-              enabled: route.enabled,
-              priority: route.priority,
+              serviceName: route.serviceName,
             })),
           },
         };

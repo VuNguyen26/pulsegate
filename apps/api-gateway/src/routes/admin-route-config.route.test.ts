@@ -783,21 +783,78 @@ it("should reject route config update request when admin API key is missing", as
     });
 
     expect(response.statusCode).toBe(200);
-
     expect(response.json()).toMatchObject({
       data: {
-        mode: "validation-only",
+        mode: "runtime-registry-refresh",
+        registryAvailable: true,
+        registryApplied: true,
         runtimeApplied: false,
         requiresRestart: true,
+        previousVersion: 1,
+        currentVersion: 2,
+        loadedAt: expect.any(String),
         routeCount: 1,
         routes: [
           {
             method: "GET",
             gatewayPath: "/api/products",
-            enabled: true,
-            priority: 100,
+            serviceName: "product-service",
           },
         ],
+      },
+    });
+  });
+
+  it("should refresh runtime registry snapshot when reload validation succeeds", async () => {
+    const beforeReloadResponse = await app.inject({
+      method: "GET",
+      url: "/internal/admin/routes/runtime",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+    });
+
+    expect(beforeReloadResponse.statusCode).toBe(200);
+    expect(beforeReloadResponse.json()).toMatchObject({
+      data: {
+        version: 1,
+        routeCount: 2,
+      },
+    });
+
+    const reloadResponse = await app.inject({
+      method: "POST",
+      url: "/internal/admin/routes/reload",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+      payload: {},
+    });
+
+    expect(reloadResponse.statusCode).toBe(200);
+    expect(reloadResponse.json()).toMatchObject({
+      data: {
+        mode: "runtime-registry-refresh",
+        registryApplied: true,
+        previousVersion: 1,
+        currentVersion: 2,
+        routeCount: 1,
+      },
+    });
+
+    const afterReloadResponse = await app.inject({
+      method: "GET",
+      url: "/internal/admin/routes/runtime",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+    });
+
+    expect(afterReloadResponse.statusCode).toBe(200);
+    expect(afterReloadResponse.json()).toMatchObject({
+      data: {
+        version: 2,
+        routeCount: 1,
       },
     });
   });
