@@ -524,5 +524,9 @@ export function mapRouteConfigReadModelToResponse(
     },
     createdAt: route.createdAt.toISOString(),
     updatedAt: route.updatedAt.toISOString(),
+    createdBy: route.createdBy ?? null,
+    updatedBy: route.updatedBy ?? null,
+    deletedAt: route.deletedAt ? route.deletedAt.toISOString() : null,
+    deletedBy: route.deletedBy ?? null,
   };
 }

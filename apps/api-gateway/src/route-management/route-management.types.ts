@@ -6,6 +6,10 @@ export type RouteConfigReadModel = DatabaseGatewayRouteRecord & {
   method: HttpMethod;
   createdAt: Date;
   updatedAt: Date;
+  createdBy?: string | null;
+  updatedBy?: string | null;
+  deletedAt?: Date | null;
+  deletedBy?: string | null;
 };
 
 export type RouteConfigCreateData = {
@@ -33,6 +37,8 @@ export type RouteConfigCreateData = {
   retryEnabled: boolean;
   retryAttempts: number;
   retryOnStatuses: number[];
+  createdBy?: string | null;
+  updatedBy?: string | null;
 };
 
 export type RouteConfigUpdateData = RouteConfigCreateData;
@@ -48,6 +54,10 @@ export type RouteManagementRepository = {
   updateRoute: (
     id: string,
     data: RouteConfigUpdateData,
+  ) => Promise<RouteConfigReadModel>;
+  softDeleteRoute: (
+    id: string,
+    actor: string,
   ) => Promise<RouteConfigReadModel>;
 };
 
@@ -95,4 +105,8 @@ export type RouteConfigResponse = {
   };
   createdAt: string;
   updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  deletedAt: string | null;
+  deletedBy: string | null;
 };

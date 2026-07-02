@@ -11,6 +11,7 @@ export type DatabaseGatewayRouteRecord = {
   method: HttpMethod;
   enabled: boolean;
   priority: number;
+  deletedAt?: Date | null;
 
   requireApiKey: boolean;
   requireJwt: boolean;
@@ -163,7 +164,7 @@ export function mapGatewayRouteRecordsToDownstreamRouteConfigs(
   records: DatabaseGatewayRouteRecord[],
 ): DownstreamRouteConfig[] {
   const routes = [...records]
-    .filter((record) => record.enabled)
+    .filter((record) => record.enabled && !record.deletedAt)
     .sort((first, second) => {
       if (first.priority !== second.priority) {
         return first.priority - second.priority;

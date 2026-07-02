@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { gatewayPrisma } from "../database/gateway-prisma.js";
 import { createAdminApiKeyAuthMiddleware } from "../middlewares/admin-api-key-auth.middleware.js";
 import {
@@ -25,6 +25,24 @@ function getErrorMessage(error: unknown): string {
   }
 
   return "Invalid route config";
+}
+
+function getAdminActor(request: FastifyRequest): string {
+  const actorHeader = request.headers["x-admin-actor"];
+
+  if (Array.isArray(actorHeader)) {
+    const firstActor = actorHeader[0]?.trim();
+
+    return firstActor && firstActor.length > 0 ? firstActor : "admin-api-key";
+  }
+
+  if (typeof actorHeader === "string") {
+    const actor = actorHeader.trim();
+
+    return actor.length > 0 ? actor : "admin-api-key";
+  }
+
+  return "admin-api-key";
 }
 
 export async function adminRouteConfigRoute(
@@ -113,7 +131,12 @@ export async function adminRouteConfigRoute(
         });
       }
 
-      const createdRoute = await repository.createRoute(createData);
+      const actor = getAdminActor(request);
+      const createdRoute = await repository.createRoute({
+        ...createData,
+        createdBy: actor,
+        updatedBy: actor,
+      });
 
       return reply.status(201).send({
         data: mapRouteConfigReadModelToResponse(createdRoute),
@@ -121,7 +144,7 @@ export async function adminRouteConfigRoute(
     },
   );
 
-    app.patch<{ Params: RouteIdParams }>(
+  app.patch<{ Params: RouteIdParams }>(
     "/internal/admin/routes/:id",
     {
       preHandler: requireAdminApiKey,
@@ -172,13 +195,44 @@ export async function adminRouteConfigRoute(
         });
       }
 
-      const updatedRoute = await repository.updateRoute(
-        existingRoute.id,
-        updateData,
-      );
+      const actor = getAdminActor(request);
+      const updatedRoute = await repository.updateRoute(existingRoute.id, {
+        ...updateData,
+        updatedBy: actor,
+      });
 
       return {
         data: mapRouteConfigReadModelToResponse(updatedRoute),
+      };
+    },
+  );
+
+  app.delete<{ Params: RouteIdParams }>(
+    "/internal/admin/routes/:id",
+    {
+      preHandler: requireAdminApiKey,
+    },
+    async (request, reply) => {
+      const existingRoute = await repository.findRouteById(request.params.id);
+
+      if (!existingRoute) {
+        return reply.status(404).send({
+          error: {
+            code: "ROUTE_CONFIG_NOT_FOUND",
+            message: "Route config was not found",
+            requestId: request.id,
+          },
+        });
+      }
+
+      const actor = getAdminActor(request);
+      const deletedRoute = await repository.softDeleteRoute(
+        existingRoute.id,
+        actor,
+      );
+
+      return {
+        data: mapRouteConfigReadModelToResponse(deletedRoute),
       };
     },
   );

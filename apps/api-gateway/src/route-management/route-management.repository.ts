@@ -50,6 +50,8 @@ function mapRouteConfigDataToPrismaInput(
     retryEnabled: data.retryEnabled,
     retryAttempts: data.retryAttempts,
     retryOnStatuses: data.retryOnStatuses as Prisma.InputJsonValue,
+    createdBy: data.createdBy,
+    updatedBy: data.updatedBy,
   };
 }
 
@@ -59,6 +61,9 @@ export function createPrismaRouteManagementRepository(
   return {
     listRoutes: async () => {
       const routes = await prisma.gatewayRoute.findMany({
+        where: {
+          deletedAt: null,
+        },
         orderBy: [
           {
             priority: "asc",
@@ -73,9 +78,10 @@ export function createPrismaRouteManagementRepository(
     },
 
     findRouteById: async (id: string) => {
-      const route = await prisma.gatewayRoute.findUnique({
+      const route = await prisma.gatewayRoute.findFirst({
         where: {
           id,
+          deletedAt: null,
         },
       });
 
@@ -83,12 +89,11 @@ export function createPrismaRouteManagementRepository(
     },
 
     findRouteByMethodAndGatewayPath: async (method, gatewayPath) => {
-      const route = await prisma.gatewayRoute.findUnique({
+      const route = await prisma.gatewayRoute.findFirst({
         where: {
-          gateway_routes_method_gateway_path_key: {
-            method: method as GatewayRouteMethod,
-            gatewayPath,
-          },
+          method: method as GatewayRouteMethod,
+          gatewayPath,
+          deletedAt: null,
         },
       });
 
@@ -109,6 +114,22 @@ export function createPrismaRouteManagementRepository(
           id,
         },
         data: mapRouteConfigDataToPrismaInput(data),
+      });
+
+      return route as unknown as RouteConfigReadModel;
+    },
+
+    softDeleteRoute: async (id: string, actor: string) => {
+      const route = await prisma.gatewayRoute.update({
+        where: {
+          id,
+        },
+        data: {
+          enabled: false,
+          deletedAt: new Date(),
+          deletedBy: actor,
+          updatedBy: actor,
+        },
       });
 
       return route as unknown as RouteConfigReadModel;

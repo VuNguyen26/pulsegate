@@ -53,7 +53,13 @@ model GatewayRoute {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@unique([method, gatewayPath], name: "gateway_routes_method_gateway_path_key")
+  createdBy String? @map("created_by")
+  updatedBy String? @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy String? @map("deleted_by")
+
   @@index([enabled, priority], name: "gateway_routes_enabled_priority_idx")
+  @@index([deletedAt], name: "gateway_routes_deleted_at_idx")
+  @@index([enabled, deletedAt, priority], name: "gateway_routes_enabled_deleted_at_priority_idx")
   @@map("gateway_routes")
 }

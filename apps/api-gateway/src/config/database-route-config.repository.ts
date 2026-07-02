@@ -11,6 +11,7 @@ export async function loadDatabaseDownstreamRouteConfigs(
   const routeRecords = await prisma.gatewayRoute.findMany({
     where: {
       enabled: true,
+      deletedAt: null,
     },
     orderBy: [
       {

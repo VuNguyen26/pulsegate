@@ -78,10 +78,14 @@ function createTestRepository(
   const storedRoutes = [...routes];
 
   return {
-    listRoutes: vi.fn(async () => storedRoutes),
+    listRoutes: vi.fn(async () => {
+      return storedRoutes.filter((route) => !route.deletedAt);
+    }),
 
     findRouteById: vi.fn(async (id: string) => {
-      return storedRoutes.find((route) => route.id === id) ?? null;
+      return (
+        storedRoutes.find((route) => route.id === id && !route.deletedAt) ?? null
+      );
     }),
 
     findRouteByMethodAndGatewayPath: vi.fn(
@@ -89,7 +93,9 @@ function createTestRepository(
         return (
           storedRoutes.find(
             (route) =>
-              route.method === method && route.gatewayPath === gatewayPath,
+              route.method === method &&
+              route.gatewayPath === gatewayPath &&
+              !route.deletedAt,
           ) ?? null
         );
       },
@@ -124,6 +130,10 @@ function createTestRepository(
         retryOnStatuses: data.retryOnStatuses,
         createdAt,
         updatedAt,
+        createdBy: data.createdBy ?? null,
+        updatedBy: data.updatedBy ?? null,
+        deletedAt: null,
+        deletedBy: null,
       };
 
       storedRoutes.push(createdRoute);
@@ -131,7 +141,7 @@ function createTestRepository(
       return createdRoute;
     }),
 
-        updateRoute: vi.fn(async (id: string, data: RouteConfigUpdateData) => {
+    updateRoute: vi.fn(async (id: string, data: RouteConfigUpdateData) => {
       const routeIndex = storedRoutes.findIndex((route) => route.id === id);
 
       if (routeIndex === -1) {
@@ -166,11 +176,36 @@ function createTestRepository(
         retryOnStatuses: data.retryOnStatuses,
         createdAt: storedRoutes[routeIndex].createdAt,
         updatedAt,
+        createdBy: storedRoutes[routeIndex].createdBy ?? null,
+        updatedBy: data.updatedBy ?? null,
+        deletedAt: storedRoutes[routeIndex].deletedAt ?? null,
+        deletedBy: storedRoutes[routeIndex].deletedBy ?? null,
       };
 
       storedRoutes[routeIndex] = updatedRoute;
 
       return updatedRoute;
+    }),
+
+    softDeleteRoute: vi.fn(async (id: string, actor: string) => {
+      const routeIndex = storedRoutes.findIndex((route) => route.id === id);
+
+      if (routeIndex === -1) {
+        throw new Error("Route config not found");
+      }
+
+      const deletedRoute: RouteConfigReadModel = {
+        ...storedRoutes[routeIndex],
+        enabled: false,
+        updatedAt,
+        updatedBy: actor,
+        deletedAt: updatedAt,
+        deletedBy: actor,
+      };
+
+      storedRoutes[routeIndex] = deletedRoute;
+
+      return deletedRoute;
     }),
   };
 }
@@ -615,4 +650,126 @@ it("should reject route config update request when admin API key is missing", as
     },
   });
 });
+
+  it("should soft delete a route config for an authenticated admin request", async () => {
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/internal/admin/routes/route_health",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+        "x-admin-actor": "test-admin",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    expect(response.json()).toMatchObject({
+      data: {
+        id: "route_health",
+        gatewayPath: "/api/product-service/health",
+        enabled: false,
+        updatedBy: "test-admin",
+        deletedAt: "2026-07-01T01:00:00.000Z",
+        deletedBy: "test-admin",
+      },
+    });
+  });
+
+  it("should hide a soft deleted route from route config list", async () => {
+    const deleteResponse = await app.inject({
+      method: "DELETE",
+      url: "/internal/admin/routes/route_health",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+        "x-admin-actor": "test-admin",
+      },
+    });
+
+    expect(deleteResponse.statusCode).toBe(200);
+
+    const listResponse = await app.inject({
+      method: "GET",
+      url: "/internal/admin/routes",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+    });
+
+    expect(listResponse.statusCode).toBe(200);
+
+    const body = listResponse.json();
+
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0]).toMatchObject({
+      id: "route_products",
+      gatewayPath: "/api/products",
+    });
+  });
+
+  it("should return 404 when reading a soft deleted route config by id", async () => {
+    const deleteResponse = await app.inject({
+      method: "DELETE",
+      url: "/internal/admin/routes/route_health",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+    });
+
+    expect(deleteResponse.statusCode).toBe(200);
+
+    const detailResponse = await app.inject({
+      method: "GET",
+      url: "/internal/admin/routes/route_health",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+    });
+
+    expect(detailResponse.statusCode).toBe(404);
+
+    expect(detailResponse.json()).toMatchObject({
+      error: {
+        code: "ROUTE_CONFIG_NOT_FOUND",
+        message: "Route config was not found",
+        requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should return 404 when deleting a route config that does not exist", async () => {
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/internal/admin/routes/missing_route",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "ROUTE_CONFIG_NOT_FOUND",
+        message: "Route config was not found",
+        requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should reject route config delete request when admin API key is missing", async () => {
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/internal/admin/routes/route_health",
+    });
+
+    expect(response.statusCode).toBe(401);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "ADMIN_API_KEY_MISSING",
+        message: "Admin API key is required",
+        requestId: expect.any(String),
+      },
+    });
+  });
 });
