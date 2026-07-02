@@ -5136,3 +5136,364 @@ Status:
 
 Accepted.
 
+## 2026-07-02 - Keep Sprint 11 Focused on Route Runtime Reload / Admin Hardening Foundation
+
+Decision:
+
+Keep Sprint 11 focused on controlled runtime route reload behavior and admin hardening foundation instead of jumping directly to Admin Dashboard, Kafka, Kubernetes, or other larger infrastructure.
+
+Reason:
+
+* Sprint 10 added soft delete and reload validation, but runtime route changes still required API Gateway restart.
+* A product-like API Gateway should eventually support applying safe route config changes without full restart.
+* Runtime reload must be designed carefully because Fastify route registration is sensitive.
+* Admin Dashboard should not be started until backend route lifecycle behavior is clearer.
+* A small runtime registry foundation is safer than attempting full dynamic route unregister/register immediately.
+* The project should continue with small, stable backend checkpoints.
+
+Included in Sprint 11:
+
+```txt
+Runtime route registry foundation
+Runtime route snapshot versioning
+Runtime route status endpoint
+Reload endpoint refreshing the registry snapshot
+Downstream proxy resolving runtime route config per request
+Runtime policy lookup from registry per request
+Existing registered route enable/disable without restart
+Honest reload response metadata for partial runtime apply
+```
+
+Not included in Sprint 11:
+
+```txt
+Unsafe Fastify route unregister/register at runtime
+Catch-all dynamic router
+Brand-new gateway path runtime registration without restart
+Admin Dashboard UI
+Developer Portal UI
+Kafka
+RabbitMQ
+Kubernetes
+OpenTelemetry
+Loki
+k6
+Production cloud deployment
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Use Runtime Route Registry Snapshot Before Full Hot Route Re-Registration
+
+Decision:
+
+Add a runtime route registry snapshot as the first safe runtime reload foundation.
+
+Reason:
+
+* Fastify routes are registered at startup and cannot be casually replaced without risk.
+* Dynamically unregistering and re-registering Fastify routes can create stale handlers, duplicate route conflicts, or inconsistent routing behavior.
+* A runtime registry snapshot allows route data to change safely while keeping the Fastify route table stable.
+* Existing registered route handlers can look up the latest route config from the registry on each request.
+* This provides practical runtime behavior improvement without the complexity of full hot route registration.
+* It is a safer intermediate step toward future dynamic routing.
+
+Implemented runtime registry capabilities:
+
+```txt
+getSnapshot()
+replaceRoutes(routes)
+findRoute(method, gatewayPath)
+```
+
+Runtime snapshot fields:
+
+```txt
+version
+loadedAt
+routeCount
+routes
+```
+
+Important behavior:
+
+```txt
+replaceRoutes(routes)
+  -> validates route configs first
+  -> replaces the snapshot only when validation succeeds
+  -> preserves the previous snapshot when validation fails
+  -> increments version after successful replacement
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Expose Runtime Route Registry Status Through Admin API
+
+Decision:
+
+Add an internal/admin endpoint to inspect the current runtime route registry snapshot.
+
+Implemented endpoint:
+
+```txt
+GET /internal/admin/routes/runtime
+```
+
+Reason:
+
+* Admins need visibility into the currently loaded runtime route snapshot.
+* Route config records in PostgreSQL and runtime registry state are related but not always identical.
+* Runtime status is useful before and after calling reload.
+* It helps validate whether reload changed the active runtime snapshot.
+* It prepares the backend for future Admin Dashboard runtime status views.
+
+Current behavior:
+
+```txt
+GET /internal/admin/routes/runtime
+  -> requires x-admin-api-key
+  -> returns registry availability
+  -> returns version
+  -> returns loadedAt
+  -> returns routeCount
+  -> returns lightweight route summaries
+```
+
+Current response mode:
+
+```txt
+runtime-registry
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Make Reload Refresh the Runtime Registry Snapshot
+
+Decision:
+
+Change `POST /internal/admin/routes/reload` from validation-only behavior to runtime registry refresh behavior.
+
+Reason:
+
+* Sprint 10 reload only validated active DB route configs.
+* Sprint 11 introduced a runtime route registry that can safely replace route snapshots.
+* Reload should now read active DB routes, validate them, and update the runtime registry when validation succeeds.
+* This gives admins a real backend reload action for existing registered routes.
+* The endpoint should still avoid unsafe Fastify route table mutation.
+
+Current reload flow:
+
+```txt
+POST /internal/admin/routes/reload
+  -> requires x-admin-api-key
+  -> reads non-deleted route configs from PostgreSQL
+  -> filters active runtime routes with enabled=true and deletedAt=null
+  -> maps DB records to DownstreamRouteConfig[]
+  -> validates mapped route configs
+  -> replaces runtime registry snapshot when validation succeeds
+  -> returns previousVersion and currentVersion
+  -> returns loadedAt, routeCount, and route summaries
+```
+
+Validation failure behavior:
+
+```txt
+Invalid active route config
+  -> 400 ROUTE_CONFIG_RELOAD_VALIDATION_FAILED
+  -> runtime registry snapshot is not replaced
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Resolve Downstream Route Config and Policies from Runtime Registry Per Request
+
+Decision:
+
+Update downstream proxy behavior so each request resolves the latest route config and policies from the runtime route registry.
+
+Reason:
+
+* Refreshing the registry is not enough if route handlers keep using stale route config from startup closures.
+* The pre-handler must also use the latest route policy, not only the final proxy handler.
+* Auth, rate limit, JWT, cache, timeout, transforms, retry, and downstream URL should reflect the latest runtime snapshot for existing registered routes.
+* This allows disabling or changing an existing route after reload without restarting API Gateway.
+* It makes runtime registry reload meaningful for existing registered routes.
+
+Current behavior:
+
+```txt
+Request to an existing registered gateway path
+  -> pre-handler looks up route in runtime registry
+  -> if route exists:
+       -> applies latest auth, rate limit, and JWT policies
+  -> if route does not exist:
+       -> returns 404 ROUTE_NOT_FOUND
+
+Handler
+  -> looks up route in runtime registry again
+  -> uses latest downstreamUrl and route policies
+  -> returns 404 ROUTE_NOT_FOUND if route is no longer in runtime registry
+```
+
+Important validation result:
+
+```txt
+Disable an existing route in DB
+  -> POST /internal/admin/routes/reload
+  -> Request to that route returns 404 ROUTE_NOT_FOUND without API Gateway restart
+
+Enable the route again in DB
+  -> POST /internal/admin/routes/reload
+  -> Request to that route returns 200 OK without API Gateway restart
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Report Partial Runtime Reload Scope Honestly
+
+Decision:
+
+Update reload response metadata to report that runtime reload is applied only to existing registered routes.
+
+Reason:
+
+* Sprint 11 reload can affect existing Fastify routes because their handlers now read from the runtime registry.
+* However, brand-new gateway paths are still not registered in the Fastify route table.
+* Reporting only `runtimeApplied=false` would be outdated after Sprint 11.
+* Reporting full hot reload would be misleading because new paths still require restart.
+* The response should clearly state the actual scope of runtime application.
+
+Current successful reload response metadata:
+
+```txt
+mode: runtime-registry-refresh
+registryAvailable: true
+registryApplied: true
+runtimeApplied: true
+runtimeScope: registered-routes-only
+newRoutesRequireRestart: true
+requiresRestart: true
+previousVersion: number
+currentVersion: number
+loadedAt: ISO timestamp
+routeCount: number
+routes: lightweight route summaries
+```
+
+Meaning:
+
+```txt
+Existing registered routes:
+  -> can change behavior after reload without restart
+
+Brand-new gateway paths:
+  -> still require API Gateway restart
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Defer Brand-New Gateway Path Runtime Apply Until Catch-All Dynamic Router
+
+Decision:
+
+Do not support brand-new gateway path runtime registration in Sprint 11.
+
+Reason:
+
+* Fastify only knows route paths that were registered during startup.
+* The runtime registry can remove or update behavior for existing registered routes, but it cannot make Fastify match a completely new path that was never registered.
+* Supporting brand-new paths without restart likely requires a catch-all dynamic router or a carefully designed runtime registration layer.
+* A catch-all dynamic router changes the routing architecture and should be implemented as a separate sprint.
+* Keeping this limitation explicit avoids pretending the Gateway has full hot reload before it actually does.
+
+Current limitation:
+
+```txt
+Existing registered gateway path
+  -> reload can apply runtime changes without restart
+
+Brand-new gateway path
+  -> requires API Gateway restart
+```
+
+Deferred work:
+
+```txt
+Catch-all dynamic router
+Full runtime route registration for brand-new paths
+Zero-restart dynamic route creation
+Runtime route matching by method + path from registry
+Potential route priority and path parameter strategy
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Keep Documentation Files Role-Based and Avoid Unbounded Growth
+
+Decision:
+
+Keep documentation files role-based and avoid allowing `CURRENT_PROGRESS.md` to grow indefinitely with full historical logs.
+
+Reason:
+
+* `CURRENT_PROGRESS.md` had grown very large because it mixed current state, old sprint history, validation logs, commands, architecture, and handoff context.
+* Very large documentation files are harder to update accurately.
+* Large files also make future AI handoff slower and more error-prone.
+* Each documentation file should keep a clear role:
+  * `CURRENT_PROGRESS.md` should focus on current state and the latest sprint.
+  * `AI_HANDOFF.md` should focus on continuation context for a new chat.
+  * `DECISION_LOG.md` should preserve chronological technical decisions.
+  * `overview.md` should describe architecture.
+  * `requirements.md` should describe product scope and requirements.
+* Important context should be summarized instead of duplicated across every file.
+
+Current documentation strategy:
+
+```txt
+CURRENT_PROGRESS.md
+  -> compact current-state progress summary
+
+AI_HANDOFF.md
+  -> compact but complete continuation context
+
+DECISION_LOG.md
+  -> append-only chronological decisions
+
+overview.md
+  -> architecture overview and current architecture state
+
+requirements.md
+  -> product requirements and scope
+```
+
+Status:
+
+Accepted.

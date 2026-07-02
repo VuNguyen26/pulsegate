@@ -17,20 +17,20 @@ PulseGate is designed to help backend teams manage, protect, monitor, validate, 
 Current version:
 
 ```txt
-v0.11.0
+v0.12.0
 ```
 
 Current status:
 
 ```txt
-Sprint 10 - Route Management Hardening Complete
+Sprint 11 - Route Runtime Reload / Admin Hardening Foundation Complete
 ```
 
 Current automated test status:
 
 ```txt
-27 test files passed
-176 tests passed
+28 test files passed
+189 tests passed
 ```
 
 Current CI/CD status:
@@ -49,7 +49,10 @@ PostgreSQL-backed Product Service
 PostgreSQL-backed API Gateway route configuration
 Internal/admin route management API foundation
 Route management hardening with soft delete
-Safe reload validation endpoint
+Runtime route registry snapshot foundation
+Runtime route registry status endpoint
+Runtime route registry refresh through reload endpoint
+Partial runtime route apply for existing registered routes
 Admin API key authentication for internal/admin APIs
 Redis-backed traffic protection and response cache
 Prometheus + Grafana observability
@@ -58,8 +61,8 @@ GitHub Actions CI/CD foundation
 Database-backed dynamic Gateway route config
 Soft-delete-aware active route loading
 Safe static route config fallback
-Validation-only route reload endpoint
-Simple restart-based route config reload strategy
+Honest reload response metadata
+Simple restart requirement for brand-new gateway paths
 ```
 
 ---
@@ -91,7 +94,7 @@ PulseGate aims to solve these problems:
 * Reduce backend load with Redis response caching.
 * Provide database-backed downstream service data.
 * Store Gateway route configuration in PostgreSQL.
-* Load Gateway route configuration dynamically at runtime startup.
+* Load Gateway route configuration from PostgreSQL at startup.
 * Keep the Gateway safe by falling back to static route config when DB route loading fails.
 * Manage Gateway route configuration through internal/admin APIs.
 * Read route configs through internal/admin APIs.
@@ -99,10 +102,14 @@ PulseGate aims to solve these problems:
 * Update route configs through internal/admin APIs.
 * Enable or disable route configs through internal/admin APIs.
 * Soft delete route configs without physically removing DB records.
-* Validate current active route configs through a reload validation endpoint.
 * Track basic route management actor metadata through audit fields.
 * Validate route configuration before persistence.
 * Reject duplicate active route identities before persistence.
+* Inspect the current runtime route registry.
+* Refresh the runtime route registry from active DB route configs.
+* Apply existing registered-route changes without restarting API Gateway.
+* Report the honest runtime reload scope to admins.
+* Keep brand-new gateway paths restart-based until a safer catch-all routing design is added.
 * Add request logging for debugging.
 * Add latency visibility for local testing.
 * Expose Prometheus-compatible HTTP metrics.
@@ -123,13 +130,14 @@ PulseGate aims to solve these problems:
 
 ## 4. Current Architecture
 
-Current stable architecture after Sprint 10:
+Current stable architecture after Sprint 11:
 
 ```txt
 Client
   -> API Gateway :3000
-    -> Runtime route config loader
+    -> Startup route config loader
       -> Try loading active route configs from PostgreSQL gateway.gateway_routes
+      -> Active DB routes must have enabled=true and deleted_at IS NULL
       -> Map database records to DownstreamRouteConfig[]
       -> Validate mapped route configs
       -> If DB route configs are valid and not empty:
@@ -138,17 +146,29 @@ Client
       -> If DB loading fails:
            -> Fall back to static downstreamRouteConfigs
            -> Log fallback warning
-      -> If DB returns no enabled routes:
+      -> If DB returns no enabled active routes:
            -> Fall back to static downstreamRouteConfigs
            -> Log fallback warning
+
+    -> Runtime route registry
+      -> Created from resolved startup route configs
+      -> Keeps version, loadedAt, routeCount, and cloned route snapshots
+      -> Supports findRoute(method, gatewayPath)
+      -> Supports replaceRoutes(routes)
+      -> Validates replacement routes before mutating the current snapshot
+      -> Used by downstream proxy pre-handler per request
+      -> Used by downstream proxy handler per request
+
     -> Request ID handling
     -> Structured access log timer
     -> Metrics timer
     -> Basic security headers
     -> Request size limit
-    -> Resolved downstream route configuration
+
+    -> Resolved downstream route behavior
       -> GET /api/products
       -> GET /api/product-service/health
+
     -> Downstream route policy configuration
       -> Auth policy
       -> Timeout policy
@@ -160,10 +180,11 @@ Client
 
     -> Protected Product route:
       -> GET /api/products
-      -> API key authentication
-      -> Redis-backed rate limiting by API key and route
-      -> JWT authentication
-      -> Redis response cache
+      -> Runtime registry lookup
+      -> API key authentication when latest runtime policy requires it
+      -> Redis-backed rate limiting by API key and route when latest runtime policy requires it
+      -> JWT authentication when latest runtime policy requires it
+      -> Redis response cache when latest runtime policy enables it
         -> Cache HIT:
              -> Apply response transform foundation
              -> Return cached product response
@@ -183,16 +204,18 @@ Client
 
     -> Public Product Service health proxy route:
       -> GET /api/product-service/health
-      -> No API key required
-      -> No JWT required
-      -> No Redis-backed rate limiting
-      -> No Redis response cache
+      -> Runtime registry lookup
+      -> No API key required by default runtime policy
+      -> No JWT required by default runtime policy
+      -> No Redis-backed rate limiting by default runtime policy
+      -> No Redis response cache by default runtime policy
       -> Downstream timeout policy helper
       -> Product Service :3001 /health
       -> x-cache: BYPASS
 
     -> Internal/admin route management APIs:
       -> GET /internal/admin/routes
+      -> GET /internal/admin/routes/runtime
       -> GET /internal/admin/routes/:id
       -> POST /internal/admin/routes
       -> PATCH /internal/admin/routes/:id
@@ -207,8 +230,10 @@ Client
       -> Enable/disable route config through PATCH
       -> Soft delete route config through DELETE
       -> Basic actor metadata through x-admin-actor
-      -> Reload validation through POST /internal/admin/routes/reload
-      -> Simple restart-based runtime reload strategy
+      -> Runtime registry status endpoint
+      -> Runtime registry refresh through reload endpoint
+      -> Existing registered routes can change behavior after reload
+      -> Brand-new gateway paths still require restart
 
     -> Add x-cache when applicable
     -> Add x-response-time-ms
@@ -257,16 +282,19 @@ flowchart LR
     Client[Client / API Consumer] --> Gateway[PulseGate API Gateway<br/>Port 3000]
     AdminClient[Admin Client / Future Admin Dashboard] --> AdminApis[Internal Admin Route Management APIs<br/>/internal/admin/routes]
 
-    Gateway --> RuntimeConfig[Runtime Route Config Loader]
-    RuntimeConfig --> GatewayPrisma[API Gateway Prisma Client]
+    Gateway --> StartupLoader[Startup Route Config Loader]
+    StartupLoader --> GatewayPrisma[API Gateway Prisma Client]
     GatewayPrisma --> GatewaySchema[(PostgreSQL gateway schema<br/>gateway_routes)]
-    RuntimeConfig -->|DB load success| DbRoutes[Database-backed Route Configs]
-    RuntimeConfig -->|DB error or empty| StaticRoutes[Static Route Config Fallback]
+    StartupLoader -->|DB load success| DbRoutes[Database-backed Route Configs]
+    StartupLoader -->|DB error or empty| StaticRoutes[Static Route Config Fallback]
 
-    DbRoutes --> RouteConfig[Resolved Downstream Route Configs<br/>/api/products<br/>/api/product-service/health]
-    StaticRoutes --> RouteConfig
+    DbRoutes --> StartupRoutes[Resolved Startup Route Configs]
+    StaticRoutes --> StartupRoutes
 
-    RouteConfig --> ReqId[Request ID Middleware]
+    StartupRoutes --> RuntimeRegistry[Runtime Route Registry<br/>version / loadedAt / routeCount / routes]
+    RuntimeRegistry --> RegistryLookup[Per-request Runtime Route Lookup]
+
+    Gateway --> ReqId[Request ID Middleware]
     ReqId --> AccessLogStart[Access Log Timer]
     AccessLogStart --> MetricsStart[Metrics Timer]
     MetricsStart --> SecurityHeaders[Security Headers Middleware]
@@ -275,11 +303,14 @@ flowchart LR
     SizeLimit --> ProductRoute[Protected Product Route<br/>GET /api/products]
     SizeLimit --> ProductHealthRoute[Public Product Service Health Proxy<br/>GET /api/product-service/health]
 
-    ProductRoute --> ProductPolicy[Route Policy Configuration<br/>Auth / Timeout / Cache / Rate Limit / Transform / Retry]
-    ProductPolicy --> ApiKey[API Key Authentication]
-    ApiKey --> RateLimit[Redis-Backed Rate Limiting]
-    RateLimit --> Jwt[JWT Authentication]
-    Jwt --> Cache{Redis Response Cache}
+    ProductRoute --> RegistryLookup
+    ProductHealthRoute --> RegistryLookup
+
+    RegistryLookup --> RuntimePolicy[Latest Runtime Route Policy]
+    RuntimePolicy --> ApiKey[API Key Authentication when required]
+    ApiKey --> RateLimit[Redis-backed Rate Limiting when enabled]
+    RateLimit --> Jwt[JWT Authentication when required]
+    Jwt --> Cache{Redis Response Cache when enabled}
 
     Cache -->|HIT| ResponseTransformHit[Response Transform Foundation]
     ResponseTransformHit --> CachedResponse[Cached Product Response]
@@ -297,7 +328,7 @@ flowchart LR
     CacheStore --> ResponseTransformMiss[Response Transform Foundation]
     ResponseTransformMiss --> ProductResponseHeaders
 
-    ProductHealthRoute --> HealthPolicy[Route Policy Configuration<br/>Public / No Cache / No Rate Limit]
+    ProductHealthRoute --> HealthPolicy[Latest Runtime Policy<br/>Public / No Cache / No Rate Limit]
     HealthPolicy --> HealthTimeout[Downstream Timeout Policy]
     HealthTimeout --> ProductHealth[Product Service<br/>GET /health<br/>Port 3001]
     ProductHealth --> HealthResponse[Health Response<br/>x-cache: BYPASS]
@@ -307,7 +338,13 @@ flowchart LR
     RouteManagement --> RouteRepo[Prisma Route Management Repository]
     RouteRepo --> GatewaySchema
     RouteManagement --> RouteValidation[validateDownstreamRoutes Before Persistence]
-    RouteManagement --> AdminResponse[Route Management Response<br/>List / Detail / Create / Update / Delete / Reload Validate]
+    RouteManagement --> RuntimeStatus[GET /internal/admin/routes/runtime]
+    RouteManagement --> Reload[POST /internal/admin/routes/reload]
+    Reload --> ActiveRoutes[Read active non-deleted DB routes]
+    ActiveRoutes --> RuntimeValidation[Map and validate active routes]
+    RuntimeValidation --> RegistryReplace[replaceRoutes on Runtime Registry]
+    RegistryReplace --> RuntimeRegistry
+    RouteManagement --> AdminResponse[Route Management Response<br/>List / Detail / Create / Update / Delete / Runtime / Reload]
 
     RateLimit --> Redis[(Redis<br/>Port 6379)]
     Cache --> Redis
@@ -342,69 +379,78 @@ Current behavior:
 1. Client sends a request to API Gateway.
 2. API Gateway startup first resolves route configs.
 3. API Gateway tries to load active route configs from `gateway.gateway_routes`.
-4. Active runtime routes must have `enabled=true` and `deleted_at IS NULL`.
+4. Active startup DB routes must have `enabled=true` and `deleted_at IS NULL`.
 5. API Gateway maps DB records to `DownstreamRouteConfig[]`.
 6. API Gateway validates mapped route configs.
 7. If DB route configs are valid and not empty, API Gateway uses DB-backed route configs.
 8. If DB route config loading fails, API Gateway falls back to static route configs.
 9. If DB returns zero active routes, API Gateway falls back to static route configs.
-10. API Gateway creates or reuses a request ID.
-11. API Gateway starts structured access log timing.
-12. API Gateway starts metrics timing.
-13. API Gateway adds baseline security headers.
-14. API Gateway checks request body size.
-15. API Gateway matches a resolved downstream route configuration.
-16. API Gateway loads the route-specific policy configuration.
-17. API Gateway applies policy behavior depending on the matched route.
-18. For `GET /api/products`, API Gateway checks API key.
-19. For `GET /api/products`, API Gateway resolves route rate limit policy.
-20. For `GET /api/products`, API Gateway applies Redis-backed rate limiting.
-21. For `GET /api/products`, API Gateway checks JWT.
-22. For `GET /api/products`, API Gateway resolves route cache policy.
-23. For `GET /api/products`, API Gateway checks Redis response cache.
-24. If cache HIT, API Gateway applies response transform foundation.
-25. If cache HIT, API Gateway returns cached response with `x-cache: HIT`.
-26. If cache MISS, API Gateway applies request transform foundation.
-27. If cache MISS, API Gateway uses timeout and retry helpers for the downstream request.
-28. API Gateway calls Product Service `GET /products`.
-29. API Gateway forwards the same `x-request-id` header.
-30. Product Service receives the request.
-31. Product Service reuses the same request ID.
-32. Product Service reads product data from PostgreSQL `public.products` using Prisma.
-33. Product Service returns database-backed product data.
-34. API Gateway stores the response in Redis cache.
-35. API Gateway applies response transform foundation.
-36. API Gateway returns the response with `x-cache: MISS`.
-37. For `GET /api/product-service/health`, API Gateway does not require API key.
-38. For `GET /api/product-service/health`, API Gateway does not require JWT.
-39. For `GET /api/product-service/health`, API Gateway does not apply Redis-backed rate limiting.
-40. For `GET /api/product-service/health`, API Gateway does not use Redis response cache.
-41. API Gateway calls Product Service `GET /health`.
-42. API Gateway returns Product Service health response with `x-cache: BYPASS`.
-43. For internal/admin route management APIs, API Gateway checks `x-admin-api-key`.
-44. If admin API key is missing, API Gateway returns `401 ADMIN_API_KEY_MISSING`.
-45. If admin API key is invalid, API Gateway returns `403 ADMIN_API_KEY_INVALID`.
-46. If admin API key is valid, API Gateway executes route management behavior.
-47. `GET /internal/admin/routes` returns active route configs, including disabled but non-deleted routes.
-48. `GET /internal/admin/routes/:id` returns one active route config or `404 ROUTE_CONFIG_NOT_FOUND`.
-49. `POST /internal/admin/routes` validates and creates a route config.
-50. `PATCH /internal/admin/routes/:id` merges, validates, and updates a route config.
-51. `DELETE /internal/admin/routes/:id` soft deletes a route config by setting `enabled=false`, `deleted_at`, `deleted_by`, and `updated_by`.
-52. `POST /internal/admin/routes/reload` validates active DB route configs without applying runtime changes.
-53. Disabled route configs remain stored in DB and visible to admins while they are not soft deleted.
-54. Soft-deleted route configs remain stored in DB but are hidden from admin list/detail APIs and ignored by the runtime loader.
-55. Disabled or soft-deleted route configs are not loaded as active runtime routes after API Gateway restart.
-56. API Gateway adds `x-response-time-ms`.
-57. API Gateway records Prometheus metrics.
-58. API Gateway writes a structured access log.
-59. API Gateway normalizes downstream errors when needed.
-60. Prometheus scrapes API Gateway `/metrics`.
-61. Grafana reads metrics from Prometheus and displays the API Gateway overview dashboard.
-62. GitHub Actions validates every push to `main`.
-63. GitHub Actions validates every pull request targeting `main`.
-64. GitHub Actions runs `npm ci`, Prisma generate, tests, typecheck, build, and Docker image build validation.
-65. GitHub reports CI pass/fail status.
-66. README badge reflects the current CI workflow status.
+10. API Gateway creates a runtime route registry from resolved startup routes.
+11. Runtime registry stores `version`, `loadedAt`, `routeCount`, and cloned route configs.
+12. API Gateway registers Fastify routes from startup route configs.
+13. For each request to an already registered Fastify route, downstream proxy looks up the latest runtime route config from the registry.
+14. If the runtime registry no longer contains the route, API Gateway returns `404 ROUTE_NOT_FOUND`.
+15. If the runtime registry contains the route, API Gateway uses the latest runtime route policy.
+16. API Gateway creates or reuses a request ID.
+17. API Gateway starts structured access log timing.
+18. API Gateway starts metrics timing.
+19. API Gateway adds baseline security headers.
+20. API Gateway checks request body size.
+21. API Gateway applies policy behavior depending on the matched runtime route.
+22. For `GET /api/products`, API Gateway checks API key when required.
+23. For `GET /api/products`, API Gateway resolves route rate limit policy from runtime config.
+24. For `GET /api/products`, API Gateway applies Redis-backed rate limiting when enabled.
+25. For `GET /api/products`, API Gateway checks JWT when required.
+26. For `GET /api/products`, API Gateway resolves route cache policy from runtime config.
+27. For `GET /api/products`, API Gateway checks Redis response cache when enabled.
+28. If cache HIT, API Gateway applies response transform foundation.
+29. If cache HIT, API Gateway returns cached response with `x-cache: HIT`.
+30. If cache MISS, API Gateway applies request transform foundation.
+31. If cache MISS, API Gateway uses timeout and retry helpers for the downstream request.
+32. API Gateway calls Product Service `GET /products`.
+33. API Gateway forwards the same `x-request-id` header.
+34. Product Service receives the request.
+35. Product Service reuses the same request ID.
+36. Product Service reads product data from PostgreSQL `public.products` using Prisma.
+37. Product Service returns database-backed product data.
+38. API Gateway stores the response in Redis cache.
+39. API Gateway applies response transform foundation.
+40. API Gateway returns the response with `x-cache: MISS`.
+41. For `GET /api/product-service/health`, API Gateway does not require API key by default.
+42. For `GET /api/product-service/health`, API Gateway does not require JWT by default.
+43. For `GET /api/product-service/health`, API Gateway does not apply Redis-backed rate limiting by default.
+44. For `GET /api/product-service/health`, API Gateway does not use Redis response cache by default.
+45. API Gateway calls Product Service `GET /health`.
+46. API Gateway returns Product Service health response with `x-cache: BYPASS`.
+47. For internal/admin route management APIs, API Gateway checks `x-admin-api-key`.
+48. If admin API key is missing, API Gateway returns `401 ADMIN_API_KEY_MISSING`.
+49. If admin API key is invalid, API Gateway returns `403 ADMIN_API_KEY_INVALID`.
+50. If admin API key is valid, API Gateway executes route management behavior.
+51. `GET /internal/admin/routes` returns non-deleted route configs, including disabled but non-deleted records.
+52. `GET /internal/admin/routes/runtime` returns the runtime route registry snapshot summary.
+53. `GET /internal/admin/routes/:id` returns one non-deleted route config or `404 ROUTE_CONFIG_NOT_FOUND`.
+54. `POST /internal/admin/routes` validates and creates a route config.
+55. `PATCH /internal/admin/routes/:id` merges, validates, and updates a route config.
+56. `DELETE /internal/admin/routes/:id` soft deletes a route config by setting `enabled=false`, `deleted_at`, `deleted_by`, and `updated_by`.
+57. `POST /internal/admin/routes/reload` reads active DB route configs.
+58. Reload maps active DB records to `DownstreamRouteConfig[]`.
+59. Reload validates mapped route configs.
+60. Reload replaces the runtime registry snapshot when validation succeeds.
+61. Existing registered routes can be disabled, enabled, or policy-updated after reload without restarting API Gateway.
+62. Brand-new gateway paths still require restart because Fastify only knows paths registered during startup.
+63. Disabled route configs remain stored in DB and visible to admins while they are not soft deleted.
+64. Soft-deleted route configs remain stored in DB but are hidden from admin list/detail APIs and ignored by runtime loading.
+65. API Gateway adds `x-response-time-ms`.
+66. API Gateway records Prometheus metrics.
+67. API Gateway writes a structured access log.
+68. API Gateway normalizes downstream errors when needed.
+69. Prometheus scrapes API Gateway `/metrics`.
+70. Grafana reads metrics from Prometheus and displays the API Gateway overview dashboard.
+71. GitHub Actions validates every push to `main`.
+72. GitHub Actions validates every pull request targeting `main`.
+73. GitHub Actions runs `npm ci`, Prisma generate, tests, typecheck, build, and Docker image build validation.
+74. GitHub reports CI pass/fail status.
+75. README badge reflects the current CI workflow status.
 
 ---
 
@@ -487,7 +533,7 @@ pulsegate-prometheus       up
 pulsegate-grafana          up
 ```
 
-Expected API Gateway startup log after Sprint 10 with clean active seeded DB:
+Expected API Gateway startup log with clean active seeded DB:
 
 ```txt
 Loaded downstream route configs from database { routeCount: 2 }
@@ -519,6 +565,7 @@ GET /metrics
 GET /api/products
 GET /api/product-service/health
 GET /internal/admin/routes
+GET /internal/admin/routes/runtime
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
@@ -537,24 +584,25 @@ GET /metrics
 
 GET /api/products
   -> Protected
-  -> Requires API key
-  -> Redis-backed rate limited by API key and route
-  -> Requires JWT Bearer token
-  -> Uses Redis response cache
-  -> Uses route policy configuration loaded from resolved route config
+  -> Uses latest runtime registry route config
+  -> Requires API key by default
+  -> Redis-backed rate limited by API key and route by default
+  -> Requires JWT Bearer token by default
+  -> Uses Redis response cache by default
   -> Proxies to Product Service GET /products on cache MISS
 
 GET /api/product-service/health
   -> Public
-  -> Does not require API key
-  -> Does not require JWT
-  -> Does not use Redis-backed rate limiting
-  -> Does not use Redis response cache
-  -> Uses route policy configuration loaded from resolved route config
+  -> Uses latest runtime registry route config
+  -> Does not require API key by default
+  -> Does not require JWT by default
+  -> Does not use Redis-backed rate limiting by default
+  -> Does not use Redis response cache by default
   -> Uses downstream timeout policy
   -> Proxies to Product Service GET /health
 
 GET /internal/admin/routes
+GET /internal/admin/routes/runtime
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
@@ -571,23 +619,32 @@ Responsibilities:
 
 * Acts as the single entry point for clients.
 * Receives client requests.
-* Loads Gateway route configuration from PostgreSQL `gateway.gateway_routes`.
-* Falls back to static route config if DB route config loading fails or returns no routes.
+* Loads Gateway route configuration from PostgreSQL `gateway.gateway_routes` during startup.
+* Falls back to static route config if DB route config loading fails or returns no active routes.
 * Maps database route records into `DownstreamRouteConfig[]`.
-* Validates mapped route configs before registering routes.
+* Validates mapped route configs before creating the startup route set.
+* Creates runtime route registry from the resolved startup route configs.
+* Maintains a runtime route registry snapshot with `version`, `loadedAt`, `routeCount`, and cloned routes.
+* Supports runtime route lookup with `findRoute(method, gatewayPath)`.
+* Supports validated runtime route replacement with `replaceRoutes(routes)`.
+* Registers multiple downstream routes through the generic downstream proxy route.
+* Resolves the latest runtime route config from the registry in proxy pre-handler.
+* Resolves the latest runtime route config from the registry in proxy handler.
+* Returns `404 ROUTE_NOT_FOUND` when an existing Fastify route is no longer present in the runtime registry.
+* Allows enable/disable/policy changes for existing registered routes to apply after reload without restart.
+* Requires restart for brand-new gateway paths until a catch-all dynamic router exists.
 * Generates or reuses request ID.
 * Adds `x-request-id` response header.
 * Adds `x-response-time-ms` response header.
 * Adds basic security headers.
 * Applies request size limit.
-* Registers multiple downstream routes through the generic downstream proxy route.
 * Routes `/api/products` to Product Service `GET /products` on cache MISS.
 * Routes `/api/product-service/health` to Product Service `GET /health`.
 * Returns cached product response on cache HIT.
 * Forwards `x-request-id` to downstream service.
-* Applies API key authentication when route policy requires it.
-* Applies Redis-backed rate limiting when route policy requires it.
-* Applies JWT authentication when route policy requires it.
+* Applies API key authentication when latest runtime route policy requires it.
+* Applies Redis-backed rate limiting when latest runtime route policy requires it.
+* Applies JWT authentication when latest runtime route policy requires it.
 * Attaches verified JWT payload to `request.jwtPayload`.
 * Uses route policy configuration.
 * Uses route-level auth policy.
@@ -606,8 +663,8 @@ Responsibilities:
 * Records HTTP metrics after request completion.
 * Exposes Prometheus-compatible metrics at `/metrics`.
 * Protects internal/admin route management APIs with admin API key.
-* Lists active route configs through internal/admin API.
-* Reads active route config detail through internal/admin API.
+* Lists non-deleted route configs through internal/admin API.
+* Reads non-deleted route config detail through internal/admin API.
 * Creates route configs through internal/admin API.
 * Updates route configs through internal/admin API.
 * Enables or disables route configs through PATCH.
@@ -615,8 +672,8 @@ Responsibilities:
 * Tracks basic route management actor metadata through `x-admin-actor`.
 * Validates route configs before persistence.
 * Rejects duplicate active `method + gatewayPath` conflicts before persistence.
-* Validates active route configs through `POST /internal/admin/routes/reload`.
-* Supports simple restart-based runtime route reload strategy.
+* Exposes runtime registry status through `GET /internal/admin/routes/runtime`.
+* Refreshes runtime registry through `POST /internal/admin/routes/reload`.
 * Supports automated integration tests using Fastify `app.inject()`.
 * Generates Prisma Client in GitHub Actions CI.
 * Generates Prisma Client inside the Docker image to avoid host/runtime mismatch.
@@ -630,6 +687,8 @@ apps/api-gateway/
   prisma/
     migrations/
       20260701063629_add_gateway_routes/
+        migration.sql
+      20260702090000_add_gateway_route_soft_delete/
         migration.sql
       migration_lock.toml
     schema.prisma
@@ -711,6 +770,9 @@ apps/api-gateway/
       metrics.route.ts
       metrics.route.test.ts
       product-proxy.route.ts
+    runtime/
+      route-runtime-registry.ts
+      route-runtime-registry.test.ts
     server.ts
 ```
 
@@ -818,30 +880,6 @@ Current database password:
 pulsegate_password
 ```
 
-Current local Product Service database URL:
-
-```txt
-postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate
-```
-
-Current Docker internal Product Service database URL:
-
-```txt
-postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate
-```
-
-Current local API Gateway database URL:
-
-```txt
-postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway
-```
-
-Current Docker internal API Gateway database URL:
-
-```txt
-postgresql://pulsegate:pulsegate_password@postgres:5432/pulsegate?schema=gateway
-```
-
 Current PostgreSQL schemas:
 
 ```txt
@@ -916,7 +954,7 @@ prod_001 - Mechanical Keyboard - 120
 prod_002 - Gaming Mouse - 45
 ```
 
-Current seeded Gateway route configs:
+Current active seeded Gateway route configs:
 
 ```txt
 GET /api/products
@@ -927,6 +965,7 @@ GET /api/products
   -> cacheEnabled: true
   -> rateLimitEnabled: true
   -> retryEnabled: false
+  -> deletedAt: null
 
 GET /api/product-service/health
   -> downstreamUrl: http://product-service:3001/health
@@ -936,6 +975,20 @@ GET /api/product-service/health
   -> cacheEnabled: false
   -> rateLimitEnabled: false
   -> retryEnabled: false
+  -> deletedAt: null
+```
+
+Current active route unique index:
+
+```txt
+gateway_routes_method_gateway_path_active_key
+```
+
+Unique index meaning:
+
+```txt
+method + gateway_path must be unique only when deleted_at IS NULL.
+Soft-deleted historical rows do not block recreating the same route path.
 ```
 
 ---
@@ -943,18 +996,6 @@ GET /api/product-service/health
 ### 6.4 Redis
 
 Redis is used by API Gateway.
-
-Current local Redis URL:
-
-```txt
-redis://localhost:6379
-```
-
-Current Docker internal Redis URL:
-
-```txt
-redis://redis:6379
-```
 
 Current Redis responsibilities:
 
@@ -1166,9 +1207,98 @@ Current scope:
 
 ---
 
-## 7. Current Request Flow
+## 7. Runtime Route Registry Design
 
-### 7.1 API Gateway Startup Route Config Flow
+Sprint 11 introduced the runtime route registry foundation.
+
+Runtime registry file:
+
+```txt
+apps/api-gateway/src/runtime/route-runtime-registry.ts
+```
+
+Runtime registry test file:
+
+```txt
+apps/api-gateway/src/runtime/route-runtime-registry.test.ts
+```
+
+Runtime registry purpose:
+
+* Keep a validated in-memory snapshot of active runtime route configs.
+* Allow already registered proxy routes to resolve their latest route config per request.
+* Allow admin reload to refresh route behavior without restarting API Gateway for existing registered paths.
+* Avoid unsafe Fastify route unregister/register behavior at runtime.
+* Provide a safer stepping stone toward full dynamic routing.
+
+Current registry capabilities:
+
+```txt
+getSnapshot()
+replaceRoutes(routes)
+findRoute(method, gatewayPath)
+```
+
+Current snapshot fields:
+
+```txt
+version
+loadedAt
+routeCount
+routes
+```
+
+Current registry behavior:
+
+```txt
+createRouteRuntimeRegistry({ initialRoutes })
+  -> Validates initial routes
+  -> Clones routes into a private snapshot
+  -> Sets version=1
+  -> Sets loadedAt to current timestamp
+  -> Sets routeCount
+
+getSnapshot()
+  -> Returns cloned snapshot data
+  -> Prevents external mutation
+
+findRoute(method, gatewayPath)
+  -> Looks up a route by method and gatewayPath
+  -> Returns cloned route config or null
+
+replaceRoutes(routes)
+  -> Validates replacement routes before mutation
+  -> If validation succeeds:
+       -> Replaces snapshot
+       -> Increments version
+       -> Updates loadedAt
+       -> Updates routeCount
+  -> If validation fails:
+       -> Keeps previous snapshot unchanged
+       -> Throws validation error
+```
+
+Why this design was chosen:
+
+```txt
+Fastify route unregister/register at runtime is risky.
+Unsafe hot route replacement can create stale handlers, duplicate route conflicts, or inconsistent routing.
+The runtime registry is safer because Fastify route registrations stay stable while route behavior is looked up dynamically.
+```
+
+Current limitation:
+
+```txt
+Runtime registry can update behavior for routes that Fastify already registered during startup.
+Runtime registry cannot make Fastify match a brand-new gatewayPath that was not registered at startup.
+Brand-new gateway paths still require API Gateway restart until a catch-all dynamic router exists.
+```
+
+---
+
+## 8. Current Request Flow
+
+### 8.1 API Gateway Startup Route Config Flow
 
 ```txt
 API Gateway process starts
@@ -1188,160 +1318,69 @@ API Gateway process starts
     -> If DB returns no enabled routes:
          -> Use static downstreamRouteConfigs fallback
          -> Log fallback warning
-  -> buildApiGatewayApp({ routeConfigs })
+  -> createRouteRuntimeRegistry({ initialRoutes: resolvedRouteConfigs })
+  -> buildApiGatewayApp({ routeConfigs, routeRuntimeRegistry })
   -> Register health route
   -> Register metrics route
   -> Register internal/admin route management route
-  -> Register downstreamProxyRoute() with resolved route configs
+  -> Register downstreamProxyRoute() with resolved route configs and routeRuntimeRegistry
   -> Connect Redis
   -> Listen on configured host and port
 ```
 
 Why this matters:
 
-* The Gateway can now be controlled by persisted route configuration.
+* The Gateway can be controlled by persisted route configuration.
 * Runtime startup does not depend only on code-defined route configs.
 * Existing static config still protects the app from DB startup/config mistakes.
 * Internal/admin route management APIs can manage persisted route configs.
-* This is the foundation for future Admin Dashboard route management.
+* Runtime registry allows existing registered route behavior to be updated after reload.
+* This is the foundation for safer route reload and future Admin Dashboard route management.
 
 ---
 
-### 7.2 API Gateway Health Check Flow
-
-```txt
-Client
-  -> GET http://localhost:3000/health
-    -> API Gateway creates or reuses x-request-id
-    -> API Gateway starts structured access log timer
-    -> API Gateway starts metrics timer
-    -> API Gateway adds basic security headers
-    -> API Gateway applies request size limit
-    -> API Gateway returns health response
-    -> API Gateway adds x-response-time-ms
-    -> API Gateway records Prometheus metrics
-    -> API Gateway writes structured access log
-```
-
-Expected response:
-
-```json
-{
-  "service": "api-gateway",
-  "status": "ok",
-  "timestamp": "2026-07-01T00:00:00.000Z"
-}
-```
-
-Expected response headers include:
-
-```txt
-x-request-id
-x-response-time-ms
-x-content-type-options
-x-frame-options
-referrer-policy
-permissions-policy
-content-security-policy
-```
-
----
-
-### 7.3 API Gateway Metrics Flow
-
-```txt
-Prometheus
-  -> GET http://api-gateway:3000/metrics inside Docker network
-    -> API Gateway returns Prometheus text format
-    -> Prometheus stores scraped metrics
-    -> Grafana reads metrics from Prometheus datasource
-```
-
-Public local endpoint:
-
-```txt
-GET http://localhost:3000/metrics
-```
-
-Expected metrics include:
-
-```txt
-http_requests_total
-http_request_duration_seconds
-http_response_cache_total
-```
-
----
-
-### 7.4 Product Service Health Check Flow
-
-```txt
-Client
-  -> GET http://localhost:3001/health
-    -> Product Service
-      -> Response
-```
-
-Expected response:
-
-```json
-{
-  "service": "product-service",
-  "status": "ok",
-  "timestamp": "2026-07-01T00:00:00.000Z"
-}
-```
-
----
-
-### 7.5 Protected Product API Flow
+### 8.2 Protected Product API Flow
 
 ```txt
 Client
   -> GET http://localhost:3000/api/products
-    -> API Gateway route was loaded from PostgreSQL gateway.gateway_routes during startup
-    -> API Gateway creates or reuses x-request-id
-    -> API Gateway starts structured access log timer
-    -> API Gateway starts metrics timer
-    -> API Gateway adds basic security headers
-    -> API Gateway applies request size limit
-      -> If request body is too large:
-        -> 413 REQUEST_BODY_TOO_LARGE
-    -> API Gateway matches route config: GET /api/products
-    -> API Gateway loads route policy configuration
-    -> API Gateway checks x-api-key
-      -> If missing:
-        -> 401 API_KEY_MISSING
-      -> If invalid:
-        -> 403 API_KEY_INVALID
-      -> If valid:
-        -> API Gateway resolves route rate limit policy
-        -> API Gateway applies Redis-backed rate limit by API key and route
-          -> If exceeded:
-            -> 429 TOO_MANY_REQUESTS
-          -> If allowed:
-            -> API Gateway checks Authorization Bearer token
-              -> If missing:
-                -> 401 JWT_TOKEN_MISSING
-              -> If invalid:
-                -> 403 JWT_TOKEN_INVALID
-              -> If valid:
-                -> API Gateway resolves route cache policy
-                -> API Gateway checks Redis response cache
-                  -> If cache HIT:
-                    -> Apply response transform foundation
-                    -> 200 with x-cache: HIT
-                    -> Return cached product response
-                  -> If cache MISS:
-                    -> Apply request transform foundation
-                    -> API Gateway calls Product Service through timeout and retry helpers
-                      -> GET http://product-service:3001/products in Docker
-                      -> GET http://127.0.0.1:3001/products in local host mode when route config points to local URL
-                    -> Product Service reads products from PostgreSQL public.products using Prisma
-                    -> Product Service returns database-backed product data
-                    -> API Gateway stores response in Redis cache
-                    -> Apply response transform foundation
-                    -> API Gateway returns 200 with x-cache: MISS
+    -> Fastify matches startup-registered route
+    -> API Gateway looks up GET /api/products in runtime route registry
+    -> If route is missing from registry:
+         -> 404 ROUTE_NOT_FOUND
+    -> If route exists:
+         -> API Gateway uses latest runtime route policy
+         -> API Gateway creates or reuses x-request-id
+         -> API Gateway starts structured access log timer
+         -> API Gateway starts metrics timer
+         -> API Gateway adds basic security headers
+         -> API Gateway applies request size limit
+         -> API Gateway checks x-api-key if runtime policy requires API key
+           -> If missing:
+              -> 401 API_KEY_MISSING
+           -> If invalid:
+              -> 403 API_KEY_INVALID
+         -> API Gateway applies Redis-backed rate limit if runtime policy enables rate limit
+           -> If exceeded:
+              -> 429 TOO_MANY_REQUESTS
+         -> API Gateway checks Authorization Bearer token if runtime policy requires JWT
+           -> If missing:
+              -> 401 JWT_TOKEN_MISSING
+           -> If invalid:
+              -> 403 JWT_TOKEN_INVALID
+         -> API Gateway checks Redis response cache if runtime policy enables cache
+           -> If cache HIT:
+              -> Apply response transform foundation
+              -> 200 with x-cache: HIT
+              -> Return cached product response
+           -> If cache MISS:
+              -> Apply request transform foundation
+              -> API Gateway calls Product Service through timeout and retry helpers
+              -> Product Service reads products from PostgreSQL public.products using Prisma
+              -> Product Service returns database-backed product data
+              -> API Gateway stores response in Redis cache
+              -> Apply response transform foundation
+              -> API Gateway returns 200 with x-cache: MISS
     -> API Gateway adds x-response-time-ms
     -> API Gateway records Prometheus metrics
     -> API Gateway writes structured access log
@@ -1368,30 +1407,31 @@ Expected response:
 
 ---
 
-### 7.6 Public Product Service Health Proxy Flow
+### 8.3 Public Product Service Health Proxy Flow
 
 ```txt
 Client
   -> GET http://localhost:3000/api/product-service/health
-    -> API Gateway route was loaded from PostgreSQL gateway.gateway_routes during startup
-    -> API Gateway creates or reuses x-request-id
-    -> API Gateway starts structured access log timer
-    -> API Gateway starts metrics timer
-    -> API Gateway adds basic security headers
-    -> API Gateway applies request size limit
-    -> API Gateway matches route config: GET /api/product-service/health
-    -> API Gateway loads route policy configuration
-    -> API Gateway does not require API key
-    -> API Gateway does not apply Redis-backed rate limiting
-    -> API Gateway does not require JWT
-    -> API Gateway does not use Redis response cache
-    -> API Gateway applies request transform foundation
-    -> API Gateway calls Product Service through timeout helper
-      -> GET http://product-service:3001/health in Docker
-      -> GET http://127.0.0.1:3001/health in local host mode when route config points to local URL
-    -> Product Service returns health response
-    -> API Gateway returns Product Service health response
-    -> API Gateway returns x-cache: BYPASS
+    -> Fastify matches startup-registered route
+    -> API Gateway looks up GET /api/product-service/health in runtime route registry
+    -> If route is missing from registry:
+         -> 404 ROUTE_NOT_FOUND
+    -> If route exists:
+         -> API Gateway uses latest runtime route policy
+         -> API Gateway creates or reuses x-request-id
+         -> API Gateway starts structured access log timer
+         -> API Gateway starts metrics timer
+         -> API Gateway adds basic security headers
+         -> API Gateway applies request size limit
+         -> API Gateway does not require API key by default
+         -> API Gateway does not apply Redis-backed rate limiting by default
+         -> API Gateway does not require JWT by default
+         -> API Gateway does not use Redis response cache by default
+         -> API Gateway applies request transform foundation
+         -> API Gateway calls Product Service through timeout helper
+         -> Product Service returns health response
+         -> API Gateway returns Product Service health response
+         -> API Gateway returns x-cache: BYPASS
     -> API Gateway adds x-response-time-ms
     -> API Gateway records Prometheus metrics
     -> API Gateway writes structured access log
@@ -1415,11 +1455,11 @@ x-request-id
 x-response-time-ms
 ```
 
-This route should not return rate limit headers.
+This route should not return rate limit headers by default.
 
 ---
 
-### 7.7 Internal Admin Route Management Flow
+### 8.4 Internal Admin Route Management Flow
 
 ```txt
 Admin Client / Future Admin Dashboard
@@ -1428,6 +1468,12 @@ Admin Client / Future Admin Dashboard
     -> API Gateway reads active route configs from gateway.gateway_routes
     -> API Gateway excludes soft-deleted route configs
     -> API Gateway returns enabled and disabled route configs where deleted_at IS NULL
+
+Admin Client / Future Admin Dashboard
+  -> GET http://localhost:3000/internal/admin/routes/runtime
+    -> API Gateway checks x-admin-api-key
+    -> API Gateway reads runtime registry snapshot
+    -> API Gateway returns version, loadedAt, routeCount, and lightweight route summaries
 
 Admin Client / Future Admin Dashboard
   -> GET http://localhost:3000/internal/admin/routes/:id
@@ -1484,14 +1530,11 @@ Admin Client / Future Admin Dashboard
 Admin Client / Future Admin Dashboard
   -> POST http://localhost:3000/internal/admin/routes/reload
     -> API Gateway checks x-admin-api-key
-    -> API Gateway reads active route configs
-    -> API Gateway validates mapped DownstreamRouteConfig[]
-    -> API Gateway does not apply runtime changes
-    -> API Gateway returns validation summary:
-         -> mode: validation-only
-         -> runtimeApplied: false
-         -> requiresRestart: true
-         -> routeCount
+    -> API Gateway reads active DB route configs
+    -> API Gateway maps active DB records to DownstreamRouteConfig[]
+    -> API Gateway validates mapped route configs
+    -> API Gateway replaces runtime registry snapshot
+    -> API Gateway returns partial runtime apply metadata
 ```
 
 Current admin API key header:
@@ -1506,77 +1549,21 @@ Current default local admin API key:
 local-admin-key
 ```
 
-Current runtime reload behavior:
-
-```txt
-Route config create/update/delete changes are persisted immediately.
-POST /internal/admin/routes/reload validates active DB route configs only.
-runtimeApplied is false.
-requiresRestart is true.
-Runtime proxy route changes still take effect after API Gateway restart.
-True hot reload is intentionally deferred to a later sprint.
-```
-
 ---
 
-### 7.8 CI Validation Flow
+## 9. Route Management API Design
+
+Sprint 9 introduced the internal/admin Route Management API foundation.
+
+Sprint 10 hardened route management with soft delete, basic audit metadata, active-route duplicate checks, and reload validation.
+
+Sprint 11 changed reload from validation-only to runtime registry refresh.
+
+Current route management endpoints:
 
 ```txt
-Developer
-  -> Pushes code to main or opens pull request into main
-    -> GitHub Actions starts CI workflow
-    -> GitHub Actions checks out repository
-    -> GitHub Actions sets up Node.js 20
-    -> GitHub Actions installs dependencies with npm ci
-    -> GitHub Actions generates Product Service Prisma Client
-    -> GitHub Actions generates API Gateway Prisma Client
-    -> GitHub Actions runs automated tests
-    -> GitHub Actions runs TypeScript typecheck
-    -> GitHub Actions runs production build
-    -> GitHub Actions builds API Gateway Docker image
-    -> GitHub Actions builds Product Service Docker image
-    -> GitHub Actions reports pass/fail status to GitHub
-    -> README CI badge reflects workflow status
-```
-
----
-
-## 8. Request ID Design
-
-PulseGate uses request IDs from the beginning.
-
-Purpose:
-
-* Make debugging easier.
-* Connect logs across services.
-* Support structured access logs.
-* Prepare for distributed tracing.
-* Prepare for observability tools later.
-
-Current request ID flow:
-
-```txt
-Client request
-  -> API Gateway creates or reuses x-request-id
-  -> API Gateway returns x-request-id in response header
-  -> API Gateway forwards x-request-id to Product Service
-  -> Product Service reuses the same request ID
-```
-
-Current request ID header:
-
-```txt
-x-request-id
-```
-
-Current routes using request ID behavior:
-
-```txt
-GET /health
-GET /metrics
-GET /api/products
-GET /api/product-service/health
 GET /internal/admin/routes
+GET /internal/admin/routes/runtime
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
@@ -1584,11 +1571,657 @@ DELETE /internal/admin/routes/:id
 POST /internal/admin/routes/reload
 ```
 
+Current admin authentication:
+
+```txt
+Header: x-admin-api-key
+Default local value: local-admin-key
+```
+
+Current optional admin actor header:
+
+```txt
+Header: x-admin-actor
+Fallback actor: admin-api-key
+```
+
+Current admin env variables:
+
+```txt
+ADMIN_API_KEY_HEADER=x-admin-api-key
+ADMIN_API_KEY=local-admin-key
+```
+
+Route management module files:
+
+```txt
+apps/api-gateway/src/middlewares/admin-api-key-auth.middleware.ts
+apps/api-gateway/src/routes/admin-route-config.route.ts
+apps/api-gateway/src/routes/admin-route-config.route.test.ts
+apps/api-gateway/src/route-management/route-management.types.ts
+apps/api-gateway/src/route-management/route-management.mapper.ts
+apps/api-gateway/src/route-management/route-management.repository.ts
+apps/api-gateway/src/runtime/route-runtime-registry.ts
+apps/api-gateway/src/runtime/route-runtime-registry.test.ts
+```
+
+### 9.1 Read Design
+
+Read endpoints:
+
+```txt
+GET /internal/admin/routes
+GET /internal/admin/routes/:id
+```
+
+Behavior:
+
+```txt
+GET /internal/admin/routes
+  -> Requires x-admin-api-key
+  -> Returns route configs where deleted_at IS NULL
+  -> Includes enabled and disabled routes if deleted_at IS NULL
+  -> Excludes soft-deleted route configs
+  -> Orders routes by priority and gatewayPath
+
+GET /internal/admin/routes/:id
+  -> Requires x-admin-api-key
+  -> Returns one route config by id where deleted_at IS NULL
+  -> Returns 404 ROUTE_CONFIG_NOT_FOUND if missing or soft-deleted
+```
+
+Why read APIs exclude soft-deleted records:
+
+* Soft delete keeps historical rows in the database.
+* Admin list/detail represents currently manageable route configs.
+* Deleted records should not be accidentally updated or deleted again.
+* Future audit/history views can expose deleted records separately.
+
 ---
 
-## 9. Authentication Design
+### 9.2 Runtime Status Design
 
-### 9.1 API Key Authentication
+Runtime status endpoint:
+
+```txt
+GET /internal/admin/routes/runtime
+```
+
+Behavior:
+
+```txt
+Requires x-admin-api-key.
+Reads the current runtime route registry snapshot.
+Returns whether registry is available.
+Returns registry version.
+Returns loadedAt timestamp.
+Returns routeCount.
+Returns lightweight route summaries.
+Does not expose full route policy internals in the summary.
+```
+
+Expected response shape:
+
+```json
+{
+  "data": {
+    "mode": "runtime-registry",
+    "available": true,
+    "version": 1,
+    "loadedAt": "2026-07-02T00:00:00.000Z",
+    "routeCount": 2,
+    "routes": [
+      {
+        "method": "GET",
+        "gatewayPath": "/api/products",
+        "serviceName": "product-service"
+      },
+      {
+        "method": "GET",
+        "gatewayPath": "/api/product-service/health",
+        "serviceName": "product-service"
+      }
+    ]
+  }
+}
+```
+
+Why this endpoint exists:
+
+* Admin clients can see what the running Gateway currently has in memory.
+* It separates persisted DB config from runtime-applied config.
+* It supports safer operations before Admin Dashboard work.
+* It makes reload behavior easier to verify.
+
+---
+
+### 9.3 Create Design
+
+Create endpoint:
+
+```txt
+POST /internal/admin/routes
+```
+
+Create flow:
+
+```txt
+Admin client
+  -> POST /internal/admin/routes
+  -> x-admin-api-key
+  -> optional x-admin-actor
+  -> Admin API key middleware
+  -> Parse request body
+  -> Map request body to DownstreamRouteConfig
+  -> validateDownstreamRoutes()
+  -> Check duplicate active method + gatewayPath
+  -> Insert route into gateway.gateway_routes
+  -> Set created_by and updated_by
+  -> Return 201 Created
+```
+
+Create validation rules:
+
+```txt
+Request body must be a valid route config shape.
+Mapped DownstreamRouteConfig must pass validateDownstreamRoutes().
+method + gatewayPath must not already exist as an active route.
+Soft-deleted route configs do not count as duplicates.
+Partial unique index remains as a database safety layer.
+```
+
+Duplicate response:
+
+```txt
+409 ROUTE_CONFIG_ALREADY_EXISTS
+```
+
+Invalid route config response:
+
+```txt
+400 ROUTE_CONFIG_INVALID
+```
+
+Runtime apply note:
+
+```txt
+If the created route uses a brand-new gatewayPath that Fastify did not register during startup, reload can store it in the runtime registry but clients still need API Gateway restart until catch-all routing exists.
+If the created route reuses a startup-registered path that was removed from runtime registry, reload can make it active again.
+```
+
+---
+
+### 9.4 Update Design
+
+Update endpoint:
+
+```txt
+PATCH /internal/admin/routes/:id
+```
+
+Update flow:
+
+```txt
+Admin client
+  -> PATCH /internal/admin/routes/:id
+  -> x-admin-api-key
+  -> optional x-admin-actor
+  -> Admin API key middleware
+  -> Find existing active route by id
+  -> Return 404 if route does not exist or is soft-deleted
+  -> Merge existing route config with PATCH body
+  -> Map merged data to DownstreamRouteConfig
+  -> validateDownstreamRoutes()
+  -> Check method + gatewayPath conflict against other active routes
+  -> Update route in gateway.gateway_routes
+  -> Set updated_by
+  -> Return 200 OK
+```
+
+Current update error responses:
+
+```txt
+Route config not found
+  -> 404 ROUTE_CONFIG_NOT_FOUND
+
+Invalid merged route config
+  -> 400 ROUTE_CONFIG_INVALID
+
+Conflict with another active method + gatewayPath
+  -> 409 ROUTE_CONFIG_ALREADY_EXISTS
+```
+
+Runtime apply note:
+
+```txt
+For routes that were registered during startup, policy changes, enabled changes, and downstreamUrl changes can take effect after POST /internal/admin/routes/reload.
+For brand-new gateway paths, API Gateway still requires restart.
+```
+
+---
+
+### 9.5 Enable/Disable Design
+
+Enable/disable is handled through PATCH:
+
+```txt
+PATCH /internal/admin/routes/:id
+Body: { "enabled": false }
+```
+
+Current behavior:
+
+```txt
+Route remains stored in gateway.gateway_routes.
+Route remains visible in admin read API if deleted_at IS NULL.
+Route is excluded from active runtime route list after reload.
+If the Fastify path was registered at startup, client requests return 404 ROUTE_NOT_FOUND after reload without restart.
+If no reload is called, the previous runtime registry snapshot stays active.
+```
+
+Why disable remains separate from delete:
+
+* Disable is reversible.
+* Disable keeps the route visible and manageable.
+* Delete is represented by soft delete and hides the route from normal management APIs.
+
+---
+
+### 9.6 Soft Delete Design
+
+Soft delete endpoint:
+
+```txt
+DELETE /internal/admin/routes/:id
+```
+
+Soft delete flow:
+
+```txt
+Admin client
+  -> DELETE /internal/admin/routes/:id
+  -> x-admin-api-key
+  -> optional x-admin-actor
+  -> Admin API key middleware
+  -> Find existing active route by id
+  -> Return 404 if route does not exist or is already soft-deleted
+  -> Update route:
+       enabled = false
+       deleted_at = current timestamp
+       deleted_by = actor
+       updated_by = actor
+  -> Return 200 OK with deleted route response
+```
+
+Soft delete behavior:
+
+```txt
+Record remains stored in gateway.gateway_routes.
+deleted_at marks the route as deleted.
+deleted_by records the actor.
+enabled is forced to false.
+Admin list/detail APIs exclude the soft-deleted route.
+Runtime route loader excludes the soft-deleted route.
+Reload excludes the soft-deleted route from runtime registry.
+Duplicate checks ignore soft-deleted routes.
+The same method + gatewayPath can be created again after soft delete.
+```
+
+Why soft delete is used instead of hard delete:
+
+* Route management operations need safer recovery and future auditability.
+* Historical route data should remain available for future admin/audit views.
+* Hard delete would remove useful operational context.
+* Soft delete is safer for product-like API management systems.
+
+---
+
+### 9.7 Reload Design
+
+Reload endpoint:
+
+```txt
+POST /internal/admin/routes/reload
+```
+
+Current reload response shape:
+
+```json
+{
+  "data": {
+    "mode": "runtime-registry-refresh",
+    "registryAvailable": true,
+    "registryApplied": true,
+    "runtimeApplied": true,
+    "runtimeScope": "registered-routes-only",
+    "newRoutesRequireRestart": true,
+    "requiresRestart": true,
+    "previousVersion": 1,
+    "currentVersion": 2,
+    "loadedAt": "2026-07-02T00:00:00.000Z",
+    "routeCount": 2,
+    "routes": [
+      {
+        "method": "GET",
+        "gatewayPath": "/api/products",
+        "serviceName": "product-service"
+      }
+    ]
+  }
+}
+```
+
+Current reload behavior:
+
+```txt
+Requires x-admin-api-key.
+Reads active DB route configs.
+Filters enabled=true and deleted_at IS NULL.
+Maps active DB records to DownstreamRouteConfig[].
+Reuses existing route config validation.
+If validation succeeds:
+  -> Replaces runtime registry snapshot.
+  -> Increments runtime registry version.
+  -> Updates loadedAt timestamp.
+  -> Updates routeCount.
+  -> Returns route summaries.
+If validation fails:
+  -> Does not mutate current runtime registry snapshot.
+  -> Returns 400 ROUTE_CONFIG_RELOAD_VALIDATION_FAILED.
+```
+
+Current response flags:
+
+```txt
+mode = runtime-registry-refresh
+registryAvailable = true
+registryApplied = true
+runtimeApplied = true
+runtimeScope = registered-routes-only
+newRoutesRequireRestart = true
+requiresRestart = true
+```
+
+Why `runtimeApplied` is true:
+
+```txt
+The downstream proxy pre-handler and handler resolve latest route config from runtime registry per request.
+For existing Fastify-registered paths, reload changes runtime behavior without API Gateway restart.
+```
+
+Why `requiresRestart` is still true:
+
+```txt
+Fastify still only knows routes registered during startup.
+Brand-new gateway paths are not matched by Fastify yet.
+A new gatewayPath still needs API Gateway restart until a catch-all dynamic router exists.
+```
+
+Why `runtimeScope` is `registered-routes-only`:
+
+```txt
+Reload applies to the runtime behavior of routes already registered in Fastify.
+It does not dynamically register unknown paths into Fastify.
+```
+
+---
+
+### 9.8 Route Management Error Design
+
+Current route management error responses:
+
+```txt
+Missing admin API key
+  -> 401 ADMIN_API_KEY_MISSING
+
+Invalid admin API key
+  -> 403 ADMIN_API_KEY_INVALID
+
+Route config not found
+  -> 404 ROUTE_CONFIG_NOT_FOUND
+
+Runtime route not found
+  -> 404 ROUTE_NOT_FOUND
+
+Invalid route config
+  -> 400 ROUTE_CONFIG_INVALID
+
+Duplicate active method + gatewayPath
+  -> 409 ROUTE_CONFIG_ALREADY_EXISTS
+
+Reload validation failure
+  -> 400 ROUTE_CONFIG_RELOAD_VALIDATION_FAILED
+```
+
+---
+
+## 10. Dynamic Route Config Design
+
+Sprint 8 introduced database-backed dynamic route configuration.
+
+Sprint 9 added internal/admin APIs to manage route config records.
+
+Sprint 10 added soft-delete-aware route management and reload validation.
+
+Sprint 11 added runtime registry refresh and partial runtime apply.
+
+### 10.1 Database Model
+
+Gateway route config is stored in:
+
+```txt
+PostgreSQL schema: gateway
+Table: gateway.gateway_routes
+```
+
+Prisma schema location:
+
+```txt
+apps/api-gateway/prisma/schema.prisma
+```
+
+Migration locations:
+
+```txt
+apps/api-gateway/prisma/migrations/20260701063629_add_gateway_routes/migration.sql
+apps/api-gateway/prisma/migrations/20260702090000_add_gateway_route_soft_delete/migration.sql
+```
+
+Seed script location:
+
+```txt
+apps/api-gateway/prisma/seed.ts
+```
+
+Current active route identity:
+
+```txt
+method + gateway_path where deleted_at IS NULL
+```
+
+Current unique strategy:
+
+```txt
+Partial unique index on method + gateway_path for active routes only.
+Soft-deleted routes no longer block recreating the same method + gatewayPath.
+```
+
+Current model responsibilities:
+
+* Store Gateway route path.
+* Store downstream service URL.
+* Store HTTP method.
+* Store route enabled flag.
+* Store priority for deterministic ordering.
+* Store auth policy flags.
+* Store timeout policy values.
+* Store cache policy values.
+* Store rate limit policy values.
+* Store request transform JSON fields.
+* Store response transform JSON fields.
+* Store retry policy values.
+* Store created and updated timestamps.
+* Store created, updated, and deleted actor metadata.
+* Store soft delete timestamp and actor.
+
+---
+
+### 10.2 Startup Loading
+
+Runtime loader file:
+
+```txt
+apps/api-gateway/src/config/runtime-downstream-routes.ts
+```
+
+Repository file:
+
+```txt
+apps/api-gateway/src/config/database-route-config.repository.ts
+```
+
+Mapper file:
+
+```txt
+apps/api-gateway/src/config/database-route-config.mapper.ts
+```
+
+Prisma client wrapper:
+
+```txt
+apps/api-gateway/src/database/gateway-prisma.ts
+```
+
+Startup loading behavior:
+
+```txt
+loadRuntimeDownstreamRouteConfigs()
+  -> calls loadDatabaseDownstreamRouteConfigs(gatewayPrisma)
+  -> if success and active route count > 0:
+       -> returns active DB route configs
+  -> if DB returns empty:
+       -> returns static fallback route configs
+  -> if DB throws:
+       -> returns static fallback route configs
+```
+
+The loader logs the selected behavior:
+
+```txt
+Loaded downstream route configs from database
+No database downstream route configs found; falling back to static downstream route configs
+Failed to load database downstream route configs; falling back to static downstream route configs
+```
+
+---
+
+### 10.3 Mapping Rules
+
+Database route records are mapped into:
+
+```txt
+DownstreamRouteConfig[]
+```
+
+Runtime route type:
+
+```txt
+serviceName
+gatewayPath
+downstreamUrl
+method
+policies
+```
+
+Policy mapping:
+
+```txt
+require_api_key             -> policies.auth.requireApiKey
+require_jwt                 -> policies.auth.requireJwt
+timeout_enabled             -> policies.timeout.enabled
+timeout_ms                  -> policies.timeout.timeoutMs
+cache_enabled               -> policies.cache.enabled
+cache_ttl_seconds           -> policies.cache.ttlSeconds
+rate_limit_enabled          -> policies.rateLimit.enabled
+rate_limit_limit            -> policies.rateLimit.limit
+rate_limit_window_ms        -> policies.rateLimit.windowMs
+request_transform_enabled   -> policies.requestTransform.enabled
+request_add_headers         -> policies.requestTransform.addHeaders
+request_remove_headers      -> policies.requestTransform.removeHeaders
+response_transform_enabled  -> policies.responseTransform.enabled
+response_add_headers        -> policies.responseTransform.addHeaders
+response_remove_headers     -> policies.responseTransform.removeHeaders
+retry_enabled               -> policies.retry.enabled
+retry_attempts              -> policies.retry.attempts
+retry_on_statuses           -> policies.retry.retryOnStatuses
+```
+
+Disabled policies are normalized safely:
+
+```txt
+cache disabled
+  -> ttlSeconds becomes 0
+
+rate limit disabled
+  -> limit becomes 0
+  -> windowMs becomes 0
+```
+
+JSON field validation:
+
+```txt
+request_add_headers must be an object with string values
+response_add_headers must be an object with string values
+request_remove_headers must be an array of strings
+response_remove_headers must be an array of strings
+retry_on_statuses must be an array of integers
+```
+
+---
+
+### 10.4 Safe Static Fallback
+
+Fallback exists because route config is critical to Gateway startup.
+
+Active route filter:
+
+```txt
+enabled = true
+deleted_at IS NULL
+```
+
+Fallback scenarios:
+
+```txt
+DATABASE_URL missing
+PostgreSQL unavailable
+Prisma Client initialization error
+gateway.gateway_routes unavailable
+DB query error
+DB records fail mapping
+DB records fail validation
+DB returns zero enabled active routes
+```
+
+Fallback result:
+
+```txt
+API Gateway uses static downstreamRouteConfigs
+```
+
+Why this matters:
+
+* The Gateway can still start when route config DB is unavailable.
+* Existing protected product route behavior remains stable.
+* Existing public product health proxy route behavior remains stable.
+* Database-backed route config can roll out safely.
+* Route management APIs can be introduced without removing safe runtime fallback.
+
+---
+
+## 11. Authentication Design
+
+### 11.1 API Key Authentication
 
 API key authentication is used for client or application-level authentication.
 
@@ -1598,7 +2231,7 @@ Protected route:
 GET /api/products
 ```
 
-Public routes without API key requirement:
+Public routes without API key requirement by default:
 
 ```txt
 GET /health
@@ -1610,6 +2243,7 @@ Internal/admin routes do not use consumer API key authentication:
 
 ```txt
 GET /internal/admin/routes
+GET /internal/admin/routes/runtime
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
@@ -1658,7 +2292,7 @@ auth:
 
 ---
 
-### 9.2 Admin API Key Authentication
+### 11.2 Admin API Key Authentication
 
 Admin API key authentication is used for internal/admin route management APIs.
 
@@ -1666,6 +2300,7 @@ Protected internal/admin routes:
 
 ```txt
 GET /internal/admin/routes
+GET /internal/admin/routes/runtime
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
@@ -1707,7 +2342,7 @@ Reason:
 
 ---
 
-### 9.3 JWT Authentication
+### 11.3 JWT Authentication
 
 JWT authentication is used for user or session-level authentication.
 
@@ -1725,10 +2360,11 @@ GET /metrics
 GET /api/product-service/health
 ```
 
-Internal/admin routes do not require consumer JWT in Sprint 10:
+Internal/admin routes do not require consumer JWT:
 
 ```txt
 GET /internal/admin/routes
+GET /internal/admin/routes/runtime
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
@@ -1795,9 +2431,9 @@ auth:
 
 ---
 
-## 10. Traffic Protection Design
+## 12. Traffic Protection Design
 
-### 10.1 Redis-Backed Rate Limiting
+### 12.1 Redis-Backed Rate Limiting
 
 PulseGate currently supports Redis-backed rate limiting for:
 
@@ -1805,16 +2441,17 @@ PulseGate currently supports Redis-backed rate limiting for:
 GET /api/products
 ```
 
-Rate limiting is intentionally disabled for:
+Rate limiting is disabled by default for:
 
 ```txt
 GET /api/product-service/health
 ```
 
-Consumer rate limiting is not currently applied to:
+Consumer rate limiting is not currently applied to internal/admin APIs:
 
 ```txt
 GET /internal/admin/routes
+GET /internal/admin/routes/runtime
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
@@ -1889,24 +2526,6 @@ Expected status:
 429
 ```
 
-Product route policy:
-
-```txt
-rateLimit:
-  enabled: true
-  limit: 5
-  windowMs: 60000
-```
-
-Product Service health proxy route policy:
-
-```txt
-rateLimit:
-  enabled: false
-  limit: 0
-  windowMs: 0
-```
-
 Current Redis failure behavior:
 
 ```txt
@@ -1921,12 +2540,12 @@ Implementation notes:
 * `InMemoryRateLimitStore` still exists for tests and flexible dependency injection.
 * `RedisRateLimitStore` is used by the normal Docker/runtime flow.
 * Rate limit middleware supports async stores.
-* Rate limit runtime values are resolved through the rate limit policy helper.
+* Rate limit runtime values are resolved through the latest runtime route policy.
 * Public routes can disable rate limiting through route policy.
 
 ---
 
-### 10.2 Request Size Limit
+### 12.2 Request Size Limit
 
 PulseGate currently applies request size protection at the API Gateway level.
 
@@ -1978,7 +2597,7 @@ Implementation notes:
 
 ---
 
-### 10.3 Basic Security Headers
+### 12.3 Basic Security Headers
 
 PulseGate currently adds baseline security headers to API Gateway responses.
 
@@ -2005,7 +2624,7 @@ Reason:
 
 ---
 
-## 11. Response Cache Design
+## 13. Response Cache Design
 
 PulseGate currently caches selected Gateway responses in Redis.
 
@@ -2015,7 +2634,7 @@ Current cached route:
 GET /api/products
 ```
 
-Current route with cache disabled:
+Current route with cache disabled by default:
 
 ```txt
 GET /api/product-service/health
@@ -2025,6 +2644,7 @@ Current internal/admin routes do not use Product response cache:
 
 ```txt
 GET /internal/admin/routes
+GET /internal/admin/routes/runtime
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
@@ -2117,7 +2737,7 @@ Implementation notes:
 
 ---
 
-## 12. Downstream Resilience Design
+## 14. Downstream Resilience Design
 
 PulseGate normalizes downstream Product Service failures.
 
@@ -2188,7 +2808,7 @@ Retry design notes:
 
 ---
 
-## 13. Observability Design
+## 15. Observability Design
 
 Sprint 4 added the first production-oriented observability foundation.
 
@@ -2205,7 +2825,7 @@ Grafana datasource
 Grafana dashboard
 ```
 
-### 13.1 Structured Access Logs
+### 15.1 Structured Access Logs
 
 API Gateway writes structured access logs after each request completes.
 
@@ -2254,7 +2874,7 @@ Conceptual log payload:
 }
 ```
 
-### 13.2 Response Time Header
+### 15.2 Response Time Header
 
 API Gateway adds a response latency header:
 
@@ -2270,7 +2890,7 @@ x-response-time-ms: 4.32
 
 The value is measured in milliseconds and formatted with two decimal places.
 
-### 13.3 Prometheus Metrics
+### 15.3 Prometheus Metrics
 
 API Gateway uses `prom-client` to maintain an in-memory Prometheus metrics registry.
 
@@ -2311,10 +2931,11 @@ Current route labels include:
 /api/products
 /api/product-service/health
 /internal/admin/routes
+/internal/admin/routes/runtime
 /internal/admin/routes/:id
 ```
 
-### 13.4 Metrics Endpoint
+### 15.4 Metrics Endpoint
 
 Current metrics endpoint:
 
@@ -2331,7 +2952,7 @@ GET /metrics
   -> Scraped by Prometheus
 ```
 
-### 13.5 Prometheus Scraping
+### 15.5 Prometheus Scraping
 
 Prometheus scrapes API Gateway through Docker internal DNS:
 
@@ -2351,7 +2972,7 @@ Current Prometheus config file:
 observability/prometheus/prometheus.yml
 ```
 
-### 13.6 Grafana Dashboard
+### 15.6 Grafana Dashboard
 
 Grafana uses the provisioned Prometheus datasource:
 
@@ -2388,17 +3009,19 @@ Cache Outcomes
 
 ---
 
-## 14. Route Policy Design
+## 16. Route Policy Design
 
 Sprint 5 introduced a route policy foundation.
 
 Sprint 7 expanded the Gateway so more than one downstream route can be registered.
 
-Sprint 8 moved the primary runtime route config source from static TypeScript config to PostgreSQL-backed database config while keeping static fallback.
+Sprint 8 moved the primary startup route config source from static TypeScript config to PostgreSQL-backed database config while keeping static fallback.
 
 Sprint 9 added route management APIs that reuse existing route validation before persisting route configs.
 
 Sprint 10 hardened route management with soft delete, audit metadata fields, active-route duplicate checks, and reload validation.
+
+Sprint 11 made proxy runtime behavior resolve from the runtime registry per request.
 
 Static route config file:
 
@@ -2406,7 +3029,7 @@ Static route config file:
 apps/api-gateway/src/config/downstream-routes.ts
 ```
 
-Runtime route config loader file:
+Startup runtime route config loader file:
 
 ```txt
 apps/api-gateway/src/config/runtime-downstream-routes.ts
@@ -2422,6 +3045,12 @@ Database route config mapper file:
 
 ```txt
 apps/api-gateway/src/config/database-route-config.mapper.ts
+```
+
+Runtime route registry file:
+
+```txt
+apps/api-gateway/src/runtime/route-runtime-registry.ts
 ```
 
 Route management mapper file:
@@ -2618,13 +3247,14 @@ Purpose:
 * Prepare for more downstream services later.
 * Use PostgreSQL as the primary route config persistence foundation.
 * Allow internal/admin APIs to manage route config records.
+* Allow runtime registry refresh to affect existing route behavior.
 * Prepare for future Admin Dashboard or config-driven route management.
 * Make the Gateway closer to production API Gateway products.
 * Keep route behavior testable through unit and integration tests.
 
 ---
 
-## 15. Multi-Route Gateway Design
+## 17. Multi-Route Gateway Design
 
 Sprint 7 introduced multi-route Gateway routing.
 
@@ -2645,7 +3275,7 @@ GET /api/product-service/health
   -> Product Service GET /health
 ```
 
-Sprint 8 changed the primary runtime source of these routes:
+Sprint 8 changed the primary startup source of these routes:
 
 ```txt
 Before Sprint 8:
@@ -2653,7 +3283,7 @@ Before Sprint 8:
 
 After Sprint 8:
   -> PostgreSQL gateway.gateway_routes first
-  -> static downstreamRouteConfigs fallback if DB loading fails or returns no routes
+  -> static downstreamRouteConfigs fallback if DB loading fails or returns no active routes
 ```
 
 Sprint 9 added APIs to manage the database route config records:
@@ -2663,8 +3293,27 @@ GET /internal/admin/routes
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
+```
+
+Sprint 10 added route lifecycle hardening:
+
+```txt
 DELETE /internal/admin/routes/:id
 POST /internal/admin/routes/reload
+Soft delete
+Audit metadata
+Partial unique index for active routes
+Reload validation
+```
+
+Sprint 11 added runtime registry behavior:
+
+```txt
+GET /internal/admin/routes/runtime
+POST /internal/admin/routes/reload refreshes runtime registry
+Downstream proxy resolves latest route config from runtime registry
+Existing registered routes can change behavior after reload without restart
+Brand-new gateway paths still require restart
 ```
 
 Current route registration flow:
@@ -2679,9 +3328,11 @@ loadRuntimeDownstreamRouteConfigs()
        -> return DB route configs
   -> if DB error or empty:
        -> return static downstreamRouteConfigs
+  -> createRouteRuntimeRegistry({ initialRoutes: resolvedRouteConfigs })
   -> app.ts
   -> downstreamProxyRoute()
   -> Fastify route registration
+  -> downstreamProxyRoute resolves runtime registry per request
 ```
 
 Current public/protected route split:
@@ -2708,602 +3359,17 @@ Why this matters:
 * Route behavior has moved from code-only config to database-backed config.
 * The Gateway can support multiple route policies.
 * Existing route behavior remains safe due to static fallback.
-* Admin APIs can now manage route configuration records.
+* Admin APIs can manage route configuration records.
+* Runtime registry can refresh existing registered route behavior without restart.
 * Future Admin Dashboard can build on existing backend route management behavior.
 
 Current limitation:
 
 ```txt
-Routes are loaded from database at startup.
-Soft delete exists, but true runtime hot reload does not exist yet.
-Reload validation exists, but runtimeApplied=false and requiresRestart=true.
-There is no Admin Dashboard yet.
-```
-
----
-
-## 16. Dynamic Route Config Design
-
-Sprint 8 introduced database-backed dynamic route configuration.
-
-Sprint 9 added internal/admin APIs to manage route config records.
-
-Sprint 10 added soft-delete-aware route management and reload validation.
-
-### 16.1 Database Model
-
-Gateway route config is stored in:
-
-```txt
-PostgreSQL schema: gateway
-Table: gateway.gateway_routes
-```
-
-Prisma schema location:
-
-```txt
-apps/api-gateway/prisma/schema.prisma
-```
-
-Migration locations:
-
-```txt
-apps/api-gateway/prisma/migrations/20260701063629_add_gateway_routes/migration.sql
-apps/api-gateway/prisma/migrations/20260702090000_add_gateway_route_soft_delete/migration.sql
-```
-
-Seed script location:
-
-```txt
-apps/api-gateway/prisma/seed.ts
-```
-
-Current active route identity:
-
-```txt
-method + gateway_path where deleted_at IS NULL
-```
-
-Current unique strategy:
-
-```txt
-Partial unique index on method + gateway_path for active routes only.
-Soft-deleted routes no longer block recreating the same method + gatewayPath.
-```
-
-Current model responsibilities:
-
-* Store Gateway route path.
-* Store downstream service URL.
-* Store HTTP method.
-* Store route enabled flag.
-* Store priority for deterministic ordering.
-* Store auth policy flags.
-* Store timeout policy values.
-* Store cache policy values.
-* Store rate limit policy values.
-* Store request transform JSON fields.
-* Store response transform JSON fields.
-* Store retry policy values.
-* Store created and updated timestamps.
-* Store created, updated, and deleted actor metadata.
-* Store soft delete timestamp and actor.
-
----
-
-### 16.2 Runtime Loading
-
-Runtime loader file:
-
-```txt
-apps/api-gateway/src/config/runtime-downstream-routes.ts
-```
-
-Repository file:
-
-```txt
-apps/api-gateway/src/config/database-route-config.repository.ts
-```
-
-Mapper file:
-
-```txt
-apps/api-gateway/src/config/database-route-config.mapper.ts
-```
-
-Prisma client wrapper:
-
-```txt
-apps/api-gateway/src/database/gateway-prisma.ts
-```
-
-Runtime loading behavior:
-
-```txt
-loadRuntimeDownstreamRouteConfigs()
-  -> calls loadDatabaseDownstreamRouteConfigs(gatewayPrisma)
-  -> if success and active route count > 0:
-       -> returns active DB route configs
-  -> if DB returns empty:
-       -> returns static fallback route configs
-  -> if DB throws:
-       -> returns static fallback route configs
-```
-
-The loader logs the selected behavior:
-
-```txt
-Loaded downstream route configs from database
-No database downstream route configs found; falling back to static downstream route configs
-Failed to load database downstream route configs; falling back to static downstream route configs
-```
-
----
-
-### 16.3 Mapping Rules
-
-Database route records are mapped into:
-
-```txt
-DownstreamRouteConfig[]
-```
-
-Runtime route type:
-
-```txt
-serviceName
-gatewayPath
-downstreamUrl
-method
-policies
-```
-
-Policy mapping:
-
-```txt
-require_api_key             -> policies.auth.requireApiKey
-require_jwt                 -> policies.auth.requireJwt
-timeout_enabled             -> policies.timeout.enabled
-timeout_ms                  -> policies.timeout.timeoutMs
-cache_enabled               -> policies.cache.enabled
-cache_ttl_seconds           -> policies.cache.ttlSeconds
-rate_limit_enabled          -> policies.rateLimit.enabled
-rate_limit_limit            -> policies.rateLimit.limit
-rate_limit_window_ms        -> policies.rateLimit.windowMs
-request_transform_enabled   -> policies.requestTransform.enabled
-request_add_headers         -> policies.requestTransform.addHeaders
-request_remove_headers      -> policies.requestTransform.removeHeaders
-response_transform_enabled  -> policies.responseTransform.enabled
-response_add_headers        -> policies.responseTransform.addHeaders
-response_remove_headers     -> policies.responseTransform.removeHeaders
-retry_enabled               -> policies.retry.enabled
-retry_attempts              -> policies.retry.attempts
-retry_on_statuses           -> policies.retry.retryOnStatuses
-```
-
-Disabled policies are normalized safely:
-
-```txt
-cache disabled
-  -> ttlSeconds becomes 0
-
-rate limit disabled
-  -> limit becomes 0
-  -> windowMs becomes 0
-```
-
-JSON field validation:
-
-```txt
-request_add_headers must be an object with string values
-response_add_headers must be an object with string values
-request_remove_headers must be an array of strings
-response_remove_headers must be an array of strings
-retry_on_statuses must be an array of integers
-```
-
----
-
-### 16.4 Safe Static Fallback
-
-Fallback exists because route config is critical to Gateway startup.
-
-Active route filter:
-
-```txt
-enabled = true
-deleted_at IS NULL
-```
-
-Fallback scenarios:
-
-```txt
-DATABASE_URL missing
-PostgreSQL unavailable
-Prisma Client initialization error
-gateway.gateway_routes unavailable
-DB query error
-DB records fail mapping
-DB records fail validation
-DB returns zero enabled routes
-```
-
-Fallback result:
-
-```txt
-API Gateway uses static downstreamRouteConfigs
-```
-
-Why this matters:
-
-* The Gateway can still start when route config DB is unavailable.
-* Existing protected product route behavior remains stable.
-* Existing public product health proxy route behavior remains stable.
-* Database-backed route config can roll out safely.
-* Route management APIs can be introduced without removing safe runtime fallback.
-
----
-
-## 17. Route Management API Design
-
-Sprint 9 introduced the internal/admin Route Management API foundation.
-
-Sprint 10 hardened route management with soft delete, basic audit metadata, active-route duplicate checks, and reload validation.
-
-Current route management endpoints:
-
-```txt
-GET /internal/admin/routes
-GET /internal/admin/routes/:id
-POST /internal/admin/routes
-PATCH /internal/admin/routes/:id
-DELETE /internal/admin/routes/:id
-POST /internal/admin/routes/reload
-```
-
-Current admin authentication:
-
-```txt
-Header: x-admin-api-key
-Default local value: local-admin-key
-```
-
-Current optional admin actor header:
-
-```txt
-Header: x-admin-actor
-Fallback actor: admin-api-key
-```
-
-Current admin env variables:
-
-```txt
-ADMIN_API_KEY_HEADER=x-admin-api-key
-ADMIN_API_KEY=local-admin-key
-```
-
-Route management module files:
-
-```txt
-apps/api-gateway/src/middlewares/admin-api-key-auth.middleware.ts
-apps/api-gateway/src/routes/admin-route-config.route.ts
-apps/api-gateway/src/routes/admin-route-config.route.test.ts
-apps/api-gateway/src/route-management/route-management.types.ts
-apps/api-gateway/src/route-management/route-management.mapper.ts
-apps/api-gateway/src/route-management/route-management.repository.ts
-```
-
-### 17.1 Read Design
-
-Read endpoints:
-
-```txt
-GET /internal/admin/routes
-GET /internal/admin/routes/:id
-```
-
-Behavior:
-
-```txt
-GET /internal/admin/routes
-  -> Requires x-admin-api-key
-  -> Returns route configs where deleted_at IS NULL
-  -> Includes enabled and disabled active route configs
-  -> Excludes soft-deleted route configs
-  -> Orders routes by priority and gatewayPath
-
-GET /internal/admin/routes/:id
-  -> Requires x-admin-api-key
-  -> Returns one route config by id where deleted_at IS NULL
-  -> Returns 404 ROUTE_CONFIG_NOT_FOUND if missing or soft-deleted
-```
-
-Why read APIs exclude soft-deleted records:
-
-* Soft delete keeps historical rows in the database.
-* Admin list/detail represents currently manageable route configs.
-* Deleted records should not be accidentally updated or deleted again.
-* Future audit/history views can expose deleted records separately.
-
----
-
-### 17.2 Create Design
-
-Create endpoint:
-
-```txt
-POST /internal/admin/routes
-```
-
-Create flow:
-
-```txt
-Admin client
-  -> POST /internal/admin/routes
-  -> x-admin-api-key
-  -> optional x-admin-actor
-  -> Admin API key middleware
-  -> Parse request body
-  -> Map request body to DownstreamRouteConfig
-  -> validateDownstreamRoutes()
-  -> Check duplicate active method + gatewayPath
-  -> Insert route into gateway.gateway_routes
-  -> Set created_by and updated_by
-  -> Return 201 Created
-```
-
-Create validation rules:
-
-```txt
-Request body must be a valid route config shape.
-Mapped DownstreamRouteConfig must pass validateDownstreamRoutes().
-method + gatewayPath must not already exist as an active route.
-Soft-deleted route configs do not count as duplicates.
-Partial unique index remains as a database safety layer.
-```
-
-Duplicate response:
-
-```txt
-409 ROUTE_CONFIG_ALREADY_EXISTS
-```
-
-Invalid route config response:
-
-```txt
-400 ROUTE_CONFIG_INVALID
-```
-
----
-
-### 17.3 Update Design
-
-Update endpoint:
-
-```txt
-PATCH /internal/admin/routes/:id
-```
-
-Update flow:
-
-```txt
-Admin client
-  -> PATCH /internal/admin/routes/:id
-  -> x-admin-api-key
-  -> optional x-admin-actor
-  -> Admin API key middleware
-  -> Find existing active route by id
-  -> Return 404 if route does not exist or is soft-deleted
-  -> Merge existing route config with PATCH body
-  -> Map merged data to DownstreamRouteConfig
-  -> validateDownstreamRoutes()
-  -> Check method + gatewayPath conflict against other active routes
-  -> Update route in gateway.gateway_routes
-  -> Set updated_by
-  -> Return 200 OK
-```
-
-Current update error responses:
-
-```txt
-Route config not found
-  -> 404 ROUTE_CONFIG_NOT_FOUND
-
-Invalid merged route config
-  -> 400 ROUTE_CONFIG_INVALID
-
-Conflict with another active method + gatewayPath
-  -> 409 ROUTE_CONFIG_ALREADY_EXISTS
-```
-
----
-
-### 17.4 Enable/Disable Design
-
-Enable/disable is handled through PATCH:
-
-```txt
-PATCH /internal/admin/routes/:id
-Body: { "enabled": false }
-```
-
-Current behavior:
-
-```txt
-Route remains stored in gateway.gateway_routes.
-Route remains visible in admin read API if deleted_at IS NULL.
-Route is not loaded as an active runtime route after API Gateway restart.
-Client requests to the disabled route return 404 after restart.
-```
-
-Why disable remains separate from delete:
-
-* Disable is reversible.
-* Disable keeps the route visible and manageable.
-* Delete is represented by soft delete and hides the route from normal management APIs.
-
----
-
-### 17.5 Soft Delete Design
-
-Soft delete endpoint:
-
-```txt
-DELETE /internal/admin/routes/:id
-```
-
-Soft delete flow:
-
-```txt
-Admin client
-  -> DELETE /internal/admin/routes/:id
-  -> x-admin-api-key
-  -> optional x-admin-actor
-  -> Admin API key middleware
-  -> Find existing active route by id
-  -> Return 404 if route does not exist or is already soft-deleted
-  -> Update route:
-       enabled = false
-       deleted_at = current timestamp
-       deleted_by = actor
-       updated_by = actor
-  -> Return 200 OK with deleted route response
-```
-
-Soft delete behavior:
-
-```txt
-Record remains stored in gateway.gateway_routes.
-deleted_at marks the route as deleted.
-deleted_by records the actor.
-enabled is forced to false.
-Admin list/detail APIs exclude the soft-deleted route.
-Runtime route loader excludes the soft-deleted route.
-Duplicate checks ignore soft-deleted routes.
-The same method + gatewayPath can be created again after soft delete.
-```
-
-Why soft delete is used instead of hard delete:
-
-* Route management operations need safer recovery and future auditability.
-* Historical route data should remain available for future admin/audit views.
-* Hard delete would remove useful operational context.
-* Soft delete is safer for product-like API management systems.
-
----
-
-### 17.6 Reload Validation Design
-
-Reload validation endpoint:
-
-```txt
-POST /internal/admin/routes/reload
-```
-
-Current reload validation response shape:
-
-```json
-{
-  "data": {
-    "mode": "validation-only",
-    "runtimeApplied": false,
-    "requiresRestart": true,
-    "routeCount": 2,
-    "routes": [
-      {
-        "method": "GET",
-        "gatewayPath": "/api/products",
-        "enabled": true,
-        "priority": 100
-      }
-    ]
-  }
-}
-```
-
-Current behavior:
-
-```txt
-Reads active route configs.
-Filters enabled and non-deleted routes for runtime validation.
-Maps records to DownstreamRouteConfig[].
-Reuses existing route config validation.
-Returns routeCount and route summary.
-Does not apply changes to the running Fastify route table.
-Does not re-register routes.
-Does not remove old runtime routes.
-```
-
-Current response flags:
-
-```txt
-mode = validation-only
-runtimeApplied = false
-requiresRestart = true
-```
-
-Why this endpoint exists before true hot reload:
-
-* Admin clients can validate route config health before restart.
-* The API shape prepares for a future reload/hot reload flow.
-* Runtime hot reload is intentionally deferred because Fastify route replacement needs safer design.
-* The current behavior is explicit and does not pretend runtime changes were applied.
-
----
-
-### 17.7 Runtime Reload Strategy
-
-Current strategy:
-
-```txt
-Route config create/update/delete writes to PostgreSQL.
-POST /internal/admin/routes/reload validates current active DB route configs.
-API Gateway loads route configs only at startup.
-Route config changes take effect after API Gateway restart.
-```
-
-Why true hot reload is deferred:
-
-* Runtime route hot reload requires careful route replacement design.
-* Fastify route re-registration has lifecycle and stale route concerns.
-* Hot reload must handle validation failures safely.
-* Hot reload must define cache and rate limit behavior for changed routes.
-* Restart-based reload is simpler and safer at this stage.
-* Validation-only reload reduces risk while preserving a future API contract.
-
-Deferred:
-
-```txt
-True runtime route hot reload
-Zero-downtime route replacement
-Route config watch mode
-Admin Dashboard reload UX
-```
-
----
-
-### 17.8 Route Management Error Design
-
-Current route management error responses:
-
-```txt
-Missing admin API key
-  -> 401 ADMIN_API_KEY_MISSING
-
-Invalid admin API key
-  -> 403 ADMIN_API_KEY_INVALID
-
-Route config not found
-  -> 404 ROUTE_CONFIG_NOT_FOUND
-
-Invalid route config
-  -> 400 ROUTE_CONFIG_INVALID
-
-Duplicate active method + gatewayPath
-  -> 409 ROUTE_CONFIG_ALREADY_EXISTS
-
-Reload validation failure
-  -> 400 ROUTE_CONFIG_RELOAD_VALIDATION_FAILED
+Fastify still registers known routes at startup.
+Runtime registry can remove or change behavior for already registered paths.
+Runtime registry cannot make Fastify match brand-new paths that were unknown at startup.
+A catch-all dynamic router is needed later for true dynamic new-path routing.
 ```
 
 ---
@@ -3506,7 +3572,8 @@ Design notes:
 * This separation keeps service ownership clearer and avoids cross-service schema conflicts.
 * Route management APIs read and write records in `gateway.gateway_routes`.
 * Route management APIs exclude soft-deleted records from normal list/detail/update/delete behavior.
-* Runtime route config loading reads enabled records where `deleted_at IS NULL` from `gateway.gateway_routes`.
+* Startup route config loading reads enabled records where `deleted_at IS NULL` from `gateway.gateway_routes`.
+* Runtime registry reload reads enabled records where `deleted_at IS NULL` from `gateway.gateway_routes`.
 * Soft-deleted records remain available for future audit/history use cases.
 
 ---
@@ -3542,20 +3609,26 @@ Currently implemented Gateway capabilities:
 * JWT authentication.
 * Static downstream route configuration fallback.
 * Database-backed downstream route configuration.
-* Runtime route config loader.
+* Startup route config loader.
+* Runtime route registry.
+* Runtime route registry status endpoint.
+* Runtime route registry refresh endpoint.
 * Route config mapper from database records.
 * Route config repository with Prisma.
 * Generic downstream proxy route foundation.
+* Runtime registry lookup in proxy pre-handler.
+* Runtime registry lookup in proxy handler.
 * Route policy configuration.
 * Route config validation.
 * Route management API foundation.
 * Route config list API.
+* Route config runtime status API.
 * Route config detail API.
 * Route config create API.
 * Route config update API.
 * Route config enable/disable foundation.
 * Route config soft delete API.
-* Route config reload validation API.
+* Route config runtime reload API.
 * Basic route management actor metadata.
 * Active-route partial unique constraint strategy.
 * Downstream timeout handling.
@@ -3571,6 +3644,7 @@ Currently implemented Gateway capabilities:
 * Unit tests.
 * Integration tests.
 * Route management API tests.
+* Runtime registry tests.
 
 Currently implemented Product Service capabilities:
 
@@ -3614,8 +3688,8 @@ Currently implemented CI/CD capabilities:
 
 Not implemented yet:
 
-* Runtime route hot reload
-* Route management audit log
+* Catch-all dynamic router for brand-new gateway paths without restart
+* Dedicated route management audit log table
 * Stronger admin authentication beyond local admin API key
 * Service registry
 * API consumer database
@@ -3636,172 +3710,7 @@ Not implemented yet:
 
 ---
 
-## 21. Monorepo Structure
-
-Current repository structure:
-
-```txt
-pulsegate/
-  .github/
-    workflows/
-      ci.yml
-
-  apps/
-    api-gateway/
-      Dockerfile
-      prisma/
-        migrations/
-          20260701063629_add_gateway_routes/
-            migration.sql
-          20260702090000_add_gateway_route_soft_delete/
-            migration.sql
-          migration_lock.toml
-        schema.prisma
-        seed.ts
-      src/
-        app.ts
-        app.test.ts
-        cache/
-          redis-response-cache-store.ts
-          redis-response-cache-store.test.ts
-        config/
-          database-route-config.mapper.ts
-          database-route-config.mapper.test.ts
-          database-route-config.repository.ts
-          downstream-routes.ts
-          downstream-routes.test.ts
-          env.ts
-          env.test.ts
-          runtime-downstream-routes.ts
-          runtime-downstream-routes.test.ts
-          validate-downstream-routes.ts
-          validate-downstream-routes.test.ts
-        database/
-          gateway-prisma.ts
-        errors/
-          downstream-service-error.ts
-          downstream-service-error.test.ts
-        middlewares/
-          access-log.middleware.ts
-          access-log.middleware.test.ts
-          admin-api-key-auth.middleware.ts
-          api-key-auth.middleware.ts
-          api-key-auth.middleware.test.ts
-          error-handler.middleware.ts
-          jwt-auth.middleware.ts
-          jwt-auth.middleware.test.ts
-          metrics.middleware.ts
-          metrics.middleware.test.ts
-          rate-limit.middleware.ts
-          rate-limit.middleware.test.ts
-          request-id.middleware.ts
-          request-id.middleware.test.ts
-          request-size-limit.middleware.ts
-          request-size-limit.middleware.test.ts
-          security-headers.middleware.ts
-          security-headers.middleware.test.ts
-        observability/
-          metrics.ts
-          metrics.test.ts
-        policies/
-          cache.policy.ts
-          cache.policy.test.ts
-          rate-limit.policy.ts
-          rate-limit.policy.test.ts
-          request-transform.policy.ts
-          request-transform.policy.test.ts
-          response-transform.policy.ts
-          response-transform.policy.test.ts
-          retry.policy.ts
-          retry.policy.test.ts
-          route-policy.types.ts
-          timeout.policy.ts
-          timeout.policy.test.ts
-        rate-limit/
-          in-memory-rate-limit-store.ts
-          in-memory-rate-limit-store.test.ts
-          redis-rate-limit-store.ts
-          redis-rate-limit-store.test.ts
-        redis/
-          redis-client.ts
-        route-management/
-          route-management.mapper.ts
-          route-management.repository.ts
-          route-management.types.ts
-        routes/
-          admin-route-config.route.ts
-          admin-route-config.route.test.ts
-          health.route.ts
-          metrics.route.ts
-          metrics.route.test.ts
-          product-proxy.route.ts
-        server.ts
-      package.json
-      tsconfig.json
-      vitest.config.ts
-
-    product-service/
-      Dockerfile
-      prisma/
-        migrations/
-          20260628092746_init_products/
-            migration.sql
-          migration_lock.toml
-        schema.prisma
-        seed.ts
-        tsconfig.json
-      src/
-        config/
-          env.ts
-        database/
-          prisma.ts
-        middlewares/
-          error-handler.middleware.ts
-          request-id.middleware.ts
-        products/
-          product.repository.ts
-        routes/
-          health.route.ts
-          product.route.ts
-        server.ts
-      package.json
-      tsconfig.json
-
-  observability/
-    prometheus/
-      prometheus.yml
-    grafana/
-      dashboards/
-        api-gateway-overview.json
-      provisioning/
-        dashboards/
-          dashboards.yml
-        datasources/
-          prometheus.yml
-
-  docs/
-    architecture/
-      overview.md
-    sdlc/
-      requirements.md
-    project-context/
-      AI_HANDOFF.md
-      CURRENT_PROGRESS.md
-      DECISION_LOG.md
-
-  docker-compose.yml
-  .dockerignore
-  .env.example
-  .gitattributes
-  .gitignore
-  package.json
-  package-lock.json
-  README.md
-```
-
----
-
-## 22. Automated Test and CI Architecture
+## 21. Automated Test and CI Architecture
 
 PulseGate uses Vitest for API Gateway unit and integration tests.
 
@@ -3814,8 +3723,8 @@ npm run test
 Current test status:
 
 ```txt
-27 test files passed
-176 tests passed
+28 test files passed
+189 tests passed
 ```
 
 Current CI-equivalent local validation command:
@@ -3831,168 +3740,54 @@ docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
 docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
 ```
 
-Current unit test coverage:
+Current unit test coverage summary:
 
 ```txt
-request-id.middleware.test.ts
-  -> Request ID generation and reuse
-
-access-log.middleware.test.ts
-  -> Duration calculation, safe access log payload, response time header behavior
-
-api-key-auth.middleware.test.ts
-  -> Missing, invalid, valid, and array header API key cases
-
-jwt-auth.middleware.test.ts
-  -> Bearer token extraction, JWT verification, missing token, invalid token, valid token
-
-metrics.middleware.test.ts
-  -> Route label extraction, cache header reading, request metrics, cache metrics
-
-in-memory-rate-limit-store.test.ts
-  -> In-memory rate limit store behavior, counters, window reset, cleanup, validation
-
-redis-rate-limit-store.test.ts
-  -> Redis rate limit store behavior and fail-fast timeout
-
-rate-limit.middleware.test.ts
-  -> Rate limit key generation, allowed requests, exceeded limit, reset behavior, missing identifier
-
-redis-response-cache-store.test.ts
-  -> Redis response cache store MISS/HIT, set with TTL, validation, and fail-fast timeout
-
-request-size-limit.middleware.test.ts
-  -> Content-Length parsing, allowed body size, exceeded body size, invalid config
-
-security-headers.middleware.test.ts
-  -> Basic security headers
-
-downstream-service-error.test.ts
-  -> DownstreamServiceError and type guard behavior
-
-env.test.ts
-  -> Number, CSV, string env parsing, default admin API key config, custom admin API key config
-
-downstream-routes.test.ts
-  -> Product route policy config
-  -> Product Service health route config
-  -> Multi-route downstream route config list
-
-validate-downstream-routes.test.ts
-  -> Route config validation, duplicate route detection, invalid policy detection
-
-database-route-config.mapper.test.ts
-  -> Database route record mapping
-  -> Disabled route filtering
-  -> Priority ordering
-  -> Header transform JSON validation
-  -> Retry status JSON validation
-  -> Mapped downstream route validation
-
-runtime-downstream-routes.test.ts
-  -> DB route config success behavior
-  -> Fallback when DB returns no routes
-  -> Fallback when DB loading fails
-
-observability/metrics.test.ts
-  -> Metrics registry, request metrics, cache metrics, cache status normalization
-
-metrics.route.test.ts
-  -> /metrics endpoint and Prometheus text format
-
-admin-route-config.route.test.ts
-  -> Admin API key guard behavior
-  -> Route config list behavior
-  -> Route config detail behavior
-  -> Route config create behavior
-  -> Route config update behavior
-  -> Route config soft delete behavior
-  -> Route config reload validation behavior
-  -> Validation error behavior
-  -> Duplicate conflict behavior
-  -> Not found behavior
-
-timeout.policy.test.ts
-  -> Timeout policy signal creation, abort behavior, and cleanup
-
-cache.policy.test.ts
-  -> Cache key generation, enabled/disabled resolution, TTL override
-
-rate-limit.policy.test.ts
-  -> Runtime rate limit policy resolution
-
-request-transform.policy.test.ts
-  -> Request header add/remove behavior and immutability
-
-response-transform.policy.test.ts
-  -> Response header add/remove behavior and immutability
-
-retry.policy.test.ts
-  -> Retryable HTTP method checks, retryable status checks, result retry, error retry, retry exhaustion
+request-id middleware
+access-log middleware
+api-key auth middleware
+admin-api-key auth behavior through route tests
+jwt-auth middleware
+metrics middleware
+in-memory rate limit store
+redis rate limit store
+rate limit middleware
+redis response cache store
+request size limit middleware
+security headers middleware
+downstream service error
+environment config parsing
+downstream route config
+route config validation
+database route config mapper
+runtime downstream route loader
+runtime route registry
+metrics registry
+metrics route
+admin route config route
+timeout policy
+cache policy
+rate limit policy
+request transform policy
+response transform policy
+retry policy
 ```
 
-Current integration test coverage:
+Current integration test coverage summary:
 
 ```txt
 GET /health
-  -> 200 OK
-  -> includes x-request-id
-  -> includes basic security headers
-
-GET /api/product-service/health
-  -> 200 OK
-  -> does not require API key
-  -> does not require JWT
-  -> proxies to Product Service /health
-  -> returns x-cache: BYPASS
-  -> includes x-request-id
-  -> includes x-response-time-ms
-  -> does not return rate limit headers
-
 GET /metrics
-  -> 200 OK
-  -> returns Prometheus text format
-
-POST /api/products with oversized content-length
-  -> 413 REQUEST_BODY_TOO_LARGE
-
-GET /api/products without API key
-  -> 401 API_KEY_MISSING
-
-GET /api/products with invalid API key
-  -> 403 API_KEY_INVALID
-
-GET /api/products with valid API key but missing JWT
-  -> 401 JWT_TOKEN_MISSING
-
-GET /api/products with valid API key but invalid JWT
-  -> 403 JWT_TOKEN_INVALID
-
-GET /api/products with valid API key and valid JWT
-  -> 200 and product data
-  -> includes x-cache: BYPASS when no response cache store is configured in test app
-  -> includes rate limit headers
-
-GET /api/products with response cache store configured
-  -> First request returns x-cache: MISS
-  -> Second request returns x-cache: HIT
-  -> Product Service is only called once
-
-GET /api/products when rate limit is exceeded
-  -> 429 TOO_MANY_REQUESTS
-  -> does not call Product Service for the blocked request
-
-GET /api/products with valid API key and valid JWT but downstream unavailable
-  -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
-
-GET /api/products with valid API key and valid JWT but downstream returns 500
-  -> 502 DOWNSTREAM_HTTP_ERROR
-
-GET /api/products with valid API key and valid JWT but downstream returns invalid JSON
-  -> 502 DOWNSTREAM_INVALID_RESPONSE
-
-GET /api/products with valid API key and valid JWT but downstream times out
-  -> 504 DOWNSTREAM_TIMEOUT
+GET /api/product-service/health
+GET /api/products auth failures
+GET /api/products with valid API key and JWT
+GET /api/products response cache MISS/HIT
+GET /api/products rate limit exceeded
+GET /api/products downstream unavailable
+GET /api/products downstream 5xx
+GET /api/products downstream invalid JSON
+GET /api/products downstream timeout
+Runtime registry removal of an existing route causing 404 ROUTE_NOT_FOUND
 ```
 
 Current route management API test coverage:
@@ -4001,16 +3796,20 @@ Current route management API test coverage:
 GET /internal/admin/routes
   -> 401 when admin API key is missing
   -> 403 when admin API key is invalid
-  -> 200 and returns all route configs when admin API key is valid
+  -> 200 and returns non-deleted route configs when admin API key is valid
+
+GET /internal/admin/routes/runtime
+  -> 200 and returns runtime registry snapshot when admin API key is valid
+  -> 401 when admin API key is missing
 
 GET /internal/admin/routes/:id
   -> 200 and returns route config by id
-  -> 404 when route config id does not exist
+  -> 404 when route config id does not exist or is soft-deleted
 
 POST /internal/admin/routes
   -> 201 and creates route config
   -> 400 when route config is invalid
-  -> 409 when method + gatewayPath already exists
+  -> 409 when active method + gatewayPath already exists
   -> 401 when admin API key is missing
 
 PATCH /internal/admin/routes/:id
@@ -4027,10 +3826,14 @@ DELETE /internal/admin/routes/:id
   -> soft-deleted route is hidden from list/detail APIs
 
 POST /internal/admin/routes/reload
-  -> 200 and validates active route configs without applying runtime changes
-  -> returns mode=validation-only
-  -> returns runtimeApplied=false
+  -> 200 and refreshes runtime registry
+  -> returns mode=runtime-registry-refresh
+  -> returns registryApplied=true
+  -> returns runtimeApplied=true
+  -> returns runtimeScope=registered-routes-only
+  -> returns newRoutesRequireRestart=true
   -> returns requiresRestart=true
+  -> returns previousVersion and currentVersion
   -> 401 when admin API key is missing
   -> 403 when admin API key is invalid
 ```
@@ -4050,23 +3853,23 @@ Product Service Docker image build
 
 ---
 
-## 23. Current Design Principles
+## 22. Current Design Principles
 
 PulseGate follows these principles:
 
-### 23.1 Local First
+### 22.1 Local First
 
 The project should run locally before adding cloud deployment.
 
-### 23.2 Cost Safe
+### 22.2 Cost Safe
 
 Early versions should not require paid cloud infrastructure.
 
-### 23.3 Small Steps
+### 22.3 Small Steps
 
 New technologies should be added only after the previous layer is stable.
 
-### 23.4 Clean Structure
+### 22.4 Clean Structure
 
 Each service should separate:
 
@@ -4083,10 +3886,11 @@ API Gateway also separates:
 * Rate limit stores
 * Response cache stores
 * Static downstream route configuration
-* Runtime route config loader
+* Startup route config loader
 * Database route config repository
 * Database route config mapper
 * Gateway Prisma Client wrapper
+* Runtime route registry
 * Route management module
 * Route management repository
 * Route management mapper
@@ -4115,11 +3919,11 @@ CI/CD config is separated under:
 .github/workflows/
 ```
 
-### 23.5 Observable by Design
+### 22.5 Observable by Design
 
 Request ID, structured access logs, response time headers, metrics, Prometheus, and Grafana are part of the Gateway foundation.
 
-### 23.6 Policy-Driven Gateway Behavior
+### 22.6 Policy-Driven Gateway Behavior
 
 Gateway route behavior should be controlled by route policies instead of being hardcoded directly inside route handlers.
 
@@ -4135,7 +3939,7 @@ responseTransform
 retry
 ```
 
-### 23.7 CI-Validated by Design
+### 22.7 CI-Validated by Design
 
 Repository health should be validated automatically before the main branch is considered stable.
 
@@ -4151,25 +3955,25 @@ production build
 Docker image builds
 ```
 
-### 23.8 Behavior First, Infrastructure Later
+### 22.8 Behavior First, Infrastructure Later
 
 Gateway behavior is implemented and tested before adding more advanced distributed systems.
 
-### 23.9 Test Before Scaling
+### 22.9 Test Before Scaling
 
 Core Gateway behavior should be protected by automated tests before infrastructure and distributed systems are added.
 
-### 23.10 Infrastructure After Stable Gateway Behavior
+### 22.10 Infrastructure After Stable Gateway Behavior
 
 Docker, PostgreSQL, Redis, Prisma, Prometheus, and Grafana were added only after routing, auth, downstream resilience, and traffic protection were stable.
 
-### 23.11 Provision Infrastructure Configuration
+### 22.11 Provision Infrastructure Configuration
 
 Prometheus and Grafana configuration should be file-based where possible so the local stack is reproducible.
 
-### 23.12 Static Fallback Before Dynamic Config Rollout
+### 22.12 Static Fallback Before Dynamic Config Rollout
 
-Sprint 8 deliberately keeps a static route config fallback while adding database-backed route config.
+Sprint 8 deliberately kept a static route config fallback while adding database-backed route config.
 
 Reason:
 
@@ -4179,7 +3983,7 @@ Reason:
 * Allow database-backed route config to be rolled out safely.
 * Prepare a stable foundation for future route management APIs.
 
-### 23.13 Database-Backed Config Before Admin UI
+### 22.13 Database-Backed Config Before Admin UI
 
 Route config persistence should exist before building an Admin Dashboard.
 
@@ -4189,9 +3993,9 @@ Reason:
 * API Gateway route behavior should already be config-driven.
 * Admin APIs can build on the existing `gateway.gateway_routes` model.
 
-### 23.14 Backend Route Management Before Admin Dashboard
+### 22.14 Backend Route Management Before Admin Dashboard
 
-Sprint 9 adds backend route management APIs before any Admin Dashboard UI.
+Sprint 9 added backend route management APIs before any Admin Dashboard UI.
 
 Reason:
 
@@ -4201,21 +4005,31 @@ Reason:
 * Backend route management should remain usable without UI.
 * This keeps the product direction stable and incremental.
 
-### 23.15 Restart-Based Reload Before Hot Reload
+### 22.15 Validation Before Runtime Mutation
 
-Sprint 9 kept route config reload restart-based.
+Sprint 10 added reload validation first.
 
-Sprint 10 added a validation-only reload endpoint before true hot reload.
+Sprint 11 kept validation before replacing runtime registry snapshots.
 
 Reason:
 
-* Runtime route hot reload is a separate complex concern.
-* Restart-based reload is predictable and safe.
-* Create/update/enable/disable/delete behavior can be validated without route replacement complexity.
-* Reload validation lets admins check active route config health before restarting.
-* Hot reload can be implemented later as a controlled sprint.
+* Invalid route configs must not corrupt the active runtime route snapshot.
+* Runtime route replacement must be all-or-nothing.
+* The previous runtime snapshot should remain safe when reload validation fails.
+* Admin clients need clear reload success/failure feedback.
 
-### 23.16 Soft Delete Before Hard Delete
+### 22.16 Runtime Registry Before Full Dynamic Routing
+
+Sprint 11 uses runtime registry snapshot replacement before adding a catch-all dynamic router.
+
+Reason:
+
+* Fastify runtime unregister/register is risky.
+* Existing route behavior can be updated safely through registry lookup.
+* Brand-new path support can be added later as a separate controlled routing change.
+* Reload response must be honest about its scope.
+
+### 22.17 Soft Delete Before Hard Delete
 
 Sprint 10 uses soft delete for route config removal.
 
@@ -4228,7 +4042,7 @@ Reason:
 
 ---
 
-## 24. Future Target Architecture
+## 23. Future Target Architecture
 
 Long-term architecture:
 
@@ -4243,6 +4057,8 @@ Client / Frontend / External API Consumer
 
 Gateway Config Layer
   -> Database-backed route configuration
+  -> Runtime route registry
+  -> Catch-all dynamic router later
   -> Route management APIs
   -> Route reload APIs
   -> Service registry
@@ -4291,328 +4107,267 @@ Infrastructure
 
 ---
 
-## 25. Planned Evolution
+## 24. Planned Evolution
 
 ### Sprint 0 - Core Setup & Basic Gateway Flow
-
-Goal:
-
-* Set up repository.
-* Set up TypeScript.
-* Run API Gateway.
-* Run Product Service.
-* Route request from Gateway to Product Service.
-* Add basic request ID, logging, health check, and error handling.
-* Add initial documentation.
 
 Status:
 
 ```txt
 Done
 ```
+
+Completed:
+
+* Repository setup.
+* TypeScript setup.
+* Basic API Gateway.
+* Basic Product Service.
+* Gateway-to-Product Service routing.
+* Request ID foundation.
+* Logging foundation.
+* Health checks.
+* Initial documentation.
 
 ---
 
 ### Sprint 1 - API Gateway Core Features
 
-Goal:
-
-* Normalize downstream service errors.
-* Add downstream request timeout.
-* Add downstream route configuration foundation.
-* Add API key authentication.
-* Add JWT authentication.
-* Add unit tests.
-* Add integration tests.
-
 Status:
 
 ```txt
 Done
 ```
+
+Completed:
+
+* Normalized downstream service errors.
+* Downstream request timeout.
+* Downstream route configuration foundation.
+* API key authentication.
+* JWT authentication.
+* Unit tests.
+* Integration tests.
 
 ---
 
 ### Sprint 2 - Gateway Traffic Protection
 
-Goal:
-
-* Add in-memory rate limiting foundation.
-* Add route-level rate limit configuration.
-* Add rate limit response behavior.
-* Add request size limit.
-* Add basic security headers.
-* Add route-level auth configuration refinement.
-* Add traffic protection tests.
-
 Status:
 
 ```txt
 Done
 ```
+
+Completed:
+
+* In-memory rate limiting foundation.
+* Route-level rate limit configuration.
+* Rate limit response behavior.
+* Request size limit.
+* Basic security headers.
+* Route-level auth configuration refinement.
+* Traffic protection tests.
 
 ---
 
 ### Sprint 3 - Data & Infrastructure Foundation
 
-Goal:
-
-* Add Docker Compose foundation.
-* Add PostgreSQL service.
-* Add Product Service database foundation.
-* Add Prisma.
-* Replace mock product data with database-backed product data.
-* Add Redis service.
-* Upgrade rate limiting from in-memory store to Redis-backed store.
-* Add basic response caching.
-
 Status:
 
 ```txt
 Done
 ```
+
+Completed:
+
+* Docker Compose foundation.
+* PostgreSQL service.
+* Product Service database foundation.
+* Prisma.
+* PostgreSQL-backed product data.
+* Redis service.
+* Redis-backed rate limiting.
+* Redis response caching.
 
 ---
 
 ### Sprint 4 - Observability Foundation
 
-Goal:
-
-* Add structured access logs.
-* Add request latency measurement.
-* Add `x-response-time-ms` response header.
-* Add basic HTTP metrics registry.
-* Add metrics middleware.
-* Add Prometheus-compatible `/metrics` endpoint.
-* Add Prometheus service.
-* Add Grafana service.
-* Add Grafana datasource provisioning.
-* Add dashboard foundation.
-* Add gateway-level observability documentation.
-* Keep advanced OpenTelemetry tracing for a later sprint unless explicitly needed.
-
 Status:
 
 ```txt
 Done
 ```
+
+Completed:
+
+* Structured access logs.
+* Request latency measurement.
+* `x-response-time-ms` response header.
+* Basic HTTP metrics registry.
+* Metrics middleware.
+* Prometheus-compatible `/metrics` endpoint.
+* Prometheus service.
+* Grafana service.
+* Grafana datasource provisioning.
+* Dashboard foundation.
 
 ---
 
 ### Sprint 5 - Advanced Gateway Policies
 
-Goal:
-
-* Review current route configuration model.
-* Add route policy type foundation.
-* Add route config validation improvements.
-* Add per-route timeout policy.
-* Add per-route cache policy.
-* Add per-route rate limit policy.
-* Add request transformation foundation.
-* Add response transformation foundation.
-* Add upstream retry policy foundation.
-* Add tests for each policy behavior.
-* Add integration test coverage for route policy behavior.
-
 Status:
 
 ```txt
 Done
 ```
+
+Completed:
+
+* Route policy type foundation.
+* Route config validation improvements.
+* Per-route timeout policy.
+* Per-route cache policy.
+* Per-route rate limit policy.
+* Request transformation foundation.
+* Response transformation foundation.
+* Upstream retry policy foundation.
+* Tests for policy behavior.
+* Route policy integration coverage.
 
 ---
 
 ### Sprint 6 - CI/CD Foundation
 
-Goal:
-
-* Review current root and workspace package scripts.
-* Add GitHub Actions workflow.
-* Run CI on push to `main`.
-* Run CI on pull request to `main`.
-* Use Node.js 20 in CI.
-* Install dependencies with `npm ci`.
-* Generate Product Service Prisma Client in CI.
-* Run automated tests in CI.
-* Run TypeScript typecheck in CI.
-* Run production build in CI.
-* Validate API Gateway Docker image build in CI.
-* Validate Product Service Docker image build in CI.
-* Add README CI badge.
-* Validate GitHub Actions CI on GitHub.
-* Keep deployment, registry push, and Kubernetes out of scope for this sprint.
-
 Status:
 
 ```txt
 Done
 ```
+
+Completed:
+
+* GitHub Actions workflow.
+* CI on push to `main`.
+* CI on pull request to `main`.
+* Node.js 20 in CI.
+* `npm ci`.
+* Product Service Prisma Client generation.
+* Automated tests.
+* TypeScript typecheck.
+* Production build.
+* API Gateway Docker image build validation.
+* Product Service Docker image build validation.
+* README CI badge.
 
 ---
 
 ### Sprint 7 - Multi-Route Gateway Expansion
 
-Goal:
-
-* Refactor the Product proxy route into a generic downstream proxy foundation.
-* Keep existing Product route behavior stable.
-* Add more than one downstream route config.
-* Add a public Product Service health proxy route.
-* Register multiple downstream routes from `downstreamRouteConfigs`.
-* Prove that protected and public Gateway routes can coexist.
-* Validate tests, typecheck, build, and Docker runtime.
-
-Completed:
-
-* Added generic `downstreamProxyRoute()`.
-* Kept `productProxyRoute()` compatibility wrapper.
-* Added `productServiceHealthRouteConfig`.
-* Added `GET /api/product-service/health -> Product Service /health`.
-* Registered route configs through `downstreamRouteConfigs`.
-* Preserved `GET /api/products` API key, JWT, rate limit, and cache behavior.
-* Added route config tests.
-* Added public route integration test.
-* Validated Docker runtime.
-* Validated product route cache `MISS -> HIT`.
-* Updated test status to 142 passing tests.
-
 Status:
 
 ```txt
 Done
 ```
+
+Completed:
+
+* Generic `downstreamProxyRoute()`.
+* `productProxyRoute()` compatibility wrapper.
+* Product Service health route config.
+* `GET /api/product-service/health`.
+* Multiple downstream route registration.
+* Public route integration test.
+* Protected product route still stable.
+* Docker runtime validation.
 
 ---
 
 ### Sprint 8 - Dynamic Route Config from Database
 
-Goal:
-
-* Design a database model for Gateway route config.
-* Add Prisma model and migration for route config.
-* Seed or bootstrap route config records.
-* Load route config from PostgreSQL.
-* Keep safe fallback to static route config during rollout.
-* Validate database-backed route config.
-* Add tests for database route config loading.
-* Prepare future Admin API route management.
-
-Completed:
-
-* Added API Gateway Prisma schema.
-* Added dedicated PostgreSQL `gateway` schema for API Gateway route config.
-* Added `gateway.gateway_routes` table.
-* Added route config migration.
-* Added idempotent route config seed.
-* Seeded current protected product route.
-* Seeded current public Product Service health proxy route.
-* Added database route config mapper.
-* Added database route config repository.
-* Added Gateway Prisma Client wrapper.
-* Added runtime route config loader.
-* Added safe static route config fallback.
-* Updated `app.ts` to accept resolved runtime route configs.
-* Updated `server.ts` to load runtime route configs before app startup.
-* Added mapper tests.
-* Added fallback loader tests.
-* Updated CI to generate API Gateway Prisma Client.
-* Updated Docker image build to generate API Gateway Prisma Client inside Linux Alpine runtime.
-* Updated Docker Compose API Gateway `DATABASE_URL`.
-* Validated Docker runtime DB route config loading.
-* Validated public route `GET /api/product-service/health`.
-* Validated protected route `GET /api/products` with cache `MISS -> HIT`.
-* Updated test status to 152 passing tests.
-
 Status:
 
 ```txt
 Done
 ```
+
+Completed:
+
+* API Gateway Prisma schema.
+* Dedicated PostgreSQL `gateway` schema.
+* `gateway.gateway_routes` table.
+* Route config migration.
+* Idempotent route config seed.
+* Protected product route in DB.
+* Public Product Service health proxy route in DB.
+* Database route config mapper.
+* Database route config repository.
+* Gateway Prisma Client wrapper.
+* Startup runtime route config loader.
+* Safe static route config fallback.
+* Docker runtime DB route config validation.
+* API Gateway Prisma Client generation in CI and Docker.
 
 ---
 
 ### Sprint 9 - Route Management API Foundation
 
-Goal:
-
-* Add internal/admin route config read API.
-* Add route config create/update foundation.
-* Add route config enable/disable behavior.
-* Add validation before persisting route data.
-* Keep runtime reload strategy simple.
-* Continue avoiding Admin Dashboard until backend route management behavior is stable.
-
-Completed:
-
-* Added admin API key environment config.
-* Added `ADMIN_API_KEY_HEADER`.
-* Added `ADMIN_API_KEY`.
-* Added admin API key middleware.
-* Added `GET /internal/admin/routes`.
-* Added `GET /internal/admin/routes/:id`.
-* Added `POST /internal/admin/routes`.
-* Added `PATCH /internal/admin/routes/:id`.
-* Added route management types.
-* Added route management mapper.
-* Added route management repository.
-* Added Prisma-backed route management repository.
-* Added route config list behavior.
-* Added route config detail behavior.
-* Added route config create behavior.
-* Added route config update behavior.
-* Added enable/disable behavior through PATCH.
-* Reused `validateDownstreamRoutes()` before create.
-* Reused `validateDownstreamRoutes()` before update.
-* Added duplicate `method + gatewayPath` check before create.
-* Added duplicate `method + gatewayPath` conflict check before update.
-* Added route management API tests.
-* Added admin API key env tests.
-* Updated `.env.example`.
-* Validated create route API in Docker runtime.
-* Validated duplicate create returns `409 ROUTE_CONFIG_ALREADY_EXISTS`.
-* Validated update route API in Docker runtime.
-* Validated disabled route returns `404` after API Gateway restart.
-* Cleaned temporary test route from database.
-* Confirmed clean seeded DB has 2 route configs.
-* Updated test status to 176 passing tests.
-
 Status:
 
 ```txt
 Done
 ```
+
+Completed:
+
+* Admin API key environment config.
+* Admin API key middleware.
+* `GET /internal/admin/routes`.
+* `GET /internal/admin/routes/:id`.
+* `POST /internal/admin/routes`.
+* `PATCH /internal/admin/routes/:id`.
+* Route management types.
+* Route management mapper.
+* Route management repository.
+* Prisma-backed route management repository.
+* Route config list/detail/create/update behavior.
+* Enable/disable behavior through PATCH.
+* Validation before create/update.
+* Duplicate active route checks.
+* Route management API tests.
+* Docker runtime validation.
 
 ---
 
 ### Sprint 10 - Route Management Hardening
 
-Goal:
+Status:
 
-* Add route config soft delete strategy.
-* Add basic route management audit metadata fields.
-* Add active-route unique strategy.
-* Add safe reload validation endpoint.
-* Keep true runtime hot reload deferred until the backend behavior is safer.
+```txt
+Done
+```
 
 Completed:
 
-* Added `created_by` and `updated_by`.
-* Added `deleted_at` and `deleted_by`.
-* Added `DELETE /internal/admin/routes/:id`.
-* Implemented soft delete by setting `enabled=false`, `deleted_at`, `deleted_by`, and `updated_by`.
-* Updated admin list/detail/update/delete behavior to exclude soft-deleted route configs.
-* Updated duplicate checks to ignore soft-deleted routes.
-* Replaced full method + gatewayPath uniqueness with an active-route partial unique index.
-* Updated runtime loader to load only enabled and non-deleted route configs.
+* `created_by` and `updated_by`.
+* `deleted_at` and `deleted_by`.
+* `DELETE /internal/admin/routes/:id`.
+* Soft delete by setting `enabled=false`, `deleted_at`, `deleted_by`, and `updated_by`.
+* Admin list/detail/update/delete soft delete filtering.
+* Duplicate checks ignoring soft-deleted routes.
+* Active-route partial unique index.
+* Runtime loader loads only enabled and non-deleted route configs.
 * Updated seed behavior after removing Prisma compound unique upsert.
-* Added optional `x-admin-actor` support.
-* Added `POST /internal/admin/routes/reload`.
-* Implemented reload validation as `validation-only`.
-* Returned `runtimeApplied=false` and `requiresRestart=true`.
-* Added tests for soft delete, hidden deleted routes, reload validation, and admin auth behavior.
-* Validated Docker runtime for soft delete, recreate-after-delete, and reload validation.
-* Updated test status to 176 passing tests.
+* Optional `x-admin-actor` support.
+* `POST /internal/admin/routes/reload`.
+* Reload validation response.
+* Tests for soft delete, hidden deleted routes, reload validation, and admin auth behavior.
+* Docker runtime validation for soft delete, recreate-after-delete, and reload validation.
+
+---
+
+### Sprint 11 - Route Runtime Reload / Admin Hardening Foundation
 
 Status:
 
@@ -4620,22 +4375,81 @@ Status:
 Done
 ```
 
+Completed:
+
+* Added runtime route registry foundation.
+* Added `apps/api-gateway/src/runtime/route-runtime-registry.ts`.
+* Added runtime registry tests.
+* Added runtime registry snapshot model.
+* Added version tracking.
+* Added loaded timestamp tracking.
+* Added route count tracking.
+* Added cloned route snapshots to avoid external mutation.
+* Added `findRoute(method, gatewayPath)`.
+* Added `replaceRoutes(routes)`.
+* Added validation before replacing runtime registry routes.
+* Preserved previous runtime snapshot when replacement validation fails.
+* Wired runtime registry into API Gateway app builder.
+* Created default runtime registry from resolved startup route configs.
+* Added test injection support for route runtime registry.
+* Added `GET /internal/admin/routes/runtime`.
+* Protected runtime status endpoint with admin API key.
+* Updated `POST /internal/admin/routes/reload` to refresh runtime registry.
+* Reload now reads active non-deleted route configs from PostgreSQL.
+* Reload maps active DB route records to downstream route configs.
+* Reload validates mapped downstream route configs before applying to registry.
+* Reload replaces registry snapshot when validation succeeds.
+* Reload returns previous and current runtime registry versions.
+* Reload returns runtime registry loaded timestamp.
+* Reload returns route count and route summaries.
+* Downstream proxy now resolves latest route config from runtime registry per request.
+* Downstream proxy pre-handler now uses latest runtime policy snapshot.
+* Downstream proxy handler now uses latest runtime route config.
+* Route disable/enable changes can affect existing registered routes after reload without restarting API Gateway.
+* Route policy changes can affect existing registered routes after reload without restarting API Gateway.
+* Updated reload response metadata to report partial runtime apply.
+* Reload now returns `runtimeApplied: true` when registry replacement succeeds.
+* Reload now returns `runtimeScope: registered-routes-only`.
+* Reload now returns `newRoutesRequireRestart: true`.
+* Reload keeps `requiresRestart: true` because brand-new gateway paths still require restart.
+* Avoided unsafe Fastify unregister/register behavior.
+* Confirmed brand-new gateway paths are not fully runtime-applied yet.
+* Validated disabling an existing route, reloading, and receiving `404 ROUTE_NOT_FOUND` without restarting API Gateway.
+* Validated enabling the route again, reloading, and receiving `200 OK` without restarting API Gateway.
+* Updated test status to 28 test files and 189 tests.
+
 ---
 
-### Sprint 11 - Recommended Next
+### Sprint 12 - Recommended Next
 
 Recommended goal:
 
-* Add real runtime route reload only if it can be done safely.
-* Or add route management audit log table before true hot reload.
-* Or start Admin Dashboard foundation after backend route management hardening is stable.
-
-Recommended direction:
-
 ```txt
-Route Management Audit Log Foundation before Admin Dashboard UI
+Full Dynamic Routing Foundation or Admin Dashboard Foundation
 ```
 
+Recommended backend-first option:
+
+* Add catch-all dynamic router so brand-new gateway paths can be resolved from runtime registry without restart.
+* Keep existing registered route behavior stable.
+* Keep validation before runtime mutation.
+* Add tests for new route path runtime apply.
+* Add Docker validation for creating a brand-new path, reloading, and calling it without restart.
+
+Recommended product-facing option:
+
+* Start small Admin Dashboard foundation after backend docs are finalized.
+* Use existing internal/admin route management APIs.
+* Show route list.
+* Show runtime registry status.
+* Show reload action.
+* Keep UI limited and backend-safe.
+
+Recommended architecture-safe option:
+
+* Add route management audit log table before Admin Dashboard.
+* Persist admin actions more explicitly than basic route metadata.
+* Prepare for product-like admin history.
 
 ---
 
