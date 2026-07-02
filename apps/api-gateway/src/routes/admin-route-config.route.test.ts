@@ -772,4 +772,70 @@ it("should reject route config update request when admin API key is missing", as
       },
     });
   });
+
+    it("should validate route configs for reload without applying runtime changes", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/internal/admin/routes/reload",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    expect(response.json()).toMatchObject({
+      data: {
+        mode: "validation-only",
+        runtimeApplied: false,
+        requiresRestart: true,
+        routeCount: 1,
+        routes: [
+          {
+            method: "GET",
+            gatewayPath: "/api/products",
+            enabled: true,
+            priority: 100,
+          },
+        ],
+      },
+    });
+  });
+
+  it("should reject route config reload validation when admin API key is missing", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/internal/admin/routes/reload",
+    });
+
+    expect(response.statusCode).toBe(401);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "ADMIN_API_KEY_MISSING",
+        message: "Admin API key is required",
+        requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should reject route config reload validation when admin API key is invalid", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/internal/admin/routes/reload",
+      headers: {
+        "x-admin-api-key": "wrong-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "ADMIN_API_KEY_INVALID",
+        message: "Admin API key is invalid",
+        requestId: expect.any(String),
+      },
+    });
+  });
 });

@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { mapGatewayRouteRecordsToDownstreamRouteConfigs } from "../config/database-route-config.mapper.js";
 import { gatewayPrisma } from "../database/gateway-prisma.js";
 import { createAdminApiKeyAuthMiddleware } from "../middlewares/admin-api-key-auth.middleware.js";
 import {
@@ -141,6 +142,49 @@ export async function adminRouteConfigRoute(
       return reply.status(201).send({
         data: mapRouteConfigReadModelToResponse(createdRoute),
       });
+    },
+  );
+
+    app.post(
+    "/internal/admin/routes/reload",
+    {
+      preHandler: requireAdminApiKey,
+    },
+    async (request, reply) => {
+      const routes = await repository.listRoutes();
+
+      try {
+        const activeRoutes = routes.filter(
+          (route) => route.enabled && !route.deletedAt,
+        );
+
+        const validatedRouteConfigs =
+          mapGatewayRouteRecordsToDownstreamRouteConfigs(activeRoutes);
+
+        return {
+          data: {
+            mode: "validation-only",
+            runtimeApplied: false,
+            requiresRestart: true,
+            routeCount: validatedRouteConfigs.length,
+            routes: activeRoutes.map((route) => ({
+              method: route.method,
+              gatewayPath: route.gatewayPath,
+              enabled: route.enabled,
+              priority: route.priority,
+            })),
+          },
+        };
+      } catch (error) {
+        return reply.status(400).send({
+          error: {
+            code: "ROUTE_CONFIG_RELOAD_VALIDATION_FAILED",
+            message: "Route config reload validation failed",
+            details: getErrorMessage(error),
+            requestId: request.id,
+          },
+        });
+      }
     },
   );
 
