@@ -773,7 +773,7 @@ it("should reject route config update request when admin API key is missing", as
     });
   });
 
-    it("should validate route configs for reload without applying runtime changes", async () => {
+    it("should refresh runtime registry and report registered-route runtime apply", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/internal/admin/routes/reload",
@@ -788,7 +788,9 @@ it("should reject route config update request when admin API key is missing", as
         mode: "runtime-registry-refresh",
         registryAvailable: true,
         registryApplied: true,
-        runtimeApplied: false,
+        runtimeApplied: true,
+        runtimeScope: "registered-routes-only",
+        newRoutesRequireRestart: true,
         requiresRestart: true,
         previousVersion: 1,
         currentVersion: 2,
@@ -835,7 +837,12 @@ it("should reject route config update request when admin API key is missing", as
     expect(reloadResponse.json()).toMatchObject({
       data: {
         mode: "runtime-registry-refresh",
+        registryAvailable: true,
         registryApplied: true,
+        runtimeApplied: true,
+        runtimeScope: "registered-routes-only",
+        newRoutesRequireRestart: true,
+        requiresRestart: true,
         previousVersion: 1,
         currentVersion: 2,
         routeCount: 1,

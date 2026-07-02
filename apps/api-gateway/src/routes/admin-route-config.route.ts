@@ -211,7 +211,11 @@ export async function adminRouteConfigRoute(
             mode: "runtime-registry-refresh",
             registryAvailable: Boolean(options.routeRuntimeRegistry),
             registryApplied: Boolean(registryApplyResult),
-            runtimeApplied: false,
+            runtimeApplied: Boolean(registryApplyResult),
+            runtimeScope: registryApplyResult
+              ? "registered-routes-only"
+              : "none",
+            newRoutesRequireRestart: true,
             requiresRestart: true,
             previousVersion: registryApplyResult?.previousVersion ?? null,
             currentVersion: registryApplyResult?.currentVersion ?? null,
