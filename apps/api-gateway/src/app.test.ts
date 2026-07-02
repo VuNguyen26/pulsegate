@@ -11,9 +11,14 @@ import {
 
 import { buildApiGatewayApp } from "./app.js";
 import type { ResponseCacheStore } from "./cache/redis-response-cache-store.js";
+import {
+  productProductsRouteConfig,
+  productServiceHealthRouteConfig,
+} from "./config/downstream-routes.js";
 import { env } from "./config/env.js";
 import { securityHeaders } from "./middlewares/security-headers.middleware.js";
 import { InMemoryRateLimitStore } from "./rate-limit/in-memory-rate-limit-store.js";
+import { createRouteRuntimeRegistry } from "./runtime/route-runtime-registry.js";
 
 let app: FastifyInstance;
 
@@ -334,6 +339,73 @@ describe("API Gateway app", () => {
     expect(response.headers["x-ratelimit-limit"]).toBe("5");
     expect(response.headers["x-ratelimit-remaining"]).toBe("4");
     expect(response.headers["x-ratelimit-reset"]).toBeDefined();
+  });
+
+    it("should use runtime registry snapshot when handling product route traffic", async () => {
+    await app.close();
+
+    const routeRuntimeRegistry = createRouteRuntimeRegistry({
+      initialRoutes: [productProductsRouteConfig, productServiceHealthRouteConfig],
+    });
+
+    app = await buildApiGatewayApp({
+      logger: false,
+      productProxy: {
+        rateLimitStore: new InMemoryRateLimitStore(),
+      },
+      routeRuntimeRegistry,
+    });
+
+    const mockProductsResponse = {
+      data: [
+        {
+          id: "prod_001",
+          name: "Mechanical Keyboard",
+          price: 120,
+        },
+      ],
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(mockProductsResponse), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      }),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const headers = await createValidAuthHeaders();
+
+    const firstResponse = await app.inject({
+      method: "GET",
+      url: "/api/products",
+      headers,
+    });
+
+    expect(firstResponse.statusCode).toBe(200);
+    expect(firstResponse.json()).toEqual(mockProductsResponse);
+
+    routeRuntimeRegistry.replaceRoutes([productServiceHealthRouteConfig]);
+
+    const secondResponse = await app.inject({
+      method: "GET",
+      url: "/api/products",
+      headers,
+    });
+
+    expect(secondResponse.statusCode).toBe(404);
+    expect(secondResponse.json()).toMatchObject({
+      error: {
+        code: "ROUTE_NOT_FOUND",
+        message: "Route not found",
+        requestId: expect.any(String),
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("should return cached products on cache hit when response cache store is configured", async () => {

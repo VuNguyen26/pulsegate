@@ -1,4 +1,9 @@
-import type { FastifyInstance, FastifyReply } from "fastify";
+import type {
+  FastifyInstance,
+  FastifyReply,
+  FastifyRequest,
+  HookHandlerDoneFunction,
+} from "fastify";
 
 import type { ResponseCacheStore } from "../cache/redis-response-cache-store.js";
 import {
@@ -26,6 +31,7 @@ import {
 import { createDownstreamTimeout } from "../policies/timeout.policy.js";
 import { RedisRateLimitStore } from "../rate-limit/redis-rate-limit-store.js";
 import { getRedisClient } from "../redis/redis-client.js";
+import type { RouteRuntimeRegistry } from "../runtime/route-runtime-registry.js";
 
 export { buildResponseCacheKey } from "../policies/cache.policy.js";
 
@@ -37,6 +43,7 @@ export type ProductProxyRouteOptions = {
 
 export type DownstreamProxyRouteOptions = ProductProxyRouteOptions & {
   routeConfigs?: readonly DownstreamRouteConfig[];
+  routeRuntimeRegistry?: RouteRuntimeRegistry;
 };
 
 function applyHeadersToReply(
@@ -90,6 +97,139 @@ function buildDownstreamInvalidResponseMessage(
   return `${toServiceDisplayName(routeConfig.serviceName)} returned an invalid response`;
 }
 
+function buildRouteNotFoundResponse(requestId: string) {
+  return {
+    error: {
+      code: "ROUTE_NOT_FOUND",
+      message: "Route not found",
+      requestId,
+    },
+  };
+}
+
+function resolveRuntimeRouteConfig(
+  registeredRouteConfig: DownstreamRouteConfig,
+  routeRuntimeRegistry?: RouteRuntimeRegistry,
+): DownstreamRouteConfig | null {
+  if (!routeRuntimeRegistry) {
+    return registeredRouteConfig;
+  }
+
+  return routeRuntimeRegistry.findRoute(
+    registeredRouteConfig.method,
+    registeredRouteConfig.gatewayPath,
+  );
+}
+
+type RuntimePreHandlerMiddleware = (
+  request: FastifyRequest,
+  reply: FastifyReply,
+  done: HookHandlerDoneFunction,
+) => void | Promise<void>;
+
+function isPromiseLike(value: unknown): value is PromiseLike<void> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof (value as PromiseLike<void>).then === "function"
+  );
+}
+
+function runRuntimePreHandler(
+  middleware: RuntimePreHandlerMiddleware,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const finish: HookHandlerDoneFunction = (error?: Error) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    };
+
+    try {
+      const result = middleware(request, reply, finish);
+
+      if (isPromiseLike(result)) {
+        result.then(() => finish(), finish);
+        return;
+      }
+
+      if (reply.sent) {
+        finish();
+      }
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+function createRuntimePolicyPreHandler(options: {
+  registeredRouteConfig: DownstreamRouteConfig;
+  routeRuntimeRegistry?: RouteRuntimeRegistry;
+  rateLimitStore: RateLimitStore;
+}) {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    const runtimeRouteConfig = resolveRuntimeRouteConfig(
+      options.registeredRouteConfig,
+      options.routeRuntimeRegistry,
+    );
+
+    if (!runtimeRouteConfig) {
+      return reply.status(404).send(buildRouteNotFoundResponse(request.id));
+    }
+
+    const routePolicies = runtimeRouteConfig.policies;
+
+    if (routePolicies.auth.requireApiKey) {
+      await runRuntimePreHandler(apiKeyAuthMiddleware, request, reply);
+
+      if (reply.sent) {
+        return;
+      }
+    }
+
+    const rateLimit = resolveRouteRateLimitPolicy({
+      policy: routePolicies.rateLimit,
+      routePath: runtimeRouteConfig.gatewayPath,
+      identityType: "api-key",
+      store: options.rateLimitStore,
+    });
+
+    if (rateLimit.enabled) {
+      const rateLimitMiddleware = createRateLimitMiddleware({
+        limit: rateLimit.limit,
+        windowMs: rateLimit.windowMs,
+        routePath: rateLimit.routePath,
+        identityType: rateLimit.identityType,
+        store: rateLimit.store,
+      });
+
+      await runRuntimePreHandler(rateLimitMiddleware, request, reply);
+
+      if (reply.sent) {
+        return;
+      }
+    }
+
+    if (routePolicies.auth.requireJwt) {
+      await runRuntimePreHandler(jwtAuthMiddleware, request, reply);
+    }
+  };
+}
+
 export async function downstreamProxyRoute(
   app: FastifyInstance,
   options: DownstreamProxyRouteOptions = {},
@@ -99,41 +239,35 @@ export async function downstreamProxyRoute(
   const rateLimitStore =
     options.rateLimitStore ?? new RedisRateLimitStore(getRedisClient());
 
-  for (const routeConfig of routeConfigs) {
-    const routePolicies = routeConfig.policies;
-
-    const rateLimit = resolveRouteRateLimitPolicy({
-      policy: routePolicies.rateLimit,
-      routePath: routeConfig.gatewayPath,
-      identityType: "api-key",
-      store: rateLimitStore,
-    });
-
-    const responseCache = resolveRouteCachePolicy({
-      policy: routePolicies.cache,
-      store: options.responseCacheStore,
-      ttlSecondsOverride: options.responseCacheTtlSeconds,
-    });
-
+  for (const registeredRouteConfig of routeConfigs) {
     app.route({
-      method: routeConfig.method,
-      url: routeConfig.gatewayPath,
+      method: registeredRouteConfig.method,
+      url: registeredRouteConfig.gatewayPath,
       preHandler: [
-        ...(routePolicies.auth.requireApiKey ? [apiKeyAuthMiddleware] : []),
-        ...(rateLimit.enabled
-          ? [
-              createRateLimitMiddleware({
-                limit: rateLimit.limit,
-                windowMs: rateLimit.windowMs,
-                routePath: rateLimit.routePath,
-                identityType: rateLimit.identityType,
-                store: rateLimit.store,
-              }),
-            ]
-          : []),
-        ...(routePolicies.auth.requireJwt ? [jwtAuthMiddleware] : []),
+        createRuntimePolicyPreHandler({
+          registeredRouteConfig,
+          routeRuntimeRegistry: options.routeRuntimeRegistry,
+          rateLimitStore,
+        }),
       ],
       handler: async (request, reply) => {
+        const routeConfig = resolveRuntimeRouteConfig(
+          registeredRouteConfig,
+          options.routeRuntimeRegistry,
+        );
+
+        if (!routeConfig) {
+          return reply.status(404).send(buildRouteNotFoundResponse(request.id));
+        }
+
+        const routePolicies = routeConfig.policies;
+
+        const responseCache = resolveRouteCachePolicy({
+          policy: routePolicies.cache,
+          store: options.responseCacheStore,
+          ttlSecondsOverride: options.responseCacheTtlSeconds,
+        });
+
         const cacheKey = buildResponseCacheKey(
           routeConfig.method,
           routeConfig.gatewayPath,

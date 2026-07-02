@@ -95,6 +95,7 @@ export async function buildApiGatewayApp(
       responseCacheStore: new RedisResponseCacheStore(redisClient),
     }),
     routeConfigs: resolvedRouteConfigs,
+    routeRuntimeRegistry,
   };
 
   const routeManagementOptions: AdminRouteConfigRouteOptions = {
