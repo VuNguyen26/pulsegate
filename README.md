@@ -131,84 +131,89 @@ Long-term goals:
 
 ## Current Stable Architecture
 
+```mermaid
+flowchart LR
+    Client["Client / API Consumer"]:::client --> Gateway["PulseGate API Gateway<br/>Port 3000"]:::gateway
+    AdminClient["Admin Client / Future Admin Dashboard"]:::client --> AdminAPI["Internal Admin APIs<br/>/internal/admin/routes"]:::admin
+
+    Gateway --> Loader["Startup Route Config Loader"]:::runtime
+    Loader --> GatewayDB[("PostgreSQL gateway schema<br/>gateway_routes")]:::database
+    Loader --> StaticFallback["Static Route Config Fallback"]:::fallback
+    Loader --> Registry["Runtime Route Registry<br/>version / loadedAt / routeCount / routes"]:::runtime
+
+    Gateway --> GatewayMW["Request ID<br/>Security Headers<br/>Request Size Limit<br/>Access Logs + Metrics"]:::gateway
+    GatewayMW --> Registry
+
+    Registry --> ProductRoute["Protected Route<br/>GET /api/products"]:::route
+    Registry --> HealthRoute["Public Route<br/>GET /api/product-service/health"]:::route
+
+    ProductRoute --> ApiKey["API Key Auth"]:::security
+    ApiKey --> RateLimit["Redis Rate Limit"]:::redis
+    RateLimit --> Jwt["JWT Auth"]:::security
+    Jwt --> Cache{"Redis Response Cache"}:::redis
+
+    Cache -->|HIT| CachedResponse["Cached Product Response<br/>x-cache: HIT"]:::response
+    Cache -->|MISS| PolicyFlow["Route Policies<br/>Timeout / Transform / Retry"]:::policy
+    PolicyFlow --> ProductService["Product Service<br/>Port 3001"]:::service
+    ProductService --> ProductDB[("PostgreSQL public schema<br/>products")]:::database
+    ProductDB --> ProductService
+    ProductService --> StoreCache["Store Response in Redis<br/>x-cache: MISS"]:::redis
+
+    HealthRoute --> HealthPolicy["Timeout Policy<br/>No Auth / No Rate Limit / No Cache"]:::policy
+    HealthPolicy --> ProductHealth["Product Service<br/>GET /health"]:::service
+    ProductHealth --> HealthResponse["Health Response<br/>x-cache: BYPASS"]:::response
+
+    AdminAPI --> AdminAuth["Admin API Key Auth<br/>x-admin-api-key"]:::security
+    AdminAuth --> RouteManagement["Route Management Module<br/>List / Detail / Create / Update / Soft Delete"]:::admin
+    RouteManagement --> RouteValidation["Route Config Validation<br/>validateDownstreamRoutes"]:::policy
+    RouteManagement --> GatewayDB
+
+    AdminAuth --> RuntimeStatus["Runtime Registry Status<br/>GET /internal/admin/routes/runtime"]:::runtime
+    RuntimeStatus --> Registry
+
+    AdminAuth --> Reload["Runtime Registry Reload<br/>POST /internal/admin/routes/reload"]:::runtime
+    Reload --> GatewayDB
+    Reload --> RouteValidation
+    Reload --> Registry
+
+    ProductRoute --> Metrics["Prometheus Metrics<br/>/metrics"]:::observability
+    HealthRoute --> Metrics
+    AdminAPI --> Metrics
+    CachedResponse --> Client
+    StoreCache --> Client
+    HealthResponse --> Client
+    RouteManagement --> AdminClient
+
+    Prometheus["Prometheus<br/>Port 9090"]:::observability -->|Scrapes| Metrics
+    Grafana["Grafana<br/>Port 3002"]:::observability -->|Reads datasource| Prometheus
+
+    CI["GitHub Actions CI<br/>tests / typecheck / build / Docker builds"]:::ci --> Gateway
+    CI --> ProductService
+
+    classDef client fill:#E0F2FE,stroke:#0284C7,color:#0F172A;
+    classDef gateway fill:#DBEAFE,stroke:#2563EB,color:#0F172A;
+    classDef route fill:#F3E8FF,stroke:#9333EA,color:#111827;
+    classDef policy fill:#EDE9FE,stroke:#7C3AED,color:#111827;
+    classDef security fill:#FEF3C7,stroke:#D97706,color:#111827;
+    classDef redis fill:#FEE2E2,stroke:#DC2626,color:#111827;
+    classDef database fill:#DCFCE7,stroke:#16A34A,color:#111827;
+    classDef runtime fill:#FCE7F3,stroke:#DB2777,color:#111827;
+    classDef admin fill:#FFE4E6,stroke:#E11D48,color:#111827;
+    classDef service fill:#F0FDFA,stroke:#0D9488,color:#111827;
+    classDef response fill:#ECFCCB,stroke:#65A30D,color:#111827;
+    classDef observability fill:#FFEDD5,stroke:#EA580C,color:#111827;
+    classDef fallback fill:#E5E7EB,stroke:#4B5563,color:#111827;
+    classDef ci fill:#EEF2FF,stroke:#4F46E5,color:#111827;
+```
+
+Current runtime rule:
+
 ```txt
-Client
-  -> API Gateway :3000
-    -> Startup route config loading
-      -> Try PostgreSQL gateway.gateway_routes
-      -> Load enabled=true and deleted_at IS NULL routes
-      -> Map DB rows to DownstreamRouteConfig[]
-      -> Validate route configs
-      -> If DB config is valid and not empty:
-           -> Use DB-backed route configs
-      -> If DB loading fails or returns no active routes:
-           -> Fall back to static downstreamRouteConfigs
+Already registered Gateway paths
+  -> Can use updated route config after POST /internal/admin/routes/reload
 
-    -> Runtime route registry
-      -> Create initial runtime snapshot from resolved startup routes
-      -> Snapshot fields:
-           -> version
-           -> loadedAt
-           -> routeCount
-           -> routes
-      -> Downstream proxy resolves latest route config from registry per request
-      -> Admin reload can replace the registry snapshot after validation
-
-    -> Request ID handling
-    -> Structured access log timer
-    -> Metrics timer
-    -> Basic security headers
-    -> Request size limit
-
-    -> Protected route: GET /api/products
-      -> API key authentication
-      -> Redis-backed rate limiting
-      -> JWT authentication
-      -> Redis response cache
-      -> Route policy behavior
-      -> Product Service :3001 /products
-      -> PostgreSQL public.products
-
-    -> Public route: GET /api/product-service/health
-      -> No API key
-      -> No JWT
-      -> No Redis rate limit
-      -> No Redis response cache
-      -> Product Service :3001 /health
-
-    -> Internal/admin route management APIs
-      -> Admin API key authentication
-      -> Route config list/detail/create/update/delete
-      -> Route config soft delete
-      -> Runtime registry status
-      -> Runtime registry reload
-
-PostgreSQL :5432
-  -> public schema
-       -> Product Service data
-       -> public.products
-  -> gateway schema
-       -> API Gateway route config
-       -> gateway.gateway_routes
-
-Redis :6379
-  -> rate limit counters
-  -> response cache payloads
-
-Prometheus :9090
-  -> scrapes API Gateway /metrics
-
-Grafana :3002
-  -> reads Prometheus datasource
-  -> displays PulseGate API Gateway Overview dashboard
-
-GitHub Actions
-  -> npm ci
-  -> Prisma generate
-  -> tests
-  -> typecheck
-  -> build
-  -> Docker image build validation
+Brand-new Gateway paths
+  -> Still require API Gateway restart until a future catch-all dynamic router or controlled route registration strategy exists
 ```
 
 ---
