@@ -3559,13 +3559,13 @@ Current table:
 gateway.gateway_routes
 ```
 
-Current route identity:
+Current route identity after Sprint 10:
 
 ```txt
-method + gateway_path
+active method + gateway_path where deleted_at IS NULL
 ```
 
-Current important fields:
+Current important fields after Sprint 10:
 
 ```txt
 service_name
@@ -3592,15 +3592,29 @@ response_remove_headers
 retry_enabled
 retry_attempts
 retry_on_statuses
+created_by
+updated_by
+deleted_at
+deleted_by
 created_at
 updated_at
 ```
 
-Current constraints and indexes:
+Current constraints and indexes after Sprint 10:
 
 ```txt
-unique(method, gateway_path)
+partial unique index on (method, gateway_path) where deleted_at IS NULL
+index(deleted_at)
+index(enabled, deleted_at, priority)
 index(enabled, priority)
+```
+
+Sprint 10 note:
+
+```txt
+The original full unique constraint on method + gateway_path was replaced by a PostgreSQL partial unique index.
+
+This allows historical soft-deleted route records to remain in the database while still preventing duplicate active routes.
 ```
 
 Status:
@@ -3620,7 +3634,7 @@ Reason:
 * The Gateway needs initial database route config records.
 * Existing stable routes should continue working after switching to DB-backed route config.
 * Seed data makes local Docker validation repeatable.
-* Idempotent `upsert` behavior prevents duplicate routes when the seed command is run multiple times.
+* Idempotent active-route update/create behavior prevents duplicate active routes when the seed command is run multiple times.
 * The database route config should start by matching the current stable static routes.
 
 Seeded routes:
@@ -3651,12 +3665,20 @@ $env:DATABASE_URL="postgresql://pulsegate:pulsegate_password@localhost:5432/puls
 npm run db:seed -w apps/api-gateway
 ```
 
-Current seed result:
+Current seed result after Sprint 10:
 
 ```txt
-Seeded 2 gateway route config(s).
+Seeded 2 active gateway route config(s).
 GET /api/products -> http://product-service:3001/products | enabled=true
 GET /api/product-service/health -> http://product-service:3001/health | enabled=true
+```
+
+Sprint 10 note:
+
+```txt
+The API Gateway seed script no longer depends on Prisma compound upsert for method + gateway_path.
+
+Because active-route uniqueness is now enforced by a PostgreSQL partial unique index, the seed script finds an active route by method + gatewayPath + deletedAt null, then updates or creates as needed.
 ```
 
 Status:
@@ -3791,7 +3813,7 @@ Current startup flow:
 API Gateway process starts
   -> loadRuntimeDownstreamRouteConfigs()
     -> try loadDatabaseDownstreamRouteConfigs(gatewayPrisma)
-      -> query enabled records from gateway.gateway_routes
+      -> query enabled records from gateway.gateway_routes where deleted_at is null
       -> order by priority ASC and gatewayPath ASC
       -> map records into DownstreamRouteConfig[]
       -> validate mapped route configs
@@ -4191,13 +4213,15 @@ ADMIN_API_KEY_HEADER=x-admin-api-key
 ADMIN_API_KEY=local-admin-key
 ```
 
-Current protected internal/admin APIs:
+Current protected internal/admin APIs after Sprint 10:
 
 ```txt
 GET /internal/admin/routes
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
+DELETE /internal/admin/routes/:id
+POST /internal/admin/routes/reload
 ```
 
 Current behavior:
@@ -4617,3 +4641,498 @@ Automatic deployment
 Status:
 
 Accepted.
+
+---
+
+## 2026-07-02 - Keep Sprint 10 Focused on Route Management Hardening
+
+Decision:
+
+Keep Sprint 10 focused on backend Route Management Hardening instead of starting the Admin Dashboard immediately.
+
+Reason:
+
+* Sprint 9 created the route management API foundation, but the backend still needed stronger lifecycle behavior.
+* Route delete behavior should be designed before a UI exposes route deletion to admins.
+* Route reload behavior should be explicitly validated before attempting runtime hot reload.
+* Audit metadata should exist before stronger admin workflows are added.
+* Starting Admin Dashboard too early would hide backend lifecycle gaps behind UI work.
+* The project should continue to grow like a product-like API Gateway through stable backend checkpoints.
+
+Included in Sprint 10:
+
+```txt
+Route config soft delete
+Route lifecycle metadata
+Active-route uniqueness with PostgreSQL partial unique index
+Admin route delete endpoint
+Reload validation endpoint
+Runtime loader filtering for non-deleted active routes
+Route management tests
+Docker runtime validation
+Documentation update
+```
+
+Not included in Sprint 10:
+
+```txt
+Admin Dashboard UI
+Developer Portal UI
+True runtime hot reload
+Route management audit log table
+Admin users and RBAC
+Kafka
+RabbitMQ
+Kubernetes
+OpenTelemetry
+Loki
+k6
+Docker image registry push
+Production cloud deployment
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Use Soft Delete for Gateway Route Config
+
+Decision:
+
+Use soft delete instead of hard delete for Gateway route config records.
+
+Implemented endpoint:
+
+```txt
+DELETE /internal/admin/routes/:id
+```
+
+Soft delete behavior:
+
+```txt
+Find active route by id
+If route does not exist or is already soft-deleted:
+  -> 404 ROUTE_CONFIG_NOT_FOUND
+
+If route exists:
+  -> enabled = false
+  -> deleted_at = current timestamp
+  -> deleted_by = admin actor
+  -> updated_by = admin actor
+  -> return the deleted route config response
+```
+
+Reason:
+
+* Route config records are operationally important and should not disappear immediately.
+* Soft delete preserves history for debugging and future audit workflows.
+* Deleted route configs should no longer be active at runtime.
+* Deleted route configs should not be visible through normal admin list/detail APIs.
+* Soft delete prepares the project for future restore, audit log, and Admin Dashboard history views.
+* It is safer than hard delete for an API Gateway configuration system.
+
+Current behavior:
+
+```txt
+GET /internal/admin/routes
+  -> returns only routes where deleted_at IS NULL
+
+GET /internal/admin/routes/:id
+  -> returns 404 if route is soft-deleted
+
+DELETE /internal/admin/routes/:id
+  -> marks route as deleted instead of removing the row
+
+Runtime route loader
+  -> loads only enabled=true and deleted_at IS NULL
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Add Route Lifecycle Metadata Fields
+
+Decision:
+
+Add basic lifecycle metadata directly to `gateway.gateway_routes`.
+
+Added fields:
+
+```txt
+created_by
+updated_by
+deleted_at
+deleted_by
+```
+
+Existing fields:
+
+```txt
+created_at
+updated_at
+```
+
+Reason:
+
+* Route management operations should record who created, updated, or deleted a route.
+* A simple metadata foundation is useful before adding a full audit log table.
+* `deleted_at` is needed to implement soft delete safely.
+* `deleted_by` is needed to understand who performed a delete operation.
+* `created_by` and `updated_by` make admin route changes easier to inspect.
+* These fields are low-complexity and fit the current local-first admin API key model.
+
+Current source for actor attribution:
+
+```txt
+x-admin-actor
+```
+
+Default actor fallback:
+
+```txt
+admin-api-key
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Use `x-admin-actor` for Basic Admin Attribution
+
+Decision:
+
+Allow internal/admin route management requests to pass a basic actor identifier through `x-admin-actor`.
+
+Reason:
+
+* Sprint 10 does not introduce full admin users or RBAC yet.
+* Route management metadata still needs a basic actor value.
+* `x-admin-actor` is simple for local testing and future Admin Dashboard integration.
+* The Gateway should still have a safe fallback actor when the header is missing.
+* This keeps audit metadata useful without adding authentication complexity too early.
+
+Current behavior:
+
+```txt
+x-admin-actor present and non-empty
+  -> use it for createdBy, updatedBy, or deletedBy
+
+x-admin-actor missing or empty
+  -> use admin-api-key
+```
+
+Current affected operations:
+
+```txt
+POST /internal/admin/routes
+  -> sets created_by and updated_by
+
+PATCH /internal/admin/routes/:id
+  -> sets updated_by
+
+DELETE /internal/admin/routes/:id
+  -> sets updated_by and deleted_by
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Replace Full Route Unique Constraint with Active-Route Partial Unique Index
+
+Decision:
+
+Replace the old full unique constraint on `method + gateway_path` with a PostgreSQL partial unique index for active routes only.
+
+Old rule:
+
+```txt
+unique(method, gateway_path)
+```
+
+New rule:
+
+```txt
+unique(method, gateway_path) where deleted_at IS NULL
+```
+
+Implemented index:
+
+```txt
+gateway_routes_method_gateway_path_active_key
+```
+
+Reason:
+
+* With soft delete, historical deleted rows should remain in the database.
+* A full unique constraint would prevent recreating the same route after soft delete.
+* Active routes still must not duplicate the same method + gateway path.
+* PostgreSQL partial unique indexes solve this correctly.
+* Prisma schema cannot express this partial unique index directly, so the migration uses raw SQL.
+* Route management repository duplicate checks should also only consider non-deleted routes.
+
+Current behavior:
+
+```txt
+Create duplicate active method + gatewayPath
+  -> 409 ROUTE_CONFIG_ALREADY_EXISTS
+
+Soft delete existing route
+  -> deleted_at is set
+
+Create same method + gatewayPath again
+  -> allowed because old row is soft-deleted
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Exclude Soft-Deleted Routes from Runtime and Admin Read Logic
+
+Decision:
+
+Exclude soft-deleted route configs from normal admin read behavior and runtime route loading.
+
+Reason:
+
+* Soft-deleted routes should behave as deleted from the normal admin management perspective.
+* Runtime should never register a deleted route.
+* Duplicate checks should ignore soft-deleted route history and only protect active route identity.
+* This keeps soft delete history in the database without confusing the active route management surface.
+
+Current repository behavior:
+
+```txt
+listRoutes()
+  -> where deletedAt is null
+
+findRouteById(id)
+  -> where id matches and deletedAt is null
+
+findRouteByMethodAndGatewayPath(method, gatewayPath)
+  -> where method + gatewayPath match and deletedAt is null
+
+softDeleteRoute(id, actor)
+  -> update enabled=false, deletedAt, deletedBy, updatedBy
+```
+
+Current runtime DB loader behavior:
+
+```txt
+where enabled = true and deleted_at is null
+```
+
+Current mapper safety behavior:
+
+```txt
+filter records where enabled is true and deletedAt is not set
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Add Safe Route Reload Validation Endpoint Before True Hot Reload
+
+Decision:
+
+Add an admin route reload validation endpoint, but keep it validation-only for Sprint 10.
+
+Implemented endpoint:
+
+```txt
+POST /internal/admin/routes/reload
+```
+
+Current response shape:
+
+```json
+{
+  "data": {
+    "mode": "validation-only",
+    "runtimeApplied": false,
+    "requiresRestart": true,
+    "routeCount": 2,
+    "routes": [
+      {
+        "method": "GET",
+        "gatewayPath": "/api/products",
+        "enabled": true,
+        "priority": 100
+      }
+    ]
+  }
+}
+```
+
+Reason:
+
+* Admin users need a way to validate DB route config health before restarting or applying runtime changes.
+* True Fastify runtime hot reload requires careful route replacement design.
+* Unsafe re-registration can leave stale routes or duplicate handlers.
+* A validation-only endpoint provides immediate operational value without pretending to hot reload.
+* This endpoint establishes the admin API contract for future reload/hot-swap work.
+* It makes current runtime behavior explicit: route changes still require restart to apply.
+
+Current behavior:
+
+```txt
+POST /internal/admin/routes/reload
+  -> Requires x-admin-api-key
+  -> Loads non-deleted route configs through repository
+  -> Filters enabled active routes
+  -> Maps routes to DownstreamRouteConfig[]
+  -> Reuses existing validation path
+  -> Returns routeCount and route summary
+  -> Does not mutate database
+  -> Does not replace runtime routes
+```
+
+Current explicit flags:
+
+```txt
+mode=validation-only
+runtimeApplied=false
+requiresRestart=true
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Keep Runtime Route Application Restart-Based After Sprint 10
+
+Decision:
+
+Keep actual runtime route application restart-based after Sprint 10, even though a reload validation endpoint now exists.
+
+Reason:
+
+* Sprint 10 validates route config safety but does not implement route hot swapping.
+* Fastify runtime route replacement should be treated as a separate controlled design.
+* A future hot reload implementation must define stale route removal, concurrency safety, validation failure behavior, metrics impact, and cache/rate-limit implications.
+* Restart-based application remains predictable and safe.
+* The validation-only endpoint reduces risk by checking DB route config health before restart.
+
+Current route lifecycle:
+
+```txt
+Create/update/delete route config
+  -> persists immediately in PostgreSQL
+
+POST /internal/admin/routes/reload
+  -> validates current active DB route configs
+  -> does not apply runtime changes
+
+API Gateway restart
+  -> loads enabled=true and deleted_at IS NULL routes
+  -> applies route changes to runtime proxy routing
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Keep Full Audit Log Table Out of Sprint 10
+
+Decision:
+
+Do not add a separate route management audit log table in Sprint 10.
+
+Reason:
+
+* Sprint 10 already adds basic lifecycle metadata on the route record.
+* A full audit log table requires deciding event names, old/new value snapshots, actor model, retention, and querying APIs.
+* The current admin auth model is still a local admin API key, not full admin users.
+* Soft delete and lifecycle metadata are enough for the current hardening checkpoint.
+* A full audit log can be added later after admin users/RBAC or Admin Dashboard workflows are clearer.
+
+Current audit foundation:
+
+```txt
+created_by
+updated_by
+deleted_at
+deleted_by
+created_at
+updated_at
+x-admin-actor
+```
+
+Deferred:
+
+```txt
+gateway.route_audit_logs table
+before/after route snapshots
+admin user identity model
+audit log list/detail APIs
+audit log filters
+Admin Dashboard audit views
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-02 - Move Next Sprint Toward Controlled Runtime Reload or Admin Hardening
+
+Decision:
+
+After Sprint 10 final documentation update, move Sprint 11 toward a controlled backend improvement rather than jumping directly into unrelated infrastructure.
+
+Recommended Sprint 11 direction:
+
+```txt
+Option A: True route reload/hot-swap foundation
+Option B: Route management audit log table
+Option C: Stronger admin authentication/RBAC foundation
+Option D: Small Admin Dashboard foundation only after choosing the backend readiness target
+```
+
+Reason:
+
+* Sprint 10 completed soft delete and reload validation, but true runtime application still requires restart.
+* A product-like API Gateway should eventually support safer config reload behavior.
+* Audit logs and stronger admin authentication are also natural next backend hardening steps.
+* Admin Dashboard should be built on top of stable backend lifecycle and auth behavior.
+* Kafka, RabbitMQ, Kubernetes, OpenTelemetry, Loki, k6, and cloud deployment are still later-stage concerns.
+
+Not included automatically:
+
+```txt
+Kafka
+RabbitMQ
+Kubernetes
+Developer Portal
+OpenTelemetry
+Loki
+k6
+Docker image registry push
+Production cloud deployment
+Automatic deployment
+```
+
+Status:
+
+Accepted.
+

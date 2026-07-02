@@ -5,16 +5,16 @@
 </p>
 
 <p align="center">
-  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, GitHub Actions CI/CD, route policy foundations, database-backed dynamic route configuration, safe static fallback, internal/admin route management APIs, and a microservice-oriented architecture.
+  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, GitHub Actions CI/CD, route policy foundations, database-backed dynamic route configuration, safe static fallback, internal/admin route management APIs, route config soft delete, reload validation, and a microservice-oriented architecture.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Sprint%209%20Complete-brightgreen" />
-  <img src="https://img.shields.io/badge/version-v0.10.0-blue" />
+  <img src="https://img.shields.io/badge/status-Sprint%2010%20Complete-brightgreen" />
+  <img src="https://img.shields.io/badge/version-v0.11.0-blue" />
   <a href="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml">
     <img src="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
   </a>
-  <img src="https://img.shields.io/badge/tests-168%20passing-brightgreen" />
+  <img src="https://img.shields.io/badge/tests-176%20passing-brightgreen" />
   <img src="https://img.shields.io/badge/typecheck-passing-brightgreen" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
   <img src="https://img.shields.io/badge/Node.js-20%2B-green" />
@@ -26,6 +26,8 @@
   <img src="https://img.shields.io/badge/Cache-Redis-red" />
   <img src="https://img.shields.io/badge/Dynamic%20Routes-PostgreSQL-blue" />
   <img src="https://img.shields.io/badge/Route%20Management-Internal%20Admin%20API-blueviolet" />
+  <img src="https://img.shields.io/badge/Soft%20Delete-Route%20Config-blueviolet" />
+  <img src="https://img.shields.io/badge/Reload%20Validation-Validation%20Only-blueviolet" />
   <img src="https://img.shields.io/badge/Fallback-Static%20Routes-indigo" />
   <img src="https://img.shields.io/badge/Policies-Route%20Policies-indigo" />
   <img src="https://img.shields.io/badge/Retry-Foundation-blueviolet" />
@@ -62,7 +64,7 @@ Client
       -> Try loading database-backed route configs from PostgreSQL gateway.gateway_routes
       -> If database route configs are valid and not empty:
            -> Use database-backed route configs
-      -> If database loading fails or returns no enabled routes:
+      -> If database loading fails or returns no enabled, non-deleted routes:
            -> Safely fall back to static downstream route configs
     -> Request ID handling
     -> Structured access log timer
@@ -118,14 +120,19 @@ Client
       -> GET /internal/admin/routes/:id
       -> POST /internal/admin/routes
       -> PATCH /internal/admin/routes/:id
+      -> DELETE /internal/admin/routes/:id
+      -> POST /internal/admin/routes/reload
       -> Admin API key authentication
+      -> Optional x-admin-actor audit metadata
       -> Route management repository
       -> Route management mapper
       -> PostgreSQL gateway.gateway_routes
       -> Route config validation before persistence
-      -> Duplicate method + gatewayPath conflict detection
+      -> Duplicate active method + gatewayPath conflict detection
       -> Enable/disable route config through PATCH
-      -> Simple restart-based runtime reload strategy
+      -> Soft delete route config through DELETE
+      -> Validation-only route reload check
+      -> Restart-based runtime route application
 
     -> Add x-cache when applicable
     -> Add x-response-time-ms
@@ -169,37 +176,38 @@ GitHub Actions
 Current version:
 
 ```txt
-v0.10.0
+v0.11.0
 ```
 
 Current sprint status:
 
 ```txt
-Sprint 9 - Route Management API Foundation Complete
+Sprint 10 - Route Management Hardening Complete
 ```
 
 ---
 
 ## Project Status
 
-| Area            | Status                                                                          | Notes                                                                                                                      |
-| --------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Core setup and basic Gateway flow                                                                                          |
-| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | API Gateway core features                                                                                                  |
-| Sprint 2        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Gateway traffic protection                                                                                                 |
-| Sprint 3        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Data and infrastructure foundation                                                                                         |
-| Sprint 4        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Observability foundation                                                                                                   |
-| Sprint 5        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Advanced Gateway policies                                                                                                  |
-| Sprint 6        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | CI/CD foundation with GitHub Actions                                                                                        |
-| Sprint 7        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Multi-route Gateway expansion from downstream route config                                                                  |
-| Sprint 8        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Database-backed dynamic route config with safe static fallback                                                              |
-| Sprint 9        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Internal/admin route management API foundation                                                                              |
-| Current Version | ![v0.10.0](https://img.shields.io/badge/version-v0.10.0-blue)                   | Docker, PostgreSQL, Prisma, Redis, Prometheus, Grafana, Gateway policies, CI/CD, DB route config, route management APIs     |
-| Automated Tests | ![168 Passing](https://img.shields.io/badge/tests-168%20passing-brightgreen)    | Unit, integration, runtime config, and route management API tests                                                           |
-| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)          | TypeScript validation passes                                                                                                |
-| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)              | Production build passes                                                                                                     |
-| CI/CD           | ![Passing](https://img.shields.io/badge/ci-passing-brightgreen)                 | GitHub Actions validates npm, Prisma, tests, typecheck, build, and Docker builds                                            |
-| Next Sprint     | ![Sprint 10](https://img.shields.io/badge/next%20sprint-route%20hardening-blue) | Route Management Hardening or Admin Dashboard Foundation                                                                    |
+| Area            | Status                                                                          | Notes                                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Sprint 0        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Core setup and basic Gateway flow                                                                                                   |
+| Sprint 1        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | API Gateway core features                                                                                                           |
+| Sprint 2        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Gateway traffic protection                                                                                                          |
+| Sprint 3        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Data and infrastructure foundation                                                                                                  |
+| Sprint 4        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Observability foundation                                                                                                            |
+| Sprint 5        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Advanced Gateway policies                                                                                                           |
+| Sprint 6        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | CI/CD foundation with GitHub Actions                                                                                                 |
+| Sprint 7        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Multi-route Gateway expansion from downstream route config                                                                           |
+| Sprint 8        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Database-backed dynamic route config with safe static fallback                                                                       |
+| Sprint 9        | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Internal/admin route management API foundation                                                                                       |
+| Sprint 10       | ![Complete](https://img.shields.io/badge/status-complete-brightgreen)           | Route management hardening with soft delete, audit metadata, active-route uniqueness, and reload validation                          |
+| Current Version | ![v0.11.0](https://img.shields.io/badge/version-v0.11.0-blue)                   | Docker, PostgreSQL, Prisma, Redis, Prometheus, Grafana, Gateway policies, CI/CD, DB route config, hardened route management APIs      |
+| Automated Tests | ![176 Passing](https://img.shields.io/badge/tests-176%20passing-brightgreen)    | Unit, integration, runtime config, route management API, soft delete, and reload validation tests                                     |
+| Typecheck       | ![Passing](https://img.shields.io/badge/typecheck-passing-brightgreen)          | TypeScript validation passes                                                                                                         |
+| Build           | ![Passing](https://img.shields.io/badge/build-passing-brightgreen)              | Production build passes                                                                                                              |
+| CI/CD           | ![Passing](https://img.shields.io/badge/ci-passing-brightgreen)                 | GitHub Actions validates npm, Prisma, tests, typecheck, build, and Docker builds                                                     |
+| Next Sprint     | ![Sprint 11](https://img.shields.io/badge/next%20sprint-admin%20foundation-blue) | Admin Dashboard Foundation, API key lifecycle foundation, service registry foundation, or additional route management hardening       |
 
 ---
 
@@ -217,8 +225,10 @@ Long-term goals:
 * Keep safe fallback behavior when dynamic route loading fails.
 * Manage Gateway route configuration through internal/admin APIs.
 * Validate route configs before persistence.
-* Detect duplicate route config conflicts.
+* Detect duplicate active route config conflicts.
 * Enable and disable routes safely.
+* Soft delete route configs without losing operational history.
+* Validate route configs through an admin reload validation endpoint before restart-based application.
 * Validate API keys and JWT tokens.
 * Protect internal/admin APIs with separate admin authentication.
 * Apply rate limiting to protect services.
@@ -234,7 +244,7 @@ Long-term goals:
 * Validate test, typecheck, build, Prisma generation, and Docker image build automatically with GitHub Actions.
 * Centralize route behavior through policies.
 * Support per-route timeout, cache, rate limit, transform, and retry rules.
-* Add route reload or hot reload later.
+* Add true runtime hot reload later after validation-only reload foundation.
 * Add service registry foundation later.
 * Add API consumer management later.
 * Add API key lifecycle and usage plans later.
@@ -426,6 +436,24 @@ Long-term goals:
 | Clean temporary test route                             | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Database returned to 2 seeded route configs                                                 |
 | Final Sprint 9 validation                              | ![Done](https://img.shields.io/badge/status-done-brightgreen) | 27 test files / 168 tests, typecheck, build, Docker runtime validation passed                |
 
+### Sprint 10 - Route Management Hardening
+
+| Feature                                                   | Status                                                        | Notes                                                                                                  |
+| --------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Add route config soft delete fields                        | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Adds `deleted_at`, `deleted_by`, `created_by`, and `updated_by` to `gateway.gateway_routes`             |
+| Replace full route uniqueness with active-route uniqueness | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Uses PostgreSQL partial unique index for `method + gateway_path` where `deleted_at IS NULL`             |
+| Update Gateway route config seed behavior                  | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Seeds active route configs without relying on Prisma compound unique upsert                            |
+| Exclude soft-deleted routes from admin read APIs           | ![Done](https://img.shields.io/badge/status-done-brightgreen) | `GET /internal/admin/routes` and detail reads only return non-deleted route configs                     |
+| Exclude soft-deleted routes from duplicate checks           | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Allows a new active route to reuse the same `method + gatewayPath` after the previous route is deleted  |
+| Exclude soft-deleted routes from runtime loading            | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Runtime loader only loads `enabled=true` and `deleted_at IS NULL` route configs                         |
+| Add route config soft delete API                           | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Adds `DELETE /internal/admin/routes/:id`                                                               |
+| Add admin actor metadata                                   | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Supports optional `x-admin-actor` with fallback to `admin-api-key`                                      |
+| Add route reload validation endpoint                       | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Adds `POST /internal/admin/routes/reload` as validation-only reload check                               |
+| Keep runtime route application restart-based               | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Reload endpoint validates configs but does not hot-apply routes yet                                     |
+| Add soft delete and reload validation tests                | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Test count increased to 27 files / 176 tests                                                           |
+| Validate Docker runtime soft delete and reload behavior    | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Confirmed create, delete, restart, hidden deleted routes, recreate after delete, and reload validation  |
+| Final Sprint 10 validation                                 | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Tests, typecheck, build, Docker runtime validation, and Git push passed                                 |
+
 ---
 
 ## Current Architecture
@@ -485,7 +513,7 @@ flowchart LR
     RouteManagement --> RouteManagementRepo[Prisma Route Management Repository]
     RouteManagementRepo --> GatewaySchema
     RouteManagement --> RouteValidation[Route Config Validation<br/>validateDownstreamRoutes]
-    RouteManagement --> AdminResponse[Admin Route Config Response]
+    RouteManagement --> AdminResponse[Admin Route Config Response<br/>List / Detail / Create / Update / Soft Delete / Reload Validation]
 
     RateLimit --> Redis[(Redis<br/>Port 6379)]
     Cache --> Redis
@@ -508,7 +536,7 @@ Current DB-backed route config startup flow:
 API Gateway startup
   -> loadRuntimeDownstreamRouteConfigs()
     -> loadDatabaseDownstreamRouteConfigs(gatewayPrisma)
-      -> SELECT enabled routes from gateway.gateway_routes
+      -> SELECT enabled, non-deleted routes from gateway.gateway_routes
       -> order by priority asc, gatewayPath asc
       -> map database rows to DownstreamRouteConfig[]
       -> validate mapped route configs
@@ -610,51 +638,78 @@ Current internal/admin route management flow:
 Admin Client / Future Admin Dashboard
   -> GET http://localhost:3000/internal/admin/routes
     -> API Gateway checks x-admin-api-key
-    -> Reads route configs from gateway.gateway_routes
-    -> Returns all route configs including disabled routes
+    -> Reads non-deleted route configs from gateway.gateway_routes
+    -> Returns non-deleted route configs, including disabled route configs
 
 Admin Client / Future Admin Dashboard
   -> GET http://localhost:3000/internal/admin/routes/:id
     -> API Gateway checks x-admin-api-key
-    -> Reads one route config by id
-    -> If route does not exist:
+    -> Reads one non-deleted route config by id
+    -> If route does not exist or is soft-deleted:
          -> 404 ROUTE_CONFIG_NOT_FOUND
-    -> If route exists:
+    -> If route exists and is not deleted:
          -> 200 with route config response
 
 Admin Client / Future Admin Dashboard
   -> POST http://localhost:3000/internal/admin/routes
     -> API Gateway checks x-admin-api-key
+    -> Reads optional x-admin-actor
     -> Parses request body
     -> Maps request body to DownstreamRouteConfig
     -> Reuses validateDownstreamRoutes()
-    -> Checks duplicate method + gatewayPath
+    -> Checks duplicate active method + gatewayPath
     -> If invalid:
          -> 400 ROUTE_CONFIG_INVALID
-    -> If duplicate:
+    -> If duplicate active route exists:
          -> 409 ROUTE_CONFIG_ALREADY_EXISTS
     -> If valid:
          -> Creates route config in gateway.gateway_routes
+         -> Sets createdBy and updatedBy metadata
          -> Returns 201 Created
 
 Admin Client / Future Admin Dashboard
   -> PATCH http://localhost:3000/internal/admin/routes/:id
     -> API Gateway checks x-admin-api-key
-    -> Finds existing route by id
-    -> If route does not exist:
+    -> Reads optional x-admin-actor
+    -> Finds existing non-deleted route by id
+    -> If route does not exist or is soft-deleted:
          -> 404 ROUTE_CONFIG_NOT_FOUND
     -> If route exists:
          -> Merges existing route with patch body
          -> Maps merged body to DownstreamRouteConfig
          -> Reuses validateDownstreamRoutes()
-         -> Checks conflict with another method + gatewayPath
+         -> Checks conflict with another active method + gatewayPath
          -> If invalid:
               -> 400 ROUTE_CONFIG_INVALID
          -> If conflict:
               -> 409 ROUTE_CONFIG_ALREADY_EXISTS
          -> If valid:
               -> Updates route config in gateway.gateway_routes
+              -> Sets updatedBy metadata
               -> Returns 200 OK
+
+Admin Client / Future Admin Dashboard
+  -> DELETE http://localhost:3000/internal/admin/routes/:id
+    -> API Gateway checks x-admin-api-key
+    -> Reads optional x-admin-actor
+    -> Finds existing non-deleted route by id
+    -> If route does not exist or is already soft-deleted:
+         -> 404 ROUTE_CONFIG_NOT_FOUND
+    -> If route exists:
+         -> Sets enabled=false
+         -> Sets deleted_at, deleted_by, updated_by
+         -> Keeps the row in gateway.gateway_routes for history
+         -> Returns 200 OK
+
+Admin Client / Future Admin Dashboard
+  -> POST http://localhost:3000/internal/admin/routes/reload
+    -> API Gateway checks x-admin-api-key
+    -> Loads non-deleted route configs from repository
+    -> Filters enabled active route configs
+    -> Maps active records to DownstreamRouteConfig[]
+    -> Reuses validateDownstreamRoutes()
+    -> Returns validation summary
+    -> Does not hot-apply runtime route changes yet
 ```
 
 Current route enable/disable behavior:
@@ -665,10 +720,40 @@ Body: { "enabled": false }
 
 Result:
   -> Route remains stored in gateway.gateway_routes
-  -> Route remains visible in GET /internal/admin/routes
-  -> API Gateway restart loads only enabled route configs
+  -> Route remains visible in GET /internal/admin/routes as long as it is not soft-deleted
+  -> API Gateway restart loads only enabled and non-deleted route configs
   -> Disabled route is not registered as an active runtime route
   -> Client request to disabled route returns 404 Route not found
+```
+
+Current route soft delete behavior:
+
+```txt
+DELETE /internal/admin/routes/:id
+Header: x-admin-actor optional
+
+Result:
+  -> Route remains stored in gateway.gateway_routes
+  -> Route is marked deleted through deleted_at and deleted_by
+  -> Route is forced to enabled=false
+  -> Route is hidden from GET /internal/admin/routes
+  -> Route detail returns 404 ROUTE_CONFIG_NOT_FOUND
+  -> Runtime loader ignores the deleted route after API Gateway restart
+  -> A new active route may reuse the same method + gatewayPath
+```
+
+Current route reload validation behavior:
+
+```txt
+POST /internal/admin/routes/reload
+Body: {}
+
+Result:
+  -> Validates active DB route configs
+  -> Returns mode: validation-only
+  -> Returns runtimeApplied: false
+  -> Returns requiresRestart: true
+  -> Does not hot-apply route changes yet
 ```
 
 Current observability flow:
@@ -697,6 +782,8 @@ pulsegate/
       prisma/
         migrations/
           20260701063629_add_gateway_routes/
+            migration.sql
+          20260702090000_add_gateway_route_soft_delete/
             migration.sql
           migration_lock.toml
         schema.prisma
@@ -871,6 +958,8 @@ GET /internal/admin/routes
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
+DELETE /internal/admin/routes/:id
+POST /internal/admin/routes/reload
 ```
 
 Route protection:
@@ -904,6 +993,8 @@ GET /internal/admin/routes
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
+DELETE /internal/admin/routes/:id
+POST /internal/admin/routes/reload
   -> Internal/admin APIs
   -> Require x-admin-api-key
   -> Do not use consumer x-api-key
@@ -947,9 +1038,12 @@ Responsibilities:
 * Creates route configs through internal/admin API.
 * Updates route configs through internal/admin API.
 * Enables or disables route configs through PATCH.
+* Soft deletes route configs through DELETE.
+* Tracks admin actor metadata with `createdBy`, `updatedBy`, and `deletedBy`.
 * Validates route configs before persistence.
-* Rejects duplicate `method + gatewayPath` route conflicts.
-* Uses restart-based runtime route reload strategy.
+* Rejects duplicate active `method + gatewayPath` route conflicts.
+* Validates active route configs through `POST /internal/admin/routes/reload`.
+* Uses restart-based runtime route application after validation.
 * Handles basic 404 and 500 errors.
 * Logs requests in JSON format.
 * Writes structured access logs.
@@ -1043,6 +1137,18 @@ Current API Gateway route config table:
 
 ```txt
 gateway.gateway_routes
+```
+
+Current active route uniqueness rule:
+
+```txt
+method + gateway_path must be unique only when deleted_at IS NULL
+```
+
+This is implemented through a PostgreSQL partial unique index:
+
+```txt
+gateway_routes_method_gateway_path_active_key
 ```
 
 Current seeded products:
@@ -1208,7 +1314,7 @@ Currently implemented:
 | HTTP Security        | Basic security headers                                           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Cache                | Redis response cache                                             | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Gateway Routing      | Database-backed route config with static fallback                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
-| Route Management     | Internal/admin route config read/create/update APIs              | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Route Management     | Internal/admin route config read/create/update/delete/reload validation APIs | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Gateway Policies     | Route policies, transformations, retry foundation                | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Database             | PostgreSQL                                                       | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | ORM                  | Prisma                                                           | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
@@ -1224,8 +1330,9 @@ Planned later:
 
 | Category             | Technology / Feature          | Status                                                            |
 | -------------------- | ----------------------------- | ----------------------------------------------------------------- |
-| Runtime Reload       | Route reload / hot reload      | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Route Delete         | Delete or soft delete          | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Runtime Hot Reload   | True in-process route hot reload | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
+| Route Reload         | Validation-only reload endpoint | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
+| Route Soft Delete    | Soft delete route config        | ![Active](https://img.shields.io/badge/status-active-brightgreen) |
 | Audit Log            | Route management audit log     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | Service Registry     | Service registry foundation    | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
 | API Consumers        | Consumer database              | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
@@ -1320,7 +1427,7 @@ npm install
 
 ## Run with Docker Compose
 
-This is the recommended workflow after Sprint 9.
+This is the recommended workflow after Sprint 10.
 
 ### 1. Start PostgreSQL and Redis
 
@@ -1397,7 +1504,7 @@ npm run db:seed -w apps/api-gateway
 Expected result:
 
 ```txt
-Seeded 2 gateway route config(s).
+Seeded 2 active gateway route config(s).
 GET /api/products -> http://product-service:3001/products | enabled=true
 GET /api/product-service/health -> http://product-service:3001/health | enabled=true
 ```
@@ -1405,14 +1512,14 @@ GET /api/product-service/health -> http://product-service:3001/health | enabled=
 Validate Gateway route configs:
 
 ```powershell
-docker compose exec postgres psql -U pulsegate -d pulsegate -c "SELECT method, gateway_path, downstream_url, enabled, priority, require_api_key, require_jwt, cache_enabled, rate_limit_enabled FROM gateway.gateway_routes ORDER BY priority;"
+docker compose exec postgres psql -U pulsegate -d pulsegate -c "SELECT method, gateway_path, downstream_url, enabled, priority, require_api_key, require_jwt, cache_enabled, rate_limit_enabled, deleted_at FROM gateway.gateway_routes WHERE deleted_at IS NULL ORDER BY priority;"
 ```
 
 Expected result:
 
 ```txt
-GET | /api/products               | http://product-service:3001/products | true | 100 | true  | true  | true  | true
-GET | /api/product-service/health | http://product-service:3001/health   | true | 200 | false | false | false | false
+GET | /api/products               | http://product-service:3001/products | true | 100 | true  | true  | true  | true  | null
+GET | /api/product-service/health | http://product-service:3001/health   | true | 200 | false | false | false | false | null
 ```
 
 ### 6. Start the full stack
@@ -1479,7 +1586,27 @@ Invoke-RestMethod http://localhost:3000/internal/admin/routes `
 Expected:
 
 ```txt
-Returns the 2 seeded Gateway route configs.
+Returns the 2 active seeded Gateway route configs.
+```
+
+Validate route reload check:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/internal/admin/routes/reload `
+  -Method POST `
+  -Headers @{ "x-admin-api-key" = "local-admin-key" } `
+  -ContentType "application/json" `
+  -Body "{}" |
+  ConvertTo-Json -Depth 10
+```
+
+Expected:
+
+```txt
+mode = validation-only
+runtimeApplied = false
+requiresRestart = true
+routeCount = 2
 ```
 
 ### 10. Open observability tools
@@ -1745,6 +1872,8 @@ Sprint 8 added database-backed route configuration for the API Gateway.
 
 Sprint 9 added internal/admin APIs to read, create, and update route configuration records.
 
+Sprint 10 hardened route management with soft delete, admin actor metadata, active-route uniqueness, runtime exclusion for deleted routes, and a validation-only reload endpoint.
+
 Current route config source priority:
 
 ```txt
@@ -1756,7 +1885,7 @@ Startup behavior:
 
 ```txt
 API Gateway starts
-  -> Try loading enabled routes from gateway.gateway_routes
+  -> Try loading enabled routes where deleted_at IS NULL from gateway.gateway_routes
   -> Map database rows to DownstreamRouteConfig[]
   -> Validate mapped route configs
   -> If valid routes exist:
@@ -1765,7 +1894,7 @@ API Gateway starts
   -> If database load fails:
        -> Fall back to static route config
        -> Log fallback warning
-  -> If database returns no enabled routes:
+  -> If database returns no enabled, non-deleted routes:
        -> Fall back to static route config
        -> Log fallback warning
 ```
@@ -1806,6 +1935,10 @@ retry_attempts
 retry_on_statuses
 created_at
 updated_at
+created_by
+updated_by
+deleted_at
+deleted_by
 ```
 
 Current seeded database route configs:
@@ -1829,14 +1962,14 @@ GET /api/product-service/health
 Validate database route configs:
 
 ```powershell
-docker compose exec postgres psql -U pulsegate -d pulsegate -c "SELECT method, gateway_path, downstream_url, enabled, priority, require_api_key, require_jwt, cache_enabled, rate_limit_enabled FROM gateway.gateway_routes ORDER BY priority;"
+docker compose exec postgres psql -U pulsegate -d pulsegate -c "SELECT method, gateway_path, downstream_url, enabled, priority, require_api_key, require_jwt, cache_enabled, rate_limit_enabled, deleted_at FROM gateway.gateway_routes WHERE deleted_at IS NULL ORDER BY priority;"
 ```
 
 Expected result:
 
 ```txt
-GET | /api/products               | http://product-service:3001/products | true | 100 | true  | true  | true  | true
-GET | /api/product-service/health | http://product-service:3001/health   | true | 200 | false | false | false | false
+GET | /api/products               | http://product-service:3001/products | true | 100 | true  | true  | true  | true  | null
+GET | /api/product-service/health | http://product-service:3001/health   | true | 200 | false | false | false | false | null
 ```
 
 ---
@@ -1845,6 +1978,8 @@ GET | /api/product-service/health | http://product-service:3001/health   | true 
 
 Sprint 9 added the internal/admin Route Management API foundation.
 
+Sprint 10 hardened the route management API with soft delete, audit metadata, active-route uniqueness, and reload validation.
+
 Current internal/admin endpoints:
 
 ```txt
@@ -1852,12 +1987,20 @@ GET /internal/admin/routes
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
+DELETE /internal/admin/routes/:id
+POST /internal/admin/routes/reload
 ```
 
 Current admin API key header:
 
 ```txt
 x-admin-api-key
+```
+
+Current optional admin actor header:
+
+```txt
+x-admin-actor
 ```
 
 Current default local admin API key:
@@ -1944,7 +2087,8 @@ Invoke-RestMethod http://localhost:3000/internal/admin/routes `
 Expected:
 
 ```txt
-Returns all route configs, including disabled route configs.
+Returns non-deleted route configs, including disabled route configs.
+Soft-deleted route configs are hidden from the admin list.
 ```
 
 ### Get Route Config Detail
@@ -1955,7 +2099,7 @@ Invoke-RestMethod http://localhost:3000/internal/admin/routes/<route-id> `
   ConvertTo-Json -Depth 10
 ```
 
-Missing route behavior:
+Missing or soft-deleted route behavior:
 
 ```txt
 404 ROUTE_CONFIG_NOT_FOUND
@@ -2007,6 +2151,7 @@ Invoke-RestMethod http://localhost:3000/internal/admin/routes `
   -Method Post `
   -Headers @{
     "x-admin-api-key" = "local-admin-key"
+    "x-admin-actor" = "local-admin"
     "content-type" = "application/json"
   } `
   -Body $body |
@@ -2017,9 +2162,11 @@ Expected:
 
 ```txt
 201 Created
+createdBy = local-admin
+updatedBy = local-admin
 ```
 
-Duplicate route behavior:
+Duplicate active route behavior:
 
 ```txt
 409 ROUTE_CONFIG_ALREADY_EXISTS
@@ -2043,6 +2190,7 @@ Invoke-RestMethod http://localhost:3000/internal/admin/routes/<route-id> `
   -Method Patch `
   -Headers @{
     "x-admin-api-key" = "local-admin-key"
+    "x-admin-actor" = "local-admin"
     "content-type" = "application/json"
   } `
   -Body $patchBody |
@@ -2053,9 +2201,10 @@ Expected:
 
 ```txt
 200 OK
+updatedBy = local-admin
 ```
 
-Missing route behavior:
+Missing or soft-deleted route behavior:
 
 ```txt
 404 ROUTE_CONFIG_NOT_FOUND
@@ -2067,7 +2216,7 @@ Invalid merged route behavior:
 400 ROUTE_CONFIG_INVALID
 ```
 
-Duplicate route conflict behavior:
+Duplicate active route conflict behavior:
 
 ```txt
 409 ROUTE_CONFIG_ALREADY_EXISTS
@@ -2086,25 +2235,79 @@ Disable request:
 Behavior:
 
 ```txt
-Route remains stored in gateway.gateway_routes
-Route remains visible in GET /internal/admin/routes
-Route is not loaded as an active runtime route after API Gateway restart
-Client request to disabled route returns 404 Route not found
+Route remains stored in gateway.gateway_routes.
+Route remains visible in GET /internal/admin/routes as long as deleted_at IS NULL.
+Route is not loaded as an active runtime route after API Gateway restart.
+Client request to disabled route returns 404 Route not found.
+```
+
+### Soft Delete Route Config
+
+```powershell
+Invoke-RestMethod http://localhost:3000/internal/admin/routes/<route-id> `
+  -Method Delete `
+  -Headers @{
+    "x-admin-api-key" = "local-admin-key"
+    "x-admin-actor" = "local-admin"
+  } |
+  ConvertTo-Json -Depth 10
+```
+
+Expected:
+
+```txt
+200 OK
+enabled = false
+deletedAt != null
+deletedBy = local-admin
+updatedBy = local-admin
+```
+
+Soft delete behavior:
+
+```txt
+Route remains stored in gateway.gateway_routes.
+Route is hidden from GET /internal/admin/routes.
+Route detail returns 404 ROUTE_CONFIG_NOT_FOUND.
+Runtime loader ignores the route after API Gateway restart.
+A new route can reuse the same method + gatewayPath because uniqueness applies only to active routes.
+```
+
+### Validate Route Reload
+
+```powershell
+Invoke-RestMethod http://localhost:3000/internal/admin/routes/reload `
+  -Method POST `
+  -Headers @{ "x-admin-api-key" = "local-admin-key" } `
+  -ContentType "application/json" `
+  -Body "{}" |
+  ConvertTo-Json -Depth 10
+```
+
+Expected:
+
+```txt
+mode = validation-only
+runtimeApplied = false
+requiresRestart = true
+routeCount = 2
 ```
 
 Current reload strategy:
 
 ```txt
-Route config create/update changes are persisted immediately.
-Runtime proxy route changes take effect after API Gateway restart.
-Hot reload is intentionally deferred to a later sprint.
+Route config create/update/delete changes are persisted immediately.
+POST /internal/admin/routes/reload validates active DB route configs.
+The reload endpoint does not hot-apply route changes yet.
+Runtime proxy route changes still take effect after API Gateway restart.
+True hot reload is intentionally deferred to a later sprint.
 ```
 
 ---
 
 ## Gateway Route Policy Behavior
 
-Sprint 5 added the route policy foundation. Sprint 7 expanded the Gateway so multiple downstream routes can be registered. Sprint 8 moved the runtime route config source to PostgreSQL while keeping a safe static fallback. Sprint 9 reused route validation before route configs are created or updated through internal/admin APIs.
+Sprint 5 added the route policy foundation. Sprint 7 expanded the Gateway so multiple downstream routes can be registered. Sprint 8 moved the runtime route config source to PostgreSQL while keeping a safe static fallback. Sprint 9 reused route validation before route configs are created or updated through internal/admin APIs. Sprint 10 also reuses validation for reload checks and ignores soft-deleted routes in runtime and duplicate checks.
 
 Current route policy model:
 
@@ -2278,6 +2481,8 @@ GET /internal/admin/routes
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
+DELETE /internal/admin/routes/:id
+POST /internal/admin/routes/reload
 ```
 
 Default header:
@@ -2719,6 +2924,7 @@ Current route labels include:
 /api/product-service/health
 /internal/admin/routes
 /internal/admin/routes/:id
+/internal/admin/routes/reload
 ```
 
 ### Prometheus
@@ -3076,10 +3282,11 @@ Prisma schema:
 apps/api-gateway/prisma/schema.prisma
 ```
 
-Current migration:
+Current migrations:
 
 ```txt
 apps/api-gateway/prisma/migrations/20260701063629_add_gateway_routes/migration.sql
+apps/api-gateway/prisma/migrations/20260702090000_add_gateway_route_soft_delete/migration.sql
 ```
 
 Seed script:
@@ -3138,7 +3345,7 @@ Current result:
 
 ```txt
 27 test files passed
-168 tests passed
+176 tests passed
 ```
 
 Current unit test coverage:
@@ -3159,9 +3366,12 @@ admin-route-config.route.test.ts
   -> Route config detail behavior
   -> Route config create behavior
   -> Route config update behavior
+  -> Route config soft delete behavior
+  -> Route config reload validation behavior
   -> Route config validation behavior
   -> Route config duplicate conflict behavior
   -> Route config not found behavior
+  -> Soft-deleted route hidden from list/detail behavior
 
 jwt-auth.middleware.test.ts
   -> Bearer token extraction, JWT verification, missing token, invalid token, valid token
@@ -3325,8 +3535,21 @@ PATCH /internal/admin/routes/:id
   -> 200 and updates route config
   -> 404 when route config id does not exist
   -> 400 when merged route config is invalid
-  -> 409 when method + gatewayPath conflicts with another route
+  -> 409 when method + gatewayPath conflicts with another active route
   -> 401 when admin API key is missing
+
+DELETE /internal/admin/routes/:id
+  -> 200 and soft deletes route config
+  -> 404 when route config id does not exist
+  -> 401 when admin API key is missing
+  -> deleted route is hidden from list/detail
+  -> duplicate check ignores soft-deleted route
+
+POST /internal/admin/routes/reload
+  -> 200 and validates active route configs
+  -> returns validation-only reload summary
+  -> 401 when admin API key is missing
+  -> 403 when admin API key is invalid
 ```
 
 ---
@@ -3625,17 +3848,34 @@ Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
 | Add admin env config tests                  | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
 | Validate Docker route management behavior   | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
 
-### Sprint 10 - Route Management Hardening or Admin Dashboard Foundation
+### Sprint 10 - Route Management Hardening
+
+Status: ![Completed](https://img.shields.io/badge/status-completed-brightgreen)
+
+| Feature                                                   | Status                                                        |
+| --------------------------------------------------------- | ------------------------------------------------------------- |
+| Add route config soft delete fields                        | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add route config soft delete API                           | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add active-route partial unique index                      | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Exclude soft-deleted routes from admin read APIs           | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Exclude soft-deleted routes from runtime loading            | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add admin actor metadata                                   | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add validation-only route reload endpoint                  | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Keep true hot reload deferred                              | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Add soft delete and reload validation tests                | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+| Validate Docker soft delete and reload behavior            | ![Done](https://img.shields.io/badge/status-done-brightgreen) |
+
+### Sprint 11 - Recommended Next Options
 
 Status: ![Recommended Next](https://img.shields.io/badge/status-recommended%20next-blue)
 
 | Feature                                      | Status                                                            |
 | -------------------------------------------- | ----------------------------------------------------------------- |
-| Add route config delete or soft-delete        | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add safe route reload or hot reload foundation | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add stronger admin authentication if needed   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Add route management audit log foundation     | ![Planned](https://img.shields.io/badge/status-planned-lightgrey) |
-| Start small Admin Dashboard foundation        | ![Optional](https://img.shields.io/badge/status-optional-lightgrey) |
+| Start small Admin Dashboard foundation        | ![Recommended](https://img.shields.io/badge/status-recommended-blue) |
+| Add API consumer database foundation          | ![Optional](https://img.shields.io/badge/status-optional-lightgrey) |
+| Add API key lifecycle foundation              | ![Optional](https://img.shields.io/badge/status-optional-lightgrey) |
+| Add route management audit log table          | ![Optional](https://img.shields.io/badge/status-optional-lightgrey) |
+| Add service registry foundation               | ![Optional](https://img.shields.io/badge/status-optional-lightgrey) |
 
 ### Later - Event-Driven Architecture
 
@@ -3672,7 +3912,7 @@ Status: ![Planned](https://img.shields.io/badge/status-planned-lightgrey)
 
 ## Current Status
 
-PulseGate currently has a stable local-first API Gateway and infrastructure foundation with Docker Compose, PostgreSQL, Prisma, Redis-backed traffic protection, database-backed Product Service data, Redis response caching, structured access logs, Prometheus metrics, Prometheus scraping, Grafana datasource provisioning, Grafana dashboard provisioning, advanced Gateway route policy foundations, GitHub Actions CI/CD validation, static multi-route fallback, database-backed dynamic Gateway route configuration, and internal/admin route management APIs.
+PulseGate currently has a stable local-first API Gateway and infrastructure foundation with Docker Compose, PostgreSQL, Prisma, Redis-backed traffic protection, database-backed Product Service data, Redis response caching, structured access logs, Prometheus metrics, Prometheus scraping, Grafana datasource provisioning, Grafana dashboard provisioning, advanced Gateway route policy foundations, GitHub Actions CI/CD validation, static multi-route fallback, database-backed dynamic Gateway route configuration, and hardened internal/admin route management APIs with soft delete and reload validation.
 
 Stable flow:
 
@@ -3680,9 +3920,9 @@ Stable flow:
 Client
   -> API Gateway :3000
     -> Runtime route config loader
-      -> Load enabled routes from PostgreSQL gateway.gateway_routes
+      -> Load enabled, non-deleted routes from PostgreSQL gateway.gateway_routes
       -> Validate mapped route configs
-      -> Fall back to static downstream routes if DB loading fails or returns no routes
+      -> Fall back to static downstream routes if DB loading fails or returns no active routes
     -> Request ID handling
     -> Structured access logs
     -> Response time measurement
@@ -3717,7 +3957,9 @@ Client
       -> Create route config
       -> Update route config
       -> Enable/disable route config
+      -> Soft delete route config
       -> Validate route config before persistence
+      -> Validate active route configs through reload validation endpoint
 
 API Gateway
   -> /metrics
@@ -3754,6 +3996,13 @@ Prometheus container
 
 Grafana container
   -> Reads Prometheus container
+```
+
+Latest stable Sprint 10 commits:
+
+```txt
+8052742 feat(gateway): add route config soft delete
+1f7443d feat(gateway): add route config reload validation
 ```
 
 Latest stable Sprint 9 commits:
@@ -3860,7 +4109,8 @@ PulseGate follows these principles:
 * Static route config fallback before dynamic database route config rollout.
 * Database-backed config before Admin Dashboard.
 * Backend route management APIs before Admin Dashboard.
-* Restart-based route reload before hot reload.
+* Validation-only reload endpoint before true hot reload.
+* Restart-based route application before hot reload.
 * GitHub-ready documentation.
 * Reproducible infrastructure through configuration files.
 

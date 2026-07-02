@@ -7,13 +7,13 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 ## 2. Current Version
 
 ```txt
-v0.10.0
+v0.11.0
 ```
 
 ## 3. Current Sprint
 
 ```txt
-Sprint 9 - Route Management API Foundation
+Sprint 10 - Route Management Hardening
 ```
 
 ## 4. Project Purpose
@@ -33,12 +33,15 @@ The project demonstrates backend engineering skills through:
 * Database-backed downstream services.
 * Database-backed Gateway route configuration.
 * Internal/admin route management APIs.
-* Route config list, detail, create, and update behavior.
+* Route config list, detail, create, update, soft delete, and reload validation behavior.
 * Route config enable/disable foundation.
+* Route lifecycle metadata for create, update, and soft delete attribution.
 * Route config validation before persistence.
-* Duplicate route config conflict detection.
+* Active-route duplicate conflict detection.
+* Active-route partial unique index for safe recreate-after-delete behavior.
 * Safe static route config fallback.
-* Simple restart-based route config reload strategy.
+* Restart-based route config application strategy.
+* Validation-only route reload endpoint as a safe step before true hot reload.
 * Docker Compose local infrastructure.
 * Observability with logs, metrics, Prometheus, and Grafana.
 * Policy-driven Gateway behavior.
@@ -60,7 +63,7 @@ The long-term target is to grow PulseGate into a product-like API Gateway/API Ma
 * API key request flow.
 * Dynamic route configuration.
 * Route management APIs.
-* Route reload or hot reload foundation.
+* Route reload or controlled hot reload foundation.
 * Service registry foundation.
 * API consumer management.
 * Usage plans and quotas.
@@ -111,23 +114,30 @@ PulseGate aims to solve these problems:
 * Gateway route configuration should be creatable through internal/admin APIs.
 * Gateway route configuration should be updatable through internal/admin APIs.
 * Gateway route configuration should support enable/disable behavior.
-* Gateway route configuration should be validated before persistence.
-* Duplicate `method + gatewayPath` route identities should be rejected.
+* Gateway route configuration should support safe soft delete behavior.
+* Soft-deleted route configs should remain in the database for historical visibility.
+* Soft-deleted route configs should not be visible in normal admin read APIs.
+* Soft-deleted route configs should not be loaded as active runtime routes.
+* Duplicate route identity checks should ignore soft-deleted routes.
+* The same `method + gatewayPath` should be reusable after the old route is soft-deleted.
+* Route reload should be validated safely before true runtime hot reload is introduced.
+* Gateway route configuration should be validated before persistence and reload validation.
 * Repository health should be validated automatically before the main branch is considered stable.
 * The system should be easy to run locally before cloud deployment.
-* The route management API foundation should prepare the project for a future Admin Dashboard.
+* The route management backend foundation should prepare the project for a future Admin Dashboard.
 
 ---
 
 ## 7. Current System Overview
 
-Current stable architecture after Sprint 9:
+Current stable architecture after Sprint 10:
 
 ```txt
 Client
   -> API Gateway :3000
     -> Runtime route config loading
-      -> Try loading enabled route configs from PostgreSQL gateway.gateway_routes
+      -> Try loading active route configs from PostgreSQL gateway.gateway_routes
+      -> Active means enabled=true and deleted_at IS NULL
       -> Map database records to DownstreamRouteConfig[]
       -> Validate mapped route configs
       -> If database route configs are valid and not empty:
@@ -135,7 +145,7 @@ Client
            -> Log: Loaded downstream route configs from database { routeCount: 2 }
       -> If database loading fails:
            -> Fall back to static downstreamRouteConfigs
-      -> If database returns no enabled routes:
+      -> If database returns no active routes:
            -> Fall back to static downstreamRouteConfigs
     -> Request ID handling
     -> Structured access log timer
@@ -190,14 +200,18 @@ Client
       -> GET /internal/admin/routes/:id
       -> POST /internal/admin/routes
       -> PATCH /internal/admin/routes/:id
+      -> DELETE /internal/admin/routes/:id
+      -> POST /internal/admin/routes/reload
       -> Admin API key authentication
+      -> Optional x-admin-actor attribution header
       -> Route management repository
       -> Route management mapper
       -> PostgreSQL gateway.gateway_routes
       -> Route config validation before persistence
-      -> Duplicate method + gatewayPath conflict detection
+      -> Active method + gatewayPath conflict detection
       -> Enable/disable route config through PATCH
-      -> Simple restart-based runtime reload strategy
+      -> Soft delete route config through DELETE
+      -> Reload validation without applying runtime changes
 
     -> Add x-cache when applicable
     -> Add x-response-time-ms
@@ -289,12 +303,20 @@ GET /internal/admin/routes
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
+DELETE /internal/admin/routes/:id
+POST /internal/admin/routes/reload
 ```
 
 Internal/admin endpoint requirement:
 
 ```txt
 x-admin-api-key: local-admin-key
+```
+
+Optional admin actor attribution header:
+
+```txt
+x-admin-actor: <admin-name-or-system-actor>
 ```
 
 Current downstream Product Service endpoints:
@@ -462,25 +484,19 @@ Done
 
 Completed:
 
-* Reviewed root and workspace package scripts.
-* Added GitHub Actions workflow.
-* Configured CI on push to `main`.
-* Configured CI on pull request to `main`.
-* Configured Node.js 20 in CI.
-* Configured dependency installation with `npm ci`.
-* Configured Product Service Prisma Client generation in CI.
-* Configured automated tests in CI.
-* Configured TypeScript typecheck in CI.
-* Configured production build in CI.
-* Added API Gateway Docker image build validation.
-* Added Product Service Docker image build validation.
-* Validated GitHub Actions CI on GitHub.
-* Added live CI badge to README.
-* Final local validation passed.
-* Final Docker Compose validation passed.
-* API Gateway `/health` validation passed.
-* API Gateway `/metrics` validation passed.
-* Final Sprint 6 documentation was completed.
+* GitHub Actions workflow.
+* CI on push to `main`.
+* CI on pull request to `main`.
+* Node.js 20 in CI.
+* Dependency installation with `npm ci`.
+* Product Service Prisma Client generation in CI.
+* Automated tests in CI.
+* TypeScript typecheck in CI.
+* Production build in CI.
+* API Gateway Docker image build validation.
+* Product Service Docker image build validation.
+* README CI badge.
+* Final validation and documentation.
 
 ### Sprint 7 - Multi-Route Gateway Expansion
 
@@ -492,32 +508,14 @@ Done
 
 Completed:
 
-* Reviewed existing single-route Product proxy implementation.
-* Refactored Product proxy route into a generic downstream proxy route foundation.
-* Added `downstreamProxyRoute()`.
-* Kept `productProxyRoute()` as a compatibility wrapper.
-* Preserved existing protected `GET /api/products` behavior.
-* Added Product Service health route config.
-* Added `GET /api/product-service/health -> Product Service /health`.
-* Configured Product Service health proxy route as public.
-* Configured Product Service health proxy route without API key requirement.
-* Configured Product Service health proxy route without JWT requirement.
-* Configured Product Service health proxy route without Redis-backed rate limiting.
-* Configured Product Service health proxy route without Redis response cache.
-* Configured Product Service health proxy route with downstream timeout policy.
-* Registered multiple downstream routes from `downstreamRouteConfigs`.
-* Added route config tests for the new public route.
-* Added integration test for `GET /api/product-service/health`.
-* Validated Docker runtime for the new route.
-* Validated existing protected `GET /api/products` still works.
-* Validated Redis cache `MISS -> HIT` still works.
-* Validated rate limit headers still work.
-* Final local validation passed.
-* Final Docker Compose validation passed.
-* API Gateway `/health` validation passed.
-* API Gateway `/metrics` validation passed.
-* API Gateway `/api/product-service/health` validation passed.
-* Final Sprint 7 documentation was completed.
+* Generic downstream proxy route foundation.
+* `downstreamProxyRoute()`.
+* `productProxyRoute()` compatibility wrapper.
+* Public Product Service health proxy route.
+* Multiple downstream routes from route config.
+* Public/protected route policy separation.
+* Docker runtime validation.
+* Final validation and documentation.
 
 ### Sprint 8 - Dynamic Route Config from Database
 
@@ -529,93 +527,107 @@ Done
 
 Completed:
 
-* Added API Gateway Prisma setup.
-* Added API Gateway Prisma schema.
-* Added API Gateway route config database model.
-* Added PostgreSQL schema `gateway`.
-* Added `gateway.gateway_routes` table.
-* Added API Gateway migration `20260701063629_add_gateway_routes`.
-* Added API Gateway route config seed script.
-* Seeded protected `GET /api/products`.
-* Seeded public `GET /api/product-service/health`.
-* Added Gateway Prisma Client wrapper.
-* Added database route config mapper.
-* Added database route config repository.
-* Added runtime route config loader.
-* Implemented DB-first route config loading at API Gateway startup.
-* Implemented safe static route config fallback.
-* Updated `app.ts` to accept resolved runtime route configs.
-* Updated `server.ts` to load route configs before app startup.
-* Updated GitHub Actions CI to generate API Gateway Prisma Client.
-* Updated API Gateway Dockerfile to generate Prisma Client inside Docker image.
-* Updated `.dockerignore` to exclude generated API Gateway Prisma Client.
-* Updated Docker Compose with API Gateway `DATABASE_URL`.
-* Updated Docker Compose dependency ordering for API Gateway.
-* Fixed Prisma Query Engine mismatch between Windows-generated client and Linux Alpine Docker runtime.
-* Added mapper tests.
-* Added runtime loader fallback tests.
-* Validated Docker runtime loads route configs from database.
-* Validated API Gateway log: `Loaded downstream route configs from database { routeCount: 2 }`.
-* Validated public DB-backed `GET /api/product-service/health`.
-* Validated protected DB-backed `GET /api/products`.
-* Validated Redis cache `MISS -> HIT` still works.
-* Final local validation passed.
-* Final Docker Compose validation passed.
-* Final Sprint 8 documentation was completed.
+* API Gateway Prisma setup.
+* PostgreSQL schema `gateway`.
+* `gateway.gateway_routes` table.
+* Migration `20260701063629_add_gateway_routes`.
+* DB route config seed script.
+* Database route config mapper.
+* Database route config repository.
+* Runtime route config loader.
+* DB-first route loading at startup.
+* Static fallback.
+* API Gateway Prisma Client generation in CI and Docker.
+* Docker runtime validation.
+* Final validation and documentation.
 
 ### Sprint 9 - Route Management API Foundation
 
 Status:
 
 ```txt
-Technical implementation complete
+Done
 ```
 
 Completed:
 
-* Added admin API key environment config.
-* Added `ADMIN_API_KEY_HEADER`.
-* Added `ADMIN_API_KEY`.
-* Documented admin API key variables in `.env.example`.
-* Added admin API key middleware.
-* Added route management type foundation.
-* Added route management repository interface.
-* Added Prisma route management repository.
-* Added route config response mapper.
-* Added route config create request mapper.
-* Added route config update request mapper.
-* Added `GET /internal/admin/routes`.
-* Added `GET /internal/admin/routes/:id`.
-* Added `POST /internal/admin/routes`.
-* Added `PATCH /internal/admin/routes/:id`.
-* Added route config list behavior.
-* Added route config detail behavior.
-* Added route config create behavior.
-* Added route config update behavior.
-* Added route config enable/disable behavior through PATCH.
-* Reused downstream route config validation before create.
-* Reused downstream route config validation before update.
-* Added duplicate method + gatewayPath check for create.
-* Added duplicate method + gatewayPath conflict check for update.
-* Added route config not found response.
-* Added invalid route config response.
-* Added duplicate route config response.
-* Added missing admin API key response.
-* Added invalid admin API key response.
-* Added admin route config tests.
-* Added env tests for admin API key config.
-* Validated create route API in Docker runtime.
-* Validated duplicate create route API returns `409 ROUTE_CONFIG_ALREADY_EXISTS`.
-* Validated update route API in Docker runtime.
-* Validated disabled route behavior after restart.
-* Cleaned local test route from database.
-* Confirmed database returned to 2 seeded route configs.
-* Ran `npm run test`.
-* Ran `npm run typecheck`.
-* Ran `npm run build`.
-* Confirmed test count is 27 files and 168 tests.
-* Confirmed working tree clean after technical commits.
-* Pushed stable checkpoints to GitHub.
+* Admin API key environment config.
+* Admin API key middleware.
+* Route management type foundation.
+* Route management repository interface.
+* Prisma route management repository.
+* Route management request/response mappers.
+* `GET /internal/admin/routes`.
+* `GET /internal/admin/routes/:id`.
+* `POST /internal/admin/routes`.
+* `PATCH /internal/admin/routes/:id`.
+* Route config list behavior.
+* Route config detail behavior.
+* Route config create behavior.
+* Route config update behavior.
+* Route config enable/disable behavior through PATCH.
+* Validation before create/update.
+* Duplicate method + gatewayPath conflict detection.
+* Route management API tests.
+* Docker runtime create/update/disable validation.
+* Final validation and documentation.
+
+### Sprint 10 - Route Management Hardening
+
+Status:
+
+```txt
+Done
+```
+
+Completed:
+
+* Added route config soft delete foundation.
+* Added lifecycle metadata fields:
+  * `created_by`
+  * `updated_by`
+  * `deleted_at`
+  * `deleted_by`
+* Added `createdBy`, `updatedBy`, `deletedAt`, and `deletedBy` to route management response models.
+* Added optional `x-admin-actor` attribution header.
+* Added `DELETE /internal/admin/routes/:id`.
+* Implemented soft delete behavior:
+  * Sets `enabled=false`
+  * Sets `deleted_at`
+  * Sets `deleted_by`
+  * Sets `updated_by`
+* Excluded soft-deleted routes from admin list API.
+* Excluded soft-deleted routes from admin detail API.
+* Excluded soft-deleted routes from duplicate checks.
+* Excluded soft-deleted routes from runtime DB route loading.
+* Updated runtime loader to load only `enabled=true` and `deleted_at IS NULL` routes.
+* Replaced full unique constraint with PostgreSQL partial unique index:
+  * `method + gateway_path`
+  * Only where `deleted_at IS NULL`
+* Allowed recreating the same `method + gatewayPath` after the old route is soft-deleted.
+* Updated seed strategy to avoid relying on removed Prisma compound unique upsert.
+* Added reload validation endpoint:
+  * `POST /internal/admin/routes/reload`
+* Reload endpoint validates active DB route configs without applying runtime changes.
+* Reload endpoint returns:
+  * `mode: validation-only`
+  * `runtimeApplied: false`
+  * `requiresRestart: true`
+  * active route count
+* Added soft delete tests.
+* Added reload validation tests.
+* Validated Docker runtime soft delete behavior.
+* Validated recreate-after-soft-delete behavior.
+* Validated reload endpoint in Docker runtime.
+* Confirmed current automated tests:
+  * 27 test files passed
+  * 176 tests passed
+* Confirmed `npm run test` passed.
+* Confirmed `npm run typecheck` passed.
+* Confirmed `npm run build` passed.
+* Pushed stable technical commits:
+  * `8052742 feat(gateway): add route config soft delete`
+  * `1f7443d feat(gateway): add route config reload validation`
 
 ---
 
@@ -638,6 +650,8 @@ Acceptance criteria:
 * API Gateway exposes `GET /internal/admin/routes/:id`.
 * API Gateway exposes `POST /internal/admin/routes`.
 * API Gateway exposes `PATCH /internal/admin/routes/:id`.
+* API Gateway exposes `DELETE /internal/admin/routes/:id`.
+* API Gateway exposes `POST /internal/admin/routes/reload`.
 * API Gateway can run locally.
 * API Gateway can run through Docker Compose.
 * API Gateway Docker image can be built in CI.
@@ -692,7 +706,7 @@ Current health response shape:
 {
   "service": "product-service",
   "status": "ok",
-  "timestamp": "2026-07-01T00:00:00.000Z"
+  "timestamp": "2026-07-02T00:00:00.000Z"
 }
 ```
 
@@ -720,6 +734,7 @@ Acceptance criteria:
 * Product route still uses Redis response caching.
 * Product route can be loaded from database route config.
 * Product route can fall back to static config when DB loading fails.
+* Product route is loaded from DB only when `enabled=true` and `deleted_at IS NULL`.
 
 Status:
 
@@ -866,7 +881,7 @@ Acceptance criteria:
 * JWT requirement is controlled by route auth policy.
 * Public routes can disable JWT requirement through route policy.
 * DB route config supports JWT requirement field.
-* Internal/admin APIs do not require consumer JWT in Sprint 9.
+* Internal/admin APIs do not require consumer JWT.
 
 Current protected route:
 
@@ -969,7 +984,7 @@ Acceptance criteria:
 * Runtime rate limit behavior is resolved from route policy.
 * Public routes can disable rate limiting through route policy.
 * DB route config supports rate limit policy fields.
-* Internal/admin route management APIs do not use consumer product route rate limit identity in Sprint 9.
+* Internal/admin route management APIs do not use consumer product route rate limit identity.
 
 Default product route rate limit:
 
@@ -1094,6 +1109,8 @@ Acceptance criteria:
 * Multi-route Gateway behavior can be validated through Docker Compose.
 * DB-backed route config loading can be validated through Docker Compose.
 * Internal/admin route management APIs can be validated through Docker Compose.
+* Soft delete behavior can be validated through Docker Compose.
+* Reload validation endpoint can be validated through Docker Compose.
 
 Current command:
 
@@ -1164,7 +1181,7 @@ Acceptance criteria:
 * Policy helpers are unit tested.
 * Policy behavior is covered by integration tests.
 * Policy behavior can be mapped from database route config records.
-* Route management APIs reuse route validation before persistence.
+* Route management APIs reuse route validation before persistence and reload validation.
 
 Current policy model:
 
@@ -1324,13 +1341,15 @@ Acceptance criteria:
 * DB route config mapper is covered by tests.
 * Runtime route config loader fallback behavior is covered by tests.
 * Admin route management APIs are covered by tests.
+* Route soft delete behavior is covered by tests.
+* Route reload validation behavior is covered by tests.
 * Test, typecheck, and build must pass before stable commits.
 
 Current test status:
 
 ```txt
 27 test files passed
-168 tests passed
+176 tests passed
 ```
 
 Status:
@@ -1368,19 +1387,6 @@ Current workflow file:
 .github/workflows/ci.yml
 ```
 
-Current CI commands:
-
-```powershell
-npm ci
-npm run db:generate -w apps/product-service
-npm run db:generate -w apps/api-gateway
-npm run test
-npm run typecheck
-npm run build
-docker build -t pulsegate-api-gateway:ci -f apps/api-gateway/Dockerfile .
-docker build -t pulsegate-product-service:ci -f apps/product-service/Dockerfile .
-```
-
 Status:
 
 ```txt
@@ -1404,7 +1410,7 @@ Acceptance criteria:
 * Duplicate route validation still protects against duplicate method + gateway path.
 * Multi-route behavior is covered by tests.
 * Multi-route behavior is validated through Docker Compose runtime.
-* Static multi-route config remains available as safe fallback after Sprint 8.
+* Static multi-route config remains available as safe fallback.
 
 Current configured fallback routes:
 
@@ -1468,8 +1474,8 @@ Acceptance criteria:
 * Product Service data remains in PostgreSQL schema `public`.
 * Product Service migration history remains in `public._prisma_migrations`.
 * API Gateway migration history is stored in `gateway._prisma_migrations`.
-* Gateway route config supports method, gateway path, downstream URL, enabled flag, priority, and route policies.
-* Gateway route config has unique constraint on method + gateway path.
+* Gateway route config supports method, gateway path, downstream URL, enabled flag, priority, route policies, and lifecycle metadata.
+* Gateway route config supports active route uniqueness through a partial unique index on `method + gateway_path` where `deleted_at IS NULL`.
 * Gateway route config can be seeded idempotently.
 * Current protected Product route can be seeded.
 * Current public Product Service health proxy route can be seeded.
@@ -1477,9 +1483,10 @@ Acceptance criteria:
 * Mapped route configs are validated before use.
 * Invalid DB route config should not be silently accepted.
 * API Gateway loads DB route config at startup.
-* API Gateway uses DB route config when DB loading succeeds and returns routes.
+* API Gateway uses DB route config when DB loading succeeds and returns active routes.
+* API Gateway loads only `enabled=true` and `deleted_at IS NULL` records as active runtime routes.
 * API Gateway falls back to static route config when DB loading fails.
-* API Gateway falls back to static route config when DB returns no enabled routes.
+* API Gateway falls back to static route config when DB returns no active routes.
 * Docker runtime can load route config from database successfully.
 * Docker logs confirm DB-backed route loading.
 
@@ -1489,7 +1496,7 @@ Current DB table:
 gateway.gateway_routes
 ```
 
-Current DB-backed routes:
+Current DB-backed active routes:
 
 ```txt
 GET /api/products
@@ -1562,6 +1569,8 @@ GET /internal/admin/routes
 GET /internal/admin/routes/:id
 POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
+DELETE /internal/admin/routes/:id
+POST /internal/admin/routes/reload
 ```
 
 Current admin header:
@@ -1593,10 +1602,12 @@ Acceptance criteria:
 * `GET /internal/admin/routes` exists.
 * `GET /internal/admin/routes/:id` exists.
 * Both endpoints require admin API key.
-* List endpoint returns all route configs.
-* List endpoint includes enabled and disabled route configs.
-* Detail endpoint returns one route config by id.
+* List endpoint returns non-deleted route configs.
+* List endpoint includes enabled and disabled routes when `deleted_at IS NULL`.
+* List endpoint excludes soft-deleted routes.
+* Detail endpoint returns one non-deleted route config by id.
 * Detail endpoint returns `404 ROUTE_CONFIG_NOT_FOUND` when route config does not exist.
+* Detail endpoint returns `404 ROUTE_CONFIG_NOT_FOUND` when route config was soft-deleted.
 * Read behavior uses a route management repository abstraction.
 * Read behavior is covered by tests.
 
@@ -1626,9 +1637,11 @@ Acceptance criteria:
 * Request body is parsed and mapped to route config.
 * Mapped route config is validated through `validateDownstreamRoutes()`.
 * Invalid route config returns `400 ROUTE_CONFIG_INVALID`.
-* Duplicate `method + gatewayPath` returns `409 ROUTE_CONFIG_ALREADY_EXISTS`.
+* Duplicate active `method + gatewayPath` returns `409 ROUTE_CONFIG_ALREADY_EXISTS`.
+* Soft-deleted routes do not block recreating the same `method + gatewayPath`.
 * Valid route config is persisted to `gateway.gateway_routes`.
 * Successful creation returns `201 Created`.
+* Created route config records `createdBy` and `updatedBy` when `x-admin-actor` is provided.
 * Created route config is visible through `GET /internal/admin/routes`.
 * Created route config can become active after API Gateway restart if enabled.
 * Create behavior is covered by tests.
@@ -1656,15 +1669,18 @@ Acceptance criteria:
 
 * `PATCH /internal/admin/routes/:id` exists.
 * Endpoint requires admin API key.
-* Endpoint finds existing route config by id.
+* Endpoint finds existing non-deleted route config by id.
 * Missing route config returns `404 ROUTE_CONFIG_NOT_FOUND`.
+* Soft-deleted route config returns `404 ROUTE_CONFIG_NOT_FOUND`.
 * Patch body is merged with the existing route config.
 * Merged route config is mapped to runtime route config shape.
 * Merged route config is validated through `validateDownstreamRoutes()`.
 * Invalid merged route config returns `400 ROUTE_CONFIG_INVALID`.
-* Conflict with another `method + gatewayPath` returns `409 ROUTE_CONFIG_ALREADY_EXISTS`.
+* Conflict with another active `method + gatewayPath` returns `409 ROUTE_CONFIG_ALREADY_EXISTS`.
+* Soft-deleted routes do not count as conflicts.
 * Valid update is persisted to `gateway.gateway_routes`.
 * Successful update returns `200 OK`.
+* Update records `updatedBy` when `x-admin-actor` is provided.
 * Update behavior is covered by tests.
 * Update behavior is validated in Docker runtime.
 
@@ -1691,7 +1707,7 @@ Acceptance criteria:
 * Route config has an `enabled` field.
 * `PATCH /internal/admin/routes/:id` can update `enabled`.
 * Disabled route remains stored in `gateway.gateway_routes`.
-* Disabled route remains visible through admin read API.
+* Disabled route remains visible through admin read API if it is not soft-deleted.
 * Disabled route is not loaded as an active runtime route after API Gateway restart.
 * Requests to disabled route return `404 Route not found` after API Gateway restart.
 * Enable/disable behavior is validated in Docker runtime.
@@ -1701,6 +1717,172 @@ Current disable request shape:
 ```json
 {
   "enabled": false
+}
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-033: Route Config Soft Delete
+
+API Gateway must support soft deleting route config records.
+
+Acceptance criteria:
+
+* `DELETE /internal/admin/routes/:id` exists.
+* Endpoint requires admin API key.
+* Endpoint returns `401 ADMIN_API_KEY_MISSING` when admin API key is missing.
+* Endpoint returns `403 ADMIN_API_KEY_INVALID` when admin API key is invalid.
+* Endpoint returns `404 ROUTE_CONFIG_NOT_FOUND` when route config does not exist.
+* Endpoint returns `404 ROUTE_CONFIG_NOT_FOUND` when route config is already soft-deleted.
+* Delete operation does not physically remove the row.
+* Delete operation sets `enabled=false`.
+* Delete operation sets `deleted_at`.
+* Delete operation sets `deleted_by` from `x-admin-actor` or fallback actor.
+* Delete operation sets `updated_by` from `x-admin-actor` or fallback actor.
+* Soft-deleted route is excluded from admin list.
+* Soft-deleted route is excluded from admin detail.
+* Soft-deleted route is excluded from runtime DB route loading.
+* Soft-deleted route is excluded from duplicate conflict detection.
+* Soft delete behavior is covered by tests.
+* Soft delete behavior is validated in Docker runtime.
+
+Current endpoint:
+
+```txt
+DELETE /internal/admin/routes/:id
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-034: Route Lifecycle Metadata
+
+Gateway route config records must include basic lifecycle metadata.
+
+Acceptance criteria:
+
+* `gateway.gateway_routes` includes `created_by`.
+* `gateway.gateway_routes` includes `updated_by`.
+* `gateway.gateway_routes` includes `deleted_at`.
+* `gateway.gateway_routes` includes `deleted_by`.
+* Route management responses include `createdBy`.
+* Route management responses include `updatedBy`.
+* Route management responses include `deletedAt`.
+* Route management responses include `deletedBy`.
+* Create operation can set `createdBy` and `updatedBy`.
+* Update operation can set `updatedBy`.
+* Soft delete operation can set `deletedBy` and `updatedBy`.
+* `x-admin-actor` is used as a basic attribution source.
+* If `x-admin-actor` is missing or empty, the fallback actor is `admin-api-key`.
+
+Current attribution header:
+
+```txt
+x-admin-actor
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-035: Active Route Partial Unique Index
+
+Gateway route config must enforce uniqueness only for active non-deleted route identities.
+
+Acceptance criteria:
+
+* Full unique constraint on `method + gateway_path` is removed.
+* PostgreSQL partial unique index exists on `method + gateway_path` where `deleted_at IS NULL`.
+* Two active non-deleted routes cannot share the same `method + gateway_path`.
+* A soft-deleted route does not block creating a new active route with the same `method + gateway_path`.
+* Route management duplicate checks match the database uniqueness strategy.
+* Seed logic no longer relies on Prisma compound unique upsert.
+* Recreate-after-soft-delete behavior is validated in Docker runtime.
+
+Current index concept:
+
+```sql
+CREATE UNIQUE INDEX gateway_routes_method_gateway_path_active_key
+ON gateway.gateway_routes(method, gateway_path)
+WHERE deleted_at IS NULL;
+```
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## FR-036: Route Reload Validation Endpoint
+
+API Gateway must expose a safe validation endpoint for route reload preparation.
+
+Acceptance criteria:
+
+* `POST /internal/admin/routes/reload` exists.
+* Endpoint requires admin API key.
+* Endpoint returns `401 ADMIN_API_KEY_MISSING` when admin API key is missing.
+* Endpoint returns `403 ADMIN_API_KEY_INVALID` when admin API key is invalid.
+* Endpoint reads non-deleted route configs from the route management repository.
+* Endpoint validates active routes by mapping them to runtime `DownstreamRouteConfig[]`.
+* Endpoint does not apply runtime route changes.
+* Endpoint does not perform true hot reload yet.
+* Endpoint returns `mode: validation-only`.
+* Endpoint returns `runtimeApplied: false`.
+* Endpoint returns `requiresRestart: true`.
+* Endpoint returns active route count.
+* Endpoint returns active route summary.
+* Validation failure returns `400 ROUTE_CONFIG_RELOAD_VALIDATION_FAILED`.
+* Reload validation behavior is covered by tests.
+* Reload validation behavior is validated in Docker runtime.
+
+Current endpoint:
+
+```txt
+POST /internal/admin/routes/reload
+```
+
+Current successful response shape:
+
+```json
+{
+  "data": {
+    "mode": "validation-only",
+    "runtimeApplied": false,
+    "requiresRestart": true,
+    "routeCount": 2,
+    "routes": [
+      {
+        "method": "GET",
+        "gatewayPath": "/api/products",
+        "enabled": true,
+        "priority": 100
+      },
+      {
+        "method": "GET",
+        "gatewayPath": "/api/product-service/health",
+        "enabled": true,
+        "priority": 200
+      }
+    ]
+  }
 }
 ```
 
@@ -1728,6 +1910,7 @@ Acceptance criteria:
 * Developer can validate both protected and public Gateway routes locally.
 * Developer can validate DB-backed route config through local Docker Compose.
 * Developer can validate route management APIs through local Docker Compose.
+* Developer can validate soft delete and reload validation through local Docker Compose.
 
 Status:
 
@@ -1842,6 +2025,8 @@ Acceptance criteria:
 * Multi-route behavior is covered by route config and integration tests.
 * DB-backed route config mapping and fallback behavior are covered by tests.
 * Route management API behavior is covered by tests.
+* Soft delete behavior is covered by tests.
+* Reload validation behavior is covered by tests.
 
 Status:
 
@@ -1866,6 +2051,7 @@ Acceptance criteria:
 * Public Product Service health proxy route does not depend on Redis because rate limit and cache are disabled for that route.
 * API Gateway can fall back to static route config when DB route config loading fails.
 * Invalid route config is rejected before persistence in route management APIs.
+* Reload validation failure does not apply runtime route changes.
 
 Status:
 
@@ -1913,7 +2099,7 @@ Acceptance criteria:
 * Policy behavior is covered by integration tests.
 * Different routes can use different policy combinations.
 * Database route config can be mapped to the same route policy model.
-* Route management APIs reuse the same validation model before persistence.
+* Route management APIs reuse the same validation model before persistence and reload validation.
 
 Status:
 
@@ -1958,6 +2144,7 @@ Acceptance criteria:
 * Existing `GET /api/products` behavior must continue working after multi-route refactor.
 * Existing `GET /api/products` behavior must continue working after DB-backed route config rollout.
 * Existing `GET /api/products` behavior must continue working after route management API addition.
+* Existing `GET /api/products` behavior must continue working after route management hardening.
 * Existing API key behavior must remain unchanged.
 * Existing JWT behavior must remain unchanged.
 * Existing Redis-backed rate limit behavior must remain unchanged.
@@ -1983,11 +2170,13 @@ Acceptance criteria:
 
 * API Gateway uses DB route config when available.
 * API Gateway falls back to static route config when DB loading fails.
-* API Gateway falls back to static route config when DB returns zero enabled routes.
+* API Gateway falls back to static route config when DB returns zero active routes.
 * Existing static route config remains validated.
 * DB route records are mapped and validated before route registration.
+* Only active routes are loaded from DB.
+* Active means `enabled=true` and `deleted_at IS NULL`.
 * Docker runtime confirms DB route config is loaded.
-* Route changes do not require runtime hot reload in Sprint 8 or Sprint 9.
+* Route changes do not require true runtime hot reload yet.
 
 Status:
 
@@ -2005,13 +2194,39 @@ Acceptance criteria:
 
 * Internal/admin route management APIs require admin API key.
 * Route management APIs do not use normal consumer API keys.
-* Route management APIs do not require consumer JWT in Sprint 9.
+* Route management APIs do not require consumer JWT.
 * Create and update operations validate route config before persistence.
-* Create and update operations reject duplicate `method + gatewayPath` conflicts.
-* Disabled routes remain visible to admins.
+* Create and update operations reject duplicate active `method + gatewayPath` conflicts.
+* Disabled routes remain visible to admins if they are not soft-deleted.
 * Disabled routes are not loaded as active runtime routes after restart.
-* Runtime route reload remains restart-based in Sprint 9.
-* Hot reload is deferred to a later sprint.
+* Soft-deleted routes are hidden from normal admin reads.
+* Soft-deleted routes are not loaded as active runtime routes after restart.
+* Runtime route application remains restart-based after Sprint 10.
+* True hot reload is deferred to a later sprint.
+
+Status:
+
+```txt
+Done
+```
+
+---
+
+## NFR-014: Safe Route Management Hardening
+
+Route management hardening must preserve auditability and avoid destructive data loss.
+
+Acceptance criteria:
+
+* Route delete operation uses soft delete instead of hard delete.
+* Soft-deleted rows remain in PostgreSQL.
+* Active route uniqueness is enforced through partial unique index.
+* Recreate-after-soft-delete is supported.
+* Basic admin actor attribution exists through `x-admin-actor`.
+* Route lifecycle metadata is returned in admin API responses.
+* Reload endpoint validates route config but does not apply runtime changes.
+* Runtime changes still require API Gateway restart.
+* Full audit log table is deferred to a later sprint.
 
 Status:
 
@@ -2023,17 +2238,22 @@ Done
 
 # 11. Current System Constraints
 
-Current constraints after Sprint 9 technical completion:
+Current constraints after Sprint 10 technical completion:
 
-* API Gateway currently proxies only Product Service, but now supports more than one Gateway route.
+* API Gateway currently proxies only Product Service, but supports more than one Gateway route.
 * Current downstream routes are loaded from PostgreSQL at startup when available.
+* Runtime DB route loading only loads `enabled=true` and `deleted_at IS NULL` routes.
 * Static code-based route configs still exist as fallback.
 * Route configuration is database-backed and manageable through internal/admin APIs.
 * Route configuration changes require API Gateway restart to affect runtime proxy routing.
-* Runtime route hot reload is not implemented yet.
-* Route config delete or soft-delete is not implemented yet.
-* Route management audit log is not implemented yet.
+* True runtime route hot reload is not implemented yet.
+* `POST /internal/admin/routes/reload` is validation-only and does not apply runtime changes.
+* Route config soft delete is implemented.
+* Route config hard delete is not implemented.
+* Route management audit log table is not implemented yet.
+* Route lifecycle metadata exists, but it is not a full audit history.
 * Internal/admin APIs use a local admin API key foundation, not a full admin user system yet.
+* Admin attribution uses optional `x-admin-actor`, not verified admin identity yet.
 * API key list is still environment-based.
 * JWT validation is local-secret based.
 * There is no user service yet.
@@ -2042,7 +2262,7 @@ Current constraints after Sprint 9 technical completion:
 * Product Service has no create, update, or delete product APIs yet.
 * Redis-backed rate limiting is implemented for `GET /api/products`.
 * `GET /api/product-service/health` intentionally has rate limiting disabled.
-* Internal/admin route management APIs do not use product route consumer rate limiting in Sprint 9.
+* Internal/admin route management APIs do not use product route consumer rate limiting.
 * Redis response caching is implemented for `GET /api/products`.
 * `GET /api/product-service/health` intentionally has response caching disabled.
 * Internal/admin route management APIs do not use Product response cache.
@@ -2078,25 +2298,22 @@ Current constraints after Sprint 9 technical completion:
 ```txt
 API Gateway process starts
   -> loadRuntimeDownstreamRouteConfigs()
-    -> Try loading enabled route configs from PostgreSQL gateway.gateway_routes
-      -> Query enabled routes
+    -> Try loading active route configs from PostgreSQL gateway.gateway_routes
+      -> Query enabled=true and deleted_at IS NULL routes
       -> Order by priority ASC and gatewayPath ASC
       -> Map DB records to DownstreamRouteConfig[]
       -> Validate mapped route configs
-    -> If DB loading succeeds and routes exist:
+    -> If DB loading succeeds and active routes exist:
          -> Use database-backed route configs
          -> Log: Loaded downstream route configs from database { routeCount: 2 }
     -> If DB loading fails:
          -> Use static downstreamRouteConfigs fallback
-    -> If DB returns zero enabled routes:
+    -> If DB returns zero active routes:
          -> Use static downstreamRouteConfigs fallback
   -> buildApiGatewayApp({ routeConfigs })
   -> Register /health
   -> Register /metrics
-  -> Register /internal/admin/routes
-  -> Register /internal/admin/routes/:id
-  -> Register POST /internal/admin/routes
-  -> Register PATCH /internal/admin/routes/:id
+  -> Register internal/admin route management APIs
   -> Register downstream proxy routes
   -> Connect Redis
   -> Listen on port 3000
@@ -2170,14 +2387,14 @@ Admin Client / Future Admin Dashboard
     -> If invalid:
          -> 403 ADMIN_API_KEY_INVALID
     -> If valid:
-         -> API Gateway reads route configs from gateway.gateway_routes
-         -> API Gateway returns all route configs including disabled routes
+         -> API Gateway reads non-deleted route configs from gateway.gateway_routes
+         -> API Gateway returns enabled and disabled routes where deleted_at IS NULL
 
 Admin Client / Future Admin Dashboard
   -> GET http://localhost:3000/internal/admin/routes/:id
     -> API Gateway checks x-admin-api-key
-    -> API Gateway reads one route config by id
-    -> If route does not exist:
+    -> API Gateway reads one non-deleted route config by id
+    -> If route does not exist or is soft-deleted:
          -> 404 ROUTE_CONFIG_NOT_FOUND
     -> If route exists:
          -> 200 with route config response
@@ -2188,33 +2405,56 @@ Admin Client / Future Admin Dashboard
     -> API Gateway parses request body
     -> API Gateway maps request body to DownstreamRouteConfig
     -> API Gateway reuses validateDownstreamRoutes()
-    -> API Gateway checks duplicate method + gatewayPath
+    -> API Gateway checks duplicate active method + gatewayPath
     -> If invalid:
          -> 400 ROUTE_CONFIG_INVALID
-    -> If duplicate:
+    -> If active duplicate:
          -> 409 ROUTE_CONFIG_ALREADY_EXISTS
     -> If valid:
          -> API Gateway creates route config in gateway.gateway_routes
+         -> API Gateway records createdBy and updatedBy
          -> API Gateway returns 201 Created
 
 Admin Client / Future Admin Dashboard
   -> PATCH http://localhost:3000/internal/admin/routes/:id
     -> API Gateway checks x-admin-api-key
-    -> API Gateway finds existing route by id
-    -> If route does not exist:
+    -> API Gateway finds existing non-deleted route by id
+    -> If route does not exist or is soft-deleted:
          -> 404 ROUTE_CONFIG_NOT_FOUND
     -> If route exists:
          -> API Gateway merges existing route with patch body
          -> API Gateway maps merged body to DownstreamRouteConfig
          -> API Gateway reuses validateDownstreamRoutes()
-         -> API Gateway checks conflict with another method + gatewayPath
+         -> API Gateway checks conflict with another active method + gatewayPath
          -> If invalid:
               -> 400 ROUTE_CONFIG_INVALID
          -> If conflict:
               -> 409 ROUTE_CONFIG_ALREADY_EXISTS
          -> If valid:
               -> API Gateway updates route config in gateway.gateway_routes
+              -> API Gateway records updatedBy
               -> API Gateway returns 200 OK
+
+Admin Client / Future Admin Dashboard
+  -> DELETE http://localhost:3000/internal/admin/routes/:id
+    -> API Gateway checks x-admin-api-key
+    -> API Gateway finds existing non-deleted route by id
+    -> If route does not exist or is already soft-deleted:
+         -> 404 ROUTE_CONFIG_NOT_FOUND
+    -> If route exists:
+         -> API Gateway sets enabled=false
+         -> API Gateway sets deleted_at
+         -> API Gateway sets deleted_by
+         -> API Gateway sets updated_by
+         -> API Gateway returns 200 OK with deleted route response
+
+Admin Client / Future Admin Dashboard
+  -> POST http://localhost:3000/internal/admin/routes/reload
+    -> API Gateway checks x-admin-api-key
+    -> API Gateway reads active route configs
+    -> API Gateway validates active route configs
+    -> API Gateway does not apply runtime changes
+    -> API Gateway returns validation-only summary
 ```
 
 ## Route Enable/Disable Runtime Behavior
@@ -2225,10 +2465,41 @@ Body: { "enabled": false }
 
 Result:
   -> Route remains stored in gateway.gateway_routes
-  -> Route remains visible through GET /internal/admin/routes
-  -> API Gateway restart loads only enabled route configs
+  -> Route remains visible through GET /internal/admin/routes if deleted_at IS NULL
+  -> API Gateway restart loads only enabled=true and deleted_at IS NULL route configs
   -> Disabled route is not registered as an active runtime route
   -> Client request to disabled route returns 404 Route not found
+```
+
+## Route Soft Delete Runtime Behavior
+
+```txt
+DELETE /internal/admin/routes/:id
+
+Result:
+  -> Route remains stored in gateway.gateway_routes
+  -> enabled=false
+  -> deleted_at is set
+  -> deleted_by is set
+  -> updated_by is set
+  -> Route is hidden from normal admin list/detail APIs
+  -> Route is not loaded as an active runtime route after API Gateway restart
+  -> Same method + gatewayPath can be recreated as a new active route
+```
+
+## Route Reload Validation Behavior
+
+```txt
+POST /internal/admin/routes/reload
+Content-Type: application/json
+Body: {}
+
+Result:
+  -> Validates active route configs
+  -> Does not apply runtime changes
+  -> Returns mode=validation-only
+  -> Returns runtimeApplied=false
+  -> Returns requiresRestart=true
 ```
 
 ## Public Health Flow
@@ -2273,75 +2544,6 @@ Developer
     -> GitHub Actions builds Product Service Docker image
     -> GitHub Actions reports pass/fail status to GitHub
     -> README CI badge reflects workflow status
-```
-
-## Downstream Failure Behavior
-
-```txt
-Product Service unavailable + cache MISS
-  -> 503 DOWNSTREAM_SERVICE_UNAVAILABLE
-
-Product Service unavailable + cache HIT
-  -> 200 from Redis cache
-
-Product Service timeout + cache MISS
-  -> 504 DOWNSTREAM_TIMEOUT
-
-Product Service returns error status + cache MISS
-  -> 502 DOWNSTREAM_HTTP_ERROR
-
-Product Service returns invalid JSON + cache MISS
-  -> 502 DOWNSTREAM_INVALID_RESPONSE
-```
-
-## Route Policy Behavior
-
-```txt
-GET /api/products
-  -> auth:
-       requireApiKey: true
-       requireJwt: true
-  -> timeout:
-       enabled: true
-       timeoutMs: 3000
-  -> cache:
-       enabled: true
-       ttlSeconds: 30
-  -> rateLimit:
-       enabled: true
-       limit: 5
-       windowMs: 60000
-  -> requestTransform:
-       enabled: false
-  -> responseTransform:
-       enabled: false
-  -> retry:
-       enabled: false
-       attempts: 0
-       retryOnStatuses: [502, 503, 504]
-
-GET /api/product-service/health
-  -> auth:
-       requireApiKey: false
-       requireJwt: false
-  -> timeout:
-       enabled: true
-       timeoutMs: 3000
-  -> cache:
-       enabled: false
-       ttlSeconds: 0
-  -> rateLimit:
-       enabled: false
-       limit: 0
-       windowMs: 0
-  -> requestTransform:
-       enabled: false
-  -> responseTransform:
-       enabled: false
-  -> retry:
-       enabled: false
-       attempts: 0
-       retryOnStatuses: [502, 503, 504]
 ```
 
 ---
@@ -2519,10 +2721,17 @@ Expected log:
 Loaded downstream route configs from database { routeCount: 2 }
 ```
 
-Validate Gateway route configs:
+Validate active Gateway route configs:
 
 ```powershell
-docker compose exec postgres psql -U pulsegate -d pulsegate -c "SELECT method, gateway_path, downstream_url, enabled, priority FROM gateway.gateway_routes ORDER BY priority;"
+docker compose exec postgres psql -U pulsegate -d pulsegate -c "SELECT method, gateway_path, enabled, deleted_at FROM gateway.gateway_routes WHERE deleted_at IS NULL ORDER BY priority, gateway_path;"
+```
+
+Expected active result:
+
+```txt
+GET /api/products
+GET /api/product-service/health
 ```
 
 Test admin route config list API:
@@ -2572,6 +2781,26 @@ Expected result:
 ADMIN_API_KEY_INVALID
 ```
 
+Test route reload validation:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/internal/admin/routes/reload `
+  -Method POST `
+  -Headers @{ "x-admin-api-key" = "local-admin-key" } `
+  -ContentType "application/json" `
+  -Body "{}" |
+  ConvertTo-Json -Depth 10
+```
+
+Expected result:
+
+```txt
+mode = validation-only
+runtimeApplied = false
+requiresRestart = true
+routeCount = 2
+```
+
 Test protected Product route:
 
 ```powershell
@@ -2613,7 +2842,7 @@ Current test result:
 
 ```txt
 27 test files passed
-168 tests passed
+176 tests passed
 ```
 
 Current important test areas:
@@ -2637,6 +2866,8 @@ Current important test areas:
 * Database route config mapper.
 * Runtime route config loader and fallback.
 * Route management API behavior.
+* Route config soft delete behavior.
+* Route reload validation behavior.
 * Metrics registry.
 * Metrics route.
 * Timeout policy.
@@ -2700,6 +2931,23 @@ Sprint 9 test coverage:
 * `PATCH /internal/admin/routes/:id` returns `400` for invalid merged route config.
 * `PATCH /internal/admin/routes/:id` returns `409` for duplicate route conflict.
 * `PATCH /internal/admin/routes/:id` returns `401` when admin API key is missing.
+
+Sprint 10 test coverage:
+
+* `DELETE /internal/admin/routes/:id` soft deletes a route config.
+* Soft delete sets route lifecycle fields.
+* Soft delete hides route from admin list API.
+* Soft delete makes detail API return `404`.
+* Soft delete returns `404` for missing route.
+* Soft delete requires admin API key.
+* Runtime DB route mapper/repository excludes deleted routes.
+* Duplicate checks ignore soft-deleted routes.
+* `POST /internal/admin/routes/reload` validates route configs.
+* Reload validation returns `mode=validation-only`.
+* Reload validation returns `runtimeApplied=false`.
+* Reload validation returns `requiresRestart=true`.
+* Reload validation requires admin API key.
+* Reload validation rejects invalid admin API key.
 
 ---
 
@@ -2802,45 +3050,47 @@ Sprint 9 is done when internal/admin route management APIs exist, admin API key 
 Current Sprint 9 status:
 
 ```txt
+Done
+```
+
+## Sprint 10 Definition of Done
+
+Sprint 10 is done when route management hardening is complete, route configs support soft delete, lifecycle metadata is recorded, soft-deleted routes are excluded from admin reads and runtime loading, active-route partial unique index supports recreate-after-soft-delete, reload validation endpoint exists, tests pass, typecheck passes, build passes, Docker runtime validation confirms soft delete and reload validation behavior, final docs are updated, and GitHub push is complete.
+
+Current Sprint 10 status:
+
+```txt
 Technical implementation complete
+Final documentation update in progress
 ```
 
 ---
 
 # 17. Future Requirements
 
-## Future FR: Runtime Route Reload
+## Future FR: True Runtime Route Reload
 
 Planned features:
 
-* Reload route config after route management changes.
+* Apply route config changes without restarting API Gateway.
 * Keep reload safe and validated.
 * Avoid duplicate route registration issues.
 * Decide whether reload is manual, admin-triggered, or periodic.
 * Preserve static fallback behavior.
+* Define behavior for changed route cache keys and rate limit keys.
+* Add tests for successful reload and failed reload.
 
-Status:
+Current related feature:
 
 ```txt
-Recommended for Sprint 10 or later
+POST /internal/admin/routes/reload exists as validation-only.
+It does not apply runtime changes yet.
 ```
 
----
-
-## Future FR: Route Config Delete or Soft Delete
-
-Planned features:
-
-* Decide between hard delete and soft delete.
-* Prefer soft delete if auditability is needed.
-* Prevent accidental deletion of active production routes.
-* Define behavior for deleted route configs during runtime loading.
-* Add tests for delete or soft-delete behavior.
-
 Status:
 
 ```txt
-Recommended for Sprint 10 or later
+Planned for later sprint
 ```
 
 ---
@@ -2850,10 +3100,22 @@ Recommended for Sprint 10 or later
 Planned features:
 
 * Track who changed route configs.
-* Track route config create, update, enable, disable, and delete operations.
+* Track route config create, update, enable, disable, delete, and reload validation operations.
 * Store previous and new values where useful.
 * Prepare Admin Dashboard history view.
 * Prepare production troubleshooting behavior.
+
+Current related feature:
+
+```txt
+Route lifecycle metadata exists:
+created_by
+updated_by
+deleted_at
+deleted_by
+
+This is not a full audit log table yet.
+```
 
 Status:
 
@@ -3047,6 +3309,8 @@ Planned features:
 * Create routes.
 * Update routes.
 * Enable or disable routes.
+* Soft delete routes.
+* Validate reload status.
 * View API consumers.
 * View API keys.
 * View traffic metrics.
@@ -3102,7 +3366,7 @@ Planned for later sprint
 Recommended next step:
 
 ```txt
-Sprint 9 - Final Documentation Update
+Sprint 10 - Final Documentation Update
 ```
 
 Currently updating:
@@ -3116,7 +3380,7 @@ docs/project-context/DECISION_LOG.md
 docs/sdlc/requirements.md
 ```
 
-After Sprint 9 final documentation update, run:
+After Sprint 10 final documentation update, run:
 
 ```powershell
 npm run test
@@ -3130,24 +3394,23 @@ Then commit docs:
 ```powershell
 git add README.md docs/architecture/overview.md docs/project-context/AI_HANDOFF.md docs/project-context/CURRENT_PROGRESS.md docs/project-context/DECISION_LOG.md docs/sdlc/requirements.md
 
-git commit -m "docs: finalize sprint 9 documentation"
+git commit -m "docs: finalize sprint 10 documentation"
 
 git push
 ```
 
-After Sprint 9 documentation is committed, move to:
+After Sprint 10 documentation is committed, move to:
 
 ```txt
-Sprint 10 - Route Management Hardening or Admin Dashboard Foundation
+Sprint 11 - Controlled Route Reload or Route Management Audit Foundation
 ```
 
-Sprint 10 should focus on one controlled direction:
+Recommended Sprint 11 direction:
 
-1. Route config delete or soft-delete strategy.
-2. Safe route config reload endpoint or hot reload foundation.
-3. Stronger admin authentication foundation if needed.
-4. Route management audit fields or audit log foundation.
-5. Admin Dashboard only after backend route management behavior is stable.
+1. Controlled true runtime route reload if the next goal is runtime behavior.
+2. Route management audit log table if the next goal is admin/audit hardening.
+3. Stronger admin authentication foundation if the next goal is security.
+4. Admin Dashboard foundation only after backend route management hardening remains stable.
 
 Do not add these before they are explicitly selected as a planned sprint:
 
