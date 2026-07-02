@@ -129,81 +129,102 @@ Long-term goals:
 
 ---
 
-## Current Stable Architecture
+## Current Architecture
 
 ```mermaid
 flowchart LR
-    Client["Client / API Consumer"]:::client --> Gateway["PulseGate API Gateway<br/>Port 3000"]:::gateway
-    AdminClient["Admin Client / Future Admin Dashboard"]:::client --> AdminAPI["Internal Admin APIs<br/>/internal/admin/routes"]:::admin
+    Client[Client / API Consumer] --> Gateway[PulseGate API Gateway<br/>Port 3000]
+    AdminClient[Admin Client / Future Admin Dashboard] --> AdminRoutes[Internal Admin Route Management APIs<br/>/internal/admin/routes]
 
-    Gateway --> Loader["Startup Route Config Loader"]:::runtime
-    Loader --> GatewayDB[("PostgreSQL gateway schema<br/>gateway_routes")]:::database
-    Loader --> StaticFallback["Static Route Config Fallback"]:::fallback
-    Loader --> Registry["Runtime Route Registry<br/>version / loadedAt / routeCount / routes"]:::runtime
+    Gateway --> StartupLoader[Startup Route Config Loader]
+    StartupLoader --> GatewayPrisma[API Gateway Prisma Client]
+    GatewayPrisma --> GatewaySchema[(PostgreSQL gateway schema<br/>gateway_routes)]
+    StartupLoader -->|DB load success| DbRoutes[Database-backed Route Configs]
+    StartupLoader -->|DB error or empty| StaticRoutes[Static Route Config Fallback]
 
-    Gateway --> GatewayMW["Request ID<br/>Security Headers<br/>Request Size Limit<br/>Access Logs + Metrics"]:::gateway
-    GatewayMW --> Registry
+    DbRoutes --> RuntimeRegistry[Runtime Route Registry<br/>Snapshot Version / LoadedAt / Route Count]
+    StaticRoutes --> RuntimeRegistry
 
-    Registry --> ProductRoute["Protected Route<br/>GET /api/products"]:::route
-    Registry --> HealthRoute["Public Route<br/>GET /api/product-service/health"]:::route
+    RuntimeRegistry --> RouteLookup[Per-request Route Config Lookup]
+    RouteLookup --> ReqId[Request ID Middleware]
+    ReqId --> AccessLogStart[Access Log Timer]
+    AccessLogStart --> MetricsStart[Metrics Timer]
+    MetricsStart --> SecurityHeaders[Security Headers Middleware]
+    SecurityHeaders --> SizeLimit[Request Size Limit]
 
-    ProductRoute --> ApiKey["API Key Auth"]:::security
-    ApiKey --> RateLimit["Redis Rate Limit"]:::redis
-    RateLimit --> Jwt["JWT Auth"]:::security
-    Jwt --> Cache{"Redis Response Cache"}:::redis
+    SizeLimit --> ProductRoute[Protected Product Route<br/>GET /api/products]
+    SizeLimit --> ProductHealthRoute[Public Product Service Health Proxy<br/>GET /api/product-service/health]
 
-    Cache -->|HIT| CachedResponse["Cached Product Response<br/>x-cache: HIT"]:::response
-    Cache -->|MISS| PolicyFlow["Route Policies<br/>Timeout / Transform / Retry"]:::policy
-    PolicyFlow --> ProductService["Product Service<br/>Port 3001"]:::service
-    ProductService --> ProductDB[("PostgreSQL public schema<br/>products")]:::database
-    ProductDB --> ProductService
-    ProductService --> StoreCache["Store Response in Redis<br/>x-cache: MISS"]:::redis
+    ProductRoute --> RoutePolicy[Latest Route Policy from Registry<br/>Auth / Timeout / Cache / Rate Limit / Transform / Retry]
+    RoutePolicy --> ApiKey[API Key Authentication]
+    ApiKey --> RateLimit[Redis-Backed Rate Limiting]
+    RateLimit --> Jwt[JWT Authentication]
+    Jwt --> Cache{Redis Response Cache}
 
-    HealthRoute --> HealthPolicy["Timeout Policy<br/>No Auth / No Rate Limit / No Cache"]:::policy
-    HealthPolicy --> ProductHealth["Product Service<br/>GET /health"]:::service
-    ProductHealth --> HealthResponse["Health Response<br/>x-cache: BYPASS"]:::response
+    Cache -->|HIT| ResponseTransformHit[Response Transform Foundation]
+    ResponseTransformHit --> CachedResponse[Cached Product Response]
+    CachedResponse --> ResponseHeaders[Response Headers<br/>x-cache / x-response-time-ms]
 
-    AdminAPI --> AdminAuth["Admin API Key Auth<br/>x-admin-api-key"]:::security
-    AdminAuth --> RouteManagement["Route Management Module<br/>List / Detail / Create / Update / Soft Delete"]:::admin
-    RouteManagement --> RouteValidation["Route Config Validation<br/>validateDownstreamRoutes"]:::policy
-    RouteManagement --> GatewayDB
+    Cache -->|MISS| RequestTransform[Request Transform Foundation]
+    RequestTransform --> RetryPolicy[Upstream Retry Policy Foundation]
+    RetryPolicy --> TimeoutPolicy[Downstream Timeout Policy]
+    TimeoutPolicy --> ProductProducts[Product Service<br/>GET /products<br/>Port 3001]
+    ProductProducts --> ProductPrisma[Product Service Prisma Client]
+    ProductPrisma --> PublicSchema[(PostgreSQL public schema<br/>products)]
+    PublicSchema --> ProductPrisma
+    ProductPrisma --> ProductProducts
+    ProductProducts --> CacheStore[Store Response in Redis Cache]
+    CacheStore --> ResponseTransformMiss[Response Transform Foundation]
+    ResponseTransformMiss --> ResponseHeaders
 
-    AdminAuth --> RuntimeStatus["Runtime Registry Status<br/>GET /internal/admin/routes/runtime"]:::runtime
-    RuntimeStatus --> Registry
+    ProductHealthRoute --> PublicPolicy[Latest Public Route Policy from Registry]
+    PublicPolicy --> HealthTimeout[Downstream Timeout Policy]
+    HealthTimeout --> ProductHealth[Product Service<br/>GET /health<br/>Port 3001]
+    ProductHealth --> HealthResponse[Health Response<br/>x-cache: BYPASS]
+    HealthResponse --> ResponseHeaders
 
-    AdminAuth --> Reload["Runtime Registry Reload<br/>POST /internal/admin/routes/reload"]:::runtime
-    Reload --> GatewayDB
-    Reload --> RouteValidation
-    Reload --> Registry
+    AdminRoutes --> AdminApiKey[Admin API Key Authentication<br/>x-admin-api-key]
+    AdminApiKey --> RouteManagement[Route Management Module]
+    RouteManagement --> RouteManagementRepo[Prisma Route Management Repository]
+    RouteManagementRepo --> GatewaySchema
+    RouteManagement --> RouteValidation[Route Config Validation<br/>validateDownstreamRoutes]
+    RouteManagement --> ReloadEndpoint[POST /internal/admin/routes/reload]
+    RouteManagement --> RuntimeEndpoint[GET /internal/admin/routes/runtime]
+    ReloadEndpoint --> RuntimeRegistry
+    RuntimeEndpoint --> RuntimeRegistry
 
-    ProductRoute --> Metrics["Prometheus Metrics<br/>/metrics"]:::observability
-    HealthRoute --> Metrics
-    AdminAPI --> Metrics
-    CachedResponse --> Client
-    StoreCache --> Client
-    HealthResponse --> Client
-    RouteManagement --> AdminClient
+    RateLimit --> Redis[(Redis<br/>Port 6379)]
+    Cache --> Redis
+    CacheStore --> Redis
 
-    Prometheus["Prometheus<br/>Port 9090"]:::observability -->|Scrapes| Metrics
-    Grafana["Grafana<br/>Port 3002"]:::observability -->|Reads datasource| Prometheus
+    ResponseHeaders --> MetricsRecord[Record HTTP Metrics]
+    MetricsRecord --> AccessLogWrite[Write Structured Access Log]
+    AccessLogWrite --> Client
+    AccessLogWrite --> AdminClient
 
-    CI["GitHub Actions CI<br/>tests / typecheck / build / Docker builds"]:::ci --> Gateway
-    CI --> ProductService
+    Gateway --> MetricsEndpoint[/GET /metrics/]
+    Prometheus[Prometheus<br/>Port 9090] -->|Scrapes| MetricsEndpoint
+    Grafana[Grafana<br/>Port 3002] -->|Reads datasource| Prometheus
 
-    classDef client fill:#E0F2FE,stroke:#0284C7,color:#0F172A;
-    classDef gateway fill:#DBEAFE,stroke:#2563EB,color:#0F172A;
-    classDef route fill:#F3E8FF,stroke:#9333EA,color:#111827;
-    classDef policy fill:#EDE9FE,stroke:#7C3AED,color:#111827;
-    classDef security fill:#FEF3C7,stroke:#D97706,color:#111827;
-    classDef redis fill:#FEE2E2,stroke:#DC2626,color:#111827;
-    classDef database fill:#DCFCE7,stroke:#16A34A,color:#111827;
-    classDef runtime fill:#FCE7F3,stroke:#DB2777,color:#111827;
-    classDef admin fill:#FFE4E6,stroke:#E11D48,color:#111827;
-    classDef service fill:#F0FDFA,stroke:#0D9488,color:#111827;
-    classDef response fill:#ECFCCB,stroke:#65A30D,color:#111827;
-    classDef observability fill:#FFEDD5,stroke:#EA580C,color:#111827;
-    classDef fallback fill:#E5E7EB,stroke:#4B5563,color:#111827;
-    classDef ci fill:#EEF2FF,stroke:#4F46E5,color:#111827;
+    classDef gateway fill:#111827,stroke:#4f46e5,stroke-width:2px,color:#ffffff
+    classDef client fill:#ecfeff,stroke:#0891b2,stroke-width:2px,color:#164e63
+    classDef admin fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef database fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef redis fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    classDef observability fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef runtime fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef policy fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#312e81
+    classDef service fill:#ecfdf5,stroke:#059669,stroke-width:2px,color:#064e3b
+
+    class Gateway gateway
+    class Client client
+    class AdminClient,AdminRoutes,AdminApiKey,RouteManagement,RouteManagementRepo,ReloadEndpoint,RuntimeEndpoint admin
+    class GatewaySchema,PublicSchema,GatewayPrisma,ProductPrisma database
+    class Redis,RateLimit,Cache,CacheStore redis
+    class Prometheus,Grafana,MetricsEndpoint,MetricsRecord,AccessLogWrite,AccessLogStart,MetricsStart observability
+    class StartupLoader,DbRoutes,StaticRoutes,RuntimeRegistry,RouteLookup runtime
+    class RoutePolicy,PublicPolicy,RequestTransform,ResponseTransformHit,ResponseTransformMiss,RetryPolicy,TimeoutPolicy,HealthTimeout,RouteValidation policy
+    class ProductRoute,ProductHealthRoute,ProductProducts,ProductHealth,CachedResponse,HealthResponse,ReqId,SecurityHeaders,SizeLimit,ResponseHeaders service
 ```
 
 Current runtime rule:
