@@ -29,6 +29,10 @@ import {
   downstreamProxyRoute,
   type DownstreamProxyRouteOptions,
 } from "./routes/product-proxy.route.js";
+import {
+  createRouteRuntimeRegistry,
+  type RouteRuntimeRegistry,
+} from "./runtime/route-runtime-registry.js";
 
 type BuildApiGatewayAppOptions = {
   logger?: boolean;
@@ -36,6 +40,7 @@ type BuildApiGatewayAppOptions = {
   metrics?: HttpMetrics;
   routeConfigs?: readonly DownstreamRouteConfig[];
   routeManagement?: AdminRouteConfigRouteOptions;
+  routeRuntimeRegistry?: RouteRuntimeRegistry;
 };
 
 export async function buildApiGatewayApp(
@@ -73,20 +78,34 @@ export async function buildApiGatewayApp(
 
   const redisClient = getRedisClient();
 
+  const resolvedRouteConfigs =
+    options.routeConfigs ??
+    options.productProxy?.routeConfigs ??
+    downstreamRouteConfigs;
+
+  const routeRuntimeRegistry =
+    options.routeRuntimeRegistry ??
+    createRouteRuntimeRegistry({
+      initialRoutes: resolvedRouteConfigs,
+    });
+
   const downstreamProxyOptions: DownstreamProxyRouteOptions = {
     ...(options.productProxy ?? {
       rateLimitStore: new RedisRateLimitStore(redisClient),
       responseCacheStore: new RedisResponseCacheStore(redisClient),
     }),
-    routeConfigs:
-      options.routeConfigs ??
-      options.productProxy?.routeConfigs ??
-      downstreamRouteConfigs,
+    routeConfigs: resolvedRouteConfigs,
+  };
+
+  const routeManagementOptions: AdminRouteConfigRouteOptions = {
+    ...(options.routeManagement ?? {}),
+    routeRuntimeRegistry:
+      options.routeManagement?.routeRuntimeRegistry ?? routeRuntimeRegistry,
   };
 
   await app.register(healthRoute);
   await app.register(metricsRoute, { metrics });
-  await app.register(adminRouteConfigRoute, options.routeManagement ?? {});
+  await app.register(adminRouteConfigRoute, routeManagementOptions);
   await app.register(downstreamProxyRoute, downstreamProxyOptions);
 
   return app;

@@ -838,4 +838,53 @@ it("should reject route config update request when admin API key is missing", as
       },
     });
   });
+
+  it("should return runtime route registry status for an authenticated admin request", async () => {
+  const response = await app.inject({
+    method: "GET",
+    url: "/internal/admin/routes/runtime",
+    headers: {
+      "x-admin-api-key": "test-admin-key",
+    },
+  });
+
+  expect(response.statusCode).toBe(200);
+  expect(response.json()).toMatchObject({
+    data: {
+      mode: "runtime-registry",
+      available: true,
+      version: 1,
+      loadedAt: expect.any(String),
+      routeCount: 2,
+      routes: [
+        {
+          method: "GET",
+          gatewayPath: "/api/products",
+          serviceName: "product-service",
+        },
+        {
+          method: "GET",
+          gatewayPath: "/api/product-service/health",
+          serviceName: "product-service",
+        },
+      ],
+    },
+  });
+});
+
+it("should reject runtime route registry status request when admin API key is missing", async () => {
+  const response = await app.inject({
+    method: "GET",
+    url: "/internal/admin/routes/runtime",
+  });
+
+  expect(response.statusCode).toBe(401);
+  expect(response.json()).toMatchObject({
+    error: {
+      code: "ADMIN_API_KEY_MISSING",
+      message: "Admin API key is required",
+      requestId: expect.any(String),
+    },
+  });
+});
 });

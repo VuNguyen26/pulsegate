@@ -9,11 +9,13 @@ import {
 } from "../route-management/route-management.mapper.js";
 import { createPrismaRouteManagementRepository } from "../route-management/route-management.repository.js";
 import type { RouteManagementRepository } from "../route-management/route-management.types.js";
+import type { RouteRuntimeRegistry } from "../runtime/route-runtime-registry.js";
 
 export type AdminRouteConfigRouteOptions = {
   repository?: RouteManagementRepository;
   adminApiKey?: string;
   adminApiKeyHeader?: string;
+  routeRuntimeRegistry?: RouteRuntimeRegistry;
 };
 
 type RouteIdParams = {
@@ -72,6 +74,44 @@ export async function adminRouteConfigRoute(
     },
   );
 
+  app.get(
+    "/internal/admin/routes/runtime",
+    {
+      preHandler: requireAdminApiKey,
+    },
+    async () => {
+      const snapshot = options.routeRuntimeRegistry?.getSnapshot();
+
+      if (!snapshot) {
+        return {
+          data: {
+            mode: "runtime-registry",
+            available: false,
+            version: null,
+            loadedAt: null,
+            routeCount: 0,
+            routes: [],
+          },
+        };
+      }
+
+      return {
+        data: {
+          mode: "runtime-registry",
+          available: true,
+          version: snapshot.version,
+          loadedAt: snapshot.loadedAt.toISOString(),
+          routeCount: snapshot.routeCount,
+          routes: snapshot.routes.map((route) => ({
+            method: route.method,
+            gatewayPath: route.gatewayPath,
+            serviceName: route.serviceName,
+          })),
+        },
+      };
+    },
+  );
+
   app.get<{ Params: RouteIdParams }>(
     "/internal/admin/routes/:id",
     {
@@ -126,7 +166,8 @@ export async function adminRouteConfigRoute(
         return reply.status(409).send({
           error: {
             code: "ROUTE_CONFIG_ALREADY_EXISTS",
-            message: "Route config already exists for this method and gateway path",
+            message:
+              "Route config already exists for this method and gateway path",
             requestId: request.id,
           },
         });
@@ -145,7 +186,7 @@ export async function adminRouteConfigRoute(
     },
   );
 
-    app.post(
+  app.post(
     "/internal/admin/routes/reload",
     {
       preHandler: requireAdminApiKey,
@@ -233,7 +274,8 @@ export async function adminRouteConfigRoute(
         return reply.status(409).send({
           error: {
             code: "ROUTE_CONFIG_ALREADY_EXISTS",
-            message: "Route config already exists for this method and gateway path",
+            message:
+              "Route config already exists for this method and gateway path",
             requestId: request.id,
           },
         });
