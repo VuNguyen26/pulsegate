@@ -1,15 +1,17 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 
 import type { ResponseCacheStore } from "../cache/redis-response-cache-store.js";
 import {
   productProductsRouteConfig,
   type DownstreamRouteConfig,
+  type HttpMethod,
 } from "../config/downstream-routes.js";
 import type { RateLimitStore } from "../middlewares/rate-limit.middleware.js";
 import {
   buildResponseCacheKey,
   createDownstreamProxyHandler,
   createRuntimePolicyPreHandler,
+  type DownstreamRouteConfigResolver,
 } from "../proxy/downstream-proxy-handler.js";
 import { RedisRateLimitStore } from "../rate-limit/redis-rate-limit-store.js";
 import { getRedisClient } from "../redis/redis-client.js";
@@ -27,6 +29,36 @@ export type DownstreamProxyRouteOptions = ProductProxyRouteOptions & {
   routeConfigs?: readonly DownstreamRouteConfig[];
   routeRuntimeRegistry?: RouteRuntimeRegistry;
 };
+
+const dynamicProxyMethods: HttpMethod[] = [
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+];
+
+function isSupportedHttpMethod(method: string): method is HttpMethod {
+  return dynamicProxyMethods.includes(method as HttpMethod);
+}
+
+function getRequestPath(request: FastifyRequest): string {
+  return new URL(request.url, "http://pulsegate.local").pathname;
+}
+
+function createDynamicRouteConfigResolver(
+  routeRuntimeRegistry: RouteRuntimeRegistry,
+): DownstreamRouteConfigResolver {
+  return (request) => {
+    const method = request.method.toUpperCase();
+
+    if (!isSupportedHttpMethod(method)) {
+      return null;
+    }
+
+    return routeRuntimeRegistry.findRoute(method, getRequestPath(request));
+  };
+}
 
 export async function downstreamProxyRoute(
   app: FastifyInstance,
@@ -51,6 +83,28 @@ export async function downstreamProxyRoute(
       handler: createDownstreamProxyHandler({
         registeredRouteConfig,
         routeRuntimeRegistry: options.routeRuntimeRegistry,
+        responseCacheStore: options.responseCacheStore,
+        responseCacheTtlSeconds: options.responseCacheTtlSeconds,
+      }),
+    });
+  }
+
+  if (options.routeRuntimeRegistry) {
+    const routeConfigResolver = createDynamicRouteConfigResolver(
+      options.routeRuntimeRegistry,
+    );
+
+    app.route({
+      method: dynamicProxyMethods,
+      url: "/api/*",
+      preHandler: [
+        createRuntimePolicyPreHandler({
+          routeConfigResolver,
+          rateLimitStore,
+        }),
+      ],
+      handler: createDownstreamProxyHandler({
+        routeConfigResolver,
         responseCacheStore: options.responseCacheStore,
         responseCacheTtlSeconds: options.responseCacheTtlSeconds,
       }),

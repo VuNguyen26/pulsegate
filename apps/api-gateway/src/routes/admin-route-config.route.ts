@@ -212,11 +212,9 @@ export async function adminRouteConfigRoute(
             registryAvailable: Boolean(options.routeRuntimeRegistry),
             registryApplied: Boolean(registryApplyResult),
             runtimeApplied: Boolean(registryApplyResult),
-            runtimeScope: registryApplyResult
-              ? "registered-routes-only"
-              : "none",
-            newRoutesRequireRestart: true,
-            requiresRestart: true,
+            runtimeScope: registryApplyResult ? "dynamic-router" : "none",
+            newRoutesRequireRestart: !registryApplyResult,
+            requiresRestart: !registryApplyResult,
             previousVersion: registryApplyResult?.previousVersion ?? null,
             currentVersion: registryApplyResult?.currentVersion ?? null,
             loadedAt: registryApplyResult?.loadedAt.toISOString() ?? null,
