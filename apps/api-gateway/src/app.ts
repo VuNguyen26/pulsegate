@@ -33,6 +33,10 @@ import {
   createRouteRuntimeRegistry,
   type RouteRuntimeRegistry,
 } from "./runtime/route-runtime-registry.js";
+import {
+  adminConsumerRoute,
+  type AdminConsumerRouteOptions,
+} from "./routes/admin-consumer.route.js";
 
 type BuildApiGatewayAppOptions = {
   logger?: boolean;
@@ -40,6 +44,7 @@ type BuildApiGatewayAppOptions = {
   metrics?: HttpMetrics;
   routeConfigs?: readonly DownstreamRouteConfig[];
   routeManagement?: AdminRouteConfigRouteOptions;
+  consumerManagement?: AdminConsumerRouteOptions;
   routeRuntimeRegistry?: RouteRuntimeRegistry;
 };
 
@@ -103,10 +108,14 @@ export async function buildApiGatewayApp(
     routeRuntimeRegistry:
       options.routeManagement?.routeRuntimeRegistry ?? routeRuntimeRegistry,
   };
+    const consumerManagementOptions: AdminConsumerRouteOptions = {
+    ...(options.consumerManagement ?? {}),
+  };
 
   await app.register(healthRoute);
   await app.register(metricsRoute, { metrics });
   await app.register(adminRouteConfigRoute, routeManagementOptions);
+  await app.register(adminConsumerRoute, consumerManagementOptions);
   await app.register(downstreamProxyRoute, downstreamProxyOptions);
 
   return app;
