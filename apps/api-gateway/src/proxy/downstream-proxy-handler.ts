@@ -29,6 +29,16 @@ import type { RouteRuntimeRegistry } from "../runtime/route-runtime-registry.js"
 
 export { buildResponseCacheKey };
 
+export type DownstreamRouteConfigResolver = (
+  request: FastifyRequest,
+) => DownstreamRouteConfig | null;
+
+type RouteResolverOptions = {
+  registeredRouteConfig?: DownstreamRouteConfig;
+  routeConfigResolver?: DownstreamRouteConfigResolver;
+  routeRuntimeRegistry?: RouteRuntimeRegistry;
+};
+
 function applyHeadersToReply(
   reply: FastifyReply,
   headers: Record<string, string>,
@@ -104,6 +114,24 @@ export function resolveRuntimeRouteConfig(
   );
 }
 
+function resolveDownstreamRouteConfig(
+  request: FastifyRequest,
+  options: RouteResolverOptions,
+): DownstreamRouteConfig | null {
+  if (options.routeConfigResolver) {
+    return options.routeConfigResolver(request);
+  }
+
+  if (!options.registeredRouteConfig) {
+    return null;
+  }
+
+  return resolveRuntimeRouteConfig(
+    options.registeredRouteConfig,
+    options.routeRuntimeRegistry,
+  );
+}
+
 type RuntimePreHandlerMiddleware = (
   request: FastifyRequest,
   reply: FastifyReply,
@@ -159,16 +187,11 @@ function runRuntimePreHandler(
   });
 }
 
-export function createRuntimePolicyPreHandler(options: {
-  registeredRouteConfig: DownstreamRouteConfig;
-  routeRuntimeRegistry?: RouteRuntimeRegistry;
+export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
   rateLimitStore: RateLimitStore;
 }) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
-    const runtimeRouteConfig = resolveRuntimeRouteConfig(
-      options.registeredRouteConfig,
-      options.routeRuntimeRegistry,
-    );
+    const runtimeRouteConfig = resolveDownstreamRouteConfig(request, options);
 
     if (!runtimeRouteConfig) {
       return reply.status(404).send(buildRouteNotFoundResponse(request.id));
@@ -213,17 +236,12 @@ export function createRuntimePolicyPreHandler(options: {
   };
 }
 
-export function createDownstreamProxyHandler(options: {
-  registeredRouteConfig: DownstreamRouteConfig;
-  routeRuntimeRegistry?: RouteRuntimeRegistry;
+export function createDownstreamProxyHandler(options: RouteResolverOptions & {
   responseCacheStore?: ResponseCacheStore;
   responseCacheTtlSeconds?: number;
 }) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
-    const routeConfig = resolveRuntimeRouteConfig(
-      options.registeredRouteConfig,
-      options.routeRuntimeRegistry,
-    );
+    const routeConfig = resolveDownstreamRouteConfig(request, options);
 
     if (!routeConfig) {
       return reply.status(404).send(buildRouteNotFoundResponse(request.id));
