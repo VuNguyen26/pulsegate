@@ -6,7 +6,10 @@ import {
   type DownstreamRouteConfig,
 } from "./config/downstream-routes.js";
 import { env } from "./config/env.js";
-import { disconnectGatewayPrisma } from "./database/gateway-prisma.js";
+import {
+  disconnectGatewayPrisma,
+  gatewayPrisma,
+} from "./database/gateway-prisma.js";
 import { registerAccessLogMiddleware } from "./middlewares/access-log.middleware.js";
 import { registerErrorHandlers } from "./middlewares/error-handler.middleware.js";
 import { registerMetricsMiddleware } from "./middlewares/metrics.middleware.js";
@@ -23,6 +26,8 @@ import {
   adminApiKeyRoute,
   type AdminApiKeyRouteOptions,
 } from "./routes/admin-api-key.route.js";
+import { createPrismaApiKeyAuthVerifier } from "./api-keys/api-key-auth-verifier.js";
+import { createApiKeyAuthMiddleware } from "./middlewares/api-key-auth.middleware.js";
 import {
   adminConsumerRoute,
   type AdminConsumerRouteOptions,
@@ -99,11 +104,18 @@ export async function buildApiGatewayApp(
       initialRoutes: resolvedRouteConfigs,
     });
 
+  const apiKeyAuthMiddleware =
+    options.productProxy?.apiKeyAuthMiddleware ??
+    createApiKeyAuthMiddleware({
+      verifier: createPrismaApiKeyAuthVerifier(gatewayPrisma),
+    });
+
   const downstreamProxyOptions: DownstreamProxyRouteOptions = {
     ...(options.productProxy ?? {
       rateLimitStore: new RedisRateLimitStore(redisClient),
       responseCacheStore: new RedisResponseCacheStore(redisClient),
     }),
+    apiKeyAuthMiddleware,
     routeConfigs: resolvedRouteConfigs,
     routeRuntimeRegistry,
   };

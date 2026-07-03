@@ -12,6 +12,7 @@ import {
   createDownstreamProxyHandler,
   createRuntimePolicyPreHandler,
   type DownstreamRouteConfigResolver,
+  type RuntimePreHandlerMiddleware,
 } from "../proxy/downstream-proxy-handler.js";
 import { RedisRateLimitStore } from "../rate-limit/redis-rate-limit-store.js";
 import { getRedisClient } from "../redis/redis-client.js";
@@ -23,6 +24,7 @@ export type ProductProxyRouteOptions = {
   rateLimitStore?: RateLimitStore;
   responseCacheStore?: ResponseCacheStore;
   responseCacheTtlSeconds?: number;
+  apiKeyAuthMiddleware?: RuntimePreHandlerMiddleware;
 };
 
 export type DownstreamProxyRouteOptions = ProductProxyRouteOptions & {
@@ -78,6 +80,7 @@ export async function downstreamProxyRoute(
           registeredRouteConfig,
           routeRuntimeRegistry: options.routeRuntimeRegistry,
           rateLimitStore,
+          apiKeyAuthMiddleware: options.apiKeyAuthMiddleware,
         }),
       ],
       handler: createDownstreamProxyHandler({
@@ -101,6 +104,7 @@ export async function downstreamProxyRoute(
         createRuntimePolicyPreHandler({
           routeConfigResolver,
           rateLimitStore,
+          apiKeyAuthMiddleware: options.apiKeyAuthMiddleware,
         }),
       ],
       handler: createDownstreamProxyHandler({

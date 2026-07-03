@@ -132,7 +132,7 @@ function resolveDownstreamRouteConfig(
   );
 }
 
-type RuntimePreHandlerMiddleware = (
+export type RuntimePreHandlerMiddleware = (
   request: FastifyRequest,
   reply: FastifyReply,
   done: HookHandlerDoneFunction,
@@ -189,6 +189,7 @@ function runRuntimePreHandler(
 
 export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
   rateLimitStore: RateLimitStore;
+  apiKeyAuthMiddleware?: RuntimePreHandlerMiddleware;
 }) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const runtimeRouteConfig = resolveDownstreamRouteConfig(request, options);
@@ -200,7 +201,10 @@ export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
     const routePolicies = runtimeRouteConfig.policies;
 
     if (routePolicies.auth.requireApiKey) {
-      await runRuntimePreHandler(apiKeyAuthMiddleware, request, reply);
+      const requireApiKey =
+        options.apiKeyAuthMiddleware ?? apiKeyAuthMiddleware;
+
+      await runRuntimePreHandler(requireApiKey, request, reply);
 
       if (reply.sent) {
         return;
