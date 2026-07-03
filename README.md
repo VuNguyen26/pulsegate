@@ -5,16 +5,16 @@
 </p>
 
 <p align="center">
-  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, GitHub Actions CI/CD, route policies, database-backed dynamic route configuration, internal/admin route management APIs, soft delete, and a controlled runtime route registry reload foundation.
+  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, GitHub Actions CI/CD, route policies, database-backed dynamic route configuration, internal/admin route management APIs, soft delete, runtime route registry reload, and a catch-all dynamic router for no-restart DB-backed /api/* route activation.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Sprint%2011%20Complete-brightgreen" />
-  <img src="https://img.shields.io/badge/version-v0.12.0-blue" />
+  <img src="https://img.shields.io/badge/status-Sprint%2012%20Complete-brightgreen" />
+  <img src="https://img.shields.io/badge/version-v0.13.0-blue" />
   <a href="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml">
     <img src="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
   </a>
-  <img src="https://img.shields.io/badge/tests-189%20passing-brightgreen" />
+  <img src="https://img.shields.io/badge/tests-190%20passing-brightgreen" />
   <img src="https://img.shields.io/badge/typecheck-passing-brightgreen" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
   <img src="https://img.shields.io/badge/Node.js-20%2B-green" />
@@ -26,8 +26,8 @@
   <img src="https://img.shields.io/badge/Cache-Redis-red" />
   <img src="https://img.shields.io/badge/Dynamic%20Routes-PostgreSQL-blue" />
   <img src="https://img.shields.io/badge/Runtime%20Registry-Route%20Snapshot-blueviolet" />
-  <img src="https://img.shields.io/badge/Reload-Registry%20Refresh-blueviolet" />
-  <img src="https://img.shields.io/badge/Reload%20Scope-Registered%20Routes%20Only-blueviolet" />
+  <img src="https://img.shields.io/badge/Reload-Dynamic%20Router-blueviolet" />
+  <img src="https://img.shields.io/badge/New%20Routes-No%20Restart-brightgreen" />
   <img src="https://img.shields.io/badge/Route%20Management-Internal%20Admin%20API-blueviolet" />
   <img src="https://img.shields.io/badge/Soft%20Delete-Route%20Config-blueviolet" />
   <img src="https://img.shields.io/badge/Fallback-Static%20Routes-indigo" />
@@ -57,23 +57,31 @@ The project is designed to demonstrate backend engineering skills around API rou
 PulseGate starts small and grows in stable sprints. The current version is:
 
 ```txt
-v0.12.0
+v0.13.0
 ```
 
 Current sprint status:
 
 ```txt
-Sprint 11 - Route Runtime Reload / Admin Hardening Foundation Complete
+Sprint 12 - Catch-All Dynamic Router Foundation Complete
 ```
 
 Current automated validation:
 
 ```txt
-28 test files passed
-189 tests passed
+29 test files passed
+190 tests passed
 npm run typecheck passed
 npm run build passed
 Docker runtime validation passed
+```
+
+Sprint 12 key result:
+
+```txt
+Brand-new DB-backed /api/* Gateway paths can be created through Admin API,
+loaded through POST /internal/admin/routes/reload,
+and served without restarting API Gateway.
 ```
 
 ---
@@ -93,10 +101,11 @@ Docker runtime validation passed
 | Sprint 8 | Complete | Database-backed dynamic route config with safe static fallback |
 | Sprint 9 | Complete | Internal/admin route management API foundation |
 | Sprint 10 | Complete | Route management hardening with soft delete, audit metadata, active-route uniqueness, and reload validation |
-| Sprint 11 | Complete | Runtime route registry, runtime status endpoint, and controlled reload for already registered routes |
-| Current Version | v0.12.0 | Docker, PostgreSQL, Prisma, Redis, Prometheus, Grafana, route policies, CI/CD, DB route config, admin route management, runtime registry |
-| Automated Tests | 189 passing | Unit, integration, runtime config, route management, soft delete, reload, and runtime registry tests |
-| Next Sprint | Sprint 12 | Full dynamic routing strategy or admin hardening |
+| Sprint 11 | Complete | Runtime route registry, runtime status endpoint, and controlled reload for existing registered routes |
+| Sprint 12 | Complete | Catch-all dynamic router for no-restart brand-new DB-backed /api/* route activation |
+| Current Version | v0.13.0 | Docker, PostgreSQL, Prisma, Redis, Prometheus, Grafana, route policies, CI/CD, DB route config, admin route management, runtime registry, dynamic router |
+| Automated Tests | 190 passing | Unit, integration, runtime config, route management, soft delete, reload, runtime registry, and dynamic proxy tests |
+| Recommended Next Sprint | Sprint 13 | API Consumer and API Key Lifecycle Foundation |
 
 ---
 
@@ -116,8 +125,9 @@ Long-term goals:
 * Validate route configs before persistence.
 * Enable, disable, update, and soft delete route configs safely.
 * Maintain a runtime registry snapshot for route config reload behavior.
-* Apply config changes to already registered routes without restarting the API Gateway.
-* Clearly report that brand-new Gateway paths still require restart until a catch-all dynamic router exists.
+* Apply config changes to existing registered routes without restarting the API Gateway.
+* Apply brand-new DB-backed `/api/*` routes after reload without restarting the API Gateway.
+* Avoid unsafe Fastify runtime unregister/register behavior.
 * Validate API keys and JWT tokens.
 * Protect internal/admin APIs with separate admin authentication.
 * Apply Redis-backed rate limiting and response caching.
@@ -125,7 +135,7 @@ Long-term goals:
 * Produce request IDs, structured logs, Prometheus metrics, and Grafana dashboards.
 * Centralize route behavior through policies.
 * Validate tests, typecheck, build, Prisma generation, and Docker image builds automatically with GitHub Actions.
-* Add service registry, API consumer management, API key lifecycle, usage plans, Admin Dashboard, Developer Portal, tracing, load testing, Kubernetes, and cloud deployment later.
+* Add API consumer management, API key lifecycle, usage plans, Admin Dashboard, Developer Portal, tracing, load testing, Kubernetes, and cloud deployment later.
 
 ---
 
@@ -145,43 +155,50 @@ flowchart LR
     DbRoutes --> RuntimeRegistry[Runtime Route Registry<br/>Snapshot Version / LoadedAt / Route Count]
     StaticRoutes --> RuntimeRegistry
 
-    RuntimeRegistry --> RouteLookup[Per-request Route Config Lookup]
-    RouteLookup --> ReqId[Request ID Middleware]
+    Gateway --> ReqId[Request ID Middleware]
     ReqId --> AccessLogStart[Access Log Timer]
     AccessLogStart --> MetricsStart[Metrics Timer]
     MetricsStart --> SecurityHeaders[Security Headers Middleware]
     SecurityHeaders --> SizeLimit[Request Size Limit]
 
-    SizeLimit --> ProductRoute[Protected Product Route<br/>GET /api/products]
-    SizeLimit --> ProductHealthRoute[Public Product Service Health Proxy<br/>GET /api/product-service/health]
+    SizeLimit --> RegisteredRoutes[Startup Registered Routes<br/>GET /api/products<br/>GET /api/product-service/health]
+    SizeLimit --> DynamicRouter[Catch-All Dynamic Router<br/>GET/POST/PUT/PATCH/DELETE /api/*]
 
-    ProductRoute --> RoutePolicy[Latest Route Policy from Registry<br/>Auth / Timeout / Cache / Rate Limit / Transform / Retry]
-    RoutePolicy --> ApiKey[API Key Authentication]
-    ApiKey --> RateLimit[Redis-Backed Rate Limiting]
-    RateLimit --> Jwt[JWT Authentication]
-    Jwt --> Cache{Redis Response Cache}
+    RegisteredRoutes --> RouteLookup[Per-request Runtime Route Lookup]
+    DynamicRouter --> DynamicLookup[Resolve Method + Request Path]
+    DynamicLookup --> RouteLookup
+
+    RouteLookup --> RouteFound{Runtime Route Found?}
+    RouteFound -->|No| RouteNotFound[404 ROUTE_NOT_FOUND]
+    RouteFound -->|Yes| ProxyPipeline[Shared Downstream Proxy Pipeline]
+
+    ProxyPipeline --> RoutePolicy[Latest Route Policy from Registry<br/>Auth / Timeout / Cache / Rate Limit / Transform / Retry]
+    RoutePolicy --> ApiKey[API Key Authentication<br/>when required]
+    ApiKey --> RateLimit[Redis-Backed Rate Limiting<br/>when enabled]
+    RateLimit --> Jwt[JWT Authentication<br/>when required]
+    Jwt --> Cache{Redis Response Cache<br/>when enabled}
 
     Cache -->|HIT| ResponseTransformHit[Response Transform Foundation]
-    ResponseTransformHit --> CachedResponse[Cached Product Response]
+    ResponseTransformHit --> CachedResponse[Cached Response]
     CachedResponse --> ResponseHeaders[Response Headers<br/>x-cache / x-response-time-ms]
 
-    Cache -->|MISS| RequestTransform[Request Transform Foundation]
+    Cache -->|MISS or BYPASS| RequestTransform[Request Transform Foundation]
     RequestTransform --> RetryPolicy[Upstream Retry Policy Foundation]
     RetryPolicy --> TimeoutPolicy[Downstream Timeout Policy]
-    TimeoutPolicy --> ProductProducts[Product Service<br/>GET /products<br/>Port 3001]
+    TimeoutPolicy --> ProductService[Product Service<br/>Port 3001]
+
+    ProductService --> ProductProducts[GET /products]
+    ProductService --> ProductHealth[GET /health]
     ProductProducts --> ProductPrisma[Product Service Prisma Client]
     ProductPrisma --> PublicSchema[(PostgreSQL public schema<br/>products)]
     PublicSchema --> ProductPrisma
     ProductPrisma --> ProductProducts
-    ProductProducts --> CacheStore[Store Response in Redis Cache]
+
+    ProductProducts --> DownstreamResponse[Downstream Response]
+    ProductHealth --> DownstreamResponse
+    DownstreamResponse --> CacheStore[Store Response in Redis Cache<br/>when enabled]
     CacheStore --> ResponseTransformMiss[Response Transform Foundation]
     ResponseTransformMiss --> ResponseHeaders
-
-    ProductHealthRoute --> PublicPolicy[Latest Public Route Policy from Registry]
-    PublicPolicy --> HealthTimeout[Downstream Timeout Policy]
-    HealthTimeout --> ProductHealth[Product Service<br/>GET /health<br/>Port 3001]
-    ProductHealth --> HealthResponse[Health Response<br/>x-cache: BYPASS]
-    HealthResponse --> ResponseHeaders
 
     AdminRoutes --> AdminApiKey[Admin API Key Authentication<br/>x-admin-api-key]
     AdminApiKey --> RouteManagement[Route Management Module]
@@ -190,14 +207,17 @@ flowchart LR
     RouteManagement --> RouteValidation[Route Config Validation<br/>validateDownstreamRoutes]
     RouteManagement --> ReloadEndpoint[POST /internal/admin/routes/reload]
     RouteManagement --> RuntimeEndpoint[GET /internal/admin/routes/runtime]
-    ReloadEndpoint --> RuntimeRegistry
+    ReloadEndpoint --> ActiveRoutes[Read Active DB Routes]
+    ActiveRoutes --> RegistryReplace[Validate + Replace Runtime Registry Snapshot]
+    RegistryReplace --> RuntimeRegistry
     RuntimeEndpoint --> RuntimeRegistry
 
     RateLimit --> Redis[(Redis<br/>Port 6379)]
     Cache --> Redis
     CacheStore --> Redis
 
-    ResponseHeaders --> MetricsRecord[Record HTTP Metrics]
+    RouteNotFound --> MetricsRecord[Record HTTP Metrics]
+    ResponseHeaders --> MetricsRecord
     MetricsRecord --> AccessLogWrite[Write Structured Access Log]
     AccessLogWrite --> Client
     AccessLogWrite --> AdminClient
@@ -222,26 +242,31 @@ flowchart LR
     class GatewaySchema,PublicSchema,GatewayPrisma,ProductPrisma database
     class Redis,RateLimit,Cache,CacheStore redis
     class Prometheus,Grafana,MetricsEndpoint,MetricsRecord,AccessLogWrite,AccessLogStart,MetricsStart observability
-    class StartupLoader,DbRoutes,StaticRoutes,RuntimeRegistry,RouteLookup runtime
-    class RoutePolicy,PublicPolicy,RequestTransform,ResponseTransformHit,ResponseTransformMiss,RetryPolicy,TimeoutPolicy,HealthTimeout,RouteValidation policy
-    class ProductRoute,ProductHealthRoute,ProductProducts,ProductHealth,CachedResponse,HealthResponse,ReqId,SecurityHeaders,SizeLimit,ResponseHeaders service
+    class StartupLoader,DbRoutes,StaticRoutes,RuntimeRegistry,RouteLookup,DynamicRouter,DynamicLookup,RegisteredRoutes runtime
+    class RoutePolicy,RequestTransform,ResponseTransformHit,ResponseTransformMiss,RetryPolicy,TimeoutPolicy,RouteValidation,ProxyPipeline policy
+    class ProductService,ProductProducts,ProductHealth,CachedResponse,DownstreamResponse,ReqId,SecurityHeaders,SizeLimit,ResponseHeaders,RouteFound,RouteNotFound service
 ```
 
 Current runtime rule:
 
 ```txt
-Already registered Gateway paths
+Existing registered Gateway paths
   -> Can use updated route config after POST /internal/admin/routes/reload
 
-Brand-new Gateway paths
-  -> Still require API Gateway restart until a future catch-all dynamic router or controlled route registration strategy exists
+Brand-new DB-backed /api/* Gateway paths
+  -> Can be created through POST /internal/admin/routes
+  -> Can be loaded into runtime registry through POST /internal/admin/routes/reload
+  -> Can be served through the /api/* catch-all dynamic router
+  -> Do not require API Gateway restart after successful reload
 ```
 
 ---
 
 ## Runtime Reload Scope
 
-Sprint 11 introduces a **runtime route registry**. This is not unsafe Fastify route re-registration.
+Sprint 12 uses a **runtime route registry** and a stable **catch-all dynamic router**.
+
+This is not unsafe Fastify runtime route re-registration.
 
 Important behavior:
 
@@ -254,11 +279,11 @@ Existing registered Gateway paths
        POST /internal/admin/routes/reload
        Request returns 404 ROUTE_NOT_FOUND without API Gateway restart
 
-Brand-new Gateway paths
-  -> Still require API Gateway restart
-  -> Reason:
-       Fastify only registered routes that existed at startup
-       New paths need a future catch-all dynamic router or controlled route registration strategy
+Brand-new DB-backed /api/* Gateway paths
+  -> Can be created in DB
+  -> Before reload, request returns 404 ROUTE_NOT_FOUND
+  -> After reload, /api/* dynamic router resolves the new path from runtime registry
+  -> No API Gateway restart required
 ```
 
 Reload response is intentionally explicit:
@@ -268,12 +293,17 @@ mode = runtime-registry-refresh
 registryAvailable = true
 registryApplied = true
 runtimeApplied = true
-runtimeScope = registered-routes-only
-newRoutesRequireRestart = true
-requiresRestart = true
+runtimeScope = dynamic-router
+newRoutesRequireRestart = false
+requiresRestart = false
 ```
 
-This means Sprint 11 provides controlled partial runtime reload, not full hot reload.
+Current dynamic routing limitation:
+
+```txt
+The catch-all dynamic router supports exact method + exact path matching only.
+Path params, wildcard upstream mapping, host-based routing, weighted upstreams, and service discovery are planned for later.
+```
 
 ---
 
@@ -286,6 +316,11 @@ GET /health
 GET /metrics
 GET /api/products
 GET /api/product-service/health
+GET /api/*
+POST /api/*
+PUT /api/*
+PATCH /api/*
+DELETE /api/*
 GET /internal/admin/routes
 GET /internal/admin/routes/runtime
 GET /internal/admin/routes/:id
@@ -326,6 +361,12 @@ GET /api/product-service/health
   -> No Redis-backed rate limiting
   -> No Redis response cache
 
+GET/POST/PUT/PATCH/DELETE /api/*
+  -> Dynamic route dispatcher
+  -> Uses DB-backed route policy when runtime route exists
+  -> Can require API key/JWT/rate limit/cache depending on route policy
+  -> Returns 404 ROUTE_NOT_FOUND when no runtime route exists
+
 GET /internal/admin/routes
 GET /internal/admin/routes/runtime
 GET /internal/admin/routes/:id
@@ -358,12 +399,16 @@ POST /internal/admin/routes/reload
 * Basic security headers.
 * Multi-route Gateway routing.
 * Generic downstream proxy foundation.
+* Shared downstream proxy handler.
+* Route resolver support.
 * Policy-driven route behavior.
 * Database-backed route config loading.
 * Static route config fallback.
 * Runtime route registry snapshot.
 * Runtime route registry status API.
 * Runtime registry refresh through admin reload.
+* Catch-all dynamic router for `/api/*`.
+* No-restart apply for brand-new DB-backed `/api/*` paths.
 
 ### Route Policies
 
@@ -406,6 +451,8 @@ GET /api/product-service/health
   -> retry disabled
 ```
 
+Dynamic DB-backed routes use the same policy model.
+
 ### Route Management
 
 Current internal/admin route management APIs:
@@ -436,8 +483,8 @@ Current route management behavior:
 * Excludes soft-deleted routes from runtime loading.
 * Reports runtime registry snapshot status.
 * Refreshes runtime registry from active DB routes.
-* Applies config updates for already registered Gateway paths.
-* Keeps brand-new Gateway paths restart-based until a future dynamic router.
+* Applies config updates for existing registered Gateway paths.
+* Applies brand-new DB-backed `/api/*` Gateway paths through dynamic router after reload.
 
 ### Data and Infrastructure
 
@@ -522,9 +569,9 @@ Planned later:
 
 | Category | Planned Technology / Feature |
 | --- | --- |
-| Full Dynamic Routing | Catch-all dynamic router or controlled route registration strategy |
-| Admin Hardening | Stronger admin auth, RBAC, audit log table |
 | API Management | API consumers, API key lifecycle, usage plans, quotas |
+| Advanced Routing | Path params, wildcard upstream mapping, host-based routing, weighted upstreams |
+| Admin Hardening | Stronger admin auth, RBAC, audit log table |
 | Developer Experience | Admin Dashboard, Developer Portal, OpenAPI docs |
 | Tracing | OpenTelemetry + Jaeger or Tempo |
 | Logs | Loki |
@@ -876,12 +923,11 @@ createdBy = local-admin
 updatedBy = local-admin
 ```
 
-Important:
+Important after Sprint 12:
 
 ```txt
-A brand-new Gateway path such as /api/product-service/health-copy still requires API Gateway restart before it is accessible.
-
-Sprint 11 runtime reload applies to already registered Gateway paths only.
+A brand-new /api/* Gateway path does not require API Gateway restart after reload.
+It still requires POST /internal/admin/routes/reload before traffic can use the new runtime config.
 ```
 
 ### Update Route Config
@@ -936,21 +982,25 @@ Invoke-RestMethod http://localhost:3000/internal/admin/routes/reload `
   ConvertTo-Json -Depth 10
 ```
 
-Expected result:
+Expected result after Sprint 12:
 
 ```txt
 mode = runtime-registry-refresh
 registryAvailable = true
 registryApplied = true
 runtimeApplied = true
-runtimeScope = registered-routes-only
-newRoutesRequireRestart = true
-requiresRestart = true
+runtimeScope = dynamic-router
+newRoutesRequireRestart = false
+requiresRestart = false
 ```
 
-### Validate Disable Without Restart for Existing Route
+---
 
-This validates Sprint 11 runtime registry behavior for an already registered route.
+## Validate Runtime Reload Without Restart
+
+### Existing Registered Route
+
+This validates runtime registry behavior for an already registered route.
 
 ```powershell
 # 1. Find the /api/product-service/health route id
@@ -1009,6 +1059,115 @@ Invoke-RestMethod "http://localhost:3000/internal/admin/routes/$($healthRoute.id
     "content-type" = "application/json"
   } `
   -Body $patchBody |
+  ConvertTo-Json -Depth 10
+
+Invoke-RestMethod http://localhost:3000/internal/admin/routes/reload `
+  -Method POST `
+  -Headers @{ "x-admin-api-key" = "local-admin-key" } `
+  -ContentType "application/json" `
+  -Body "{}" |
+  ConvertTo-Json -Depth 10
+```
+
+### Brand-New Dynamic Route
+
+This validates Sprint 12 catch-all dynamic router behavior.
+
+```powershell
+$dynamicPath = "/api/manual-dynamic-health-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
+
+$body = @{
+  serviceName = "product-service"
+  gatewayPath = $dynamicPath
+  downstreamUrl = "http://product-service:3001/health"
+  method = "GET"
+  enabled = $true
+  priority = 300
+  policies = @{
+    auth = @{
+      requireApiKey = $false
+      requireJwt = $false
+    }
+    timeout = @{
+      enabled = $true
+      timeoutMs = 3000
+    }
+    cache = @{
+      enabled = $false
+    }
+    rateLimit = @{
+      enabled = $false
+    }
+  }
+} | ConvertTo-Json -Depth 10
+
+$createResponse = Invoke-RestMethod http://localhost:3000/internal/admin/routes `
+  -Method POST `
+  -Headers @{
+    "x-admin-api-key" = "local-admin-key"
+    "x-admin-actor" = "manual-dynamic-validation"
+    "content-type" = "application/json"
+  } `
+  -Body $body
+
+$createdRouteId = $createResponse.data.id
+
+# Before reload, the runtime registry does not know this path yet.
+try {
+  Invoke-RestMethod "http://localhost:3000$dynamicPath" |
+    ConvertTo-Json -Depth 10
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $_.ErrorDetails.Message
+}
+
+# Reload runtime registry.
+Invoke-RestMethod http://localhost:3000/internal/admin/routes/reload `
+  -Method POST `
+  -Headers @{ "x-admin-api-key" = "local-admin-key" } `
+  -ContentType "application/json" `
+  -Body "{}" |
+  ConvertTo-Json -Depth 10
+
+# After reload, the brand-new path is served without API Gateway restart.
+Invoke-RestMethod "http://localhost:3000$dynamicPath" |
+  ConvertTo-Json -Depth 10
+```
+
+Expected before reload:
+
+```txt
+404
+ROUTE_NOT_FOUND
+```
+
+Expected reload metadata:
+
+```txt
+runtimeScope = dynamic-router
+newRoutesRequireRestart = false
+requiresRestart = false
+```
+
+Expected after reload:
+
+```json
+{
+  "service": "product-service",
+  "status": "ok",
+  "timestamp": "..."
+}
+```
+
+Cleanup manual dynamic route:
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/internal/admin/routes/$createdRouteId" `
+  -Method DELETE `
+  -Headers @{
+    "x-admin-api-key" = "local-admin-key"
+    "x-admin-actor" = "manual-dynamic-validation"
+  } |
   ConvertTo-Json -Depth 10
 
 Invoke-RestMethod http://localhost:3000/internal/admin/routes/reload `
@@ -1198,8 +1357,8 @@ npm run test
 Current result:
 
 ```txt
-28 test files passed
-189 tests passed
+29 test files passed
+190 tests passed
 ```
 
 Current important test areas:
@@ -1227,6 +1386,7 @@ Current important test areas:
 * Runtime registry reload endpoint.
 * Route config soft delete behavior.
 * Route reload behavior.
+* Dynamic proxy route behavior.
 * Metrics registry.
 * Metrics route.
 * Timeout policy.
@@ -1347,35 +1507,34 @@ Sprint 8  -> Dynamic route config from database
 Sprint 9  -> Route Management API foundation
 Sprint 10 -> Route Management Hardening
 Sprint 11 -> Route Runtime Reload / Admin Hardening Foundation
+Sprint 12 -> Catch-All Dynamic Router Foundation
 ```
 
-### Sprint 12 Recommended Options
+### Recommended Next
 
 ```txt
-Option A: Full Dynamic Routing Strategy
-  -> Catch-all dynamic router
-  -> Brand-new Gateway paths without restart
-  -> Safer route matching model
-
-Option B: Route Management Audit Log
-  -> Store route create/update/delete/reload events
-  -> Store actor, timestamp, previous values, next values
-
-Option C: Stronger Admin Authentication
-  -> Admin users
-  -> Admin sessions or JWT
-  -> RBAC foundation
-
-Option D: Small Admin Dashboard Foundation
-  -> Only after backend admin readiness is selected
+Sprint 13 -> API Consumer and API Key Lifecycle Foundation
 ```
+
+Recommended Sprint 13 direction:
+
+* Add API consumer model.
+* Add issued API key storage.
+* Add API key hashing strategy.
+* Add active/revoked key status.
+* Add admin API to list/create/revoke API keys.
+* Keep local dev API key fallback if needed.
+* Update API key middleware to support DB-backed keys carefully.
+* Add tests for valid, missing, invalid, and revoked API keys.
+* Run Docker runtime validation.
 
 ### Later
 
 ```txt
+Advanced route matching
+Route management audit log
+Stronger admin authentication
 Service registry
-API consumer database
-API key lifecycle
 Usage plans and quotas
 OpenAPI documentation
 Admin Dashboard
@@ -1393,6 +1552,14 @@ Production cloud deployment
 ---
 
 ## Latest Stable Commits
+
+Sprint 12:
+
+```txt
+285fbf7 refactor(gateway): extract downstream proxy handler
+32289cc refactor(gateway): support downstream route resolver
+4eac32e feat(gateway): add catch-all dynamic proxy route
+```
 
 Sprint 11:
 
@@ -1451,8 +1618,9 @@ PulseGate follows these principles:
 * Database-backed config before Admin Dashboard.
 * Backend route management APIs before Admin Dashboard.
 * Validation before runtime reload.
-* Runtime registry refresh before full hot reload.
-* Clear limitation reporting instead of pretending full hot reload exists.
+* Runtime registry snapshot before runtime route behavior changes.
+* Catch-all dynamic router instead of unsafe Fastify runtime unregister/register.
+* Clear limitation reporting instead of pretending advanced routing exists.
 * GitHub-ready documentation.
 * Reproducible infrastructure through configuration files.
 

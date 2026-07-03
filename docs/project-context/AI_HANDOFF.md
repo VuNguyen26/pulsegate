@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.12.0
+v0.13.0
 
 ## Current Sprint
 
-Sprint 11 - Route Runtime Reload / Admin Hardening Foundation
+Sprint 12 - Catch-All Dynamic Router Foundation
 
 ## Current Status
 
@@ -36,15 +36,17 @@ Sprint 9 is complete.
 
 Sprint 10 is complete.
 
-Sprint 11 technical implementation is complete.
+Sprint 11 is complete.
 
-Sprint 11 final documentation update is in progress.
+Sprint 12 technical implementation is complete.
+
+Sprint 12 final documentation update is in progress.
 
 Current automated test status:
 
 ```txt
-28 test files passed
-189 tests passed
+29 test files passed
+190 tests passed
 ```
 
 Latest validation status:
@@ -55,39 +57,55 @@ npm run typecheck  -> passed
 npm run build      -> passed
 docker compose up -d --build -> passed
 docker compose ps -> passed
+
+GET /health -> 200 OK
 GET /internal/admin/routes/runtime with x-admin-api-key -> returned runtime registry snapshot
-POST /internal/admin/routes/reload with x-admin-api-key -> refreshed runtime registry snapshot
-POST /internal/admin/routes/reload -> returned runtimeApplied: true
-POST /internal/admin/routes/reload -> returned runtimeScope: registered-routes-only
-POST /internal/admin/routes/reload -> returned newRoutesRequireRestart: true
-POST /internal/admin/routes/reload -> returned requiresRestart: true
-PATCH /internal/admin/routes/:id enabled=false -> disabled existing health route
-POST /internal/admin/routes/reload -> refreshed runtime registry routeCount from 2 to 1
-GET /api/product-service/health after reload without restart -> 404 ROUTE_NOT_FOUND
-PATCH /internal/admin/routes/:id enabled=true -> re-enabled existing health route
-POST /internal/admin/routes/reload -> refreshed runtime registry routeCount from 1 to 2
-GET /api/product-service/health after reload without restart -> 200 OK
-git status -> clean after Sprint 11 technical commits
+
+Created brand-new DB-backed route:
+  GET /api/sprint12-dynamic-health-1783062215
+  -> http://product-service:3001/health
+
+Before reload:
+  GET /api/sprint12-dynamic-health-1783062215
+  -> 404 ROUTE_NOT_FOUND
+
+POST /internal/admin/routes/reload:
+  -> runtimeApplied: true
+  -> runtimeScope: dynamic-router
+  -> newRoutesRequireRestart: false
+  -> requiresRestart: false
+  -> routeCount changed from 2 to 3
+
+After reload, without API Gateway restart:
+  GET /api/sprint12-dynamic-health-1783062215
+  -> 200 OK
+  -> Product Service health response
+
+Cleanup:
+  DELETE /internal/admin/routes/:id -> soft deleted validation route
+  POST /internal/admin/routes/reload -> routeCount returned to 2
+
+git status -> clean after Sprint 12 technical commits
 ```
 
-Current Sprint 11 technical commits:
+Current Sprint 12 technical commits:
 
 ```txt
-83c8f62 feat(gateway): add route runtime registry foundation
-5c55c08 feat(gateway): expose route runtime registry status
-1c759bf feat(gateway): refresh route runtime registry on reload
-d96914a feat(gateway): resolve downstream routes from runtime registry
-6ee93e0 feat(gateway): report partial runtime reload scope
+285fbf7 refactor(gateway): extract downstream proxy handler
+32289cc refactor(gateway): support downstream route resolver
+4eac32e feat(gateway): add catch-all dynamic proxy route
 ```
 
 Current stable meaning:
 
 ```txt
-Admin can update, enable, disable, or soft-delete an existing registered route.
+Admin can create, update, enable, disable, or soft-delete route configs.
 Admin can call POST /internal/admin/routes/reload.
 Runtime registry snapshot is refreshed without restarting API Gateway.
-Existing registered Fastify paths use the latest route policy/downstream config from the runtime registry.
-Brand-new gateway paths still require API Gateway restart because Fastify does not yet have a catch-all dynamic router.
+Existing registered Fastify paths use the latest route policy/downstream config from runtime registry.
+Brand-new DB-backed /api/* gateway paths can now work after reload without API Gateway restart.
+PulseGate still avoids unsafe Fastify hot unregister/register behavior.
+Dynamic runtime routing is implemented through a stable /api/* catch-all route plus runtime registry lookup.
 ```
 
 ---
@@ -107,11 +125,11 @@ When continuing PulseGate in a new chat, provide this file first so the assistan
 * How to continue safely.
 * What must not be added too early.
 * How the user prefers to work and learn.
-* How Docker, PostgreSQL, Prisma, Redis, route config, route management, runtime reload, Prometheus, Grafana, and CI/CD currently work.
+* How Docker, PostgreSQL, Prisma, Redis, route config, route management, runtime reload, dynamic routing, Prometheus, Grafana, and CI/CD currently work.
 
 This file should stay focused on handoff context.
 
-`CURRENT_PROGRESS.md` should be kept more compact from Sprint 11 onward and should focus on current state, current sprint, validation, and next step.
+`CURRENT_PROGRESS.md` should stay compact and focus on current state, current sprint, validation, and next step.
 
 `AI_HANDOFF.md` should carry enough context for a new AI chat to continue accurately without needing the entire old chat.
 
@@ -142,7 +160,7 @@ Preferred workflow:
 11. Run Docker/runtime validation when runtime behavior changes.
 12. Commit only after a stable checkpoint.
 13. Push after each stable commit.
-14. Update documentation at the end of each sprint.
+14. Update documentation only at the end of each sprint.
 15. Avoid jumping into large features without planning.
 
 Important style notes:
@@ -155,7 +173,8 @@ Important style notes:
 * Prefer small, stable checkpoints.
 * Be direct and practical.
 * When updating documentation, preserve context and avoid accidentally deleting important sections.
-* When reducing long docs, do it intentionally and keep the important current-state context.
+* When reducing long docs, do it intentionally and keep important current-state context.
+* Do not commit when tests/typecheck/build are not validated or when the user has not confirmed.
 
 ---
 
@@ -193,7 +212,9 @@ Long-term product direction:
 * Admin Dashboard.
 * Developer Portal.
 * API key request flow.
+* API consumer management.
 * Dynamic route configuration.
+* Dynamic runtime route reload.
 * Service discovery foundation.
 * Observability stack.
 * Kubernetes/cloud deployment later.
@@ -218,6 +239,7 @@ Long-term problems PulseGate should solve:
 * Manage Gateway route configuration through internal/admin APIs.
 * Validate route config before persistence and before runtime reload.
 * Support runtime route policy changes safely.
+* Support brand-new DB-backed /api/* routes without API Gateway restart.
 * Add API consumer management later.
 * Add API key lifecycle later.
 * Add usage plans and quotas later.
@@ -289,7 +311,7 @@ pulsegate-grafana
 
 ---
 
-## Current Architecture After Sprint 11
+## Current Architecture After Sprint 12
 
 Current stable architecture:
 
@@ -314,14 +336,29 @@ Client
        -> loadedAt
        -> routeCount
        -> routes
-    -> Fastify routes registered from startup route configs
-    -> Downstream proxy route
-       -> For already registered paths:
-          -> preHandler resolves latest route from runtime registry
-          -> handler resolves latest route from runtime registry
-          -> latest auth/rate-limit/cache/timeout/retry/transform policies are used
-       -> If route is not in runtime registry:
-          -> 404 ROUTE_NOT_FOUND
+    -> Startup registered downstream routes
+       -> Existing known route paths are still registered directly
+       -> Existing route behavior remains stable
+    -> Catch-all dynamic router
+       -> Handles /api/*
+       -> Supports GET, POST, PUT, PATCH, DELETE
+       -> Parses request method + request path
+       -> Looks up runtime route by method + path
+       -> If route exists:
+            -> Applies route policies
+            -> Proxies to configured downstreamUrl
+       -> If route does not exist:
+            -> 404 ROUTE_NOT_FOUND
+    -> Shared downstream proxy handler
+       -> Used by registered routes and dynamic routes
+       -> Applies API key policy
+       -> Applies Redis rate limit policy
+       -> Applies JWT policy
+       -> Applies Redis response cache policy
+       -> Applies request transform policy
+       -> Applies timeout policy
+       -> Applies retry policy foundation
+       -> Applies response transform policy
     -> Protected Product route:
        -> GET /api/products
        -> API key
@@ -336,6 +373,10 @@ Client
        -> No Redis rate limit
        -> No Redis cache
        -> Product Service /health
+    -> Brand-new DB-backed /api/* routes:
+       -> Created through Admin API
+       -> Applied through reload
+       -> Served without API Gateway restart
     -> Internal/admin route management APIs:
        -> x-admin-api-key
        -> optional x-admin-actor
@@ -376,19 +417,33 @@ GitHub Actions
   -> Docker image build validation
 ```
 
-Important Sprint 11 limitation:
+Important Sprint 12 behavior:
 
 ```txt
-Runtime registry reload applies to existing registered Fastify paths only.
-Brand-new gatewayPath values still require API Gateway restart.
+Runtime registry reload applies to existing registered routes and brand-new DB-backed /api/* routes.
+Brand-new /api/* gatewayPath values no longer require API Gateway restart after reload.
 ```
 
-Why the limitation exists:
+Important safety rule:
 
 ```txt
-Fastify route registration still happens at startup.
-Sprint 11 intentionally avoided dynamic Fastify unregister/register at runtime.
-A future sprint can add a catch-all dynamic router if full no-restart new-path support is required.
+PulseGate still does not use unsafe Fastify dynamic unregister/register at runtime.
+Sprint 12 uses a stable catch-all /api/* dynamic route dispatcher.
+The dispatcher resolves method + path from the runtime registry per request.
+```
+
+Current dynamic router limitation:
+
+```txt
+The catch-all dynamic router is a foundation.
+It supports exact method + path matching through runtime registry.
+It does not yet implement advanced route matching such as:
+  -> path parameters
+  -> wildcard upstream mapping
+  -> host-based routing
+  -> weighted upstreams
+  -> service discovery
+  -> route priority matching beyond exact path lookup
 ```
 
 ---
@@ -409,6 +464,16 @@ Current protected consumer endpoint:
 GET /api/products
 ```
 
+Current dynamic API route dispatcher:
+
+```txt
+GET    /api/*
+POST   /api/*
+PUT    /api/*
+PATCH  /api/*
+DELETE /api/*
+```
+
 Current internal/admin endpoints:
 
 ```txt
@@ -425,6 +490,8 @@ Important endpoint ordering:
 
 ```txt
 GET /internal/admin/routes/runtime must be registered before GET /internal/admin/routes/:id.
+Admin routes are registered before downstream proxy routes.
+The catch-all dynamic route is scoped to /api/* and does not catch /internal/admin/*.
 ```
 
 Current route protection:
@@ -449,6 +516,15 @@ GET /api/products
   -> Redis-backed rate limited by API key and route
   -> Redis response cache enabled
 
+Brand-new DB-backed /api/* routes
+  -> Use policy config stored in gateway.gateway_routes
+  -> Can require API key
+  -> Can require JWT
+  -> Can use Redis rate limit
+  -> Can use Redis response cache
+  -> Can use request/response transform foundation
+  -> Can use timeout/retry foundation
+
 Internal/admin routes
   -> Require x-admin-api-key
   -> Do not use consumer x-api-key
@@ -467,8 +543,6 @@ x-admin-actor: optional
 ---
 
 ## Current Runtime Route Registry
-
-Sprint 11 added a safe runtime route registry.
 
 Runtime registry file:
 
@@ -504,7 +578,7 @@ Current registry behavior:
 ```txt
 createRouteRuntimeRegistry({ initialRoutes })
   -> validates initial routes
-  -> stores immutable-ish cloned snapshot
+  -> stores cloned snapshot
   -> version starts at 1
 
 getSnapshot()
@@ -523,7 +597,7 @@ replaceRoutes(routes)
        -> keeps old snapshot unchanged
 
 findRoute(method, gatewayPath)
-  -> finds route by HTTP method and gatewayPath
+  -> finds route by HTTP method and exact gatewayPath
   -> returns cloned route config or null
 ```
 
@@ -532,14 +606,15 @@ Why this design matters:
 * Runtime config updates become safer.
 * Invalid reload cannot corrupt current runtime state.
 * Proxy can read latest route policy per request.
+* Dynamic router can dispatch brand-new DB-backed routes.
 * The system avoids unsafe Fastify route unregister/register.
-* It creates a foundation for more dynamic routing later.
+* It creates a foundation for more advanced routing later.
 
 ---
 
 ## Current Runtime Status Endpoint
 
-Sprint 11 added:
+Endpoint:
 
 ```txt
 GET /internal/admin/routes/runtime
@@ -559,7 +634,7 @@ Successful response shape:
     "mode": "runtime-registry",
     "available": true,
     "version": 1,
-    "loadedAt": "2026-07-02T00:00:00.000Z",
+    "loadedAt": "2026-07-03T07:02:53.345Z",
     "routeCount": 2,
     "routes": [
       {
@@ -601,7 +676,7 @@ GET /internal/admin/routes/runtime without admin key -> 401 ADMIN_API_KEY_MISSIN
 
 ---
 
-## Current Reload Behavior After Sprint 11
+## Current Reload Behavior After Sprint 12
 
 Endpoint:
 
@@ -635,6 +710,7 @@ Admin Client
   -> Maps DB route records to DownstreamRouteConfig[]
   -> Validates mapped configs
   -> Replaces runtime registry snapshot
+  -> Registered routes and catch-all dynamic router use new snapshot
   -> Returns reload metadata
 ```
 
@@ -645,9 +721,9 @@ mode: runtime-registry-refresh
 registryAvailable: true
 registryApplied: true
 runtimeApplied: true
-runtimeScope: registered-routes-only
-newRoutesRequireRestart: true
-requiresRestart: true
+runtimeScope: dynamic-router
+newRoutesRequireRestart: false
+requiresRestart: false
 previousVersion: number
 currentVersion: number
 loadedAt: ISO timestamp
@@ -655,7 +731,7 @@ routeCount: number
 routes: lightweight route summaries
 ```
 
-Example successful response:
+Example successful response after Sprint 12:
 
 ```json
 {
@@ -664,13 +740,13 @@ Example successful response:
     "registryAvailable": true,
     "registryApplied": true,
     "runtimeApplied": true,
-    "runtimeScope": "registered-routes-only",
-    "newRoutesRequireRestart": true,
-    "requiresRestart": true,
+    "runtimeScope": "dynamic-router",
+    "newRoutesRequireRestart": false,
+    "requiresRestart": false,
     "previousVersion": 1,
     "currentVersion": 2,
-    "loadedAt": "2026-07-02T13:57:53.353Z",
-    "routeCount": 2,
+    "loadedAt": "2026-07-03T07:04:12.990Z",
+    "routeCount": 3,
     "routes": [
       {
         "method": "GET",
@@ -681,66 +757,82 @@ Example successful response:
         "method": "GET",
         "gatewayPath": "/api/product-service/health",
         "serviceName": "product-service"
+      },
+      {
+        "method": "GET",
+        "gatewayPath": "/api/sprint12-dynamic-health-1783062215",
+        "serviceName": "product-service"
       }
     ]
   }
 }
 ```
 
-Important semantic correction from Sprint 10 to Sprint 11:
+Important semantic correction from Sprint 11 to Sprint 12:
 
 ```txt
-Sprint 10 reload:
-  -> validation-only
-  -> runtimeApplied=false
-  -> requiresRestart=true
-
 Sprint 11 reload:
   -> runtime registry refresh
   -> runtimeApplied=true for existing registered routes
   -> runtimeScope=registered-routes-only
   -> newRoutesRequireRestart=true
   -> requiresRestart=true because brand-new gateway paths still require restart
+
+Sprint 12 reload:
+  -> runtime registry refresh
+  -> runtimeApplied=true through dynamic router
+  -> runtimeScope=dynamic-router
+  -> newRoutesRequireRestart=false when registry replacement succeeds
+  -> requiresRestart=false when registry replacement succeeds
+  -> brand-new DB-backed /api/* routes can work after reload without restart
 ```
 
 Current Docker validation proved:
 
 ```txt
-Disable existing health route
-  -> PATCH /internal/admin/routes/:id { "enabled": false }
+Create brand-new dynamic health route
+  -> POST /internal/admin/routes
+  -> gatewayPath=/api/sprint12-dynamic-health-1783062215
+  -> downstreamUrl=http://product-service:3001/health
+  -> enabled=true
+
+Before reload
+  -> GET /api/sprint12-dynamic-health-1783062215
+  -> 404 ROUTE_NOT_FOUND
+
+Reload
   -> POST /internal/admin/routes/reload
-  -> routeCount changed from 2 to 1
-  -> GET /api/product-service/health returned 404 ROUTE_NOT_FOUND without restart
+  -> routeCount changed from 2 to 3
+  -> runtimeScope=dynamic-router
+  -> newRoutesRequireRestart=false
+  -> requiresRestart=false
 
-Re-enable existing health route
-  -> PATCH /internal/admin/routes/:id { "enabled": true }
+After reload without API Gateway restart
+  -> GET /api/sprint12-dynamic-health-1783062215
+  -> 200 OK
+  -> Product Service health response
+
+Cleanup
+  -> DELETE /internal/admin/routes/:id
+  -> soft delete validation route
   -> POST /internal/admin/routes/reload
-  -> routeCount changed from 1 to 2
-  -> GET /api/product-service/health returned 200 OK without restart
-```
-
-Known limitation:
-
-```txt
-Creating a completely new gatewayPath can be saved to DB and validated,
-but Fastify will not match it until API Gateway restart.
-
-Reason:
-  Fastify does not know that path unless it was registered at startup.
-
-Future solution:
-  Add a controlled catch-all dynamic route dispatcher,
-  or redesign route registration lifecycle carefully.
+  -> routeCount changed from 3 back to 2
 ```
 
 ---
 
 ## Current Downstream Proxy Runtime Behavior
 
-Main proxy file:
+Main route registration file:
 
 ```txt
 apps/api-gateway/src/routes/product-proxy.route.ts
+```
+
+Shared proxy handler file:
+
+```txt
+apps/api-gateway/src/proxy/downstream-proxy-handler.ts
 ```
 
 Important naming note:
@@ -749,26 +841,36 @@ Important naming note:
 The file name is still product-proxy.route.ts.
 Sprint 7 refactored internals to include a generic downstreamProxyRoute().
 productProxyRoute() remains as a compatibility wrapper.
-A future cleanup sprint may rename this file to downstream-proxy.route.ts.
+Sprint 12 extracted shared proxy handling into apps/api-gateway/src/proxy/downstream-proxy-handler.ts.
+A future cleanup sprint may rename product-proxy.route.ts to downstream-proxy.route.ts.
 ```
 
 Sprint 11 change:
 
 ```txt
-Downstream proxy now receives routeRuntimeRegistry.
+Downstream proxy receives routeRuntimeRegistry.
 Pre-handler and handler resolve latest route config from runtime registry per request.
 ```
 
-Why both pre-handler and handler must use registry:
+Sprint 12 change:
+
+```txt
+Downstream proxy handling was extracted into a shared proxy handler.
+The handler now supports route resolver injection.
+Registered routes still resolve from registeredRouteConfig + runtime registry.
+Dynamic catch-all routes resolve from request method + request path + runtime registry.
+```
+
+Why both pre-handler and handler must use runtime route config:
 
 ```txt
 Auth, rateLimit, JWT, and cache behavior depend on route policy.
-Before Sprint 11, preHandler closed over startup route config.
-If only the handler used the registry, auth/rateLimit/JWT policies could become stale.
-Sprint 11 changed both preHandler and handler to lookup runtime route config.
+If only handler used registry, auth/rateLimit/JWT policies could become stale.
+Both preHandler and handler must resolve latest route config.
+Sprint 12 preserves this requirement for both registered and dynamic routes.
 ```
 
-Current runtime route lookup behavior:
+Current registered route lookup behavior:
 
 ```txt
 Request to registered Fastify path
@@ -784,6 +886,20 @@ Request to registered Fastify path
        -> 404 ROUTE_NOT_FOUND
 ```
 
+Current dynamic route lookup behavior:
+
+```txt
+Request to /api/*
+  -> dynamic router extracts request.method
+  -> dynamic router extracts pathname from request.url
+  -> routeRuntimeRegistry.findRoute(method, pathname)
+  -> if found:
+       -> shared proxy pipeline applies route policies
+       -> proxy to configured downstreamUrl
+  -> if not found:
+       -> 404 ROUTE_NOT_FOUND
+```
+
 Current test coverage:
 
 ```txt
@@ -793,6 +909,16 @@ app.test.ts
   -> registry is replaced without product route
   -> second GET /api/products returns 404 ROUTE_NOT_FOUND
   -> downstream fetch mock is only called once
+
+dynamic-proxy.route.test.ts
+  -> brand-new API path returns 404 before runtime registry replacement
+  -> same API path returns 200 after runtime registry replacement
+  -> test proves no app restart is needed for the new path
+
+admin-route-config.route.test.ts
+  -> reload response reports dynamic-router runtime scope
+  -> reload response reports newRoutesRequireRestart=false
+  -> reload response reports requiresRestart=false
 ```
 
 ---
@@ -946,6 +1072,7 @@ Fallback result:
 
 ```txt
 API Gateway uses static downstreamRouteConfigs.
+Static fallback remains important even after Sprint 12 dynamic router.
 ```
 
 Important DB design decision:
@@ -1054,6 +1181,19 @@ DELETE /internal/admin/routes/:id
   -> set deleted_by
   -> set updated_by
   -> return 200 OK
+```
+
+Current route create + reload + runtime apply flow:
+
+```txt
+POST /internal/admin/routes
+  -> creates DB route config
+  -> route does not affect traffic until reload
+
+POST /internal/admin/routes/reload
+  -> loads active DB routes into runtime registry
+  -> catch-all dynamic router can serve brand-new /api/* path
+  -> no API Gateway restart required
 ```
 
 Current error responses:
@@ -1225,8 +1365,73 @@ Expected response:
 {
   "service": "product-service",
   "status": "ok",
-  "timestamp": "2026-07-02T13:57:59.786Z"
+  "timestamp": "2026-07-03T07:04:18.363Z"
 }
+```
+
+---
+
+## Current Dynamic Route Behavior
+
+Dynamic route scope:
+
+```txt
+/api/*
+```
+
+Supported methods:
+
+```txt
+GET
+POST
+PUT
+PATCH
+DELETE
+```
+
+Dynamic route matching:
+
+```txt
+Exact method + exact request path lookup in runtime registry.
+```
+
+Example dynamic route lifecycle:
+
+```txt
+1. Admin creates route:
+   POST /internal/admin/routes
+   gatewayPath=/api/sprint12-dynamic-health-1783062215
+   downstreamUrl=http://product-service:3001/health
+   method=GET
+   enabled=true
+
+2. Before reload:
+   GET /api/sprint12-dynamic-health-1783062215
+   -> 404 ROUTE_NOT_FOUND
+
+3. Admin reloads:
+   POST /internal/admin/routes/reload
+   -> routeCount changes from 2 to 3
+   -> runtimeScope=dynamic-router
+   -> newRoutesRequireRestart=false
+   -> requiresRestart=false
+
+4. After reload, without API Gateway restart:
+   GET /api/sprint12-dynamic-health-1783062215
+   -> 200 OK
+   -> Product Service health response
+
+5. Cleanup:
+   DELETE /internal/admin/routes/:id
+   POST /internal/admin/routes/reload
+   -> routeCount returns to 2
+```
+
+Important limitation:
+
+```txt
+Dynamic route path must currently match gatewayPath exactly.
+Advanced path params, wildcard path forwarding, host-based routing, upstream pools, and service discovery are not implemented yet.
 ```
 
 ---
@@ -1613,12 +1818,15 @@ pulsegate/
         middlewares/
         observability/
         policies/
+        proxy/
+          downstream-proxy-handler.ts
         rate-limit/
         redis/
         route-management/
         routes/
           admin-route-config.route.ts
           admin-route-config.route.test.ts
+          dynamic-proxy.route.test.ts
           health.route.ts
           metrics.route.ts
           metrics.route.test.ts
@@ -1761,7 +1969,7 @@ Validate active route configs:
 docker compose exec postgres psql -U pulsegate -d pulsegate -c "SELECT method, gateway_path, enabled, deleted_at FROM gateway.gateway_routes WHERE deleted_at IS NULL ORDER BY priority, gateway_path;"
 ```
 
-Expected active routes:
+Expected seeded active routes:
 
 ```txt
 GET /api/products
@@ -1817,17 +2025,16 @@ Invoke-RestMethod http://localhost:3000/internal/admin/routes/reload `
   ConvertTo-Json -Depth 10
 ```
 
-Expected reload metadata after Sprint 11:
+Expected reload metadata after Sprint 12:
 
 ```txt
 mode: runtime-registry-refresh
 registryAvailable: true
 registryApplied: true
 runtimeApplied: true
-runtimeScope: registered-routes-only
-newRoutesRequireRestart: true
-requiresRestart: true
-routeCount: 2
+runtimeScope: dynamic-router
+newRoutesRequireRestart: false
+requiresRestart: false
 ```
 
 Create local development JWT token:
@@ -1881,6 +2088,77 @@ Expected:
 ```txt
 Request 1 -> 200, x-cache: MISS
 Request 2 -> 200, x-cache: HIT
+```
+
+Test brand-new dynamic route manually:
+
+```powershell
+$dynamicPath = "/api/manual-dynamic-health-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
+
+$body = @{
+  serviceName = "product-service"
+  gatewayPath = $dynamicPath
+  downstreamUrl = "http://product-service:3001/health"
+  method = "GET"
+  enabled = $true
+  priority = 300
+  policies = @{
+    auth = @{
+      requireApiKey = $false
+      requireJwt = $false
+    }
+    timeout = @{
+      enabled = $true
+      timeoutMs = 3000
+    }
+    cache = @{
+      enabled = $false
+    }
+    rateLimit = @{
+      enabled = $false
+    }
+  }
+} | ConvertTo-Json -Depth 10
+
+$createResponse = Invoke-RestMethod http://localhost:3000/internal/admin/routes `
+  -Method POST `
+  -Headers @{
+    "x-admin-api-key" = "local-admin-key"
+    "x-admin-actor" = "manual-dynamic-validation"
+    "content-type" = "application/json"
+  } `
+  -Body $body
+
+$createdRouteId = $createResponse.data.id
+
+Invoke-RestMethod http://localhost:3000/internal/admin/routes/reload `
+  -Method POST `
+  -Headers @{ "x-admin-api-key" = "local-admin-key" } `
+  -ContentType "application/json" `
+  -Body "{}" |
+  ConvertTo-Json -Depth 10
+
+Invoke-RestMethod "http://localhost:3000$dynamicPath" |
+  ConvertTo-Json -Depth 10
+```
+
+Cleanup manual dynamic route:
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/internal/admin/routes/$createdRouteId" `
+  -Method DELETE `
+  -Headers @{
+    "x-admin-api-key" = "local-admin-key"
+    "x-admin-actor" = "manual-dynamic-validation"
+  } |
+  ConvertTo-Json -Depth 10
+
+Invoke-RestMethod http://localhost:3000/internal/admin/routes/reload `
+  -Method POST `
+  -Headers @{ "x-admin-api-key" = "local-admin-key" } `
+  -ContentType "application/json" `
+  -Body "{}" |
+  ConvertTo-Json -Depth 10
 ```
 
 ---
@@ -1944,11 +2222,36 @@ Completed route runtime reload/admin hardening foundation:
 * Downstream proxy handler reads latest runtime route config.
 * Existing registered routes can be disabled/enabled and reloaded without restarting API Gateway.
 * Reload response accurately reports partial runtime apply.
-* Known limitation remains: brand-new gateway paths still require restart.
+* Known limitation after Sprint 11: brand-new gateway paths still required restart.
+
+### Sprint 12
+
+Completed catch-all dynamic router foundation:
+
+* Extracted shared downstream proxy handler.
+* Added route resolver support for downstream proxy handling.
+* Added `/api/*` catch-all dynamic router.
+* Dynamic router supports GET, POST, PUT, PATCH, DELETE.
+* Dynamic router resolves method + path from runtime registry per request.
+* Dynamic router uses same proxy pipeline and route policies as registered routes.
+* Brand-new DB-backed /api/* paths can work after reload without API Gateway restart.
+* Reload response now reports `runtimeScope: dynamic-router`.
+* Reload response now reports `newRoutesRequireRestart: false` when registry replacement succeeds.
+* Reload response now reports `requiresRestart: false` when registry replacement succeeds.
+* Added dynamic proxy route test.
+* Validated runtime behavior through Docker.
 
 ---
 
 ## Current Stable Commits
+
+### Sprint 12
+
+```txt
+285fbf7 refactor(gateway): extract downstream proxy handler
+32289cc refactor(gateway): support downstream route resolver
+4eac32e feat(gateway): add catch-all dynamic proxy route
+```
 
 ### Sprint 11
 
@@ -1958,6 +2261,8 @@ Completed route runtime reload/admin hardening foundation:
 1c759bf feat(gateway): refresh route runtime registry on reload
 d96914a feat(gateway): resolve downstream routes from runtime registry
 6ee93e0 feat(gateway): report partial runtime reload scope
+4d19e56 docs: finalize sprint 11 documentation
+9f65286 docs: restore readme architecture diagram
 ```
 
 ### Sprint 10
@@ -2015,39 +2320,42 @@ d06e0e7 docs: add ci badge to readme
 Current next step:
 
 ```txt
-Sprint 11 - Final Documentation Update
+Sprint 12 - Final Documentation Update
 ```
 
 Documentation files being updated:
 
 ```txt
-README.md
-docs/architecture/overview.md
 docs/project-context/CURRENT_PROGRESS.md
 docs/project-context/AI_HANDOFF.md
 docs/project-context/DECISION_LOG.md
+docs/architecture/overview.md
 docs/sdlc/requirements.md
+README.md
 ```
 
-Important Sprint 11 documentation points:
+Important Sprint 12 documentation points:
 
 ```txt
-v0.12.0
-28 test files
-189 tests
-Runtime route registry
-GET /internal/admin/routes/runtime
-POST /internal/admin/routes/reload now refreshes runtime registry
-runtimeApplied=true for existing registered routes
-runtimeScope=registered-routes-only
-newRoutesRequireRestart=true
-requiresRestart=true
-Brand-new gateway paths still require restart
-Avoided unsafe Fastify dynamic unregister/register
-Existing routes can be enabled/disabled and reloaded without API Gateway restart
+v0.13.0
+29 test files
+190 tests
+Catch-all dynamic router foundation
+Shared downstream proxy handler
+Route resolver support
+GET/POST/PUT/PATCH/DELETE /api/*
+POST /internal/admin/routes/reload now reports dynamic-router scope
+runtimeApplied=true
+runtimeScope=dynamic-router
+newRoutesRequireRestart=false
+requiresRestart=false
+Brand-new DB-backed /api/* gateway paths can work after reload without API Gateway restart
+Still avoids unsafe Fastify dynamic unregister/register
+Dynamic routing is exact method + path lookup only
+Advanced routing features are not implemented yet
 ```
 
-After all Sprint 11 documentation files are updated, run:
+After all Sprint 12 documentation files are updated, run:
 
 ```powershell
 npm run test
@@ -2059,26 +2367,27 @@ git status
 Then commit docs with:
 
 ```txt
-docs: finalize sprint 11 documentation
+docs: finalize sprint 12 documentation
 ```
 
-After Sprint 11 docs are committed and pushed, recommended Sprint 12 options:
+Recommended Sprint 13 options:
 
 ```txt
 Option 1:
-Sprint 12 - Full Dynamic Route Dispatch Foundation
-  -> Add a safe catch-all dynamic router so brand-new gateway paths can work without restart.
+Sprint 13 - API Consumer and API Key Lifecycle Foundation
+  -> Add API consumers, issued API keys, ownership, revocation, and admin lifecycle foundation.
 
 Option 2:
-Sprint 12 - Admin Auth / RBAC Hardening
+Sprint 13 - Admin Auth / RBAC Hardening
   -> Replace simple local admin API key with stronger admin auth/RBAC foundation.
 
 Option 3:
-Sprint 12 - Admin Dashboard Foundation
-  -> Start UI only after backend docs are stable.
+Sprint 13 - Admin Dashboard Foundation
+  -> Start UI after backend route management and API key lifecycle become more product-like.
 
 Recommended technical order:
-  If the goal is to complete API Gateway core first, choose Option 1 before Admin Dashboard.
+  Prefer API Consumer and API Key Lifecycle Foundation next,
+  because PulseGate now has dynamic route management and should start managing real API consumers and issued keys before building a full Admin Dashboard.
 ```
 
 ---
@@ -2099,9 +2408,9 @@ Do not jump to these too early:
 * Docker image registry push.
 * Automatic deployment.
 
-Admin Dashboard should only start when the backend route management lifecycle and docs are stable.
+Admin Dashboard should only start when the backend route management lifecycle, API consumer lifecycle, and docs are stable.
 
-Kafka/RabbitMQ/Kubernetes should wait until core Gateway routing, route policy, route config, reload behavior, admin APIs, and observability are stable.
+Kafka/RabbitMQ/Kubernetes should wait until core Gateway routing, route policy, route config, reload behavior, admin APIs, consumer/API key lifecycle, and observability are stable.
 
 ---
 
@@ -2152,8 +2461,8 @@ Allow recreation of same route path through active-only partial unique index.
 ### Runtime Registry Instead of Fastify Hot Unregister/Register
 
 ```txt
-Sprint 11 uses runtime registry snapshot replacement.
-It does not dynamically unregister/register Fastify routes.
+Runtime route state is managed by replacing the runtime registry snapshot.
+PulseGate does not dynamically unregister/register Fastify routes at runtime.
 ```
 
 Reason:
@@ -2163,20 +2472,49 @@ Fastify runtime route mutation can create stale handlers, duplicate conflicts, o
 Runtime registry is safer and easier to test.
 ```
 
-### Reload Metadata Must Be Honest
+### Catch-All Dynamic Router for No-Restart New Paths
 
 ```txt
-runtimeApplied=true
-runtimeScope=registered-routes-only
-newRoutesRequireRestart=true
-requiresRestart=true
+Sprint 12 adds a stable /api/* catch-all dynamic route dispatcher.
+Brand-new DB-backed /api/* gateway paths can work after reload without API Gateway restart.
 ```
 
 Reason:
 
 ```txt
-Reload now affects existing registered route behavior,
-but brand-new paths still require restart.
+Fastify still needs a known route shape at startup.
+Instead of unsafe runtime route mutation, PulseGate registers a safe catch-all /api/* route once.
+The catch-all route resolves method + path from the runtime registry per request.
+```
+
+### Reload Metadata Must Be Honest
+
+```txt
+runtimeApplied=true
+runtimeScope=dynamic-router
+newRoutesRequireRestart=false
+requiresRestart=false
+```
+
+Reason:
+
+```txt
+Reload now affects existing registered route behavior and brand-new DB-backed /api/* routes.
+No API Gateway restart is required when registry replacement succeeds.
+```
+
+### Dynamic Router Is Still a Foundation
+
+```txt
+The current dynamic router supports exact method + path matching.
+It does not yet support path params, wildcard upstream mapping, host-based routing, weighted upstreams, or service discovery.
+```
+
+Reason:
+
+```txt
+Sprint 12 intentionally solved the no-restart new-path limitation first.
+Advanced routing should be added in later controlled sprints.
 ```
 
 ---
@@ -2186,10 +2524,10 @@ but brand-new paths still require restart.
 When continuing from this file, the assistant should continue with:
 
 ```txt
-Sprint 11 - Final Documentation Update
+Sprint 12 - Final Documentation Update
 ```
 
-If Sprint 11 final docs are already committed, continue with Sprint 12 planning.
+If Sprint 12 final docs are already committed and pushed, continue with Sprint 13 planning.
 
 Before coding the next step, the assistant should explain:
 
@@ -2216,3 +2554,20 @@ No unsafe Fastify route mutation.
 No overbuilding.
 ```
 
+Possible next sprint:
+
+```txt
+Sprint 13 - API Consumer and API Key Lifecycle Foundation
+```
+
+Potential Sprint 13 scope:
+
+```txt
+Add API consumer model.
+Add issued API key storage.
+Keep local dev key fallback if needed.
+Add admin API to list/create/revoke consumer API keys.
+Allow route policy to continue using API key validation.
+Prepare foundation for usage plans and quotas later.
+Do not build Admin Dashboard yet unless explicitly selected.
+```
