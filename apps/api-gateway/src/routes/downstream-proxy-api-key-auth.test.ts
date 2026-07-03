@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { ApiUsageRecorder } from "../api-usage/api-usage-recorder.js";
+
 import { buildApiGatewayApp } from "../app.js";
 import type { DownstreamRouteConfig } from "../config/downstream-routes.js";
 import type { RuntimePreHandlerMiddleware } from "../proxy/downstream-proxy-handler.js";
@@ -161,5 +163,105 @@ describe("downstream proxy API key auth integration", () => {
     });
     expect(injectedApiKeyMiddleware).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("should record API usage for DB-backed API key traffic", async () => {
+    const fetchMock = createFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const injectedApiKeyMiddleware: RuntimePreHandlerMiddleware = vi.fn(
+      async (request: FastifyRequest) => {
+        request.apiKey = "pgk_live_valid";
+        request.apiKeyId = "key_1";
+        request.apiConsumerId = "consumer_1";
+        request.apiKeyAuthSource = "database";
+      },
+    );
+
+    const recordUsage = vi.fn(async () => undefined);
+    const usageRecorder: ApiUsageRecorder = {
+      record: recordUsage,
+    };
+
+    app = await buildApiGatewayApp({
+      logger: false,
+      routeConfigs: [testRouteConfig],
+      productProxy: {
+        rateLimitStore: new InMemoryRateLimitStore(),
+        apiKeyAuthMiddleware: injectedApiKeyMiddleware,
+        usageRecorder,
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/test-key-auth",
+      headers: {
+        "x-api-key": "pgk_live_valid",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ data: "ok" });
+
+    expect(recordUsage).toHaveBeenCalledTimes(1);
+    expect(recordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: expect.any(String),
+        routePath: "/api/test-key-auth",
+        routeMethod: "GET",
+        statusCode: 200,
+        durationMs: expect.any(Number),
+        cacheStatus: "BYPASS",
+        apiKeyAuthSource: "database",
+        apiKeyId: "key_1",
+        consumerId: "consumer_1",
+      }),
+    );
+  });
+
+  it("should keep proxy response successful when usage recorder fails", async () => {
+    const fetchMock = createFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const injectedApiKeyMiddleware: RuntimePreHandlerMiddleware = vi.fn(
+      async (request: FastifyRequest) => {
+        request.apiKey = "pgk_live_valid";
+        request.apiKeyId = "key_1";
+        request.apiConsumerId = "consumer_1";
+        request.apiKeyAuthSource = "database";
+      },
+    );
+
+    const recordUsage = vi.fn(async () => {
+      throw new Error("usage recorder unavailable");
+    });
+
+    const usageRecorder: ApiUsageRecorder = {
+      record: recordUsage,
+    };
+
+    app = await buildApiGatewayApp({
+      logger: false,
+      routeConfigs: [testRouteConfig],
+      productProxy: {
+        rateLimitStore: new InMemoryRateLimitStore(),
+        apiKeyAuthMiddleware: injectedApiKeyMiddleware,
+        usageRecorder,
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/test-key-auth",
+      headers: {
+        "x-api-key": "pgk_live_valid",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ data: "ok" });
+    expect(recordUsage).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,5 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 
+import type { ApiUsageRecorder } from "../api-usage/api-usage-recorder.js";
+
 import type { ResponseCacheStore } from "../cache/redis-response-cache-store.js";
 import {
   productProductsRouteConfig,
@@ -25,6 +27,7 @@ export type ProductProxyRouteOptions = {
   responseCacheStore?: ResponseCacheStore;
   responseCacheTtlSeconds?: number;
   apiKeyAuthMiddleware?: RuntimePreHandlerMiddleware;
+  usageRecorder?: ApiUsageRecorder;
 };
 
 export type DownstreamProxyRouteOptions = ProductProxyRouteOptions & {
@@ -88,6 +91,7 @@ export async function downstreamProxyRoute(
         routeRuntimeRegistry: options.routeRuntimeRegistry,
         responseCacheStore: options.responseCacheStore,
         responseCacheTtlSeconds: options.responseCacheTtlSeconds,
+        usageRecorder: options.usageRecorder,
       }),
     });
   }
@@ -111,6 +115,7 @@ export async function downstreamProxyRoute(
         routeConfigResolver,
         responseCacheStore: options.responseCacheStore,
         responseCacheTtlSeconds: options.responseCacheTtlSeconds,
+        usageRecorder: options.usageRecorder,
       }),
     });
   }

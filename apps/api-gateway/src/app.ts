@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 
 import { RedisResponseCacheStore } from "./cache/redis-response-cache-store.js";
+import { createPrismaApiUsageRecorder } from "./api-usage/api-usage-recorder.js";
 import {
   downstreamRouteConfigs,
   type DownstreamRouteConfig,
@@ -110,12 +111,19 @@ export async function buildApiGatewayApp(
       verifier: createPrismaApiKeyAuthVerifier(gatewayPrisma),
     });
 
+  const apiUsageRecorder =
+    options.productProxy?.usageRecorder ??
+    (options.productProxy
+      ? undefined
+      : createPrismaApiUsageRecorder(gatewayPrisma));
+
   const downstreamProxyOptions: DownstreamProxyRouteOptions = {
     ...(options.productProxy ?? {
       rateLimitStore: new RedisRateLimitStore(redisClient),
       responseCacheStore: new RedisResponseCacheStore(redisClient),
     }),
     apiKeyAuthMiddleware,
+    usageRecorder: apiUsageRecorder,
     routeConfigs: resolvedRouteConfigs,
     routeRuntimeRegistry,
   };

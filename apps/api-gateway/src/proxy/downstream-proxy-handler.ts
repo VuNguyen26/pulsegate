@@ -4,6 +4,8 @@ import type {
   HookHandlerDoneFunction,
 } from "fastify";
 
+import type { ApiUsageCacheStatus, ApiUsageRecorder } from "../api-usage/api-usage-recorder.js";
+
 import type { ResponseCacheStore } from "../cache/redis-response-cache-store.js";
 import type { DownstreamRouteConfig } from "../config/downstream-routes.js";
 import { DownstreamServiceError } from "../errors/downstream-service-error.js";
@@ -28,6 +30,46 @@ import { createDownstreamTimeout } from "../policies/timeout.policy.js";
 import type { RouteRuntimeRegistry } from "../runtime/route-runtime-registry.js";
 
 export { buildResponseCacheKey };
+
+function getUsageDurationMs(startedAtMs: number): number {
+  return Math.max(0, Date.now() - startedAtMs);
+}
+
+async function recordApiUsageEvent(options: {
+  usageRecorder?: ApiUsageRecorder;
+  request: FastifyRequest;
+  routeConfig: DownstreamRouteConfig;
+  statusCode: number;
+  cacheStatus: ApiUsageCacheStatus;
+  startedAtMs: number;
+}): Promise<void> {
+  if (!options.usageRecorder) {
+    return;
+  }
+
+  try {
+    await options.usageRecorder.record({
+      requestId: options.request.id,
+      routePath: options.routeConfig.gatewayPath,
+      routeMethod: options.routeConfig.method,
+      statusCode: options.statusCode,
+      durationMs: getUsageDurationMs(options.startedAtMs),
+      cacheStatus: options.cacheStatus,
+      apiKeyAuthSource: options.request.apiKeyAuthSource,
+      apiKeyId: options.request.apiKeyId,
+      consumerId: options.request.apiConsumerId,
+    });
+  } catch (error) {
+    options.request.log.error(
+      {
+        error,
+        requestId: options.request.id,
+        route: options.routeConfig.gatewayPath,
+      },
+      "Failed to record API usage event",
+    );
+  }
+}
 
 export type DownstreamRouteConfigResolver = (
   request: FastifyRequest,
@@ -243,8 +285,10 @@ export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
 export function createDownstreamProxyHandler(options: RouteResolverOptions & {
   responseCacheStore?: ResponseCacheStore;
   responseCacheTtlSeconds?: number;
+  usageRecorder?: ApiUsageRecorder;
 }) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
+    const usageStartedAtMs = Date.now();
     const routeConfig = resolveDownstreamRouteConfig(request, options);
 
     if (!routeConfig) {
@@ -275,6 +319,15 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
       if (cachedResponse.hit) {
         applyHeadersToReply(reply, transformedResponseHeaders);
         reply.header("x-cache", "HIT");
+
+        await recordApiUsageEvent({
+          usageRecorder: options.usageRecorder,
+          request,
+          routeConfig,
+          statusCode: cachedResponse.value.statusCode,
+          cacheStatus: "HIT",
+          startedAtMs: usageStartedAtMs,
+        });
 
         return reply
           .status(cachedResponse.value.statusCode)
@@ -402,8 +455,21 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
       }
     }
 
+    const cacheStatus: ApiUsageCacheStatus = responseCache.enabled
+      ? "MISS"
+      : "BYPASS";
+
+    await recordApiUsageEvent({
+      usageRecorder: options.usageRecorder,
+      request,
+      routeConfig,
+      statusCode: response.status,
+      cacheStatus,
+      startedAtMs: usageStartedAtMs,
+    });
+
     applyHeadersToReply(reply, transformedResponseHeaders);
-    reply.header("x-cache", responseCache.enabled ? "MISS" : "BYPASS");
+    reply.header("x-cache", cacheStatus);
 
     return reply.status(response.status).send(data);
   };
