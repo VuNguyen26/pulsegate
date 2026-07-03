@@ -16,6 +16,16 @@ enum GatewayRouteMethod {
   DELETE
 }
 
+enum ApiConsumerStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+}
+
 model GatewayRoute {
   id            String             @id @default(cuid())
   serviceName   String             @map("service_name")
@@ -53,13 +63,59 @@ model GatewayRoute {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  createdBy String? @map("created_by")
-  updatedBy String? @map("updated_by")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
   deletedAt DateTime? @map("deleted_at")
-  deletedBy String? @map("deleted_by")
+  deletedBy String?   @map("deleted_by")
 
   @@index([enabled, priority], name: "gateway_routes_enabled_priority_idx")
   @@index([deletedAt], name: "gateway_routes_deleted_at_idx")
   @@index([enabled, deletedAt, priority], name: "gateway_routes_enabled_deleted_at_priority_idx")
   @@map("gateway_routes")
+}
+
+model ApiConsumer {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  status      ApiConsumerStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  createdBy String? @map("created_by")
+  updatedBy String? @map("updated_by")
+
+  apiKeys ApiKey[]
+
+  @@index([status], name: "api_consumers_status_idx")
+  @@index([createdAt], name: "api_consumers_created_at_idx")
+  @@map("api_consumers")
+}
+
+model ApiKey {
+  id         String       @id @default(cuid())
+  consumerId String       @map("consumer_id")
+  consumer   ApiConsumer  @relation(fields: [consumerId], references: [id], onDelete: Restrict)
+
+  name      String
+  keyPrefix String       @map("key_prefix")
+  keyHash   String       @unique @map("key_hash")
+  status    ApiKeyStatus @default(ACTIVE)
+
+  expiresAt  DateTime? @map("expires_at")
+  lastUsedAt DateTime? @map("last_used_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  createdBy String? @map("created_by")
+  revokedAt DateTime? @map("revoked_at")
+  revokedBy String? @map("revoked_by")
+
+  @@index([consumerId], name: "api_keys_consumer_id_idx")
+  @@index([status], name: "api_keys_status_idx")
+  @@index([keyPrefix], name: "api_keys_key_prefix_idx")
+  @@index([expiresAt], name: "api_keys_expires_at_idx")
+  @@map("api_keys")
 }
