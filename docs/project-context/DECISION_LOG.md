@@ -5931,3 +5931,1119 @@ Complex service discovery
 Status:
 
 Accepted.
+
+---
+
+## 2026-07-03 - Keep Sprint 13 Focused on API Consumer and API Key Lifecycle Foundation
+
+Decision:
+
+Keep Sprint 13 focused on API Consumer and API Key Lifecycle Foundation instead of starting Admin Dashboard, Developer Portal, usage plans, Kafka, Kubernetes, or other larger platform layers.
+
+Reason:
+
+* Sprint 12 completed no-restart dynamic route application for brand-new DB-backed `/api/*` paths.
+* PulseGate already had route config persistence, route management APIs, runtime registry reload, and catch-all dynamic routing.
+* The next product-like API Management capability is managing real API consumers and issued API keys.
+* Static `API_KEYS=dev-api-key` is useful for local development, but it is not enough for a product-like API Gateway.
+* API consumers and issued keys are required before usage tracking, quotas, usage plans, Developer Portal, or Admin Dashboard analytics can be meaningful.
+* Keeping Sprint 13 backend-only avoids hiding core lifecycle gaps behind UI work.
+* The sprint should stay small, stable, and testable.
+
+Included in Sprint 13:
+
+```txt
+API consumer schema
+API key schema
+API key hashing foundation
+API consumer management repository and mapper
+Admin Consumer API
+API key management repository and mapper
+Admin API Key lifecycle API
+DB-backed API key verifier
+Injectable API key auth middleware factory
+Runtime DB-backed API key authentication
+Env API_KEYS fallback
+Docker runtime validation
+Documentation update
+```
+
+Not included in Sprint 13:
+
+```txt
+Admin Dashboard UI
+Developer Portal UI
+Self-service API key request flow
+Usage plans
+Quotas
+Billing
+Per-consumer analytics
+API usage event table
+Kafka
+RabbitMQ
+Kubernetes
+Production cloud deployment
+Complex service discovery
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Store API Consumers in Gateway-Owned Schema
+
+Decision:
+
+Store API consumers in the API Gateway-owned PostgreSQL `gateway` schema.
+
+Implemented table:
+
+```txt
+gateway.api_consumers
+```
+
+Reason:
+
+* API consumers are part of the API Management domain owned by the Gateway.
+* Product Service should not own API consumer data.
+* The existing database ownership rule says Product Service uses `public`, while API Gateway uses `gateway`.
+* Keeping consumers in the `gateway` schema avoids Prisma migration drift between services.
+* This prepares the Gateway for future consumer analytics, usage plans, Developer Portal accounts, and Admin Dashboard consumer management.
+
+Current API consumer fields:
+
+```txt
+id
+name
+description
+status
+created_at
+updated_at
+created_by
+updated_by
+```
+
+Current statuses:
+
+```txt
+ACTIVE
+DISABLED
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Store API Keys in Gateway-Owned Schema
+
+Decision:
+
+Store issued API keys in the API Gateway-owned PostgreSQL `gateway` schema.
+
+Implemented table:
+
+```txt
+gateway.api_keys
+```
+
+Reason:
+
+* API keys are part of API Gateway/API Management responsibility.
+* API keys must be associated with API consumers.
+* API key lifecycle must be independent from downstream services.
+* Storing API keys in the Gateway schema keeps authentication ownership clear.
+* This prepares the Gateway for usage tracking, revocation, expiration, quotas, and plan enforcement later.
+
+Current API key fields:
+
+```txt
+id
+consumer_id
+name
+key_prefix
+key_hash
+status
+expires_at
+last_used_at
+created_at
+updated_at
+created_by
+revoked_at
+revoked_by
+```
+
+Current statuses:
+
+```txt
+ACTIVE
+REVOKED
+```
+
+Current relationship:
+
+```txt
+api_consumers.id
+  -> api_keys.consumer_id
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Use API Consumer Status for Runtime Key Eligibility
+
+Decision:
+
+Add API consumer status and use it as part of API key runtime eligibility.
+
+Current statuses:
+
+```txt
+ACTIVE
+DISABLED
+```
+
+Reason:
+
+* API Management platforms need a way to disable a consumer without deleting the consumer record.
+* Disabling a consumer should stop all of that consumer's issued API keys from being accepted.
+* This is safer than revoking every key one by one when a whole consumer should be blocked.
+* It prepares the backend for future Admin Dashboard consumer lifecycle controls.
+* It also prepares for future organization/team/developer lifecycle models.
+
+Current runtime behavior:
+
+```txt
+API key exists and status=ACTIVE
+  -> Gateway checks related consumer status
+
+Consumer status=ACTIVE
+  -> key can continue to expiration check
+
+Consumer status=DISABLED
+  -> request is rejected with 403 API_KEY_INVALID
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Use API Key Status for Revocation Instead of Hard Delete
+
+Decision:
+
+Use API key status to revoke keys instead of deleting API key records.
+
+Current statuses:
+
+```txt
+ACTIVE
+REVOKED
+```
+
+Reason:
+
+* API keys are security-sensitive operational records.
+* Revoked keys should remain visible for audit and troubleshooting.
+* Deleting keys would remove useful lifecycle history such as createdBy, revokedAt, and revokedBy.
+* Revocation should be explicit and easy to reason about.
+* Keeping revoked records prepares the project for future key history, audit logs, and Admin Dashboard views.
+
+Current revoke behavior:
+
+```txt
+PATCH /internal/admin/api-keys/:id/revoke
+  -> status=REVOKED
+  -> revokedAt=current timestamp
+  -> revokedBy=admin actor
+```
+
+Current runtime behavior:
+
+```txt
+If DB key exists but status=REVOKED:
+  -> reject 403 API_KEY_INVALID
+  -> do not fallback to env API_KEYS
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Never Persist Raw API Keys
+
+Decision:
+
+Never store raw issued API keys in PostgreSQL.
+
+Current storage model:
+
+```txt
+key_prefix
+key_hash
+```
+
+Reason:
+
+* Raw API keys are secrets.
+* Persisting raw secrets increases security risk.
+* Admins only need a prefix to identify which key is being managed.
+* Runtime validation can use deterministic hashing to look up a key.
+* If the raw key is lost, the safe behavior is to issue a new key instead of recovering the old one.
+
+Current behavior:
+
+```txt
+POST /internal/admin/consumers/:consumerId/api-keys
+  -> generates raw API key
+  -> stores keyHash
+  -> stores keyPrefix
+  -> returns rawKey only once in the issue response
+```
+
+Current response rule:
+
+```txt
+List key response:
+  -> no keyHash
+  -> no rawKey
+
+Issue key response:
+  -> includes rawKey once
+  -> no keyHash
+
+Revoke key response:
+  -> no keyHash
+  -> no rawKey
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Use Deterministic Hashing for API Key Lookup
+
+Decision:
+
+Use deterministic API key hashing for runtime lookup.
+
+Current implementation:
+
+```txt
+hashApiKey(rawKey)
+  -> SHA-256 hex hash
+```
+
+Reason:
+
+* API Gateway must be able to look up incoming API keys efficiently.
+* A deterministic hash allows indexed lookup by `key_hash`.
+* Raw API keys do not need to be stored.
+* SHA-256 gives a simple foundation for this local-first product stage.
+* The current implementation can be hardened later if the project needs a more advanced key storage strategy.
+
+Current API key verification helper:
+
+```txt
+verifyApiKeyHash(rawKey, expectedHash)
+  -> hashes rawKey
+  -> compares with expectedHash using timing-safe comparison when possible
+```
+
+Current index/constraint strategy:
+
+```txt
+key_hash unique
+key_prefix indexed
+consumer_id indexed
+status indexed
+expires_at indexed
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Generate API Keys with Prefix for Display and Identification
+
+Decision:
+
+Generate API keys with a visible prefix and store that prefix separately.
+
+Current default prefix:
+
+```txt
+pgk_live
+```
+
+Reason:
+
+* API keys should be identifiable in admin views without exposing full secrets.
+* A prefix helps admins recognize a key from logs, screenshots, or user reports.
+* Storing a prefix is safer than storing or displaying the full raw key.
+* Prefix-based display is common in API platforms.
+
+Current behavior:
+
+```txt
+generateApiKey()
+  -> returns rawKey
+  -> returns keyPrefix
+  -> returns keyHash
+```
+
+Current storage:
+
+```txt
+rawKey
+  -> returned only once
+
+keyPrefix
+  -> stored
+
+keyHash
+  -> stored
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Add API Consumer Management Foundation Before Usage Plans
+
+Decision:
+
+Add API consumer management foundation before adding usage plans, quotas, or billing.
+
+Reason:
+
+* Usage plans and quotas need a subject to attach to.
+* API consumers are the natural ownership unit for API keys.
+* Without consumers, all API keys would be disconnected secrets with no ownership context.
+* Consumer management is required before per-consumer analytics, Developer Portal accounts, and Admin Dashboard views.
+* Keeping the first consumer model simple reduces risk.
+
+Implemented module:
+
+```txt
+apps/api-gateway/src/api-consumers/
+```
+
+Implemented files:
+
+```txt
+api-consumer-management.types.ts
+api-consumer-management.repository.ts
+api-consumer-management.mapper.ts
+api-consumer-management.mapper.test.ts
+```
+
+Current repository behavior:
+
+```txt
+listConsumers()
+findConsumerById(id)
+createConsumer(data)
+updateConsumer(id, data)
+```
+
+Current mapper behavior:
+
+```txt
+create consumer request validation
+update consumer request validation
+status normalization
+response mapping
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Add Admin Consumer API as Backend Foundation Only
+
+Decision:
+
+Add internal/admin API endpoints for API consumer management, but keep UI out of scope.
+
+Implemented endpoints:
+
+```txt
+GET /internal/admin/consumers
+POST /internal/admin/consumers
+GET /internal/admin/consumers/:id
+PATCH /internal/admin/consumers/:id
+```
+
+Reason:
+
+* Backend lifecycle must exist before Admin Dashboard can manage consumers.
+* Admin Consumer API is needed to create ownership records for issued API keys.
+* Keeping this internal/admin-only is enough for the local-first API Management foundation.
+* The same `x-admin-api-key` model can protect the consumer management API for now.
+* Stronger admin users/RBAC can be added later.
+
+Current auth:
+
+```txt
+x-admin-api-key required
+```
+
+Current actor attribution:
+
+```txt
+x-admin-actor optional
+fallback: admin-api-key
+```
+
+Current behavior:
+
+```txt
+POST /internal/admin/consumers
+  -> creates consumer
+  -> status defaults to ACTIVE
+  -> stores createdBy and updatedBy
+
+PATCH /internal/admin/consumers/:id
+  -> updates consumer
+  -> stores updatedBy
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Add API Key Management Foundation Separate from Runtime Auth
+
+Decision:
+
+Add API key management repository and mapper before wiring runtime authentication.
+
+Reason:
+
+* Persistence and request/response mapping should be stable before changing runtime auth behavior.
+* API key lifecycle has different concerns from request authentication.
+* Separating management code from middleware keeps the design testable.
+* Admin API can issue and revoke keys without immediately changing runtime auth.
+* This reduces the risk of breaking existing `dev-api-key` behavior.
+
+Implemented module:
+
+```txt
+apps/api-gateway/src/api-keys/
+```
+
+Implemented management files:
+
+```txt
+api-key-management.types.ts
+api-key-management.repository.ts
+api-key-management.mapper.ts
+api-key-management.mapper.test.ts
+```
+
+Current repository behavior:
+
+```txt
+listApiKeysByConsumerId(consumerId)
+findApiKeyById(id)
+createApiKey(data)
+revokeApiKey(id, actor)
+```
+
+Current mapper behavior:
+
+```txt
+issue request validation
+expiresAt parsing
+response mapping without keyHash
+issued response mapping with rawKey only at creation time
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Add Admin API Key Lifecycle API
+
+Decision:
+
+Add internal/admin API endpoints for issuing, listing, and revoking API keys.
+
+Implemented endpoints:
+
+```txt
+GET /internal/admin/consumers/:consumerId/api-keys
+POST /internal/admin/consumers/:consumerId/api-keys
+PATCH /internal/admin/api-keys/:id/revoke
+```
+
+Reason:
+
+* API keys need lifecycle operations before runtime DB-backed auth can be useful.
+* Admins need to create a consumer and issue a key for that consumer.
+* Admins need to revoke keys without deleting records.
+* Listing keys by consumer prepares for Admin Dashboard and support workflows.
+* The endpoint should not expose `keyHash` or previously issued raw keys.
+
+Current behavior:
+
+```txt
+GET /internal/admin/consumers/:consumerId/api-keys
+  -> verifies consumer exists
+  -> lists keys
+  -> does not expose keyHash
+  -> does not expose rawKey
+
+POST /internal/admin/consumers/:consumerId/api-keys
+  -> verifies consumer exists
+  -> validates request body
+  -> generates raw key
+  -> stores keyHash and keyPrefix
+  -> returns rawKey once
+  -> does not expose keyHash
+
+PATCH /internal/admin/api-keys/:id/revoke
+  -> verifies key exists
+  -> sets status=REVOKED
+  -> sets revokedAt
+  -> sets revokedBy
+  -> returns key response without keyHash/rawKey
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Keep Admin API Key Authentication for Consumer and Key Management APIs
+
+Decision:
+
+Protect API consumer and API key lifecycle admin APIs with the existing admin API key middleware.
+
+Reason:
+
+* Sprint 13 is focused on API consumer/key lifecycle, not admin identity/RBAC.
+* Existing `x-admin-api-key` already protects internal route management APIs.
+* Reusing it keeps the admin security model consistent.
+* Stronger admin users/RBAC should be added later in a dedicated sprint.
+* This avoids mixing API key lifecycle with full admin authentication design.
+
+Current admin auth header:
+
+```txt
+x-admin-api-key
+```
+
+Default local value:
+
+```txt
+local-admin-key
+```
+
+Current optional actor header:
+
+```txt
+x-admin-actor
+```
+
+Default actor fallback:
+
+```txt
+admin-api-key
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Add DB-Backed API Key Verifier Foundation Before Wiring Runtime
+
+Decision:
+
+Add a DB-backed API key verifier foundation before wiring it into the downstream proxy runtime flow.
+
+Reason:
+
+* Runtime auth is critical and should not be changed in one large step.
+* A verifier abstraction can be tested independently from Fastify routing.
+* The current env-based API key middleware should remain compatible during the transition.
+* This keeps the change safe and reversible.
+* It allows future replacement with cached verification, usage tracking, or external auth service integration.
+
+Implemented file:
+
+```txt
+apps/api-gateway/src/api-keys/api-key-auth-verifier.ts
+```
+
+Implemented test file:
+
+```txt
+apps/api-gateway/src/api-keys/api-key-auth-verifier.test.ts
+```
+
+Current verifier behavior:
+
+```txt
+createPrismaApiKeyAuthVerifier(prisma)
+  -> hashes incoming raw API key
+  -> looks up gateway.api_keys by keyHash
+  -> includes related consumer
+  -> validates key status
+  -> validates consumer status
+  -> validates expiresAt
+  -> updates lastUsedAt best-effort
+  -> returns database auth result when valid
+  -> falls back to env API_KEYS when DB key is not found or DB lookup fails
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Refactor API Key Middleware to Support Verifier Injection
+
+Decision:
+
+Refactor API key authentication middleware to support injected verifiers while preserving legacy behavior.
+
+Reason:
+
+* Tests should not require a real database.
+* Runtime should be able to use DB-backed verification.
+* The old direct middleware API should remain available for existing tests and compatibility.
+* Verifier injection makes the auth flow more flexible and easier to evolve.
+* Future usage tracking can hook into the verifier/middleware flow.
+
+Current exports:
+
+```txt
+apiKeyAuthMiddleware
+createApiKeyAuthMiddleware
+ApiKeyAuthVerifier
+ApiKeyVerificationResult
+```
+
+Current request context fields:
+
+```txt
+request.apiKey
+request.apiKeyId
+request.apiConsumerId
+request.apiKeyAuthSource
+```
+
+Possible auth sources:
+
+```txt
+database
+env
+```
+
+Compatibility behavior:
+
+```txt
+apiKeyAuthMiddleware
+  -> still validates using env API_KEYS
+
+createApiKeyAuthMiddleware({ verifier })
+  -> validates using injected verifier
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Wire DB-Backed API Key Auth into Downstream Proxy Through Injection
+
+Decision:
+
+Wire DB-backed API key authentication into the downstream proxy through injected middleware instead of hard-coding Prisma directly in the proxy pipeline.
+
+Reason:
+
+* The downstream proxy should remain testable without PostgreSQL.
+* Runtime auth behavior should be configurable through app construction.
+* Hard-coding Prisma directly inside the proxy handler would make tests and future refactors harder.
+* Injection allows local tests to pass fake middleware.
+* This design supports future cached verifier, usage tracking, or external authentication service.
+
+Implemented changes:
+
+```txt
+apps/api-gateway/src/proxy/downstream-proxy-handler.ts
+  -> createRuntimePolicyPreHandler accepts apiKeyAuthMiddleware override
+
+apps/api-gateway/src/routes/product-proxy.route.ts
+  -> DownstreamProxyRouteOptions accepts apiKeyAuthMiddleware
+
+apps/api-gateway/src/app.ts
+  -> creates createApiKeyAuthMiddleware({
+       verifier: createPrismaApiKeyAuthVerifier(gatewayPrisma)
+     })
+  -> passes it into downstreamProxyRoute
+```
+
+Current behavior:
+
+```txt
+Route policy requireApiKey=true
+  -> downstream proxy uses injected DB-backed API key middleware
+
+Route policy requireApiKey=false
+  -> no consumer API key auth is applied
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Preserve Env API_KEYS Fallback After Adding DB-Backed API Keys
+
+Decision:
+
+Keep env `API_KEYS` fallback after adding DB-backed issued API key authentication.
+
+Reason:
+
+* `dev-api-key` is useful for local development and existing tests.
+* Removing fallback in the same sprint would create unnecessary breaking changes.
+* Static fallback keeps local workflows simple.
+* DB-backed auth rollout should be gradual and safe.
+* Fallback also protects runtime behavior when DB lookup is unavailable in local/dev situations.
+
+Current fallback behavior:
+
+```txt
+Incoming x-api-key
+  -> hash and look up DB key
+  -> if DB key is not found:
+       -> fallback to env API_KEYS
+  -> if DB lookup fails:
+       -> fallback to env API_KEYS
+  -> if DB lookup is skipped because DATABASE_URL is unavailable:
+       -> fallback to env API_KEYS
+```
+
+Current validated fallback:
+
+```txt
+x-api-key: dev-api-key
+Authorization: Bearer <local JWT>
+GET /api/products
+  -> 200 OK
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Do Not Fall Back When a Known DB Key Is Invalid
+
+Decision:
+
+If an incoming API key is found in the database but is revoked, expired, or belongs to a disabled consumer, reject the request instead of falling back to env `API_KEYS`.
+
+Reason:
+
+* Fallback should only support local/static keys that are not DB-managed.
+* A known DB-managed key with invalid state must remain invalid.
+* Falling back after finding a revoked key would be a security bug.
+* Revocation, expiration, and consumer disabling must be authoritative.
+* This keeps API key lifecycle behavior predictable.
+
+Current behavior:
+
+```txt
+DB key not found
+  -> fallback to env API_KEYS
+
+DB lookup fails
+  -> fallback to env API_KEYS
+
+DB key found and status=REVOKED
+  -> 403 API_KEY_INVALID
+
+DB key found and expiresAt is in the past
+  -> 403 API_KEY_INVALID
+
+DB key found and consumer status=DISABLED
+  -> 403 API_KEY_INVALID
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Update API Key `lastUsedAt` as Best-Effort Metadata
+
+Decision:
+
+Update API key `lastUsedAt` after a DB-backed API key is successfully verified, but treat the update as best-effort.
+
+Reason:
+
+* `lastUsedAt` is useful for admin visibility and future analytics.
+* API key auth should not fail only because metadata update fails after the key has already been verified.
+* Best-effort update gives operational value without hurting availability.
+* Future usage tracking can add stronger event recording separately.
+
+Current behavior:
+
+```txt
+DB key verified successfully
+  -> attempt update api_keys.last_used_at
+  -> if update succeeds:
+       -> metadata is refreshed
+  -> if update fails:
+       -> auth still succeeds
+```
+
+Current limitation:
+
+```txt
+lastUsedAt is not a full usage analytics system.
+It only records the latest successful DB-backed key usage time.
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Keep Rate Limit Identity Based on Raw API Key for Now
+
+Decision:
+
+Keep the current rate limit identity based on raw API key value for Sprint 13.
+
+Current rate limit key shape:
+
+```txt
+rate-limit:api-key:<api-key>:route:<method>:<route-path>
+```
+
+Reason:
+
+* Sprint 13 focuses on API key lifecycle and runtime verification.
+* Changing rate limit identity to consumerId or apiKeyId would require additional design.
+* Env fallback keys do not have consumerId/apiKeyId.
+* Existing rate limit tests and Redis behavior are stable.
+* Per-consumer or per-key analytics should be handled in a later usage tracking sprint.
+
+Current limitation:
+
+```txt
+Rate limit is not yet aggregated by consumerId.
+Rate limit is not yet based on API plan.
+Rate limit does not yet use per-consumer quota configuration.
+```
+
+Recommended future direction:
+
+```txt
+Sprint 14 or later:
+  -> introduce API usage tracking
+  -> then consider rate limit identity based on apiKeyId, consumerId, plan, or route policy
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Keep Usage Tracking and Analytics Out of Sprint 13
+
+Decision:
+
+Do not add usage event tables, consumer analytics, usage plans, quotas, or billing in Sprint 13.
+
+Reason:
+
+* API consumer and API key lifecycle must exist first.
+* Usage tracking requires deciding event shape, aggregation strategy, retention, performance impact, and admin query APIs.
+* Usage plans and quotas depend on usage tracking and consumer ownership.
+* Adding all of these with API key lifecycle would make Sprint 13 too large.
+* A foundation-first approach keeps the project stable.
+
+Deferred:
+
+```txt
+gateway.api_usage_events
+gateway.api_usage_daily_rollups
+per-consumer request counts
+per-key request counts
+per-route usage summaries
+quota enforcement
+usage plans
+billing plans
+Developer Portal usage view
+Admin Dashboard analytics
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Validate Sprint 13 Runtime Behavior Through Docker
+
+Decision:
+
+Validate Sprint 13 with the full Docker Compose runtime stack before committing the final DB-backed auth wiring.
+
+Reason:
+
+* Sprint 13 changes runtime authentication behavior for protected routes.
+* Unit tests and injected middleware tests are not enough for a real runtime auth change.
+* Docker validation proves PostgreSQL, Prisma, API Gateway, Product Service, Redis, and JWT behavior work together.
+* It also proves issued DB keys and revoked DB keys behave correctly in the real stack.
+* Runtime fallback with `dev-api-key` must remain working.
+
+Validated runtime flow:
+
+```txt
+docker compose up -d --build
+docker compose ps
+
+POST /internal/admin/consumers
+  -> created Sprint 13 Runtime Consumer
+
+POST /internal/admin/consumers/:consumerId/api-keys
+  -> issued Sprint 13 Runtime Key
+  -> returned rawKey once
+
+Generated local JWT
+  -> issuer=pulsegate-api-gateway
+  -> audience=pulsegate-clients
+
+GET /api/products
+  -> x-api-key=<issued DB-backed API key>
+  -> Authorization=Bearer <jwt>
+  -> 200 OK
+  -> returned product list
+
+PATCH /internal/admin/api-keys/:id/revoke
+  -> status=REVOKED
+  -> revokedAt populated
+  -> revokedBy populated
+
+GET /api/products with revoked key
+  -> 403
+
+GET /api/products with dev-api-key fallback
+  -> 200 OK
+```
+
+Status:
+
+Accepted.
+
+---
+
+## 2026-07-03 - Move Next Sprint Toward API Key Usage Tracking and Consumer Analytics Foundation
+
+Decision:
+
+After Sprint 13 final documentation update, prefer moving Sprint 14 toward API Key Usage Tracking and Consumer Analytics Foundation.
+
+Reason:
+
+* Sprint 13 added real API consumers and issued API keys.
+* The next product-like API Management step is to attribute traffic to consumers and keys.
+* Usage tracking is required before usage plans, quotas, Developer Portal dashboards, billing, or Admin Dashboard analytics.
+* Runtime auth now attaches API key and consumer context to requests.
+* That context can be used to record or aggregate usage.
+* Building usage tracking before UI keeps backend product behavior strong.
+
+Recommended Sprint 14 direction:
+
+```txt
+Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation
+```
+
+Potential Sprint 14 scope:
+
+```txt
+Add API usage event table or aggregate usage table.
+Record request ownership when DB-backed API key is used.
+Track apiKeyId, consumerId, route, method, statusCode, duration, and timestamp.
+Keep env fallback traffic supported.
+Expose admin read API for consumer usage summary.
+Expose admin read API for key usage summary.
+Prepare usage plans and quotas for later.
+```
+
+Alternative Sprint 14 directions:
+
+```txt
+Admin Auth / RBAC Hardening
+Developer Portal Foundation
+Usage Plans and Quotas Foundation
+Admin Dashboard Foundation
+```
+
+Recommended order:
+
+```txt
+1. Usage tracking and consumer analytics
+2. Usage plans and quotas
+3. Admin Auth / RBAC hardening
+4. Developer Portal or Admin Dashboard foundation
+```
+
+Not included automatically:
+
+```txt
+Kafka
+RabbitMQ
+Kubernetes
+Production cloud deployment
+Billing
+Paid plans
+Multi-tenant organization model
+```
+
+Status:
+
+Accepted.

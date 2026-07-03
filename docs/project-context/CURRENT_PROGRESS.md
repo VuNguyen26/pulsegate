@@ -26,17 +26,19 @@ Broad architecture should live in `docs/architecture/overview.md`.
 
 ## Current Sprint
 
-Sprint 12 - Catch-All Dynamic Router Foundation
+Sprint 13 - API Consumer and API Key Lifecycle Foundation
 
 ## Current Version
 
-v0.13.0
+v0.14.0
 
 ## Sprint Status
 
-Sprint 12 technical implementation is complete.
+Sprint 13 technical implementation is complete.
 
-Sprint 12 final documentation update is in progress.
+Sprint 13 final documentation update is in progress.
+
+Sprint 12 is complete.
 
 Sprint 11 is complete.
 
@@ -64,103 +66,102 @@ Sprint 0 is complete.
 
 ---
 
-## Sprint 12 Summary
+## Sprint 13 Summary
 
-Sprint 12 completed the catch-all dynamic router foundation.
+Sprint 13 added the API consumer and API key lifecycle foundation.
 
-Before Sprint 12:
+Before Sprint 13:
 
 ```txt
-POST /internal/admin/routes/reload
-  -> refreshed runtime route registry
-  -> existing registered Fastify paths could use updated route config
-  -> brand-new gateway paths still required API Gateway restart
+Consumer x-api-key authentication was based on static env API_KEYS only.
+Default local key:
+  dev-api-key
 ```
 
-After Sprint 12:
+After Sprint 13:
 
 ```txt
-POST /internal/admin/routes/reload
-  -> reads active non-deleted DB route configs
-  -> maps records to DownstreamRouteConfig[]
-  -> validates mapped configs
-  -> replaces runtime route registry snapshot
-  -> catch-all dynamic router can dispatch brand-new /api/* gateway paths
-  -> brand-new DB-backed API paths can work without API Gateway restart
+API Gateway supports API consumers.
+API Gateway supports issued API keys.
+Issued API keys are stored hashed in PostgreSQL.
+Raw API keys are returned only once when issued.
+Runtime x-api-key auth can verify DB-backed issued API keys.
+Revoked API keys are rejected.
+Disabled consumers are rejected.
+Expired API keys are rejected.
+Static env API_KEYS fallback is preserved for local/dev safety.
 ```
 
-Current runtime reload scope:
+Sprint 13 keeps the API Gateway product-like but controlled:
 
 ```txt
-dynamic-router
-```
-
-Meaning:
-
-```txt
-Existing gateway paths:
-  -> enable/disable changes can apply after reload
-  -> route policy changes can apply after reload
-  -> downstreamUrl changes can apply after reload
-
-Brand-new DB-backed gateway paths under /api/*:
-  -> can be created through Admin API
-  -> can be applied through POST /internal/admin/routes/reload
-  -> can be served without API Gateway restart
-```
-
-Sprint 12 still avoids unsafe Fastify hot unregister/register behavior.
-
-Instead, it uses:
-
-```txt
-Startup registered routes
-  -> keep working as before
-
-Catch-all dynamic route /api/*
-  -> resolves request method + path from runtime registry per request
-  -> dispatches brand-new DB-backed routes safely
+Added backend API Management foundation.
+Did not add Admin Dashboard yet.
+Did not add Developer Portal yet.
+Did not add usage plans or quotas yet.
+Did not remove local dev-api-key fallback.
 ```
 
 ---
 
-## Sprint 12 Completed Work
+## Sprint 13 Completed Work
 
-1. Extracted downstream proxy request handling into a shared proxy handler.
-2. Added `apps/api-gateway/src/proxy/downstream-proxy-handler.ts`.
-3. Kept `apps/api-gateway/src/routes/product-proxy.route.ts` focused on Fastify route registration.
-4. Added route resolver support for downstream proxy handling.
-5. Preserved existing registered route behavior.
-6. Added catch-all dynamic proxy route for `/api/*`.
-7. Dynamic proxy route supports `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`.
-8. Dynamic proxy route resolves route config using request method + request path.
-9. Dynamic proxy route uses the existing runtime route registry.
-10. Dynamic proxy route uses the shared proxy pipeline.
-11. Dynamic proxy route applies the same API key, rate limit, JWT, cache, timeout, retry, request transform, and response transform behavior.
-12. Dynamic proxy route returns `404 ROUTE_NOT_FOUND` when no runtime route exists.
-13. Existing registered route tests still pass.
-14. Added `dynamic-proxy.route.test.ts`.
-15. Added test proving brand-new API path works after runtime registry replacement without app restart.
-16. Updated reload metadata to report `runtimeScope: dynamic-router`.
-17. Updated reload metadata to return `newRoutesRequireRestart: false` when registry replacement succeeds.
-18. Updated reload metadata to return `requiresRestart: false` when registry replacement succeeds.
-19. Updated admin route tests for the new dynamic router reload metadata.
-20. Ran focused API Gateway test validation.
-21. Ran full monorepo test validation.
-22. Ran typecheck validation.
-23. Ran build validation.
-24. Ran Docker runtime validation.
-25. Validated create route -> reload -> call brand-new route without restart.
-26. Cleaned up Docker validation route through soft delete and reload.
-27. Committed and pushed all Sprint 12 technical checkpoints.
+1. Added API consumer and API key Prisma schema.
+2. Added `ApiConsumerStatus` enum.
+3. Added `ApiKeyStatus` enum.
+4. Added `gateway.api_consumers` table.
+5. Added `gateway.api_keys` table.
+6. Added API key hash uniqueness.
+7. Added API key prefix indexing.
+8. Added consumer/key status indexing.
+9. Added API key expiry and last-used metadata.
+10. Added API key revocation metadata.
+11. Added API key hashing foundation.
+12. Added raw API key generation.
+13. Added SHA-256 API key hashing.
+14. Added timing-safe hash verification helper.
+15. Added API key prefix extraction.
+16. Added API consumer management repository.
+17. Added API consumer request/response mapper.
+18. Added Admin Consumer API.
+19. Added API key management repository.
+20. Added API key request/response mapper.
+21. Added Admin API Key lifecycle API.
+22. Added DB-backed API key verifier foundation.
+23. Added injectable API key auth middleware factory.
+24. Kept legacy `apiKeyAuthMiddleware` env fallback behavior for compatibility.
+25. Added request API key context fields:
+    * `request.apiKey`
+    * `request.apiKeyId`
+    * `request.apiConsumerId`
+    * `request.apiKeyAuthSource`
+26. Wired DB-backed API key verifier into downstream proxy runtime auth.
+27. Preserved env `API_KEYS` fallback.
+28. Added tests for API key hashing.
+29. Added tests for API consumer mapper.
+30. Added tests for Admin Consumer API.
+31. Added tests for API key management mapper.
+32. Added tests for Admin API Key lifecycle API.
+33. Added tests for DB-backed API key verifier.
+34. Added tests for injected API key middleware.
+35. Added downstream proxy integration test proving injected API key middleware is used.
+36. Ran focused API Gateway validation.
+37. Ran full monorepo test validation.
+38. Ran typecheck validation.
+39. Ran build validation.
+40. Ran Docker runtime validation.
+41. Validated issued DB-backed API key can call protected `/api/products`.
+42. Validated revoked DB-backed API key returns 403.
+43. Validated legacy `dev-api-key` still works through env fallback.
+44. Committed and pushed all Sprint 13 technical checkpoints.
 
 ---
 
 ## Current Automated Test Status
 
 ```txt
-29 test files passed
-190 tests passed
+36 test files passed
+256 tests passed
 ```
 
 Latest local validation:
@@ -169,6 +170,7 @@ Latest local validation:
 npm run test       -> passed
 npm run typecheck  -> passed
 npm run build      -> passed
+git status         -> working tree clean
 ```
 
 Latest Docker validation:
@@ -177,32 +179,35 @@ Latest Docker validation:
 docker compose up -d --build -> passed
 docker compose ps -> passed
 
-GET /health -> 200 OK
-GET /internal/admin/routes/runtime -> returned runtime registry snapshot
+Created API consumer:
+  Sprint 13 Runtime Consumer
 
-Created brand-new route:
-  GET /api/sprint12-dynamic-health-1783062215
-  -> http://product-service:3001/health
+Issued API key:
+  Sprint 13 Runtime Key
 
-Before reload:
-  GET /api/sprint12-dynamic-health-1783062215
-  -> 404 ROUTE_NOT_FOUND
+Generated runtime JWT:
+  issuer: pulsegate-api-gateway
+  audience: pulsegate-clients
 
-POST /internal/admin/routes/reload:
-  -> runtimeApplied: true
-  -> runtimeScope: dynamic-router
-  -> newRoutesRequireRestart: false
-  -> requiresRestart: false
-  -> routeCount changed from 2 to 3
-
-After reload, without API Gateway restart:
-  GET /api/sprint12-dynamic-health-1783062215
+Called protected route with issued DB-backed API key:
+  GET /api/products
   -> 200 OK
-  -> Product Service health response
+  -> returned product list
 
-Cleanup:
-  DELETE /internal/admin/routes/:id -> soft deleted validation route
-  POST /internal/admin/routes/reload -> routeCount returned to 2
+Revoked issued API key:
+  PATCH /internal/admin/api-keys/:id/revoke
+  -> status changed to REVOKED
+  -> revokedAt populated
+  -> revokedBy populated
+
+Called protected route again with revoked key:
+  GET /api/products
+  -> 403
+
+Validated local env fallback:
+  x-api-key: dev-api-key
+  GET /api/products
+  -> 200 OK
 ```
 
 ---
@@ -328,6 +333,8 @@ API Gateway tables:
 ```txt
 gateway._prisma_migrations
 gateway.gateway_routes
+gateway.api_consumers
+gateway.api_keys
 ```
 
 Current API Gateway migrations:
@@ -335,6 +342,21 @@ Current API Gateway migrations:
 ```txt
 apps/api-gateway/prisma/migrations/20260701063629_add_gateway_routes/migration.sql
 apps/api-gateway/prisma/migrations/20260702090000_add_gateway_route_soft_delete/migration.sql
+apps/api-gateway/prisma/migrations/20260703093332_add_api_consumers_and_api_keys/migration.sql
+```
+
+Current API consumer statuses:
+
+```txt
+ACTIVE
+DISABLED
+```
+
+Current API key statuses:
+
+```txt
+ACTIVE
+REVOKED
 ```
 
 Current seeded products:
@@ -379,6 +401,23 @@ ON gateway.gateway_routes(method, gateway_path)
 WHERE deleted_at IS NULL;
 ```
 
+Current API key storage rule:
+
+```txt
+Raw API keys are never persisted.
+Only keyHash and keyPrefix are stored.
+Raw API key is returned only once when issued.
+```
+
+Current API key lookup rule:
+
+```txt
+Runtime auth hashes the incoming raw x-api-key.
+Gateway looks up gateway.api_keys by keyHash.
+If DB key is valid, request is authenticated as a database-backed API key.
+If DB key does not exist, Gateway falls back to env API_KEYS.
+```
+
 ---
 
 ## Current Redis State
@@ -390,10 +429,11 @@ rate-limit:*
 response-cache:*
 ```
 
-Example Redis rate limit key:
+Example Redis rate limit keys:
 
 ```txt
 rate-limit:api-key:dev-api-key:route:GET:/api/products
+rate-limit:api-key:<issued-api-key>:route:GET:/api/products
 ```
 
 Example Redis response cache key:
@@ -512,6 +552,8 @@ Prometheus metrics
 Basic security headers
 Request size limit
 API key authentication
+DB-backed issued API key authentication
+Static env API_KEYS fallback
 JWT authentication
 Admin API key authentication
 Redis-backed rate limiting
@@ -533,6 +575,15 @@ Runtime route registry
 Runtime route status endpoint
 Runtime reload through dynamic router
 No-restart apply for brand-new DB-backed /api/* paths
+API consumer schema
+API consumer management foundation
+Admin Consumer API
+API key schema
+API key hashing foundation
+API key lifecycle management foundation
+Admin API Key lifecycle API
+API key revocation
+API key last-used metadata
 ```
 
 Current API Gateway endpoints:
@@ -543,6 +594,7 @@ GET /metrics
 GET /api/products
 GET /api/product-service/health
 GET /api/* through catch-all dynamic router
+
 GET /internal/admin/routes
 GET /internal/admin/routes/runtime
 GET /internal/admin/routes/:id
@@ -550,6 +602,143 @@ POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
 DELETE /internal/admin/routes/:id
 POST /internal/admin/routes/reload
+
+GET /internal/admin/consumers
+POST /internal/admin/consumers
+GET /internal/admin/consumers/:id
+PATCH /internal/admin/consumers/:id
+
+GET /internal/admin/consumers/:consumerId/api-keys
+POST /internal/admin/consumers/:consumerId/api-keys
+PATCH /internal/admin/api-keys/:id/revoke
+```
+
+---
+
+## Current API Consumer and API Key Behavior
+
+Current API consumer model:
+
+```txt
+id
+name
+description
+status
+createdAt
+updatedAt
+createdBy
+updatedBy
+apiKeys[]
+```
+
+Current API consumer statuses:
+
+```txt
+ACTIVE
+DISABLED
+```
+
+Current API key model:
+
+```txt
+id
+consumerId
+name
+keyPrefix
+keyHash
+status
+expiresAt
+lastUsedAt
+createdAt
+updatedAt
+createdBy
+revokedAt
+revokedBy
+```
+
+Current API key statuses:
+
+```txt
+ACTIVE
+REVOKED
+```
+
+Current Admin Consumer API behavior:
+
+```txt
+GET /internal/admin/consumers
+  -> list API consumers
+
+POST /internal/admin/consumers
+  -> create API consumer
+  -> requires name
+  -> status defaults to ACTIVE
+
+GET /internal/admin/consumers/:id
+  -> get API consumer detail
+  -> 404 when missing
+
+PATCH /internal/admin/consumers/:id
+  -> update name, description, or status
+  -> 404 when missing
+```
+
+Current Admin API Key API behavior:
+
+```txt
+GET /internal/admin/consumers/:consumerId/api-keys
+  -> list keys for consumer
+  -> does not expose keyHash
+  -> does not expose rawKey
+
+POST /internal/admin/consumers/:consumerId/api-keys
+  -> issue new API key
+  -> stores keyHash and keyPrefix
+  -> returns rawKey once
+  -> does not expose keyHash
+
+PATCH /internal/admin/api-keys/:id/revoke
+  -> revokes API key
+  -> sets status=REVOKED
+  -> sets revokedAt
+  -> sets revokedBy
+```
+
+Runtime DB-backed API key auth behavior:
+
+```txt
+Incoming request with x-api-key
+  -> hash raw API key
+  -> lookup gateway.api_keys by keyHash
+  -> if key exists and status=ACTIVE:
+       check consumer status
+       check expiresAt
+       update lastUsedAt best-effort
+       attach API key context to request
+  -> if key exists but revoked:
+       reject 403 API_KEY_INVALID
+  -> if consumer disabled:
+       reject 403 API_KEY_INVALID
+  -> if key expired:
+       reject 403 API_KEY_INVALID
+  -> if DB key does not exist:
+       fallback to env API_KEYS
+```
+
+Request context after successful API key auth:
+
+```txt
+request.apiKey
+request.apiKeyId
+request.apiConsumerId
+request.apiKeyAuthSource
+```
+
+Possible `request.apiKeyAuthSource` values:
+
+```txt
+database
+env
 ```
 
 ---
@@ -565,6 +754,8 @@ GET /metrics
 
 GET /api/products
   -> Requires x-api-key
+  -> Accepts DB-backed issued API key when valid
+  -> Accepts env dev-api-key through fallback
   -> Redis-backed rate limited by API key and route
   -> Requires JWT Bearer token
   -> Uses Redis response cache
@@ -584,6 +775,7 @@ Brand-new DB-backed /api/* routes
   -> Use policy config stored in gateway.gateway_routes
   -> Use latest route config after reload
   -> Can require API key/JWT/rate limit/cache depending on route policy
+  -> When API key is required, can use DB-backed issued keys or env fallback keys
 
 Internal/admin routes
   -> Require x-admin-api-key
@@ -994,6 +1186,8 @@ Client
   -> API Gateway
   -> runtime registry route lookup
   -> x-api-key validation
+       -> DB-backed issued key check
+       -> env API_KEYS fallback when DB key is not found
   -> Redis-backed rate limit
   -> JWT validation
   -> route cache policy
@@ -1021,8 +1215,37 @@ Client
        return 404 ROUTE_NOT_FOUND
   -> if route exists:
        apply route policies
+       validate x-api-key if required
+       validate JWT if required
        call configured downstreamUrl
        return downstream response
+```
+
+Admin API key lifecycle flow:
+
+```txt
+Admin Client
+  -> POST /internal/admin/consumers
+  -> create API consumer
+
+Admin Client
+  -> POST /internal/admin/consumers/:consumerId/api-keys
+  -> issue API key
+  -> store keyHash/keyPrefix only
+  -> return rawKey once
+
+Client
+  -> call protected route with raw API key
+  -> Gateway hashes raw key
+  -> Gateway verifies DB-backed key
+
+Admin Client
+  -> PATCH /internal/admin/api-keys/:id/revoke
+  -> revoke key
+
+Client
+  -> call protected route with revoked key
+  -> Gateway rejects 403 API_KEY_INVALID
 ```
 
 Admin reload flow:
@@ -1065,6 +1288,20 @@ Invalid route config               -> 400 ROUTE_CONFIG_INVALID
 Duplicate active method + path     -> 409 ROUTE_CONFIG_ALREADY_EXISTS
 Reload validation failed           -> 400 ROUTE_CONFIG_RELOAD_VALIDATION_FAILED
 Runtime route not found            -> 404 ROUTE_NOT_FOUND
+```
+
+API consumer errors:
+
+```txt
+API consumer not found -> 404 API_CONSUMER_NOT_FOUND
+Invalid API consumer   -> 400 API_CONSUMER_INVALID
+```
+
+API key lifecycle errors:
+
+```txt
+API key not found -> 404 API_KEY_NOT_FOUND
+Invalid API key   -> 400 API_KEY_INVALID
 ```
 
 Downstream errors:
@@ -1143,7 +1380,26 @@ Invoke-RestMethod http://localhost:3000/internal/admin/routes/reload `
   ConvertTo-Json -Depth 10
 ```
 
-Expected reload result after Sprint 12:
+Validate API consumer creation:
+
+```powershell
+$consumerBody = @{
+  name = "Local Test Consumer"
+  description = "Local validation consumer"
+} | ConvertTo-Json -Depth 10
+
+Invoke-RestMethod http://localhost:3000/internal/admin/consumers `
+  -Method POST `
+  -Headers @{
+    "x-admin-api-key" = "local-admin-key"
+    "x-admin-actor" = "local-validation"
+    "content-type" = "application/json"
+  } `
+  -Body $consumerBody |
+  ConvertTo-Json -Depth 10
+```
+
+Expected reload result:
 
 ```txt
 mode: runtime-registry-refresh
@@ -1175,8 +1431,8 @@ npm run test
 Current result:
 
 ```txt
-29 test files passed
-190 tests passed
+36 test files passed
+256 tests passed
 ```
 
 Important test areas:
@@ -1185,6 +1441,7 @@ Important test areas:
 Request ID middleware
 Access log middleware
 API key auth middleware
+DB-backed API key auth verifier
 JWT auth middleware
 Metrics middleware
 Rate limit middleware
@@ -1201,7 +1458,10 @@ Route config validation
 Runtime route registry
 Metrics route
 Admin route config route
+Admin consumer route
+Admin API key lifecycle route
 Dynamic proxy route
+Downstream proxy API key auth integration
 Timeout policy
 Cache policy
 Rate limit policy
@@ -1209,6 +1469,52 @@ Request transform policy
 Response transform policy
 Retry policy
 API Gateway app integration tests
+```
+
+Sprint 13-specific coverage:
+
+```txt
+api-key-hashing.test.ts
+  -> raw API key generation
+  -> hash generation
+  -> timing-safe verification
+  -> prefix extraction
+
+api-consumer-management.mapper.test.ts
+  -> create/update validation
+  -> status normalization
+  -> response mapping
+
+admin-consumer.route.test.ts
+  -> list/create/detail/update consumers
+  -> admin API key protection
+  -> not found and invalid request handling
+
+api-key-management.mapper.test.ts
+  -> issue request validation
+  -> expiresAt parsing
+  -> response mapping without keyHash
+  -> issued response with rawKey only when issuing
+
+admin-api-key.route.test.ts
+  -> list API keys by consumer
+  -> issue API key
+  -> revoke API key
+  -> no keyHash exposure
+  -> rawKey only in issue response
+  -> admin API key protection
+
+api-key-auth-verifier.test.ts
+  -> verify active DB-backed key
+  -> reject revoked key
+  -> reject disabled consumer
+  -> reject expired key
+  -> fallback to env API_KEYS when DB key is not found
+  -> fallback to env API_KEYS when DB lookup fails
+
+downstream-proxy-api-key-auth.test.ts
+  -> downstream proxy uses injected API key middleware
+  -> proxy stops when injected API key middleware rejects request
 ```
 
 Sprint 12-specific coverage:
@@ -1232,12 +1538,26 @@ app.test.ts
 
 ## Latest Stable Commits
 
+### Sprint 13
+
+```txt
+24217ac feat(gateway): add api consumer key schema
+229c9be feat(gateway): add api key hashing foundation
+5ef8ed0 feat(gateway): add api consumer management foundation
+abea27c feat(gateway): add admin consumer api
+13faa44 feat(gateway): add api key management foundation
+595435a feat(gateway): add admin api key lifecycle api
+2c53ff1 feat(gateway): add db backed api key verifier foundation
+b7bd095 feat(gateway): wire db backed api key auth
+```
+
 ### Sprint 12
 
 ```txt
 285fbf7 refactor(gateway): extract downstream proxy handler
 32289cc refactor(gateway): support downstream route resolver
 4eac32e feat(gateway): add catch-all dynamic proxy route
+e9ddde9 docs: finalize sprint 12 documentation
 ```
 
 ### Sprint 11
@@ -1328,13 +1648,17 @@ Runtime route registry foundation, runtime status endpoint, reload registry refr
 
 Catch-all dynamic router foundation, shared downstream proxy handler, route resolver support, dynamic `/api/*` dispatch, and no-restart runtime apply for brand-new DB-backed API paths.
 
+### Sprint 13
+
+API consumer and API key lifecycle foundation, hashed issued API keys, Admin Consumer API, Admin API Key lifecycle API, DB-backed API key verifier, runtime DB-backed API key auth, revocation handling, last-used metadata, and env API_KEYS fallback.
+
 ---
 
 ## Documentation Status
 
-Current Sprint 12 final documentation update is in progress.
+Current Sprint 13 final documentation update is in progress.
 
-Documentation files being updated for Sprint 12:
+Documentation files being updated for Sprint 13:
 
 ```txt
 docs/project-context/CURRENT_PROGRESS.md
@@ -1371,13 +1695,17 @@ README.md
 
 ## Current Status
 
-PulseGate currently has a stable local-first API Gateway, infrastructure foundation, traffic protection layer, PostgreSQL-backed Product Service, PostgreSQL-backed API Gateway route config, internal/admin route management API, route management hardening with soft delete and audit metadata, Redis-backed rate limiting, Redis response caching, observability foundation with structured logs, Prometheus metrics, Prometheus scraping, Grafana provisioning, advanced Gateway route policy foundation, GitHub Actions CI/CD foundation, multi-route Gateway routing, database-backed dynamic route config, runtime route registry, runtime reload through a catch-all dynamic router, no-restart apply for brand-new DB-backed `/api/*` paths, and safe static route config fallback.
+PulseGate currently has a stable local-first API Gateway, infrastructure foundation, traffic protection layer, PostgreSQL-backed Product Service, PostgreSQL-backed API Gateway route config, internal/admin route management API, route management hardening with soft delete and audit metadata, Redis-backed rate limiting, Redis response caching, observability foundation with structured logs, Prometheus metrics, Prometheus scraping, Grafana provisioning, advanced Gateway route policy foundation, GitHub Actions CI/CD foundation, multi-route Gateway routing, database-backed dynamic route config, runtime route registry, runtime reload through a catch-all dynamic router, no-restart apply for brand-new DB-backed `/api/*` paths, API consumer management foundation, issued API key lifecycle management, DB-backed API key runtime authentication, API key revocation, API key last-used metadata, and safe static env API key fallback.
 
-Current key limitation:
+Current key limitations:
 
 ```txt
-The catch-all dynamic router is a foundation.
-It supports exact method + path matching through the runtime registry.
+API consumer and API key lifecycle is backend/admin API foundation only.
+There is no Admin Dashboard yet.
+There is no Developer Portal yet.
+There is no self-service API key request flow yet.
+There are no usage plans, quotas, billing, or per-consumer analytics yet.
+The catch-all dynamic router supports exact method + path matching only.
 It does not yet implement advanced route matching such as path parameters, wildcard upstream mapping, host-based routing, weighted upstreams, or service discovery.
 ```
 
@@ -1386,6 +1714,7 @@ Important safety rule:
 ```txt
 PulseGate still does not use unsafe Fastify hot unregister/register behavior.
 Dynamic runtime routing is implemented through a stable /api/* catch-all route and runtime registry lookup.
+Runtime API key authentication now supports DB-backed issued keys while preserving env API_KEYS fallback.
 ```
 
 ---
@@ -1395,7 +1724,7 @@ Dynamic runtime routing is implemented through a stable /api/* catch-all route a
 Recommended next step:
 
 ```txt
-Sprint 12 - Final Documentation Update
+Sprint 13 - Final Documentation Update
 ```
 
 Current documentation update order:
@@ -1409,7 +1738,7 @@ Current documentation update order:
 6. README.md
 ```
 
-After all Sprint 12 docs are updated, run:
+After all Sprint 13 docs are updated, run:
 
 ```powershell
 npm run test
@@ -1421,26 +1750,33 @@ git status
 Then commit documentation with:
 
 ```txt
-docs: finalize sprint 12 documentation
+docs: finalize sprint 13 documentation
 ```
 
-Possible Sprint 13 direction:
+Possible Sprint 14 direction:
 
 ```txt
-Sprint 13 - API Consumer and API Key Lifecycle Foundation
+Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation
 ```
 
-Alternative Sprint 13 direction:
+Alternative Sprint 14 direction:
 
 ```txt
-Sprint 13 - Admin Auth / RBAC Hardening
+Sprint 14 - Admin Auth / RBAC Hardening
+```
+
+Alternative Sprint 14 direction:
+
+```txt
+Sprint 14 - Developer Portal Foundation
 ```
 
 Recommended decision:
 
 ```txt
-Prefer API Consumer and API Key Lifecycle Foundation next,
-because PulseGate now has dynamic route management and should start managing real API consumers, issued API keys, and usage ownership before building a full Admin Dashboard.
+Prefer API Key Usage Tracking and Consumer Analytics Foundation next,
+because Sprint 13 added real API consumers and issued API keys.
+The next product-like step is to record usage ownership, request counts, last used data, and per-consumer analytics before building a full Admin Dashboard or Developer Portal.
 ```
 
 ---
@@ -1461,6 +1797,9 @@ Do not add these before they are explicitly selected as a sprint:
 * Loki centralized logs
 * Docker image registry push
 * Automatic deployment
+* Billing
+* Paid plans
+* Multi-tenant organization model
 
 ---
 

@@ -17,20 +17,20 @@ PulseGate is designed to help backend teams manage, protect, monitor, validate, 
 Current version:
 
 ```txt
-v0.13.0
+v0.14.0
 ```
 
 Current status:
 
 ```txt
-Sprint 12 - Catch-All Dynamic Router Foundation Complete
+Sprint 13 - API Consumer and API Key Lifecycle Foundation Complete
 ```
 
 Current automated test status:
 
 ```txt
-29 test files passed
-190 tests passed
+36 test files passed
+256 tests passed
 ```
 
 Current CI/CD status:
@@ -47,13 +47,19 @@ Local-first API Gateway
 Docker Compose infrastructure
 PostgreSQL-backed Product Service
 PostgreSQL-backed API Gateway route configuration
+PostgreSQL-backed API consumer configuration
+PostgreSQL-backed issued API key lifecycle foundation
 Internal/admin route management API foundation
+Internal/admin API consumer management foundation
+Internal/admin API key lifecycle foundation
 Route management hardening with soft delete
 Runtime route registry snapshot foundation
 Runtime route registry status endpoint
 Runtime route registry refresh through reload endpoint
 Catch-all dynamic router for /api/*
 No-restart runtime apply for brand-new DB-backed /api/* paths
+DB-backed issued API key authentication
+Static env API_KEYS fallback for local/dev compatibility
 Admin API key authentication for internal/admin APIs
 Redis-backed traffic protection and response cache
 Prometheus + Grafana observability
@@ -78,6 +84,7 @@ PulseGate is designed for:
 * Companies with multiple internal or external APIs
 * Teams that need a centralized API entry point
 * Teams that want API Gateway, API Management, and Observability concepts in one platform
+* Teams that need API consumer and API key lifecycle management
 
 ---
 
@@ -110,6 +117,14 @@ PulseGate currently solves or prepares for these problems:
 * Apply existing registered-route changes without restarting API Gateway.
 * Apply brand-new DB-backed `/api/*` routes after reload without restarting API Gateway.
 * Report the honest runtime reload scope to admins.
+* Manage API consumers through internal/admin APIs.
+* Issue API keys for API consumers through internal/admin APIs.
+* Store issued API keys safely using hash + prefix instead of raw secrets.
+* Return raw issued API keys only once.
+* Revoke issued API keys through internal/admin APIs.
+* Validate runtime API keys through DB-backed issued key lookup.
+* Reject revoked, expired, or disabled-consumer keys.
+* Preserve local static API key fallback for safe development.
 * Add request logging for debugging.
 * Add latency visibility for local testing.
 * Expose Prometheus-compatible HTTP metrics.
@@ -119,8 +134,9 @@ PulseGate currently solves or prepares for these problems:
 * Support per-route auth, timeout, cache, rate limit, transform, and retry rules.
 * Validate repository health automatically with CI.
 * Validate tests, typecheck, build, Prisma generation, and Docker image builds before treating the main branch as stable.
-* Prepare for API consumer management.
-* Prepare for API key lifecycle management.
+* Prepare for API key usage tracking.
+* Prepare for consumer analytics.
+* Prepare for usage plans and quotas.
 * Prepare for Admin Dashboard.
 * Prepare for Developer Portal.
 * Prepare for service registry and API management features.
@@ -132,7 +148,7 @@ PulseGate currently solves or prepares for these problems:
 
 ## 4. Current Architecture
 
-Current stable architecture after Sprint 12:
+Current stable architecture after Sprint 13:
 
 ```txt
 Client
@@ -186,6 +202,8 @@ Client
     -> Shared downstream proxy pipeline
       -> Runtime route lookup
       -> API key policy
+      -> DB-backed issued API key verification when API key is required
+      -> Static env API_KEYS fallback when DB key is not found or DB lookup is unavailable
       -> Redis-backed rate limit policy
       -> JWT policy
       -> Redis response cache policy
@@ -199,6 +217,7 @@ Client
     -> Protected Product route:
       -> GET /api/products
       -> API key
+           -> DB-backed issued key OR env fallback key
       -> Redis rate limit
       -> JWT
       -> Redis response cache
@@ -213,10 +232,11 @@ Client
       -> Product Service /health
 
     -> Brand-new DB-backed /api/* routes:
-      -> Created through Admin API
+      -> Created through Admin Route Config API
       -> Applied through POST /internal/admin/routes/reload
       -> Served through catch-all dynamic router
       -> No API Gateway restart required after successful reload
+      -> Can use DB-backed issued API key auth when route policy requires API key
 
     -> Internal/admin route management APIs:
       -> x-admin-api-key
@@ -225,6 +245,18 @@ Client
       -> soft delete
       -> runtime registry status
       -> runtime registry reload
+
+    -> Internal/admin consumer management APIs:
+      -> x-admin-api-key
+      -> optional x-admin-actor
+      -> list/create/detail/update API consumers
+
+    -> Internal/admin API key lifecycle APIs:
+      -> x-admin-api-key
+      -> optional x-admin-actor
+      -> list API keys by consumer
+      -> issue API key
+      -> revoke API key
 
     -> /metrics
 
@@ -241,6 +273,10 @@ PostgreSQL :5432
   -> gateway schema
        -> API Gateway route config
        -> gateway.gateway_routes
+       -> API consumers
+       -> gateway.api_consumers
+       -> issued API keys
+       -> gateway.api_keys
        -> gateway._prisma_migrations
 
 Redis :6379
@@ -271,11 +307,11 @@ GitHub Actions
 ```mermaid
 flowchart LR
     Client[Client / API Consumer] --> Gateway[PulseGate API Gateway<br/>Port 3000]
-    AdminClient[Admin Client / Future Admin Dashboard] --> AdminApis[Internal Admin APIs<br/>/internal/admin/routes]
+    AdminClient[Admin Client / Future Admin Dashboard] --> AdminApis[Internal Admin APIs<br/>/internal/admin/*]
 
     Gateway --> StartupLoader[Startup Route Config Loader]
     StartupLoader --> GatewayPrisma[API Gateway Prisma Client]
-    GatewayPrisma --> GatewaySchema[(PostgreSQL gateway schema<br/>gateway_routes)]
+    GatewayPrisma --> GatewaySchema[(PostgreSQL gateway schema<br/>gateway_routes<br/>api_consumers<br/>api_keys)]
     StartupLoader -->|DB load success| DbRoutes[Database-backed Route Configs]
     StartupLoader -->|DB error or empty| StaticRoutes[Static Route Config Fallback]
 
@@ -302,9 +338,24 @@ flowchart LR
     RouteFound -->|Yes| ProxyPipeline[Shared Downstream Proxy Pipeline]
 
     ProxyPipeline --> RuntimePolicy[Latest Runtime Route Policy]
-    RuntimePolicy --> ApiKey[API Key Auth<br/>when required]
-    ApiKey --> RateLimit[Redis Rate Limit<br/>when enabled]
-    RateLimit --> Jwt[JWT Auth<br/>when required]
+    RuntimePolicy --> ApiKeyRequired{API Key Required?}
+    ApiKeyRequired -->|No| RateLimit
+    ApiKeyRequired -->|Yes| ApiKeyMiddleware[API Key Auth Middleware]
+    ApiKeyMiddleware --> DbVerifier[DB-backed API Key Verifier]
+    DbVerifier --> KeyHash[Hash incoming raw x-api-key]
+    KeyHash --> ApiKeyTable[(gateway.api_keys)]
+    ApiKeyTable --> ConsumerTable[(gateway.api_consumers)]
+    ConsumerTable --> ApiKeyDecision{Valid DB Key?}
+    ApiKeyDecision -->|Active key + active consumer + not expired| AttachKeyContext[Attach request.apiKeyId<br/>request.apiConsumerId<br/>request.apiKeyAuthSource=database]
+    ApiKeyDecision -->|Revoked / expired / disabled consumer| ApiKeyInvalid[403 API_KEY_INVALID]
+    ApiKeyDecision -->|DB key not found / DB unavailable| EnvFallback[Env API_KEYS Fallback]
+    EnvFallback --> EnvDecision{Valid env key?}
+    EnvDecision -->|No| ApiKeyInvalid
+    EnvDecision -->|Yes| AttachEnvContext[Attach request.apiKeyAuthSource=env]
+    AttachKeyContext --> RateLimit
+    AttachEnvContext --> RateLimit
+
+    RateLimit[Redis Rate Limit<br/>when enabled] --> Jwt[JWT Auth<br/>when required]
     Jwt --> Cache{Redis Response Cache<br/>when enabled}
 
     Cache -->|HIT| ResponseTransformHit[Response Transform Foundation]
@@ -330,7 +381,9 @@ flowchart LR
     ResponseTransformMiss --> ResponseHeaders
 
     AdminApis --> AdminKey[Admin API Key Authentication<br/>x-admin-api-key]
-    AdminKey --> RouteManagement[Route Management Module]
+    AdminKey --> AdminRouter{Admin Area}
+
+    AdminRouter --> RouteManagement[Route Management Module]
     RouteManagement --> RouteRepo[Prisma Route Management Repository]
     RouteRepo --> GatewaySchema
     RouteManagement --> RouteValidation[validateDownstreamRoutes<br/>Before Persistence / Reload]
@@ -340,13 +393,28 @@ flowchart LR
     ActiveRoutes --> RuntimeValidation[Map and validate active routes]
     RuntimeValidation --> RegistryReplace[replaceRoutes on Runtime Registry]
     RegistryReplace --> RuntimeRegistry
-    RouteManagement --> AdminResponse[Admin Response<br/>List / Detail / Create / Update / Delete / Runtime / Reload]
+
+    AdminRouter --> ConsumerManagement[API Consumer Management Module]
+    ConsumerManagement --> ConsumerRepo[Prisma API Consumer Repository]
+    ConsumerRepo --> GatewaySchema
+
+    AdminRouter --> KeyManagement[API Key Lifecycle Module]
+    KeyManagement --> KeyRepo[Prisma API Key Repository]
+    KeyRepo --> GatewaySchema
+    KeyManagement --> KeyGenerator[Generate raw API key<br/>hash + prefix]
+    KeyGenerator --> KeyRepo
+    KeyManagement --> KeyResponse[Return rawKey once<br/>Never expose keyHash]
+
+    RouteManagement --> AdminResponse[Admin Route Response]
+    ConsumerManagement --> AdminResponse
+    KeyManagement --> AdminResponse
 
     RateLimit --> Redis[(Redis<br/>Port 6379)]
     Cache --> Redis
     CacheStore --> Redis
 
     RouteNotFound --> MetricsRecord[Record HTTP Metrics]
+    ApiKeyInvalid --> MetricsRecord
     ResponseHeaders --> MetricsRecord
     AdminResponse --> MetricsRecord
     MetricsRecord --> AccessLogWrite[Write Structured Access Log]
@@ -375,20 +443,22 @@ flowchart LR
     classDef admin fill:#fce7f3,stroke:#db2777,color:#111827
     classDef obs fill:#ede9fe,stroke:#7c3aed,color:#111827
     classDef ci fill:#e5e7eb,stroke:#4b5563,color:#111827
+    classDef security fill:#fee2e2,stroke:#dc2626,color:#111827
 
     class Gateway,StartupLoader,RuntimeRegistry,RegisteredRoutes,DynamicRouter,ProxyPipeline,RegistryLookup,DynamicLookup,RuntimePolicy gateway
-    class GatewaySchema,PublicSchema,Redis data
+    class GatewaySchema,PublicSchema,Redis,ApiKeyTable,ConsumerTable data
     class ProductService,ProductHealth,ProductProducts,ProductPrisma infra
-    class AdminClient,AdminApis,AdminKey,RouteManagement,RouteRepo,RouteValidation,RuntimeStatus,Reload admin
+    class AdminClient,AdminApis,AdminKey,RouteManagement,RouteRepo,RouteValidation,RuntimeStatus,Reload,ConsumerManagement,ConsumerRepo,KeyManagement,KeyRepo,KeyGenerator,KeyResponse admin
     class Prometheus,Grafana,MetricsEndpoint,MetricsRecord obs
     class GitHub,Actions,NpmCi,ProductPrismaGenerate,GatewayPrismaGenerate,Test,Typecheck,Build,DockerBuild,Status,Badge ci
+    class ApiKeyMiddleware,DbVerifier,KeyHash,ApiKeyDecision,ApiKeyInvalid,EnvFallback,EnvDecision,AttachKeyContext,AttachEnvContext security
 ```
 
 ---
 
 ## 6. Current Runtime Behavior
 
-Current behavior after Sprint 12:
+Current behavior after Sprint 13:
 
 1. Client sends a request to API Gateway.
 2. API Gateway startup first resolves route configs.
@@ -409,54 +479,77 @@ Current behavior after Sprint 12:
 17. If the runtime registry does not contain the route, API Gateway returns `404 ROUTE_NOT_FOUND`.
 18. If the runtime registry contains the route, API Gateway uses the latest runtime route policy.
 19. API Gateway applies policy behavior depending on the matched runtime route.
-20. For `GET /api/products`, API Gateway checks API key when required.
-21. For `GET /api/products`, API Gateway applies Redis-backed rate limiting when enabled.
-22. For `GET /api/products`, API Gateway checks JWT when required.
-23. For `GET /api/products`, API Gateway checks Redis response cache when enabled.
-24. If cache HIT, API Gateway applies response transform foundation.
-25. If cache HIT, API Gateway returns cached response with `x-cache: HIT`.
-26. If cache MISS, API Gateway applies request transform foundation.
-27. If cache MISS, API Gateway uses timeout and retry helpers for the downstream request.
-28. API Gateway calls Product Service `GET /products`.
-29. API Gateway forwards the same `x-request-id` header.
-30. Product Service reuses the same request ID.
-31. Product Service reads product data from PostgreSQL `public.products` using Prisma.
-32. Product Service returns database-backed product data.
-33. API Gateway stores the response in Redis cache when enabled.
-34. API Gateway applies response transform foundation.
-35. API Gateway returns the response with `x-cache: MISS`.
-36. For `GET /api/product-service/health`, API Gateway does not require API key by default.
-37. For `GET /api/product-service/health`, API Gateway does not require JWT by default.
-38. For `GET /api/product-service/health`, API Gateway does not apply Redis-backed rate limiting by default.
-39. For `GET /api/product-service/health`, API Gateway does not use Redis response cache by default.
-40. API Gateway calls Product Service `GET /health`.
-41. API Gateway returns Product Service health response with `x-cache: BYPASS`.
-42. For internal/admin route management APIs, API Gateway checks `x-admin-api-key`.
-43. `GET /internal/admin/routes` returns non-deleted route configs, including disabled but non-deleted records.
-44. `GET /internal/admin/routes/runtime` returns the runtime route registry snapshot summary.
-45. `GET /internal/admin/routes/:id` returns one non-deleted route config or `404 ROUTE_CONFIG_NOT_FOUND`.
-46. `POST /internal/admin/routes` validates and creates a route config.
-47. `PATCH /internal/admin/routes/:id` merges, validates, and updates a route config.
-48. `DELETE /internal/admin/routes/:id` soft deletes a route config.
-49. `POST /internal/admin/routes/reload` reads active DB route configs.
-50. Reload maps active DB records to `DownstreamRouteConfig[]`.
-51. Reload validates mapped route configs.
-52. Reload replaces the runtime registry snapshot when validation succeeds.
-53. Existing registered routes can be disabled, enabled, or policy-updated after reload without restarting API Gateway.
-54. Brand-new DB-backed `/api/*` routes can be served after reload without restarting API Gateway.
-55. Disabled route configs remain stored in DB and visible to admins while they are not soft deleted.
-56. Soft-deleted route configs remain stored in DB but are hidden from admin list/detail APIs and ignored by runtime loading.
-57. API Gateway adds `x-response-time-ms`.
-58. API Gateway records Prometheus metrics.
-59. API Gateway writes a structured access log.
-60. API Gateway normalizes downstream errors when needed.
-61. Prometheus scrapes API Gateway `/metrics`.
-62. Grafana reads metrics from Prometheus and displays the API Gateway overview dashboard.
-63. GitHub Actions validates every push to `main`.
-64. GitHub Actions validates every pull request targeting `main`.
-65. GitHub Actions runs `npm ci`, Prisma generate, tests, typecheck, build, and Docker image build validation.
-66. GitHub reports CI pass/fail status.
-67. README badge reflects the current CI workflow status.
+20. If the route requires API key auth, API Gateway reads `x-api-key`.
+21. API Gateway hashes the incoming raw API key.
+22. API Gateway tries to find a matching record in `gateway.api_keys` by `key_hash`.
+23. If a DB key is found, API Gateway checks key status.
+24. If a DB key is found, API Gateway checks the related API consumer status.
+25. If a DB key is found, API Gateway checks `expires_at`.
+26. If the DB key is active, consumer is active, and key is not expired, API Gateway authenticates the request as DB-backed API key traffic.
+27. API Gateway attaches `request.apiKeyId`, `request.apiConsumerId`, and `request.apiKeyAuthSource=database`.
+28. API Gateway updates `lastUsedAt` as best-effort metadata.
+29. If the DB key exists but is revoked, expired, or belongs to a disabled consumer, API Gateway returns `403 API_KEY_INVALID`.
+30. If the DB key is not found, API Gateway falls back to env `API_KEYS`.
+31. If DB lookup fails or is skipped, API Gateway falls back to env `API_KEYS`.
+32. If the env fallback key is valid, API Gateway authenticates the request as env-backed API key traffic.
+33. API Gateway attaches `request.apiKeyAuthSource=env`.
+34. If API key auth fails, API Gateway returns `401 API_KEY_MISSING` or `403 API_KEY_INVALID`.
+35. For `GET /api/products`, API Gateway applies Redis-backed rate limiting when enabled.
+36. For `GET /api/products`, API Gateway checks JWT when required.
+37. For `GET /api/products`, API Gateway checks Redis response cache when enabled.
+38. If cache HIT, API Gateway applies response transform foundation.
+39. If cache HIT, API Gateway returns cached response with `x-cache: HIT`.
+40. If cache MISS, API Gateway applies request transform foundation.
+41. If cache MISS, API Gateway uses timeout and retry helpers for the downstream request.
+42. API Gateway calls Product Service `GET /products`.
+43. API Gateway forwards the same `x-request-id` header.
+44. Product Service reuses the same request ID.
+45. Product Service reads product data from PostgreSQL `public.products` using Prisma.
+46. Product Service returns database-backed product data.
+47. API Gateway stores the response in Redis cache when enabled.
+48. API Gateway applies response transform foundation.
+49. API Gateway returns the response with `x-cache: MISS`.
+50. For `GET /api/product-service/health`, API Gateway does not require API key by default.
+51. For `GET /api/product-service/health`, API Gateway does not require JWT by default.
+52. For `GET /api/product-service/health`, API Gateway does not apply Redis-backed rate limiting by default.
+53. For `GET /api/product-service/health`, API Gateway does not use Redis response cache by default.
+54. API Gateway calls Product Service `GET /health`.
+55. API Gateway returns Product Service health response with `x-cache: BYPASS`.
+56. For internal/admin route management APIs, API Gateway checks `x-admin-api-key`.
+57. `GET /internal/admin/routes` returns non-deleted route configs, including disabled but non-deleted records.
+58. `GET /internal/admin/routes/runtime` returns the runtime route registry snapshot summary.
+59. `GET /internal/admin/routes/:id` returns one non-deleted route config or `404 ROUTE_CONFIG_NOT_FOUND`.
+60. `POST /internal/admin/routes` validates and creates a route config.
+61. `PATCH /internal/admin/routes/:id` merges, validates, and updates a route config.
+62. `DELETE /internal/admin/routes/:id` soft deletes a route config.
+63. `POST /internal/admin/routes/reload` reads active DB route configs.
+64. Reload maps active DB records to `DownstreamRouteConfig[]`.
+65. Reload validates mapped route configs.
+66. Reload replaces the runtime registry snapshot when validation succeeds.
+67. Existing registered routes can be disabled, enabled, or policy-updated after reload without restarting API Gateway.
+68. Brand-new DB-backed `/api/*` routes can be served after reload without restarting API Gateway.
+69. Disabled route configs remain stored in DB and visible to admins while they are not soft deleted.
+70. Soft-deleted route configs remain stored in DB but are hidden from admin list/detail APIs and ignored by runtime loading.
+71. For internal/admin API consumer APIs, API Gateway checks `x-admin-api-key`.
+72. `GET /internal/admin/consumers` lists API consumers.
+73. `POST /internal/admin/consumers` creates API consumers.
+74. `GET /internal/admin/consumers/:id` returns one API consumer or `404 API_CONSUMER_NOT_FOUND`.
+75. `PATCH /internal/admin/consumers/:id` updates API consumer name, description, or status.
+76. For internal/admin API key lifecycle APIs, API Gateway checks `x-admin-api-key`.
+77. `GET /internal/admin/consumers/:consumerId/api-keys` lists API keys for a consumer without exposing `keyHash` or `rawKey`.
+78. `POST /internal/admin/consumers/:consumerId/api-keys` issues an API key and returns `rawKey` once.
+79. `PATCH /internal/admin/api-keys/:id/revoke` revokes an API key.
+80. API Gateway adds `x-response-time-ms`.
+81. API Gateway records Prometheus metrics.
+82. API Gateway writes a structured access log.
+83. API Gateway normalizes downstream errors when needed.
+84. Prometheus scrapes API Gateway `/metrics`.
+85. Grafana reads metrics from Prometheus and displays the API Gateway overview dashboard.
+86. GitHub Actions validates every push to `main`.
+87. GitHub Actions validates every pull request targeting `main`.
+88. GitHub Actions runs `npm ci`, Prisma generate, tests, typecheck, build, and Docker image build validation.
+89. GitHub reports CI pass/fail status.
+90. README badge reflects the current CI workflow status.
 
 ---
 
@@ -513,6 +606,7 @@ Current Docker Compose responsibilities:
 * Provides API Gateway `DATABASE_URL` for the PostgreSQL `gateway` schema.
 * Provides Product Service `DATABASE_URL` for the PostgreSQL `public` schema.
 * Provides API Gateway admin API key environment values.
+* Provides API Gateway consumer API key fallback environment values.
 * Starts Prometheus after API Gateway.
 * Starts Grafana after Prometheus.
 * Provides persistent Docker volume for PostgreSQL.
@@ -560,13 +654,16 @@ Current endpoints:
 ```txt
 GET /health
 GET /metrics
+
 GET /api/products
 GET /api/product-service/health
+
 GET /api/*
 POST /api/*
 PUT /api/*
 PATCH /api/*
 DELETE /api/*
+
 GET /internal/admin/routes
 GET /internal/admin/routes/runtime
 GET /internal/admin/routes/:id
@@ -574,6 +671,15 @@ POST /internal/admin/routes
 PATCH /internal/admin/routes/:id
 DELETE /internal/admin/routes/:id
 POST /internal/admin/routes/reload
+
+GET /internal/admin/consumers
+POST /internal/admin/consumers
+GET /internal/admin/consumers/:id
+PATCH /internal/admin/consumers/:id
+
+GET /internal/admin/consumers/:consumerId/api-keys
+POST /internal/admin/consumers/:consumerId/api-keys
+PATCH /internal/admin/api-keys/:id/revoke
 ```
 
 Route protection:
@@ -589,6 +695,8 @@ GET /api/products
   -> Protected
   -> Uses latest runtime registry route config
   -> Requires API key by default
+  -> Accepts DB-backed issued API key when valid
+  -> Accepts env dev-api-key through fallback
   -> Redis-backed rate limited by API key and route by default
   -> Requires JWT Bearer token by default
   -> Uses Redis response cache by default
@@ -608,6 +716,7 @@ GET/POST/PUT/PATCH/DELETE /api/*
   -> Dynamic API route dispatcher
   -> Uses method + exact path lookup in runtime registry
   -> Applies configured route policies if matched
+  -> Can use DB-backed issued API key auth if route policy requires API key
   -> Returns 404 ROUTE_NOT_FOUND if no runtime route exists
 
 Internal/admin APIs
@@ -647,6 +756,12 @@ Responsibilities:
 * Returns cached product response on cache HIT.
 * Forwards `x-request-id` to downstream service.
 * Applies API key authentication when latest runtime route policy requires it.
+* Verifies DB-backed issued API keys when API key auth is required.
+* Falls back to static env API keys when DB key is not found or DB lookup is unavailable.
+* Rejects revoked DB-backed API keys.
+* Rejects expired DB-backed API keys.
+* Rejects keys belonging to disabled API consumers.
+* Attaches API key context to request after successful auth.
 * Applies Redis-backed rate limiting when latest runtime route policy requires it.
 * Applies JWT authentication when latest runtime route policy requires it.
 * Attaches verified JWT payload to `request.jwtPayload`.
@@ -678,6 +793,14 @@ Responsibilities:
 * Rejects duplicate active `method + gatewayPath` conflicts before persistence.
 * Exposes runtime registry status through `GET /internal/admin/routes/runtime`.
 * Refreshes runtime registry through `POST /internal/admin/routes/reload`.
+* Protects internal/admin consumer management APIs with admin API key.
+* Creates API consumers through internal/admin API.
+* Updates API consumer status through internal/admin API.
+* Protects internal/admin API key lifecycle APIs with admin API key.
+* Issues API keys through internal/admin API.
+* Stores issued API keys as hash + prefix.
+* Returns raw issued API key only once.
+* Revokes issued API keys through internal/admin API.
 * Supports automated integration tests using Fastify `app.inject()`.
 * Generates Prisma Client in GitHub Actions CI.
 * Generates Prisma Client inside the Docker image to avoid host/runtime mismatch.
@@ -692,16 +815,35 @@ apps/api-gateway/
     migrations/
       20260701063629_add_gateway_routes/
       20260702090000_add_gateway_route_soft_delete/
+      20260703093332_add_api_consumers_and_api_keys/
     schema.prisma
     seed.ts
   src/
     app.ts
     app.test.ts
+    api-consumers/
+      api-consumer-management.mapper.ts
+      api-consumer-management.mapper.test.ts
+      api-consumer-management.repository.ts
+      api-consumer-management.types.ts
+    api-keys/
+      api-key-auth-verifier.ts
+      api-key-auth-verifier.test.ts
+      api-key-hashing.ts
+      api-key-hashing.test.ts
+      api-key-management.mapper.ts
+      api-key-management.mapper.test.ts
+      api-key-management.repository.ts
+      api-key-management.types.ts
     cache/
     config/
     database/
     errors/
     middlewares/
+      admin-api-key-auth.middleware.ts
+      api-key-auth.middleware.ts
+      api-key-auth.middleware.test.ts
+      jwt-auth.middleware.ts
     observability/
     policies/
     proxy/
@@ -710,8 +852,13 @@ apps/api-gateway/
     redis/
     route-management/
     routes/
+      admin-api-key.route.ts
+      admin-api-key.route.test.ts
+      admin-consumer.route.ts
+      admin-consumer.route.test.ts
       admin-route-config.route.ts
       admin-route-config.route.test.ts
+      downstream-proxy-api-key-auth.test.ts
       dynamic-proxy.route.test.ts
       health.route.ts
       metrics.route.ts
@@ -733,6 +880,8 @@ Sprint 7 refactored the internals so this file now contains the reusable generic
 productProxyRoute() remains as a compatibility wrapper.
 
 Sprint 12 extracted shared proxy handling into apps/api-gateway/src/proxy/downstream-proxy-handler.ts.
+
+Sprint 13 added injected API key auth middleware support into the downstream proxy pipeline.
 
 A future cleanup sprint may rename product-proxy.route.ts to downstream-proxy.route.ts if desired.
 ```
@@ -819,6 +968,8 @@ Current API Gateway tables:
 ```txt
 gateway._prisma_migrations
 gateway.gateway_routes
+gateway.api_consumers
+gateway.api_keys
 ```
 
 Current seed products:
@@ -865,6 +1016,69 @@ method + gateway_path must be unique only when deleted_at IS NULL.
 Soft-deleted historical rows do not block recreating the same route path.
 ```
 
+Current API consumer statuses:
+
+```txt
+ACTIVE
+DISABLED
+```
+
+Current API key statuses:
+
+```txt
+ACTIVE
+REVOKED
+```
+
+Current API consumer model:
+
+```txt
+id
+name
+description
+status
+created_at
+updated_at
+created_by
+updated_by
+```
+
+Current API key model:
+
+```txt
+id
+consumer_id
+name
+key_prefix
+key_hash
+status
+expires_at
+last_used_at
+created_at
+updated_at
+created_by
+revoked_at
+revoked_by
+```
+
+Current API key constraints and indexes:
+
+```txt
+key_hash unique
+consumer_id index
+status index
+key_prefix index
+expires_at index
+```
+
+Current API key storage rule:
+
+```txt
+Raw API keys are never persisted.
+Only key_hash and key_prefix are stored.
+Raw API key is returned only once when issued.
+```
+
 ---
 
 ## 11. Redis
@@ -885,16 +1099,24 @@ rate-limit:*
 response-cache:*
 ```
 
-Example Redis rate limit key:
+Example Redis rate limit keys:
 
 ```txt
 rate-limit:api-key:dev-api-key:route:GET:/api/products
+rate-limit:api-key:<issued-api-key>:route:GET:/api/products
 ```
 
 Example Redis response cache key:
 
 ```txt
 response-cache:GET:/api/products
+```
+
+Current limitation:
+
+```txt
+Rate limit identity still uses the raw API key value.
+Per-consumer and per-apiKeyId rate limit identity is not implemented yet.
 ```
 
 ---
@@ -975,6 +1197,7 @@ Fastify route unregister/register at runtime is risky.
 Unsafe hot route replacement can create stale handlers, duplicate route conflicts, or inconsistent routing.
 The runtime registry is safer because Fastify route registrations stay stable while route behavior is looked up dynamically.
 Sprint 12 extends this design with a stable /api/* catch-all route instead of mutating Fastify routes at runtime.
+Sprint 13 keeps this design and adds DB-backed API key auth through injected middleware rather than route-table mutation.
 ```
 
 ---
@@ -1020,6 +1243,8 @@ Client
        -> 404 ROUTE_NOT_FOUND
   -> If route exists:
        -> shared proxy pipeline applies latest route policies
+       -> if API key is required:
+            -> DB-backed API key auth or env fallback
        -> proxy to configured downstreamUrl
        -> return downstream response
 ```
@@ -1080,9 +1305,268 @@ Upstream pools
 
 ---
 
-## 14. Current Request Flows
+## 14. API Consumer and API Key Lifecycle Design
 
-### 14.1 API Gateway Startup Route Config Flow
+Sprint 13 introduced API consumer and API key lifecycle foundation.
+
+### 14.1 API Consumer Design
+
+API consumers are stored in:
+
+```txt
+gateway.api_consumers
+```
+
+Purpose:
+
+* Represent a client, application, integration, or developer-owned consumer.
+* Own one or more issued API keys.
+* Provide an API Management ownership model.
+* Prepare for usage tracking, quotas, usage plans, Admin Dashboard, and Developer Portal.
+
+Current statuses:
+
+```txt
+ACTIVE
+DISABLED
+```
+
+Current model:
+
+```txt
+id
+name
+description
+status
+createdAt
+updatedAt
+createdBy
+updatedBy
+apiKeys[]
+```
+
+Current admin endpoints:
+
+```txt
+GET /internal/admin/consumers
+POST /internal/admin/consumers
+GET /internal/admin/consumers/:id
+PATCH /internal/admin/consumers/:id
+```
+
+Current behavior:
+
+```txt
+GET /internal/admin/consumers
+  -> lists consumers
+
+POST /internal/admin/consumers
+  -> creates consumer
+  -> requires name
+  -> status defaults to ACTIVE
+  -> records createdBy and updatedBy
+
+GET /internal/admin/consumers/:id
+  -> returns one consumer
+  -> 404 API_CONSUMER_NOT_FOUND when missing
+
+PATCH /internal/admin/consumers/:id
+  -> updates name, description, or status
+  -> records updatedBy
+```
+
+### 14.2 API Key Design
+
+API keys are stored in:
+
+```txt
+gateway.api_keys
+```
+
+Purpose:
+
+* Authenticate API consumers.
+* Allow key issue/revoke lifecycle.
+* Prepare for per-key usage tracking.
+* Prepare for per-consumer usage analytics.
+* Prepare for usage plans and quotas.
+
+Current statuses:
+
+```txt
+ACTIVE
+REVOKED
+```
+
+Current model:
+
+```txt
+id
+consumerId
+name
+keyPrefix
+keyHash
+status
+expiresAt
+lastUsedAt
+createdAt
+updatedAt
+createdBy
+revokedAt
+revokedBy
+```
+
+Storage rule:
+
+```txt
+Raw API keys are never persisted.
+Only keyHash and keyPrefix are persisted.
+Raw API key is returned only once when issued.
+```
+
+Current admin endpoints:
+
+```txt
+GET /internal/admin/consumers/:consumerId/api-keys
+POST /internal/admin/consumers/:consumerId/api-keys
+PATCH /internal/admin/api-keys/:id/revoke
+```
+
+Current behavior:
+
+```txt
+GET /internal/admin/consumers/:consumerId/api-keys
+  -> verifies consumer exists
+  -> lists keys for consumer
+  -> does not expose keyHash
+  -> does not expose rawKey
+
+POST /internal/admin/consumers/:consumerId/api-keys
+  -> verifies consumer exists
+  -> validates request body
+  -> generates raw API key
+  -> stores keyHash and keyPrefix
+  -> returns rawKey once
+  -> does not expose keyHash
+
+PATCH /internal/admin/api-keys/:id/revoke
+  -> verifies key exists
+  -> sets status=REVOKED
+  -> sets revokedAt
+  -> sets revokedBy
+  -> returns key response without keyHash/rawKey
+```
+
+### 14.3 API Key Hashing Design
+
+Current implementation:
+
+```txt
+generateApiKey()
+hashApiKey(rawKey)
+verifyApiKeyHash(rawKey, expectedHash)
+extractApiKeyPrefix(rawKey)
+```
+
+Current default generated key prefix:
+
+```txt
+pgk_live
+```
+
+Current hashing:
+
+```txt
+SHA-256 hex hash
+```
+
+Reason:
+
+* Deterministic hash enables indexed lookup by `keyHash`.
+* Raw keys do not need to be stored.
+* Prefix helps admin identify a key without exposing the secret.
+* Timing-safe comparison helper is available for direct hash verification use cases.
+
+### 14.4 Runtime DB-Backed API Key Auth Design
+
+Runtime DB-backed API key auth is implemented with:
+
+```txt
+apps/api-gateway/src/api-keys/api-key-auth-verifier.ts
+apps/api-gateway/src/middlewares/api-key-auth.middleware.ts
+apps/api-gateway/src/proxy/downstream-proxy-handler.ts
+apps/api-gateway/src/routes/product-proxy.route.ts
+apps/api-gateway/src/app.ts
+```
+
+Current request flow:
+
+```txt
+Incoming request
+  -> route policy requireApiKey=true
+  -> read x-api-key
+  -> hash incoming raw key
+  -> lookup gateway.api_keys by keyHash
+  -> include related consumer
+  -> if key exists:
+       -> check key status
+       -> check consumer status
+       -> check expiresAt
+       -> update lastUsedAt best-effort
+       -> attach API key context to request
+  -> if key does not exist:
+       -> fallback to env API_KEYS
+  -> if DB lookup fails:
+       -> fallback to env API_KEYS
+  -> if DATABASE_URL is missing and DB lookup is skipped:
+       -> fallback to env API_KEYS
+```
+
+Successful DB-backed auth attaches:
+
+```txt
+request.apiKey
+request.apiKeyId
+request.apiConsumerId
+request.apiKeyAuthSource = database
+```
+
+Successful env fallback auth attaches:
+
+```txt
+request.apiKey
+request.apiKeyAuthSource = env
+```
+
+Rejected DB-backed key states:
+
+```txt
+status=REVOKED
+expiresAt in the past
+consumer.status=DISABLED
+```
+
+Important security rule:
+
+```txt
+If a DB key is found but revoked, expired, or belongs to a disabled consumer,
+the request is rejected and does not fall back to env API_KEYS.
+```
+
+Current limitation:
+
+```txt
+lastUsedAt is best-effort metadata only.
+It is not full usage analytics.
+Per-consumer request counters are not implemented yet.
+Usage plans and quotas are not implemented yet.
+```
+
+---
+
+## 15. Current Request Flows
+
+### 15.1 API Gateway Startup Route Config Flow
 
 ```txt
 API Gateway process starts
@@ -1107,16 +1591,19 @@ API Gateway process starts
   -> Register health route
   -> Register metrics route
   -> Register internal/admin route management route
+  -> Register internal/admin consumer route
+  -> Register internal/admin API key lifecycle route
   -> Register downstreamProxyRoute() with resolved route configs and routeRuntimeRegistry
   -> downstreamProxyRoute() registers startup route configs
   -> downstreamProxyRoute() registers /api/* dynamic router when routeRuntimeRegistry exists
+  -> app wires DB-backed API key middleware into downstream proxy options
   -> Connect Redis
   -> Listen on configured host and port
 ```
 
 ---
 
-### 14.2 Protected Product API Flow
+### 15.2 Protected Product API Flow
 
 ```txt
 Client
@@ -1133,6 +1620,12 @@ Client
          -> API Gateway adds basic security headers
          -> API Gateway applies request size limit
          -> API Gateway checks x-api-key if runtime policy requires API key
+              -> hash raw key
+              -> lookup gateway.api_keys by keyHash
+              -> verify key status, consumer status, and expiresAt
+              -> update lastUsedAt best-effort
+              -> attach DB-backed API key context when valid
+              -> fallback to env API_KEYS when DB key is not found
          -> API Gateway applies Redis-backed rate limit if runtime policy enables rate limit
          -> API Gateway checks Authorization Bearer token if runtime policy requires JWT
          -> API Gateway checks Redis response cache if runtime policy enables cache
@@ -1174,7 +1667,59 @@ Expected response:
 
 ---
 
-### 14.3 Public Product Service Health Proxy Flow
+### 15.3 DB-Backed API Key Issue and Use Flow
+
+```txt
+Admin Client
+  -> POST /internal/admin/consumers
+  -> x-admin-api-key
+  -> create API consumer
+
+Admin Client
+  -> POST /internal/admin/consumers/:consumerId/api-keys
+  -> x-admin-api-key
+  -> generate raw API key
+  -> store keyPrefix
+  -> store keyHash
+  -> return rawKey once
+
+Client
+  -> GET /api/products
+  -> x-api-key=<raw issued API key>
+  -> Authorization: Bearer <jwt>
+  -> Gateway hashes raw key
+  -> Gateway finds keyHash in gateway.api_keys
+  -> Gateway verifies key ACTIVE
+  -> Gateway verifies consumer ACTIVE
+  -> Gateway verifies key not expired
+  -> Gateway updates lastUsedAt best-effort
+  -> Gateway proxies request
+```
+
+---
+
+### 15.4 DB-Backed API Key Revocation Flow
+
+```txt
+Admin Client
+  -> PATCH /internal/admin/api-keys/:id/revoke
+  -> x-admin-api-key
+  -> status becomes REVOKED
+  -> revokedAt is set
+  -> revokedBy is set
+
+Client
+  -> GET /api/products
+  -> x-api-key=<revoked raw API key>
+  -> Gateway hashes raw key
+  -> Gateway finds keyHash in gateway.api_keys
+  -> Gateway sees status=REVOKED
+  -> Gateway returns 403 API_KEY_INVALID
+```
+
+---
+
+### 15.5 Public Product Service Health Proxy Flow
 
 ```txt
 Client
@@ -1215,7 +1760,7 @@ Expected response:
 
 ---
 
-### 14.4 Dynamic API Route Flow
+### 15.6 Dynamic API Route Flow
 
 ```txt
 Client
@@ -1228,6 +1773,8 @@ Client
          -> 404 ROUTE_NOT_FOUND
     -> If route exists:
          -> Shared proxy pipeline applies route policies
+         -> If API key is required:
+              -> DB-backed issued API key auth or env fallback
          -> Shared proxy pipeline calls configured downstreamUrl
          -> Shared proxy pipeline returns downstream response
 ```
@@ -1250,7 +1797,7 @@ GET /api/new-runtime-path after reload
 
 ---
 
-### 14.5 Internal Admin Route Management Flow
+### 15.7 Internal Admin Route Management Flow
 
 ```txt
 Admin Client / Future Admin Dashboard
@@ -1306,7 +1853,58 @@ Admin Client / Future Admin Dashboard
 
 ---
 
-## 15. Route Management API Design
+### 15.8 Internal Admin Consumer and API Key Flow
+
+```txt
+Admin Client / Future Admin Dashboard
+  -> GET /internal/admin/consumers
+    -> x-admin-api-key
+    -> returns API consumers
+
+Admin Client / Future Admin Dashboard
+  -> POST /internal/admin/consumers
+    -> x-admin-api-key
+    -> optional x-admin-actor
+    -> creates API consumer
+
+Admin Client / Future Admin Dashboard
+  -> GET /internal/admin/consumers/:id
+    -> x-admin-api-key
+    -> returns one API consumer or 404
+
+Admin Client / Future Admin Dashboard
+  -> PATCH /internal/admin/consumers/:id
+    -> x-admin-api-key
+    -> optional x-admin-actor
+    -> updates API consumer
+
+Admin Client / Future Admin Dashboard
+  -> GET /internal/admin/consumers/:consumerId/api-keys
+    -> x-admin-api-key
+    -> verifies consumer exists
+    -> returns API keys for consumer
+    -> does not expose keyHash
+    -> does not expose rawKey
+
+Admin Client / Future Admin Dashboard
+  -> POST /internal/admin/consumers/:consumerId/api-keys
+    -> x-admin-api-key
+    -> optional x-admin-actor
+    -> verifies consumer exists
+    -> generates API key
+    -> stores keyHash and keyPrefix
+    -> returns rawKey once
+
+Admin Client / Future Admin Dashboard
+  -> PATCH /internal/admin/api-keys/:id/revoke
+    -> x-admin-api-key
+    -> optional x-admin-actor
+    -> revokes API key
+```
+
+---
+
+## 16. Route Management API Design
 
 Current route management endpoints:
 
@@ -1354,7 +1952,7 @@ apps/api-gateway/src/runtime/route-runtime-registry.ts
 apps/api-gateway/src/runtime/route-runtime-registry.test.ts
 ```
 
-### 15.1 Read Design
+### 16.1 Read Design
 
 ```txt
 GET /internal/admin/routes
@@ -1370,7 +1968,7 @@ GET /internal/admin/routes/:id
   -> Returns 404 ROUTE_CONFIG_NOT_FOUND if missing or soft-deleted
 ```
 
-### 15.2 Runtime Status Design
+### 16.2 Runtime Status Design
 
 ```txt
 GET /internal/admin/routes/runtime
@@ -1382,7 +1980,7 @@ GET /internal/admin/routes/runtime
   -> Returns lightweight route summaries
 ```
 
-### 15.3 Create Design
+### 16.3 Create Design
 
 ```txt
 POST /internal/admin/routes
@@ -1405,7 +2003,7 @@ Created routes affect traffic only after POST /internal/admin/routes/reload.
 Brand-new /api/* paths can work after reload without API Gateway restart.
 ```
 
-### 15.4 Update Design
+### 16.4 Update Design
 
 ```txt
 PATCH /internal/admin/routes/:id
@@ -1429,7 +2027,7 @@ For existing registered routes, policy/downstream/enabled changes can take effec
 For brand-new DB-backed /api/* routes, reload can also apply the route through the catch-all dynamic router.
 ```
 
-### 15.5 Enable/Disable Design
+### 16.5 Enable/Disable Design
 
 Enable/disable is handled through PATCH:
 
@@ -1448,7 +2046,7 @@ If reload is called, client requests return 404 ROUTE_NOT_FOUND without restart.
 If no reload is called, the previous runtime registry snapshot stays active.
 ```
 
-### 15.6 Soft Delete Design
+### 16.6 Soft Delete Design
 
 ```txt
 DELETE /internal/admin/routes/:id
@@ -1478,7 +2076,7 @@ Duplicate checks ignore soft-deleted routes.
 The same method + gatewayPath can be created again after soft delete.
 ```
 
-### 15.7 Reload Design
+### 16.7 Reload Design
 
 Reload endpoint:
 
@@ -1486,7 +2084,7 @@ Reload endpoint:
 POST /internal/admin/routes/reload
 ```
 
-Current reload response shape after Sprint 12:
+Current reload response shape after Sprint 12 and Sprint 13:
 
 ```json
 {
@@ -1564,7 +2162,7 @@ Reload now updates the runtime registry snapshot used by:
 Brand-new DB-backed /api/* routes can work after reload without restart.
 ```
 
-### 15.8 Route Management Error Design
+### 16.8 Route Management Error Design
 
 ```txt
 Missing admin API key
@@ -1591,7 +2189,7 @@ Reload validation failure
 
 ---
 
-## 16. Dynamic Route Config Design
+## 17. Dynamic Route Config Design
 
 Database-backed route configuration is stored in:
 
@@ -1686,9 +2284,9 @@ API Gateway uses static downstreamRouteConfigs
 
 ---
 
-## 17. Authentication Design
+## 18. Authentication Design
 
-### 17.1 API Key Authentication
+### 18.1 Consumer API Key Authentication
 
 API key authentication is used for client or application-level authentication.
 
@@ -1704,10 +2302,17 @@ Default consumer API key header:
 x-api-key
 ```
 
-Default local API key:
+Default local fallback API key:
 
 ```txt
 dev-api-key
+```
+
+Current API key auth sources:
+
+```txt
+database
+env
 ```
 
 Behavior:
@@ -1719,17 +2324,56 @@ Missing API key
 Invalid API key
   -> 403 API_KEY_INVALID
 
-Valid API key
+Valid DB-backed issued API key
+  -> Continue to Redis-backed route-level rate limiting
+
+Valid env fallback API key
   -> Continue to Redis-backed route-level rate limiting
 ```
 
 Dynamic DB-backed routes can require or skip API key auth depending on their route policy.
 
+DB-backed issued API key validation:
+
+```txt
+raw x-api-key
+  -> hashApiKey(rawKey)
+  -> lookup gateway.api_keys by keyHash
+  -> verify status=ACTIVE
+  -> verify consumer.status=ACTIVE
+  -> verify expiresAt is null or in the future
+  -> update lastUsedAt best-effort
+```
+
+Rejected DB-backed states:
+
+```txt
+status=REVOKED
+consumer.status=DISABLED
+expiresAt in the past
+```
+
+Request context after successful DB-backed auth:
+
+```txt
+request.apiKey
+request.apiKeyId
+request.apiConsumerId
+request.apiKeyAuthSource=database
+```
+
+Request context after successful env fallback auth:
+
+```txt
+request.apiKey
+request.apiKeyAuthSource=env
+```
+
 ---
 
-### 17.2 Admin API Key Authentication
+### 18.2 Admin API Key Authentication
 
-Admin API key authentication is used for internal/admin route management APIs.
+Admin API key authentication is used for internal/admin APIs.
 
 Default admin API key header:
 
@@ -1753,19 +2397,19 @@ Invalid admin API key
   -> 403 ADMIN_API_KEY_INVALID
 
 Valid admin API key
-  -> Continue to route management behavior
+  -> Continue to internal/admin behavior
 ```
 
 Reason:
 
 * Consumer API keys and admin API keys have different purposes.
 * Consumer API keys protect API consumption.
-* Admin API keys protect route management operations.
-* Route management APIs can change Gateway behavior and must not be exposed to normal API consumers.
+* Admin API keys protect route management, consumer management, and API key lifecycle operations.
+* Admin APIs can change Gateway behavior and must not be exposed to normal API consumers.
 
 ---
 
-### 17.3 JWT Authentication
+### 18.3 JWT Authentication
 
 JWT authentication is used for user or session-level authentication.
 
@@ -1816,9 +2460,9 @@ Dynamic DB-backed routes can require or skip JWT auth depending on their route p
 
 ---
 
-## 18. Traffic Protection Design
+## 19. Traffic Protection Design
 
-### 18.1 Redis-Backed Rate Limiting
+### 19.1 Redis-Backed Rate Limiting
 
 PulseGate currently supports Redis-backed rate limiting for routes whose policy enables it.
 
@@ -1852,10 +2496,11 @@ Redis rate limit key shape:
 rate-limit:api-key:<api-key>:route:<method>:<route-path>
 ```
 
-Example:
+Examples:
 
 ```txt
 rate-limit:api-key:dev-api-key:route:GET:/api/products
+rate-limit:api-key:<issued-api-key>:route:GET:/api/products
 ```
 
 Current rate limit response headers:
@@ -1887,9 +2532,16 @@ Implementation notes:
 * Rate limit runtime values are resolved through the latest runtime route policy.
 * Dynamic DB-backed routes can enable or disable rate limiting through route policy.
 
+Current limitation:
+
+```txt
+Rate limit identity does not yet use apiKeyId or consumerId.
+Per-consumer rate limit and plan-based quota enforcement are not implemented yet.
+```
+
 ---
 
-### 18.2 Request Size Limit
+### 19.2 Request Size Limit
 
 Current config:
 
@@ -1915,7 +2567,7 @@ Content-Length > MAX_REQUEST_BODY_BYTES
 
 ---
 
-### 18.3 Basic Security Headers
+### 19.3 Basic Security Headers
 
 Current security headers:
 
@@ -1942,7 +2594,7 @@ HSTS should be added when HTTPS deployment is introduced.
 
 ---
 
-## 19. Response Cache Design
+## 20. Response Cache Design
 
 PulseGate currently caches selected Gateway responses in Redis.
 
@@ -2002,7 +2654,7 @@ Dynamic DB-backed routes can enable or disable response caching through route po
 
 ---
 
-## 20. Downstream Resilience Design
+## 21. Downstream Resilience Design
 
 PulseGate normalizes downstream Product Service failures.
 
@@ -2044,7 +2696,7 @@ Retry design notes:
 
 ---
 
-## 21. Observability Design
+## 22. Observability Design
 
 Current observability layers:
 
@@ -2059,7 +2711,7 @@ Grafana datasource
 Grafana dashboard
 ```
 
-### 21.1 Structured Access Logs
+### 22.1 Structured Access Logs
 
 Current event name:
 
@@ -2090,7 +2742,7 @@ authorization
 cookie
 ```
 
-### 21.2 Response Time Header
+### 22.2 Response Time Header
 
 API Gateway adds a response latency header:
 
@@ -2104,7 +2756,7 @@ Example:
 x-response-time-ms: 4.32
 ```
 
-### 21.3 Prometheus Metrics
+### 22.3 Prometheus Metrics
 
 Current metrics:
 
@@ -2135,7 +2787,7 @@ MISS
 BYPASS
 ```
 
-### 21.4 Metrics Endpoint
+### 22.4 Metrics Endpoint
 
 ```txt
 GET /metrics
@@ -2150,7 +2802,7 @@ GET /metrics
   -> Scraped by Prometheus
 ```
 
-### 21.5 Prometheus Scraping
+### 22.5 Prometheus Scraping
 
 Prometheus scrapes API Gateway through Docker internal DNS:
 
@@ -2164,7 +2816,7 @@ Scrape interval:
 5 seconds
 ```
 
-### 21.6 Grafana Dashboard
+### 22.6 Grafana Dashboard
 
 Current Grafana datasource UID:
 
@@ -2193,9 +2845,16 @@ Latency p95 by Route
 Cache Outcomes
 ```
 
+Current limitation:
+
+```txt
+Grafana dashboard does not yet include per-consumer or per-api-key usage panels.
+Usage tracking is not implemented yet.
+```
+
 ---
 
-## 22. Route Policy Design
+## 23. Route Policy Design
 
 Route policy type file:
 
@@ -2327,7 +2986,7 @@ Purpose:
 
 ---
 
-## 23. CI/CD Design
+## 24. CI/CD Design
 
 Current workflow file:
 
@@ -2392,11 +3051,11 @@ Current CI limitations:
 
 ---
 
-## 24. Database Design
+## 25. Database Design
 
 PulseGate currently uses PostgreSQL in two separate ownership areas.
 
-### 24.1 Product Service Database Ownership
+### 25.1 Product Service Database Ownership
 
 Product Service owns product data.
 
@@ -2442,7 +3101,7 @@ Design notes:
 
 ---
 
-### 24.2 API Gateway Route Config Database Ownership
+### 25.2 API Gateway Route Config Database Ownership
 
 API Gateway owns route config data.
 
@@ -2481,7 +3140,7 @@ Soft-deleted rows may also exist from local runtime validation, but they are not
 
 Design notes:
 
-* API Gateway uses PostgreSQL only for Gateway route config.
+* API Gateway uses PostgreSQL for Gateway route config.
 * API Gateway does not use this database connection to read Product Service data.
 * Product data remains owned by Product Service.
 * The `gateway` schema avoids Prisma migration drift with the Product Service `public` schema.
@@ -2495,7 +3154,60 @@ Design notes:
 
 ---
 
-## 25. Automated Test and CI Architecture
+### 25.3 API Gateway Consumer and Key Database Ownership
+
+API Gateway owns API consumer and issued API key data.
+
+Database:
+
+```txt
+PostgreSQL
+```
+
+ORM:
+
+```txt
+Prisma
+```
+
+Schema:
+
+```txt
+gateway
+```
+
+Current tables:
+
+```txt
+gateway.api_consumers
+gateway.api_keys
+```
+
+Design notes:
+
+* API consumers are owned by API Gateway/API Management.
+* Issued API keys are owned by API Gateway/API Management.
+* API keys belong to API consumers.
+* API key authentication does not require downstream service involvement.
+* API Gateway validates keys before proxying traffic to downstream services.
+* API Gateway never stores raw API keys.
+* API Gateway stores `key_hash` for lookup and `key_prefix` for identification.
+* API Gateway stores `last_used_at` as lightweight usage metadata.
+* API Gateway stores `revoked_at` and `revoked_by` for key lifecycle history.
+* API Gateway supports disabling a consumer to reject all keys belonging to that consumer.
+
+Current limitation:
+
+```txt
+There is no API usage event table yet.
+There is no usage aggregate table yet.
+There is no per-consumer analytics table yet.
+There is no usage plan or quota table yet.
+```
+
+---
+
+## 26. Automated Test and CI Architecture
 
 PulseGate uses Vitest for API Gateway unit and integration tests.
 
@@ -2508,8 +3220,8 @@ npm run test
 Current test status:
 
 ```txt
-29 test files passed
-190 tests passed
+36 test files passed
+256 tests passed
 ```
 
 Current CI-equivalent local validation command:
@@ -2531,6 +3243,7 @@ Current unit test coverage summary:
 request-id middleware
 access-log middleware
 api-key auth middleware
+DB-backed API key auth verifier
 admin-api-key auth behavior through route tests
 jwt-auth middleware
 metrics middleware
@@ -2550,13 +3263,19 @@ runtime route registry
 metrics registry
 metrics route
 admin route config route
+admin consumer route
+admin API key lifecycle route
 dynamic proxy route
+downstream proxy API key auth integration
 timeout policy
 cache policy
 rate limit policy
 request transform policy
 response transform policy
 retry policy
+API consumer mapper
+API key hashing
+API key management mapper
 ```
 
 Current integration test coverage summary:
@@ -2576,6 +3295,8 @@ GET /api/products downstream timeout
 Runtime registry removal of an existing route causing 404 ROUTE_NOT_FOUND
 Brand-new API path returns 404 before runtime registry replacement
 Brand-new API path returns 200 after runtime registry replacement without app restart
+Downstream proxy uses injected API key middleware
+Downstream proxy stops proxying when injected API key middleware rejects request
 ```
 
 Current route management API test coverage:
@@ -2626,25 +3347,78 @@ POST /internal/admin/routes/reload
   -> 403 when admin API key is invalid
 ```
 
+Current API consumer and API key lifecycle test coverage:
+
+```txt
+api-key-hashing.test.ts
+  -> raw API key generation
+  -> unique generated keys
+  -> SHA-256 hashing
+  -> timing-safe verification helper
+  -> prefix extraction
+  -> invalid input behavior
+
+api-consumer-management.mapper.test.ts
+  -> create request validation
+  -> update request validation
+  -> status normalization
+  -> response mapping
+
+admin-consumer.route.test.ts
+  -> list consumers
+  -> create consumer
+  -> get consumer detail
+  -> update consumer
+  -> not found handling
+  -> invalid request handling
+  -> admin API key protection
+
+api-key-management.mapper.test.ts
+  -> issue request validation
+  -> expiresAt parsing
+  -> response mapping without keyHash
+  -> issued response with rawKey only when issuing
+
+admin-api-key.route.test.ts
+  -> list API keys by consumer
+  -> issue API key
+  -> revoke API key
+  -> no keyHash exposure
+  -> rawKey only in issue response
+  -> admin API key protection
+
+api-key-auth-verifier.test.ts
+  -> verify active DB-backed key
+  -> reject revoked key
+  -> reject disabled consumer
+  -> reject expired key
+  -> fallback to env API_KEYS when DB key is not found
+  -> fallback to env API_KEYS when DB lookup fails
+
+downstream-proxy-api-key-auth.test.ts
+  -> downstream proxy uses injected API key middleware
+  -> downstream proxy stops when injected API key middleware rejects request
+```
+
 ---
 
-## 26. Current Design Principles
+## 27. Current Design Principles
 
 PulseGate follows these principles:
 
-### 26.1 Local First
+### 27.1 Local First
 
 The project should run locally before adding cloud deployment.
 
-### 26.2 Cost Safe
+### 27.2 Cost Safe
 
 Early versions should not require paid cloud infrastructure.
 
-### 26.3 Small Steps
+### 27.3 Small Steps
 
 New technologies should be added only after the previous layer is stable.
 
-### 26.4 Clean Structure
+### 27.4 Clean Structure
 
 Each service should separate:
 
@@ -2669,6 +3443,15 @@ API Gateway also separates:
 * Route management module
 * Route management repository
 * Route management mapper
+* API consumer management module
+* API consumer management repository
+* API consumer management mapper
+* API key hashing module
+* API key management module
+* API key management repository
+* API key management mapper
+* DB-backed API key verifier
+* API key auth middleware
 * Route policy types
 * Route policy helpers
 * Route config validation
@@ -2678,11 +3461,11 @@ API Gateway also separates:
 * Observability metrics registry
 * Observability middlewares
 
-### 26.5 Observable by Design
+### 27.5 Observable by Design
 
 Request ID, structured access logs, response time headers, metrics, Prometheus, and Grafana are part of the Gateway foundation.
 
-### 26.6 Policy-Driven Gateway Behavior
+### 27.6 Policy-Driven Gateway Behavior
 
 Gateway route behavior should be controlled by route policies instead of being hardcoded directly inside route handlers.
 
@@ -2698,7 +3481,7 @@ responseTransform
 retry
 ```
 
-### 26.7 CI-Validated by Design
+### 27.7 CI-Validated by Design
 
 Repository health should be validated automatically before the main branch is considered stable.
 
@@ -2714,11 +3497,11 @@ production build
 Docker image builds
 ```
 
-### 26.8 Behavior First, Infrastructure Later
+### 27.8 Behavior First, Infrastructure Later
 
 Gateway behavior is implemented and tested before adding more advanced distributed systems.
 
-### 26.9 Validation Before Runtime Mutation
+### 27.9 Validation Before Runtime Mutation
 
 Invalid route configs must not corrupt the active runtime route snapshot.
 
@@ -2731,7 +3514,7 @@ replaceRoutes(routes)
   -> keeps old snapshot if validation fails
 ```
 
-### 26.10 Runtime Registry and Catch-All Router Instead of Unsafe Route Mutation
+### 27.10 Runtime Registry and Catch-All Router Instead of Unsafe Route Mutation
 
 PulseGate avoids unsafe Fastify route unregister/register at runtime.
 
@@ -2744,7 +3527,7 @@ Registered routes resolve latest config from registry.
 Catch-all /api/* router resolves brand-new DB-backed API paths from registry.
 ```
 
-### 26.11 Static Fallback Before Dynamic Config Rollout
+### 27.11 Static Fallback Before Dynamic Config Rollout
 
 Static route config fallback remains available even after database-backed config and dynamic router support.
 
@@ -2756,7 +3539,7 @@ Reason:
 * Allow database-backed route config to be rolled out safely.
 * Keep local development recoverable.
 
-### 26.12 Backend Route Management Before Admin Dashboard
+### 27.12 Backend Route Management Before Admin Dashboard
 
 Backend route management APIs should stay stable before building Admin Dashboard UI.
 
@@ -2767,9 +3550,47 @@ Reason:
 * Validation and duplicate conflict behavior should be tested before UI workflows are added.
 * Backend route management should remain usable without UI.
 
+### 27.13 API Consumer and API Key Lifecycle Before Usage Plans
+
+API consumers and issued API keys should exist before usage plans, quotas, billing, or Developer Portal features.
+
+Reason:
+
+* Usage plans need an ownership unit.
+* Quotas need a consumer/key identity.
+* Developer Portal needs a key request and ownership model.
+* Admin Dashboard analytics need consumer/key lifecycle data.
+* API key revocation and status checks should exist before usage tracking.
+
+### 27.14 Never Persist Raw API Keys
+
+Raw issued API keys must not be stored.
+
+Current strategy:
+
+```txt
+Store keyHash.
+Store keyPrefix.
+Return rawKey once.
+Do not expose keyHash.
+Do not expose rawKey after issue response.
+```
+
+### 27.15 Runtime Auth Should Stay Injectable and Testable
+
+Runtime API key authentication should be wired through dependency injection.
+
+Reason:
+
+* Avoid hard-coding Prisma directly into low-level tests.
+* Allow fake middleware/verifier injection.
+* Allow future cached verifier.
+* Allow future usage tracking wrapper.
+* Preserve local env fallback behavior.
+
 ---
 
-## 27. Future Target Architecture
+## 28. Future Target Architecture
 
 Long-term architecture:
 
@@ -2804,6 +3625,18 @@ Gateway Policy Layer
   -> Transform policies
   -> Retry policies
 
+Gateway API Management Layer
+  -> API consumers
+  -> Issued API keys
+  -> API key revocation
+  -> API key expiration
+  -> API key usage tracking
+  -> Per-consumer analytics
+  -> Usage plans
+  -> Quotas
+  -> Developer Portal request flow
+  -> Admin Dashboard views
+
 Services
   -> PostgreSQL
   -> Redis
@@ -2835,7 +3668,7 @@ Infrastructure
 
 ---
 
-## 28. Planned Evolution
+## 29. Planned Evolution
 
 ### Sprint 0 - Core Setup & Basic Gateway Flow
 
@@ -3145,59 +3978,120 @@ Completed:
 * Updated reload metadata to return `newRoutesRequireRestart: false` when registry replacement succeeds.
 * Updated reload metadata to return `requiresRestart: false` when registry replacement succeeds.
 * Validated create route -> reload -> call brand-new route without restart through Docker.
-* Updated test status to 29 test files and 190 tests.
 
 ---
 
-### Sprint 13 - Recommended Next
+### Sprint 13 - API Consumer and API Key Lifecycle Foundation
+
+Status:
+
+```txt
+Done
+```
+
+Completed:
+
+* Added API consumer schema.
+* Added API key schema.
+* Added `gateway.api_consumers`.
+* Added `gateway.api_keys`.
+* Added `ApiConsumerStatus`.
+* Added `ApiKeyStatus`.
+* Added API key hashing foundation.
+* Added raw API key generation.
+* Added keyPrefix and keyHash storage model.
+* Added timing-safe API key hash verification helper.
+* Added API consumer management repository.
+* Added API consumer management mapper.
+* Added Admin Consumer API.
+* Added API key management repository.
+* Added API key management mapper.
+* Added Admin API Key lifecycle API.
+* Added API key list-by-consumer endpoint.
+* Added API key issue endpoint.
+* Added API key revoke endpoint.
+* Ensured keyHash is never exposed.
+* Ensured rawKey is returned only once when issuing.
+* Added DB-backed API key verifier.
+* Added injectable API key auth middleware factory.
+* Wired DB-backed verifier into downstream proxy runtime auth.
+* Preserved env API_KEYS fallback.
+* Added request context fields for API key auth.
+* Added lastUsedAt best-effort update.
+* Validated issued DB API key can call protected route.
+* Validated revoked DB API key returns 403.
+* Validated `dev-api-key` env fallback still works.
+* Ran automated tests, typecheck, build, and Docker runtime validation.
+* Updated test status to 36 test files and 256 tests.
+
+---
+
+### Sprint 14 - Recommended Next
 
 Recommended goal:
 
 ```txt
-API Consumer and API Key Lifecycle Foundation
+API Key Usage Tracking and Consumer Analytics Foundation
 ```
 
 Recommended backend-first scope:
 
-* Add API consumer data model.
-* Add issued API key storage.
-* Add API key hashing strategy.
-* Add API key active/revoked status.
-* Add admin API to list/create/revoke consumer API keys.
-* Keep local dev API key fallback if needed.
-* Update API key middleware to support DB-backed keys carefully.
-* Add tests for valid, missing, invalid, and revoked API keys.
-* Run Docker runtime validation.
+* Add API usage event table or aggregate usage table.
+* Record request ownership when DB-backed API key is used.
+* Track apiKeyId, consumerId, route, method, statusCode, duration, and timestamp.
+* Keep env fallback traffic supported.
+* Expose admin read API for consumer usage summary.
+* Expose admin read API for key usage summary.
+* Prepare usage plans and quotas for later.
+* Do not build Admin Dashboard yet unless explicitly selected.
 
-Alternative Sprint 13 option:
+Alternative Sprint 14 option:
 
 ```txt
 Admin Auth / RBAC Hardening
+```
+
+Alternative Sprint 14 option:
+
+```txt
+Developer Portal Foundation
+```
+
+Alternative Sprint 14 option:
+
+```txt
+Usage Plans and Quotas Foundation
 ```
 
 Not recommended yet:
 
 ```txt
 Admin Dashboard UI
-Developer Portal UI
+Developer Portal UI before usage ownership is clear
 Kafka
 RabbitMQ
 Kubernetes
 Production cloud deployment
 Complex service discovery
+Billing
+Paid plans
+Multi-tenant organization model
 ```
 
 ---
 
-### Later - Service Registry and API Management Foundation
+### Later - Service Registry and API Management Expansion
 
 Planned goal:
 
 * Add service registry foundation.
-* Add API consumer database.
-* Add API key lifecycle.
+* Add advanced route matching.
+* Add route path parameters.
+* Add upstream path rewriting.
+* Add weighted upstreams.
+* Add host-based routing.
 * Add usage plans and quotas.
-* Add Admin Backend API.
+* Add Admin Backend API expansion.
 * Add Admin Dashboard foundation.
 * Add Developer Portal foundation.
 * Add OpenAPI documentation foundation.
@@ -3220,6 +4114,7 @@ Planned goal:
 * Add advanced Grafana dashboards.
 * Add alerting.
 * Add k6 load testing.
+* Add per-consumer and per-key metrics after usage tracking exists.
 
 Status:
 
