@@ -20,6 +20,14 @@ import {
 import { RedisRateLimitStore } from "./rate-limit/redis-rate-limit-store.js";
 import { disconnectRedis, getRedisClient } from "./redis/redis-client.js";
 import {
+  adminApiKeyRoute,
+  type AdminApiKeyRouteOptions,
+} from "./routes/admin-api-key.route.js";
+import {
+  adminConsumerRoute,
+  type AdminConsumerRouteOptions,
+} from "./routes/admin-consumer.route.js";
+import {
   adminRouteConfigRoute,
   type AdminRouteConfigRouteOptions,
 } from "./routes/admin-route-config.route.js";
@@ -33,10 +41,6 @@ import {
   createRouteRuntimeRegistry,
   type RouteRuntimeRegistry,
 } from "./runtime/route-runtime-registry.js";
-import {
-  adminConsumerRoute,
-  type AdminConsumerRouteOptions,
-} from "./routes/admin-consumer.route.js";
 
 type BuildApiGatewayAppOptions = {
   logger?: boolean;
@@ -45,6 +49,7 @@ type BuildApiGatewayAppOptions = {
   routeConfigs?: readonly DownstreamRouteConfig[];
   routeManagement?: AdminRouteConfigRouteOptions;
   consumerManagement?: AdminConsumerRouteOptions;
+  apiKeyManagement?: AdminApiKeyRouteOptions;
   routeRuntimeRegistry?: RouteRuntimeRegistry;
 };
 
@@ -108,14 +113,20 @@ export async function buildApiGatewayApp(
     routeRuntimeRegistry:
       options.routeManagement?.routeRuntimeRegistry ?? routeRuntimeRegistry,
   };
-    const consumerManagementOptions: AdminConsumerRouteOptions = {
+
+  const consumerManagementOptions: AdminConsumerRouteOptions = {
     ...(options.consumerManagement ?? {}),
+  };
+
+  const apiKeyManagementOptions: AdminApiKeyRouteOptions = {
+    ...(options.apiKeyManagement ?? {}),
   };
 
   await app.register(healthRoute);
   await app.register(metricsRoute, { metrics });
   await app.register(adminRouteConfigRoute, routeManagementOptions);
   await app.register(adminConsumerRoute, consumerManagementOptions);
+  await app.register(adminApiKeyRoute, apiKeyManagementOptions);
   await app.register(downstreamProxyRoute, downstreamProxyOptions);
 
   return app;
