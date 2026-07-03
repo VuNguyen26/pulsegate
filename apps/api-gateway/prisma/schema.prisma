@@ -86,7 +86,8 @@ model ApiConsumer {
   createdBy String? @map("created_by")
   updatedBy String? @map("updated_by")
 
-  apiKeys ApiKey[]
+  apiKeys        ApiKey[]
+  apiUsageEvents ApiUsageEvent[]
 
   @@index([status], name: "api_consumers_status_idx")
   @@index([createdAt], name: "api_consumers_created_at_idx")
@@ -94,9 +95,9 @@ model ApiConsumer {
 }
 
 model ApiKey {
-  id         String       @id @default(cuid())
-  consumerId String       @map("consumer_id")
-  consumer   ApiConsumer  @relation(fields: [consumerId], references: [id], onDelete: Restrict)
+  id         String      @id @default(cuid())
+  consumerId String      @map("consumer_id")
+  consumer   ApiConsumer @relation(fields: [consumerId], references: [id], onDelete: Restrict)
 
   name      String
   keyPrefix String       @map("key_prefix")
@@ -109,13 +110,46 @@ model ApiKey {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  createdBy String? @map("created_by")
+  createdBy String?   @map("created_by")
   revokedAt DateTime? @map("revoked_at")
-  revokedBy String? @map("revoked_by")
+  revokedBy String?   @map("revoked_by")
+
+  usageEvents ApiUsageEvent[]
 
   @@index([consumerId], name: "api_keys_consumer_id_idx")
   @@index([status], name: "api_keys_status_idx")
   @@index([keyPrefix], name: "api_keys_key_prefix_idx")
   @@index([expiresAt], name: "api_keys_expires_at_idx")
   @@map("api_keys")
+}
+
+model ApiUsageEvent {
+  id String @id @default(cuid())
+
+  requestId String @map("request_id")
+
+  routePath   String             @map("route_path")
+  routeMethod GatewayRouteMethod @map("route_method")
+
+  statusCode Int @map("status_code")
+  durationMs Int @map("duration_ms")
+
+  cacheStatus      String? @map("cache_status")
+  apiKeyAuthSource String? @map("api_key_auth_source")
+
+  apiKeyId String? @map("api_key_id")
+  apiKey   ApiKey? @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+
+  consumerId String?      @map("consumer_id")
+  consumer   ApiConsumer? @relation(fields: [consumerId], references: [id], onDelete: SetNull)
+
+  occurredAt DateTime @default(now()) @map("occurred_at")
+
+  @@index([occurredAt], name: "api_usage_events_occurred_at_idx")
+  @@index([consumerId, occurredAt], name: "api_usage_events_consumer_id_occurred_at_idx")
+  @@index([apiKeyId, occurredAt], name: "api_usage_events_api_key_id_occurred_at_idx")
+  @@index([routeMethod, routePath, occurredAt], name: "api_usage_events_route_method_path_occurred_at_idx")
+  @@index([statusCode], name: "api_usage_events_status_code_idx")
+  @@index([apiKeyAuthSource], name: "api_usage_events_auth_source_idx")
+  @@map("api_usage_events")
 }
