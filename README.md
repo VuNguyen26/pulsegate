@@ -1,4 +1,4 @@
-﻿# PulseGate
+# PulseGate
 
 <p align="center">
   <strong>High-Traffic API Gateway & Observability Platform</strong>
@@ -6,15 +6,17 @@
 
 <p align="center">
   A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, GitHub Actions CI/CD, route policies, database-backed dynamic route configuration, runtime route reload, API consumers, issued API keys, and DB-backed API key authentication.
+- API usage event tracking.
+- Consumer and API key usage summary APIs.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Sprint%2013%20Complete-brightgreen" />
-  <img src="https://img.shields.io/badge/version-v0.14.0-blue" />
+  <img src="https://img.shields.io/badge/status-Sprint%2014%20Complete-brightgreen" />
+  <img src="https://img.shields.io/badge/version-v0.15.0-blue" />
   <a href="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml">
     <img src="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
   </a>
-  <img src="https://img.shields.io/badge/tests-256%20passing-brightgreen" />
+  <img src="https://img.shields.io/badge/tests-270%20passing-brightgreen" />
   <img src="https://img.shields.io/badge/typecheck-passing-brightgreen" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
   <img src="https://img.shields.io/badge/Node.js-20%2B-green" />
@@ -47,6 +49,8 @@ The project demonstrates backend engineering around:
 - API consumer management.
 - Issued API key lifecycle management.
 - DB-backed API key authentication.
+- API usage event tracking.
+- Consumer and API key usage summary APIs.
 - JWT authentication.
 - Redis-backed rate limiting.
 - Redis response caching.
@@ -56,16 +60,16 @@ The project demonstrates backend engineering around:
 
 Current version:
 
-    v0.14.0
+    v0.15.0
 
 Current status:
 
-    Sprint 13 - API Consumer and API Key Lifecycle Foundation Complete
+    Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation Complete
 
 Current validation:
 
-    36 test files passed
-    256 tests passed
+    40 test files passed
+    270 tests passed
     npm run typecheck passed
     npm run build passed
     Docker runtime validation passed
@@ -73,7 +77,7 @@ Current validation:
 
 Recommended next sprint:
 
-    Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation
+    Sprint 15 - Usage Plans and Quota Foundation
 
 ---
 
@@ -237,6 +241,11 @@ Internal/admin API keys:
     POST /internal/admin/consumers/:consumerId/api-keys
     PATCH /internal/admin/api-keys/:id/revoke
 
+Internal/admin usage analytics:
+
+    GET /internal/admin/usage/consumers/:consumerId/summary
+    GET /internal/admin/usage/api-keys/:apiKeyId/summary
+
 ---
 
 ## Quick Start
@@ -327,10 +336,11 @@ Completed:
     Sprint 11 -> Route Runtime Reload / Admin Hardening Foundation
     Sprint 12 -> Catch-All Dynamic Router Foundation
     Sprint 13 -> API Consumer and API Key Lifecycle Foundation
+    Sprint 14 -> API Key Usage Tracking and Consumer Analytics Foundation
 
 Recommended next:
 
-    Sprint 14 -> API Key Usage Tracking and Consumer Analytics Foundation
+    Sprint 15 -> Usage Plans and Quota Foundation
 
 Later:
 
@@ -361,8 +371,7 @@ Later:
 - Host-based routing is not implemented yet.
 - Weighted upstreams are not implemented yet.
 - Service discovery is not implemented yet.
-- API key usage tracking is not implemented yet.
-- Per-consumer analytics are not implemented yet.
+- Failed auth request usage tracking is not implemented yet.
 - Usage plans and quotas are not implemented yet.
 - Admin Dashboard is not implemented yet.
 - Developer Portal is not implemented yet.

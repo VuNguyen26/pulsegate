@@ -8,15 +8,6 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 This file is intentionally compact.
 
-CURRENT_PROGRESS.md should only track:
-
-- Current project state.
-- Latest completed sprint.
-- Latest validation status.
-- Current architecture summary.
-- Known limitations.
-- Recommended next step.
-
 Detailed sprint history lives in:
 
 - docs/sdlc/sprint-history/
@@ -33,82 +24,68 @@ Long decision records live in:
 
 ## Current Version
 
-v0.14.0
+v0.15.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 13 - API Consumer and API Key Lifecycle Foundation
+Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation
 
 Status:
 
 Done.
 
-Sprint 13 added the first API Management ownership layer:
+Sprint 14 added the first usage tracking and consumer analytics foundation:
 
-- API consumers.
-- Issued API keys.
-- Hashed API key storage.
-- Admin Consumer API.
-- Admin API Key lifecycle API.
-- DB-backed runtime API key authentication.
-- API key revocation.
-- API key expiration check.
-- Disabled consumer rejection.
-- API key last-used metadata.
-- Env API_KEYS fallback for local/dev compatibility.
+- API usage event schema.
+- API usage event migration.
+- API usage recorder service.
+- Runtime usage recording during successful downstream proxy responses.
+- DB-backed API key usage attribution.
+- Env fallback traffic support.
+- Cache status tracking.
+- Consumer usage summary repository.
+- API key usage summary repository.
+- Admin consumer usage summary API.
+- Admin API key usage summary API.
+- Docker runtime validation for usage tracking.
 
-Sprint 13 details are archived in:
+Sprint 14 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-13.md
+- docs/sdlc/sprint-history/sprint-14.md
 
----
+Sprint 14 runbook:
 
-## Current Checkpoint
-
-Checkpoint 14.0 - Documentation Compaction and Archive Strategy
-
-Status:
-
-In progress.
-
-Goal:
-
-- Keep main docs compact.
-- Move detailed sprint history to docs/sdlc/sprint-history/.
-- Move long decision records to docs/project-context/decisions/.
-- Move manual validation commands to docs/runbooks/.
-- Prepare documentation structure before starting Sprint 14 code.
-
-Decision record:
-
-- docs/project-context/decisions/2026-07-03-documentation-compaction.md
+- docs/runbooks/api-usage-tracking.md
 
 ---
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 13:
+Latest stable validation from Sprint 14:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
 - Docker runtime validation -> passed
-- GitHub Actions CI -> passing
 
 Latest automated test result:
 
-- 36 test files passed
-- 256 tests passed
+- 40 test files passed
+- 270 tests passed
 
 Latest Docker runtime validation proved:
 
-- API consumer can be created.
-- DB-backed API key can be issued.
-- Issued DB-backed API key can call protected GET /api/products with JWT.
-- Revoked DB-backed API key returns 403.
-- Legacy dev-api-key env fallback still works.
+- gateway.api_usage_events table exists.
+- DB-backed API key traffic records usage event.
+- Usage event records apiKeyId and consumerId.
+- Usage event records apiKeyAuthSource=database.
+- Usage event records route, method, status code, duration, and cache status.
+- Consumer usage summary API returns usage totals.
+- API key usage summary API returns usage totals.
+- Revoked DB-backed key returns 403.
+- Revoked DB-backed request does not create a new successful usage event.
 
 ---
 
@@ -129,14 +106,17 @@ PulseGate currently has:
 - PostgreSQL-backed API Gateway route config.
 - PostgreSQL-backed API consumers.
 - PostgreSQL-backed issued API keys.
+- PostgreSQL-backed API usage events.
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
 - Internal/admin API key lifecycle APIs.
+- Internal/admin API usage summary APIs.
 - Runtime route registry.
 - Runtime registry reload endpoint.
 - Catch-all dynamic router for /api/*.
 - Shared downstream proxy pipeline.
 - DB-backed issued API key authentication.
+- API usage recorder.
 - Static env API key fallback.
 - JWT authentication.
 - Redis-backed rate limiting.
@@ -196,16 +176,7 @@ API Gateway tables:
 - gateway.gateway_routes
 - gateway.api_consumers
 - gateway.api_keys
-
-Current seeded Product Service data:
-
-- prod_001 - Mechanical Keyboard - 120
-- prod_002 - Gaming Mouse - 45
-
-Current seeded Gateway routes:
-
-- GET /api/products
-- GET /api/product-service/health
+- gateway.api_usage_events
 
 ---
 
@@ -252,146 +223,86 @@ Internal/admin API keys:
 - POST /internal/admin/consumers/:consumerId/api-keys
 - PATCH /internal/admin/api-keys/:id/revoke
 
----
+Internal/admin usage analytics:
 
-## Current Runtime Behavior
-
-Startup route config loading:
-
-- API Gateway tries to load active route configs from gateway.gateway_routes.
-- Active route means enabled=true and deleted_at IS NULL.
-- DB route records are mapped to runtime DownstreamRouteConfig.
-- Route configs are validated before use.
-- If DB loading fails or returns no active routes, API Gateway falls back to static route config.
-
-Runtime route registry:
-
-- Stores current route snapshot.
-- Tracks version, loadedAt, routeCount, and routes.
-- Existing registered routes resolve latest route config from registry per request.
-- Catch-all dynamic router resolves brand-new /api/* paths from registry per request.
-- Registry replacement validates new route configs before swap.
-
-Reload behavior:
-
-- POST /internal/admin/routes/reload reads active DB routes.
-- Reload validates mapped route configs.
-- Reload replaces the runtime registry snapshot when validation succeeds.
-- Existing registered routes can use updated config after reload.
-- Brand-new DB-backed /api/* routes can work after reload without API Gateway restart.
-
-Runtime auth:
-
-- Protected routes can require x-api-key.
-- DB-backed issued keys are verified by keyHash lookup.
-- Active key + active consumer + not expired means valid.
-- Revoked keys are rejected.
-- Expired keys are rejected.
-- Disabled consumer keys are rejected.
-- If DB key is not found or DB lookup is unavailable, env API_KEYS fallback is used.
-- If a DB key is known but invalid, PulseGate does not fall back to env API_KEYS.
+- GET /internal/admin/usage/consumers/:consumerId/summary
+- GET /internal/admin/usage/api-keys/:apiKeyId/summary
 
 ---
 
-## Current API Key Storage Rule
+## Current Usage Tracking Behavior
 
-Raw API keys are never persisted.
+Usage event table:
 
-Stored:
+- gateway.api_usage_events
 
-- keyHash
-- keyPrefix
+Recorded fields:
 
-Returned only once:
+- requestId
+- routePath
+- routeMethod
+- statusCode
+- durationMs
+- cacheStatus
+- apiKeyAuthSource
+- apiKeyId
+- consumerId
+- occurredAt
 
-- rawKey
+Current recording scope:
 
-Never exposed:
+- Successful downstream proxy handler responses.
+- Cache HIT.
+- Cache MISS.
+- Cache BYPASS.
+- DB-backed API key traffic.
+- Env fallback API key traffic.
 
-- keyHash
+Current summary APIs:
 
-Current key statuses:
+- Consumer usage summary.
+- API key usage summary.
 
-- ACTIVE
-- REVOKED
+Summary fields:
 
-Current consumer statuses:
+- totalRequests
+- successfulRequests
+- errorRequests
+- averageDurationMs
+- cacheHits
+- cacheMisses
+- cacheBypasses
+- lastRequestAt
 
-- ACTIVE
-- DISABLED
+Current limitation:
 
----
-
-## Current Observability
-
-Implemented:
-
-- Request ID propagation.
-- Structured access logs.
-- x-response-time-ms header.
-- Prometheus metrics endpoint.
-- Prometheus Docker service.
-- Grafana Docker service.
-- Provisioned Grafana dashboard.
-
-Current metrics:
-
-- http_requests_total
-- http_request_duration_seconds
-- http_response_cache_total
-
-Current dashboard:
-
-- PulseGate API Gateway Overview
-
----
-
-## Current Documentation Structure
-
-Main docs:
-
-- README.md
-- docs/architecture/overview.md
-- docs/sdlc/requirements.md
-- docs/project-context/CURRENT_PROGRESS.md
-- docs/project-context/AI_HANDOFF.md
-- docs/project-context/DECISION_LOG.md
-
-Archive docs:
-
-- docs/sdlc/sprint-history/sprint-13.md
-
-Decision records:
-
-- docs/project-context/decisions/2026-07-03-documentation-compaction.md
-
-Runbooks:
-
-- docs/runbooks/local-validation.md
-- docs/runbooks/admin-route-management.md
-- docs/runbooks/api-key-lifecycle.md
-- docs/runbooks/runtime-reload.md
+- Failed auth requests are not tracked yet.
+- Rate-limited requests are not tracked yet.
+- No usage plans or quotas yet.
+- No aggregate rollup table yet.
 
 ---
 
 ## Current Limitations
 
+- Failed authentication requests are not tracked yet.
+- Rate-limited requests are not tracked yet.
+- Usage data is event-based only.
+- No aggregate rollup table yet.
+- No retention policy yet.
+- No per-consumer Grafana dashboard yet.
+- No per-key Grafana dashboard yet.
+- Usage plans and quotas are not implemented yet.
+- Admin Dashboard is not implemented yet.
+- Developer Portal is not implemented yet.
+- Admin auth is still local admin API key based.
+- JWT auth is still local secret based.
 - Dynamic router supports exact method + exact path matching only.
 - Path parameters are not implemented yet.
 - Wildcard upstream path forwarding is not implemented yet.
 - Host-based routing is not implemented yet.
 - Weighted upstreams are not implemented yet.
 - Service discovery is not implemented yet.
-- API key usage tracking is not implemented yet.
-- Per-consumer analytics are not implemented yet.
-- Per-key analytics are not implemented yet.
-- Usage plans and quotas are not implemented yet.
-- Admin Dashboard is not implemented yet.
-- Developer Portal is not implemented yet.
-- Admin auth is still local admin API key based.
-- JWT auth is still local secret based.
-- Rate limit identity still uses raw API key value.
-- Grafana does not yet include per-consumer or per-key usage dashboards.
 - CI does not run the full Docker Compose runtime stack yet.
 - CI does not push Docker images to a registry yet.
 - CI does not deploy automatically yet.
@@ -401,17 +312,16 @@ Runbooks:
 
 ## Recommended Next Sprint
 
-Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation
+Sprint 15 - Usage Plans and Quota Foundation
 
 Recommended scope:
 
-- Add API usage event table or aggregate table.
-- Record request ownership when DB-backed API key is used.
-- Track apiKeyId, consumerId, route, method, statusCode, durationMs, and timestamp.
-- Keep env fallback traffic supported.
-- Expose admin read API for consumer usage summary.
-- Expose admin read API for API key usage summary.
-- Prepare usage plans and quotas for later.
+- Add usage plan schema.
+- Attach consumers or API keys to usage plans.
+- Define quota window model.
+- Prepare quota counters.
+- Start enforcing simple quota limits.
+- Keep API usage event tracking as source of truth.
 
 Do not add yet unless explicitly selected:
 

@@ -42,7 +42,7 @@ Current product direction:
 - Runtime route reload
 - API consumer management
 - API key lifecycle management
-- API key usage tracking
+- API usage tracking
 - Consumer analytics
 - Usage plans and quotas
 - Admin Dashboard later
@@ -59,18 +59,42 @@ Accepted.
 
 # Current Major Decisions
 
+## Keep Main Documentation Compact
+
+Decision:
+
+Keep main documentation files compact and role-based.
+
+Main files:
+
+- README.md
+- docs/architecture/overview.md
+- docs/sdlc/requirements.md
+- docs/project-context/CURRENT_PROGRESS.md
+- docs/project-context/AI_HANDOFF.md
+- docs/project-context/DECISION_LOG.md
+
+Archive folders:
+
+- docs/sdlc/sprint-history/
+- docs/project-context/decisions/
+- docs/runbooks/
+
+Detailed decision record:
+
+- docs/project-context/decisions/2026-07-03-documentation-compaction.md
+
+Status:
+
+Accepted.
+
+---
+
 ## Use Node.js, TypeScript, and Fastify
 
 Decision:
 
 Use Node.js, TypeScript, and Fastify for API Gateway and services.
-
-Reason:
-
-- Node.js fits backend API development.
-- TypeScript improves safety and maintainability.
-- Fastify is lightweight and has good TypeScript support.
-- The stack is suitable for learning production-style API Gateway patterns.
 
 Status:
 
@@ -90,12 +114,6 @@ Current structure:
 - apps/product-service
 - packages/shared
 
-Reason:
-
-- The project has multiple apps.
-- npm workspaces are simple and enough for this project stage.
-- Avoids unnecessary monorepo complexity early.
-
 Status:
 
 Accepted.
@@ -108,13 +126,6 @@ Decision:
 
 Implement one small stable checkpoint at a time.
 
-Reason:
-
-- Keeps changes reviewable.
-- Reduces regression risk.
-- Makes Git history cleaner.
-- Makes rollback easier.
-
 Status:
 
 Accepted.
@@ -126,12 +137,6 @@ Accepted.
 Decision:
 
 Run locally first through Docker Compose before cloud deployment.
-
-Reason:
-
-- Avoid paid cloud infrastructure early.
-- Make the project reproducible locally.
-- Build product behavior before production deployment complexity.
 
 Status:
 
@@ -150,12 +155,6 @@ Current ownership:
 - Product Service owns public schema.
 - API Gateway owns gateway schema.
 
-Reason:
-
-- PostgreSQL is production-grade.
-- Prisma provides type-safe database access.
-- Separate schemas prevent migration ownership conflicts.
-
 Status:
 
 Accepted.
@@ -167,17 +166,6 @@ Accepted.
 Decision:
 
 Use Redis for API Gateway traffic protection and caching.
-
-Current usage:
-
-- Redis-backed rate limit counters.
-- Redis response cache payloads.
-
-Reason:
-
-- Redis is common in API Gateway architectures.
-- It supports distributed counters and cache behavior.
-- It prepares the project for scalable Gateway patterns.
 
 Status:
 
@@ -191,19 +179,6 @@ Decision:
 
 Use Prometheus and Grafana for local observability.
 
-Current observability:
-
-- Request ID
-- Structured access logs
-- x-response-time-ms
-- Prometheus metrics
-- Grafana dashboard
-
-Reason:
-
-- Observability is core to API Gateway products.
-- Prometheus and Grafana are production-relevant and demo-friendly.
-
 Status:
 
 Accepted.
@@ -215,22 +190,6 @@ Accepted.
 Decision:
 
 Use GitHub Actions to validate repository health.
-
-Current CI validates:
-
-- npm ci
-- Prisma Client generation
-- npm run test
-- npm run typecheck
-- npm run build
-- API Gateway Docker image build
-- Product Service Docker image build
-
-Reason:
-
-- Main branch should stay stable.
-- CI badge improves GitHub project credibility.
-- CI catches test, typecheck, build, and Docker issues early.
 
 Status:
 
@@ -256,12 +215,6 @@ Current policy model:
 - responseTransform
 - retry
 
-Reason:
-
-- Avoid hardcoding behavior in route handlers.
-- Support public and protected routes differently.
-- Prepare for dynamic route management and Admin Dashboard.
-
 Status:
 
 Accepted.
@@ -273,12 +226,6 @@ Accepted.
 Decision:
 
 Store Gateway route config in gateway.gateway_routes.
-
-Reason:
-
-- Static TypeScript route config is not enough for a product-like API Gateway.
-- Route config should be persistent and manageable through APIs.
-- Admin Dashboard later needs backend route management.
 
 Status:
 
@@ -292,12 +239,6 @@ Decision:
 
 Keep static downstream route config as startup fallback.
 
-Reason:
-
-- Gateway startup should not become fragile.
-- If DB route loading fails or returns no active routes, stable local routes should still work.
-- This makes database-backed route config rollout safer.
-
 Status:
 
 Accepted.
@@ -309,20 +250,6 @@ Accepted.
 Decision:
 
 Use soft delete for Gateway route config records.
-
-Current behavior:
-
-- DELETE marks route as disabled.
-- deleted_at is set.
-- deleted_by is set.
-- Record remains in DB.
-- Runtime ignores soft-deleted routes.
-
-Reason:
-
-- Route config is operationally important.
-- History should remain available.
-- Recreate-after-delete should be safe.
 
 Status:
 
@@ -340,11 +267,6 @@ Rule:
 
 - method + gateway_path must be unique where deleted_at IS NULL.
 
-Reason:
-
-- Soft-deleted historical routes should not block recreating the same route.
-- Active routes must still avoid duplicate identity conflicts.
-
 Status:
 
 Accepted.
@@ -356,18 +278,6 @@ Accepted.
 Decision:
 
 Use a runtime route registry snapshot for active route configs.
-
-Current capabilities:
-
-- getSnapshot()
-- replaceRoutes(routes)
-- findRoute(method, gatewayPath)
-
-Reason:
-
-- Avoid unsafe Fastify runtime route mutation.
-- Let existing registered routes resolve latest config per request.
-- Allow safe reload after validation.
 
 Status:
 
@@ -381,20 +291,6 @@ Decision:
 
 Use a stable /api/* catch-all dynamic router instead of unsafe Fastify unregister/register.
 
-Current scope:
-
-- GET /api/*
-- POST /api/*
-- PUT /api/*
-- PATCH /api/*
-- DELETE /api/*
-
-Reason:
-
-- Fastify route table remains stable.
-- Brand-new DB-backed /api/* paths can work after reload.
-- Avoids stale handlers and duplicate route registration risks.
-
 Status:
 
 Accepted.
@@ -406,11 +302,6 @@ Accepted.
 Decision:
 
 Dynamic router currently uses exact method + exact path matching.
-
-Reason:
-
-- Sprint 12 goal was no-restart runtime apply for new DB-backed /api/* paths.
-- Advanced matching requires separate design.
 
 Deferred:
 
@@ -435,12 +326,6 @@ Decision:
 
 Store API consumers in gateway.api_consumers.
 
-Reason:
-
-- API consumers are part of API Management.
-- Product Service should not own consumer data.
-- Consumers are needed before API key ownership, usage tracking, quotas, and Developer Portal.
-
 Status:
 
 Accepted.
@@ -452,12 +337,6 @@ Accepted.
 Decision:
 
 Store issued API keys in gateway.api_keys.
-
-Reason:
-
-- API keys are owned by API Gateway/API Management.
-- API keys need lifecycle management independent from downstream services.
-- Keys need to belong to consumers.
 
 Status:
 
@@ -480,12 +359,6 @@ Returned only once:
 
 - rawKey
 
-Reason:
-
-- Raw API keys are secrets.
-- Losing the raw key should require issuing a new key.
-- Admins only need prefix and lifecycle metadata after issuance.
-
 Status:
 
 Accepted.
@@ -501,12 +374,6 @@ Use deterministic hashing for API key lookup.
 Current implementation:
 
 - SHA-256 hex hash
-
-Reason:
-
-- Enables lookup by keyHash.
-- Keeps raw keys out of the database.
-- Provides a simple local-first foundation.
 
 Status:
 
@@ -525,11 +392,6 @@ Current statuses:
 - ACTIVE
 - REVOKED
 
-Reason:
-
-- Revoked keys should remain visible for audit and troubleshooting.
-- Lifecycle metadata should not disappear.
-
 Status:
 
 Accepted.
@@ -547,14 +409,6 @@ Current statuses:
 - ACTIVE
 - DISABLED
 
-Runtime rule:
-
-- Keys belonging to DISABLED consumers are rejected.
-
-Reason:
-
-- Admins need a way to disable all keys for a consumer without deleting records.
-
 Status:
 
 Accepted.
@@ -566,11 +420,6 @@ Accepted.
 Decision:
 
 If a DB-backed key is found but revoked, expired, or belongs to a disabled consumer, reject it.
-
-Reason:
-
-- Fallback should not bypass revocation or disabled status.
-- Revocation must be authoritative.
 
 Status:
 
@@ -584,12 +433,6 @@ Decision:
 
 Keep env API_KEYS fallback after DB-backed API key auth.
 
-Reason:
-
-- dev-api-key remains useful for local development.
-- Existing tests and local workflows remain stable.
-- DB-backed auth rollout stays safe.
-
 Status:
 
 Accepted.
@@ -602,100 +445,156 @@ Decision:
 
 Update lastUsedAt as best-effort metadata.
 
-Reason:
-
-- Useful for admin visibility.
-- Should not fail a valid request if metadata update fails.
-- Full usage tracking belongs in a later sprint.
-
 Status:
 
 Accepted.
 
 ---
 
-## Keep Rate Limit Identity Based on Raw API Key for Sprint 13
+# API Usage Decisions
+
+## Store API Usage Events in Gateway Schema
 
 Decision:
 
-Do not change rate limit identity during Sprint 13.
-
-Current limitation:
-
-- Rate limit identity still uses raw API key value.
+Store API usage events in gateway.api_usage_events.
 
 Reason:
 
-- Sprint 13 focused on API key lifecycle and DB-backed auth.
-- apiKeyId/consumerId rate limit identity should be designed after usage tracking.
+- Usage tracking belongs to API Gateway/API Management.
+- Product Service should not own usage analytics.
+- Usage events are needed before usage plans, quotas, Admin Dashboard analytics, and Developer Portal usage views.
 
 Status:
 
-Accepted.
+Accepted in Sprint 14.
 
 ---
 
-# Documentation Decisions
-
-## Documentation Compaction and Archive Strategy
+## Record Usage After Successful Downstream Proxy Handling
 
 Decision:
 
-From Sprint 14 onward, keep main docs compact and role-based.
+Record usage events after the request reaches downstream proxy handler and produces a successful proxy response path.
 
-Main files:
+Current recorded cases:
 
-- README.md
-- docs/architecture/overview.md
-- docs/sdlc/requirements.md
-- docs/project-context/CURRENT_PROGRESS.md
-- docs/project-context/AI_HANDOFF.md
-- docs/project-context/DECISION_LOG.md
+- Cache HIT.
+- Cache MISS.
+- Cache BYPASS.
+- DB-backed API key traffic.
+- Env fallback API key traffic.
+- Public proxy traffic with no API key.
 
-Archive folders:
+Current not recorded:
 
-- docs/sdlc/sprint-history/
-- docs/project-context/decisions/
-- docs/runbooks/
-
-Detailed decision record:
-
-- docs/project-context/decisions/2026-07-03-documentation-compaction.md
+- Missing API key.
+- Invalid API key.
+- Missing JWT.
+- Invalid JWT.
+- Rate-limited request.
 
 Reason:
 
-- Avoid documentation bloat.
-- Reduce duplicated content.
-- Make future AI handoff faster.
-- Keep README cleaner for GitHub.
+- Sprint 14 focuses on API Management usage attribution for proxied traffic.
+- Failed auth and security events need separate design.
 
 Status:
 
-Accepted.
+Accepted in Sprint 14.
+
+---
+
+## Usage Recorder Failure Must Not Fail Client Response
+
+Decision:
+
+If usage recording fails, PulseGate should log the error and still return the successful proxied response.
+
+Reason:
+
+- Usage tracking is operational metadata.
+- A telemetry/analytics write failure should not break a valid downstream response.
+
+Status:
+
+Accepted in Sprint 14.
+
+---
+
+## Keep Usage Tracking Event-Based First
+
+Decision:
+
+Use event-based usage tracking first.
+
+Reason:
+
+- Simple and auditable foundation.
+- Easier to validate.
+- Can support later aggregate rollup tables.
+- Can become source of truth for quotas and analytics.
+
+Deferred:
+
+- Rollup tables.
+- Retention policy.
+- Async event pipeline.
+
+Status:
+
+Accepted in Sprint 14.
+
+---
+
+## Add Admin Usage Summary APIs
+
+Decision:
+
+Expose admin summary APIs for consumer and API key usage.
+
+Endpoints:
+
+- GET /internal/admin/usage/consumers/:consumerId/summary
+- GET /internal/admin/usage/api-keys/:apiKeyId/summary
+
+Reason:
+
+- Admin users need usage visibility.
+- Usage summaries prepare for Admin Dashboard and Developer Portal.
+- Sprint 14 should prove the usage tracking data can be read back through APIs.
+
+Status:
+
+Accepted in Sprint 14.
 
 ---
 
 # Sprint Direction Decisions
 
-## Sprint 13 Completed Direction
+## Sprint 14 Completed Direction
 
 Decision:
 
-Sprint 13 focused on API Consumer and API Key Lifecycle Foundation.
+Sprint 14 focused on API Key Usage Tracking and Consumer Analytics Foundation.
 
 Included:
 
-- API consumers
-- Issued API keys
-- Key hashing
-- Admin Consumer API
-- Admin API Key lifecycle API
-- DB-backed runtime API key auth
-- Env API_KEYS fallback
+- API usage event schema.
+- API usage recorder.
+- Runtime usage recording in downstream proxy.
+- Consumer usage summary.
+- API key usage summary.
+- Admin usage summary APIs.
+- Docker runtime validation.
 
 Detailed archive:
 
-- docs/sdlc/sprint-history/sprint-13.md
+- docs/sdlc/sprint-history/sprint-14.md
+
+Runbook:
+
+- docs/runbooks/api-usage-tracking.md
 
 Status:
 
@@ -703,31 +602,26 @@ Done.
 
 ---
 
-## Sprint 14 Recommended Direction
+## Sprint 15 Recommended Direction
 
 Decision:
 
-Sprint 14 should focus on API Key Usage Tracking and Consumer Analytics Foundation.
+Sprint 15 should focus on Usage Plans and Quota Foundation.
 
 Reason:
 
-- Sprint 13 introduced real API consumers and issued API keys.
-- Next product-like API Management step is traffic attribution.
-- Usage tracking should come before usage plans, quotas, dashboard analytics, and Developer Portal usage views.
+- Sprint 13 introduced API consumers and issued API keys.
+- Sprint 14 introduced usage tracking and usage summaries.
+- The next API Management step is attaching usage limits to consumers or keys.
 
 Recommended scope:
 
-- API usage event table or aggregate table.
-- Record apiKeyId.
-- Record consumerId.
-- Record route.
-- Record method.
-- Record statusCode.
-- Record durationMs.
-- Record timestamp.
-- Support env fallback traffic safely.
-- Admin consumer usage summary API.
-- Admin API key usage summary API.
+- Usage plan schema.
+- Consumer or API key plan assignment.
+- Quota window model.
+- Simple quota counters.
+- Basic quota enforcement.
+- Keep usage events as source of truth.
 
 Status:
 
@@ -739,21 +633,24 @@ Recommended next technical sprint.
 
 These are intentionally deferred:
 
-- Admin Dashboard UI
-- Developer Portal UI
-- Usage plans and quotas
-- Billing
-- Paid plans
-- Multi-tenant organization model
-- Stronger admin users and RBAC
-- Route management audit log table
-- Advanced route matching
-- Service registry
-- OpenTelemetry tracing
-- Loki centralized logs
-- k6 load testing
-- Kafka
-- RabbitMQ
-- Docker image registry push
-- Kubernetes deployment
-- Production cloud deployment
+- Failed auth request tracking.
+- Rate-limited request tracking.
+- Usage aggregate rollup table.
+- Usage retention policy.
+- Admin Dashboard UI.
+- Developer Portal UI.
+- Billing.
+- Paid plans.
+- Multi-tenant organization model.
+- Stronger admin users and RBAC.
+- Route management audit log table.
+- Advanced route matching.
+- Service registry.
+- OpenTelemetry tracing.
+- Loki centralized logs.
+- k6 load testing.
+- Kafka.
+- RabbitMQ.
+- Docker image registry push.
+- Kubernetes deployment.
+- Production cloud deployment.

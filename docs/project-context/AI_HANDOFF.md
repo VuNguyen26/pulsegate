@@ -34,19 +34,15 @@ Local path:
 
 Current version:
 
-- v0.14.0
+- v0.15.0
 
 Latest completed sprint:
 
-- Sprint 13 - API Consumer and API Key Lifecycle Foundation
-
-Current checkpoint:
-
-- Checkpoint 14.0 - Documentation Compaction and Archive Strategy
+- Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation
 
 Recommended next technical sprint:
 
-- Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation
+- Sprint 15 - Usage Plans and Quota Foundation
 
 ---
 
@@ -115,26 +111,28 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 13:
+Latest stable validation from Sprint 14:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
 - Docker runtime validation -> passed
-- GitHub Actions CI -> passing
 
 Latest automated test result:
 
-- 36 test files passed
-- 256 tests passed
+- 40 test files passed
+- 270 tests passed
 
-Sprint 13 runtime validation proved:
+Sprint 14 runtime validation proved:
 
-- Admin can create API consumer.
-- Admin can issue DB-backed API key.
-- Issued DB-backed key can call GET /api/products with JWT.
+- gateway.api_usage_events table exists.
+- DB-backed API key request records usage event.
+- Usage event includes apiKeyId and consumerId.
+- Usage event includes apiKeyAuthSource=database.
+- Consumer usage summary API works.
+- API key usage summary API works.
 - Revoked DB-backed key returns 403.
-- Legacy dev-api-key env fallback still returns 200.
+- Revoked request does not create a new successful usage event.
 
 ---
 
@@ -160,9 +158,13 @@ API Gateway currently supports:
 - Timeout policy.
 - Retry policy foundation.
 - Downstream error normalization.
+- API usage event recording.
+- Consumer usage summary.
+- API key usage summary.
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
 - Internal/admin API key lifecycle APIs.
+- Internal/admin API usage summary APIs.
 - Structured access logs.
 - Prometheus metrics.
 - Grafana dashboard.
@@ -191,111 +193,63 @@ API Gateway owns:
 - gateway.gateway_routes
 - gateway.api_consumers
 - gateway.api_keys
+- gateway.api_usage_events
 - gateway._prisma_migrations
 
 Reason:
 
 - Product Service owns product data.
-- API Gateway owns Gateway route config, API consumers, and issued API keys.
+- API Gateway owns Gateway route config, API consumers, issued API keys, and usage events.
 - Separate schemas avoid Prisma migration drift and ownership conflicts.
 
 ---
 
-## Current Runtime Route Behavior
+## Current API Usage Behavior
 
-Startup:
+Usage event table:
 
-- API Gateway tries to load active routes from gateway.gateway_routes.
-- Active means enabled=true and deleted_at IS NULL.
-- DB records are mapped to runtime route config.
-- Mapped routes are validated.
-- If DB load fails or returns no active routes, API Gateway falls back to static route config.
-- Runtime route registry is created from resolved startup routes.
-- Known startup routes are registered.
-- A stable /api/* catch-all dynamic router is registered.
+- gateway.api_usage_events
 
-Reload:
+Recorded for successful downstream proxy handler responses:
 
-- POST /internal/admin/routes/reload loads active DB routes.
-- Reload validates mapped route configs.
-- Reload replaces runtime registry snapshot when valid.
-- Existing registered paths use updated config after reload.
-- Brand-new DB-backed /api/* paths work after reload without API Gateway restart.
+- requestId
+- routePath
+- routeMethod
+- statusCode
+- durationMs
+- cacheStatus
+- apiKeyAuthSource
+- apiKeyId
+- consumerId
+- occurredAt
 
-Current reload metadata:
+Cache status values:
 
-- mode = runtime-registry-refresh
-- registryAvailable = true
-- registryApplied = true
-- runtimeApplied = true
-- runtimeScope = dynamic-router
-- newRoutesRequireRestart = false
-- requiresRestart = false
+- HIT
+- MISS
+- BYPASS
 
-Important routing limitation:
+Admin usage summary endpoints:
 
-- Exact method + exact path matching only.
-- No path params yet.
-- No wildcard upstream path mapping yet.
-- No host-based routing yet.
-- No weighted upstreams yet.
-- No service discovery yet.
+- GET /internal/admin/usage/consumers/:consumerId/summary
+- GET /internal/admin/usage/api-keys/:apiKeyId/summary
 
----
+Summary fields:
 
-## Current API Key Behavior
-
-API consumers:
-
-- Stored in gateway.api_consumers.
-- Statuses: ACTIVE, DISABLED.
-
-API keys:
-
-- Stored in gateway.api_keys.
-- Statuses: ACTIVE, REVOKED.
-
-Secret storage rule:
-
-- Raw API keys are never persisted.
-- keyHash is persisted.
-- keyPrefix is persisted.
-- rawKey is returned only once during issue response.
-- keyHash is never exposed in API responses.
-
-Runtime DB-backed API key auth:
-
-- Reads x-api-key.
-- Hashes incoming raw key.
-- Looks up gateway.api_keys by keyHash.
-- Includes related API consumer.
-- Accepts active key if consumer is active and key is not expired.
-- Rejects revoked key.
-- Rejects expired key.
-- Rejects key belonging to disabled consumer.
-- Updates lastUsedAt as best-effort metadata.
-- Attaches request.apiKeyId for DB-backed keys.
-- Attaches request.apiConsumerId for DB-backed keys.
-- Attaches request.apiKeyAuthSource.
-
-Security rule:
-
-- If a DB-backed key is found but revoked, expired, or belongs to a disabled consumer, reject the request.
-- Do not fall back to env API_KEYS in that case.
-
-Env fallback rule:
-
-- If DB key is not found, fallback to env API_KEYS.
-- If DB lookup is unavailable, fallback to env API_KEYS.
-- Local dev fallback key is dev-api-key.
+- totalRequests
+- successfulRequests
+- errorRequests
+- averageDurationMs
+- cacheHits
+- cacheMisses
+- cacheBypasses
+- lastRequestAt
 
 Current limitation:
 
-- lastUsedAt is metadata only.
-- Full usage tracking does not exist yet.
-- Per-consumer analytics do not exist yet.
-- Per-key analytics do not exist yet.
-- Rate limit identity still uses raw API key value.
+- Failed auth requests are not tracked yet.
+- Rate-limited requests are not tracked yet.
+- No usage plan or quota enforcement yet.
 
 ---
 
@@ -319,28 +273,10 @@ Dynamic dispatcher:
 - PATCH /api/*
 - DELETE /api/*
 
-Internal/admin route management:
+Internal/admin usage analytics:
 
-- GET /internal/admin/routes
-- GET /internal/admin/routes/runtime
-- GET /internal/admin/routes/:id
-- POST /internal/admin/routes
-- PATCH /internal/admin/routes/:id
-- DELETE /internal/admin/routes/:id
-- POST /internal/admin/routes/reload
-
-Internal/admin consumers:
-
-- GET /internal/admin/consumers
-- POST /internal/admin/consumers
-- GET /internal/admin/consumers/:id
-- PATCH /internal/admin/consumers/:id
-
-Internal/admin API keys:
-
-- GET /internal/admin/consumers/:consumerId/api-keys
-- POST /internal/admin/consumers/:consumerId/api-keys
-- PATCH /internal/admin/api-keys/:id/revoke
+- GET /internal/admin/usage/consumers/:consumerId/summary
+- GET /internal/admin/usage/api-keys/:apiKeyId/summary
 
 Admin auth:
 
@@ -352,27 +288,16 @@ Admin auth:
 
 ## Important Files
 
-API Gateway:
+API Gateway usage tracking:
 
-- apps/api-gateway/src/app.ts
-- apps/api-gateway/src/server.ts
-- apps/api-gateway/src/proxy/downstream-proxy-handler.ts
-- apps/api-gateway/src/routes/product-proxy.route.ts
-- apps/api-gateway/src/routes/admin-route-config.route.ts
-- apps/api-gateway/src/routes/admin-consumer.route.ts
-- apps/api-gateway/src/routes/admin-api-key.route.ts
-- apps/api-gateway/src/runtime/route-runtime-registry.ts
-- apps/api-gateway/src/api-consumers/
-- apps/api-gateway/src/api-keys/
-- apps/api-gateway/src/route-management/
 - apps/api-gateway/prisma/schema.prisma
-
-Product Service:
-
-- apps/product-service/src/server.ts
-- apps/product-service/src/routes/product.route.ts
-- apps/product-service/src/products/product.repository.ts
-- apps/product-service/prisma/schema.prisma
+- apps/api-gateway/prisma/migrations/20260703150000_add_api_usage_events/migration.sql
+- apps/api-gateway/src/api-usage/api-usage-recorder.ts
+- apps/api-gateway/src/api-usage/api-usage-summary.repository.ts
+- apps/api-gateway/src/api-usage/api-usage-summary.mapper.ts
+- apps/api-gateway/src/api-usage/api-usage-summary.types.ts
+- apps/api-gateway/src/routes/admin-api-usage.route.ts
+- apps/api-gateway/src/proxy/downstream-proxy-handler.ts
 
 Docs:
 
@@ -382,9 +307,8 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-13.md
-- docs/project-context/decisions/2026-07-03-documentation-compaction.md
-- docs/runbooks/
+- docs/sdlc/sprint-history/sprint-14.md
+- docs/runbooks/api-usage-tracking.md
 
 ---
 
@@ -434,11 +358,14 @@ Work style:
 
 ## Current Known Limitations
 
-- No API usage event table yet.
-- No per-consumer analytics yet.
-- No per-key analytics yet.
-- No usage plans yet.
-- No quotas yet.
+- Failed auth requests are not tracked yet.
+- Rate-limited requests are not tracked yet.
+- No usage plan model yet.
+- No quota enforcement yet.
+- No aggregate rollup table yet.
+- No retention policy yet.
+- No per-consumer Grafana dashboard yet.
+- No per-key Grafana dashboard yet.
 - No Admin Dashboard yet.
 - No Developer Portal yet.
 - No admin user/RBAC system yet.
@@ -449,8 +376,6 @@ Work style:
 - No host-based routing yet.
 - No weighted upstreams yet.
 - No service discovery yet.
-- Rate limit identity still uses raw API key value.
-- Grafana does not yet include per-consumer or per-key usage dashboards.
 - CI does not run full Docker Compose runtime stack yet.
 - CI does not push Docker images to registry yet.
 - CI does not deploy automatically yet.
@@ -461,25 +386,17 @@ Work style:
 
 ## Recommended Next Step
 
-Finish Checkpoint 14.0:
+Finish Sprint 14 docs:
 
-- Compact DECISION_LOG.md.
+- Update overview.md.
+- Update requirements.md.
+- Update DECISION_LOG.md.
 - Run npm run test.
 - Run npm run typecheck.
 - Run npm run build.
-- Review git status.
-- Commit docs with message: docs: compact project documentation structure.
+- Commit docs with message: docs: finalize sprint 14 documentation.
 - Push.
 
 Then start:
 
-- Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation
-
-Recommended Sprint 14 scope:
-
-- Add API usage event or aggregate table.
-- Record apiKeyId, consumerId, route, method, statusCode, durationMs, and timestamp.
-- Support env fallback traffic safely.
-- Expose admin consumer usage summary API.
-- Expose admin API key usage summary API.
-- Prepare usage plans and quotas for later.
+- Sprint 15 - Usage Plans and Quota Foundation

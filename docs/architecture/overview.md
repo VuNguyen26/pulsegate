@@ -6,20 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.14.0
+v0.15.0
 
 ## Current Status
 
-Sprint 13 - API Consumer and API Key Lifecycle Foundation Complete
+Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation Complete
 
 Current validation:
 
-- 36 test files passed
-- 256 tests passed
+- 40 test files passed
+- 270 tests passed
 - npm run typecheck passed
 - npm run build passed
 - Docker runtime validation passed
-- GitHub Actions CI passing
 
 ---
 
@@ -51,7 +50,7 @@ PulseGate is a local-first API Gateway, API Management, and Observability Platfo
 - Apigee
 - AWS API Gateway
 
-PulseGate is designed to demonstrate backend engineering around:
+PulseGate demonstrates backend engineering around:
 
 - API Gateway routing
 - Microservice communication
@@ -60,6 +59,8 @@ PulseGate is designed to demonstrate backend engineering around:
 - API consumer management
 - Issued API key lifecycle
 - DB-backed API key authentication
+- API usage tracking
+- Consumer and API key analytics
 - Traffic protection
 - Observability
 - CI/CD
@@ -96,6 +97,7 @@ Runtime flow:
         -> JWT auth when required
         -> Redis response cache when enabled
         -> Shared downstream proxy pipeline
+        -> API usage recorder after successful proxy response
       -> Product Service :3001
       -> PostgreSQL / Redis / Prometheus / Grafana
 
@@ -137,14 +139,15 @@ API Gateway owns gateway and API management data.
       -> gateway.gateway_routes
       -> gateway.api_consumers
       -> gateway.api_keys
+      -> gateway.api_usage_events
       -> gateway._prisma_migrations
 
 Reason:
 
-- Product Service should own product data.
-- API Gateway should own route config, API consumers, and API keys.
+- Product Service owns product data.
+- API Gateway owns route config, API consumers, issued API keys, and usage events.
 - Separate schemas avoid Prisma migration ownership conflicts.
-- Gateway auth and route management should not depend on downstream service data models.
+- Gateway auth, route management, and API management should not depend on downstream service data models.
 
 ---
 
@@ -168,6 +171,9 @@ API Gateway currently handles:
 - JWT authentication.
 - Redis-backed rate limiting.
 - Redis response cache.
+- API usage event recording.
+- Consumer usage summary.
+- API key usage summary.
 - Request transform foundation.
 - Response transform foundation.
 - Timeout policy.
@@ -176,6 +182,7 @@ API Gateway currently handles:
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
 - Internal/admin API key lifecycle APIs.
+- Internal/admin API usage summary APIs.
 - Structured access logs.
 - Prometheus metrics.
 
@@ -199,32 +206,6 @@ Current seeded products:
 
 ---
 
-## Startup Route Config Loading
-
-Startup flow:
-
-    API Gateway process starts
-      -> loadRuntimeDownstreamRouteConfigs()
-      -> try loading active DB routes from gateway.gateway_routes
-      -> active means enabled=true and deleted_at IS NULL
-      -> map DB records to DownstreamRouteConfig
-      -> validate mapped route configs
-      -> use DB routes when valid and non-empty
-      -> fall back to static downstreamRouteConfigs when DB load fails or returns empty
-      -> create runtime route registry
-      -> register known startup routes
-      -> register catch-all dynamic router for /api/*
-      -> wire DB-backed API key middleware into downstream proxy
-      -> connect Redis
-      -> listen on port 3000
-
-Static fallback routes:
-
-- GET /api/products
-- GET /api/product-service/health
-
----
-
 ## Runtime Route Registry
 
 Runtime registry purpose:
@@ -241,13 +222,6 @@ Registry capabilities:
 - replaceRoutes(routes)
 - findRoute(method, gatewayPath)
 
-Snapshot fields:
-
-- version
-- loadedAt
-- routeCount
-- routes
-
 Important safety rule:
 
 PulseGate does not dynamically unregister or register arbitrary Fastify routes at runtime.
@@ -258,46 +232,6 @@ Instead:
 - Runtime registry stores active route config.
 - Existing registered routes read from the registry.
 - The stable /api/* catch-all route dispatches new DB-backed paths through registry lookup.
-
----
-
-## Catch-All Dynamic Router
-
-Dynamic router scope:
-
-- /api/*
-
-Supported methods:
-
-- GET
-- POST
-- PUT
-- PATCH
-- DELETE
-
-Dynamic route flow:
-
-    Client
-      -> GET /api/new-runtime-path
-      -> Fastify matches /api/* catch-all route
-      -> Dynamic router extracts method and request path
-      -> Runtime registry lookup by exact method + exact path
-      -> If route does not exist, return 404 ROUTE_NOT_FOUND
-      -> If route exists, use shared downstream proxy pipeline
-
-Current dynamic route capability:
-
-- Brand-new DB-backed /api/* routes can work after POST /internal/admin/routes/reload.
-- API Gateway restart is not required after successful reload.
-
-Current limitation:
-
-- Exact method + exact path matching only.
-- Path parameters are not implemented yet.
-- Wildcard upstream path mapping is not implemented yet.
-- Host-based routing is not implemented yet.
-- Weighted upstreams are not implemented yet.
-- Service discovery is not implemented yet.
 
 ---
 
@@ -318,6 +252,7 @@ Pipeline:
       -> Retry policy foundation
       -> Downstream fetch
       -> Response transform foundation
+      -> API usage recorder
       -> Normalized downstream errors
 
 The same pipeline is used by:
@@ -328,8 +263,6 @@ The same pipeline is used by:
 ---
 
 ## API Consumer and API Key Architecture
-
-Sprint 13 added API consumer and API key lifecycle foundation.
 
 API consumers:
 
@@ -369,21 +302,96 @@ Runtime DB-backed API key auth flow:
       -> update lastUsedAt best-effort
       -> attach request.apiKeyId and request.apiConsumerId when valid
 
-Invalid DB-backed states:
-
-- API key status is REVOKED.
-- API key is expired.
-- API consumer status is DISABLED.
-
 Important security rule:
 
 If a DB-backed key is found but revoked, expired, or belongs to a disabled consumer, PulseGate rejects the request and does not fall back to env API_KEYS.
 
-Env fallback is used only when:
+---
 
-- DB key is not found.
-- DB lookup is unavailable.
-- DB lookup is intentionally skipped in local/dev mode.
+## API Usage Tracking Architecture
+
+Sprint 14 added the API usage tracking foundation.
+
+Usage table:
+
+    gateway.api_usage_events
+
+Usage event fields:
+
+- requestId
+- routePath
+- routeMethod
+- statusCode
+- durationMs
+- cacheStatus
+- apiKeyAuthSource
+- apiKeyId
+- consumerId
+- occurredAt
+
+Relations:
+
+- ApiUsageEvent -> ApiKey
+- ApiUsageEvent -> ApiConsumer
+- ApiKey -> usageEvents
+- ApiConsumer -> apiUsageEvents
+
+Usage recorder behavior:
+
+- Records successful downstream proxy handler responses.
+- Records DB-backed API key traffic with apiKeyId and consumerId.
+- Records env fallback traffic without apiKeyId and consumerId.
+- Records cache status HIT, MISS, or BYPASS.
+- Records response status code and durationMs.
+- Usage recorder failure does not fail the client response.
+
+Current usage recording limitation:
+
+- Missing API key requests are not tracked yet.
+- Invalid API key requests are not tracked yet.
+- Missing JWT requests are not tracked yet.
+- Invalid JWT requests are not tracked yet.
+- Rate-limited requests are not tracked yet.
+- Usage tracking is event-based only.
+- No aggregate rollup table yet.
+
+---
+
+## Admin Usage Summary Architecture
+
+Admin usage summary endpoints:
+
+- GET /internal/admin/usage/consumers/:consumerId/summary
+- GET /internal/admin/usage/api-keys/:apiKeyId/summary
+
+Both endpoints require:
+
+- x-admin-api-key
+
+Consumer summary behavior:
+
+- Verifies consumer exists.
+- Returns 404 API_CONSUMER_NOT_FOUND when missing.
+- Returns usage summary for consumerId.
+
+API key summary behavior:
+
+- Verifies API key exists.
+- Returns 404 API_KEY_NOT_FOUND when missing.
+- Returns usage summary for apiKeyId.
+
+Summary fields:
+
+- subjectType
+- subjectId
+- totalRequests
+- successfulRequests
+- errorRequests
+- averageDurationMs
+- cacheHits
+- cacheMisses
+- cacheBypasses
+- lastRequestAt
 
 ---
 
@@ -413,44 +421,6 @@ Current behavior:
 - Rejects duplicate active method + gatewayPath.
 - Reloads active DB routes into runtime registry.
 
-Soft delete behavior:
-
-- Sets enabled=false.
-- Sets deleted_at.
-- Sets deleted_by.
-- Sets updated_by.
-- Excludes route from admin list/detail.
-- Excludes route from runtime loading.
-- Allows recreating the same method + gatewayPath because uniqueness applies only to active non-deleted routes.
-
----
-
-## API Consumer and API Key Admin APIs
-
-Internal/admin consumer endpoints:
-
-- GET /internal/admin/consumers
-- POST /internal/admin/consumers
-- GET /internal/admin/consumers/:id
-- PATCH /internal/admin/consumers/:id
-
-Internal/admin API key endpoints:
-
-- GET /internal/admin/consumers/:consumerId/api-keys
-- POST /internal/admin/consumers/:consumerId/api-keys
-- PATCH /internal/admin/api-keys/:id/revoke
-
-Current behavior:
-
-- All endpoints require x-admin-api-key.
-- Consumer creation requires name.
-- Consumer status defaults to ACTIVE.
-- API key issue returns rawKey once.
-- API key list does not expose rawKey.
-- API key list does not expose keyHash.
-- API key revoke sets status=REVOKED.
-- API key revoke sets revokedAt and revokedBy.
-
 ---
 
 ## Route Policy Model
@@ -473,6 +443,7 @@ Current protected product route:
 - Uses Redis-backed rate limit.
 - Uses Redis response cache.
 - Proxies to Product Service GET /products on cache MISS.
+- Records API usage event after successful proxy response.
 
 Current public health proxy route:
 
@@ -482,8 +453,7 @@ Current public health proxy route:
 - Does not use Redis rate limit.
 - Does not use Redis response cache.
 - Proxies to Product Service GET /health.
-
-Dynamic DB-backed routes use the same policy model.
+- Records API usage event with no apiKeyId and no consumerId.
 
 ---
 
@@ -500,6 +470,7 @@ Current observability layers:
 - Grafana Docker service.
 - Provisioned Grafana datasource.
 - Provisioned API Gateway dashboard.
+- API usage event table for API management analytics.
 
 Current metrics:
 
@@ -513,7 +484,7 @@ Current Grafana dashboard:
 
 Current limitation:
 
-- Per-consumer and per-API-key usage metrics are not implemented yet.
+- Grafana does not yet show per-consumer or per-key usage panels.
 
 ---
 
@@ -540,11 +511,21 @@ Current limitations:
 
 ## Current Important Files
 
-API Gateway:
+API usage tracking:
+
+- apps/api-gateway/prisma/schema.prisma
+- apps/api-gateway/prisma/migrations/20260703150000_add_api_usage_events/migration.sql
+- apps/api-gateway/src/api-usage/api-usage-recorder.ts
+- apps/api-gateway/src/api-usage/api-usage-summary.repository.ts
+- apps/api-gateway/src/api-usage/api-usage-summary.mapper.ts
+- apps/api-gateway/src/api-usage/api-usage-summary.types.ts
+- apps/api-gateway/src/routes/admin-api-usage.route.ts
+- apps/api-gateway/src/proxy/downstream-proxy-handler.ts
+
+API Gateway core:
 
 - apps/api-gateway/src/app.ts
 - apps/api-gateway/src/server.ts
-- apps/api-gateway/src/proxy/downstream-proxy-handler.ts
 - apps/api-gateway/src/routes/product-proxy.route.ts
 - apps/api-gateway/src/routes/admin-route-config.route.ts
 - apps/api-gateway/src/routes/admin-consumer.route.ts
@@ -552,8 +533,6 @@ API Gateway:
 - apps/api-gateway/src/runtime/route-runtime-registry.ts
 - apps/api-gateway/src/api-consumers/
 - apps/api-gateway/src/api-keys/
-- apps/api-gateway/src/route-management/
-- apps/api-gateway/prisma/schema.prisma
 
 Product Service:
 
@@ -572,10 +551,13 @@ Infrastructure:
 
 ## Current Limitations
 
-- API key usage tracking is not implemented yet.
-- Per-consumer analytics are not implemented yet.
-- Per-key analytics are not implemented yet.
-- Usage plans and quotas are not implemented yet.
+- Failed authentication requests are not tracked yet.
+- Rate-limited requests are not tracked yet.
+- Usage data is event-based only.
+- No aggregate rollup table yet.
+- No retention policy yet.
+- No usage plan model yet.
+- No quota enforcement yet.
 - Admin Dashboard is not implemented yet.
 - Developer Portal is not implemented yet.
 - Route management audit log table is not implemented yet.
@@ -586,8 +568,6 @@ Infrastructure:
 - Host-based routing is not implemented yet.
 - Weighted upstreams are not implemented yet.
 - Service discovery is not implemented yet.
-- Rate limit identity still uses raw API key value.
-- Grafana does not yet include per-consumer or per-key usage dashboards.
 - OpenTelemetry tracing is not implemented yet.
 - Loki centralized logging is not implemented yet.
 - k6 load testing is not implemented yet.
@@ -598,13 +578,13 @@ Infrastructure:
 
 ## Recommended Next Architecture Step
 
-Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation
+Sprint 15 - Usage Plans and Quota Foundation
 
 Recommended direction:
 
-- Add API usage event or aggregate table.
-- Record apiKeyId, consumerId, route, method, statusCode, durationMs, and timestamp.
-- Support env fallback traffic safely.
-- Expose admin read API for consumer usage summary.
-- Expose admin read API for API key usage summary.
-- Prepare usage plans and quotas for later.
+- Add usage plan schema.
+- Attach consumers or API keys to usage plans.
+- Define quota windows.
+- Prepare quota counters.
+- Start enforcing simple quota limits.
+- Keep API usage event tracking as source of truth.
