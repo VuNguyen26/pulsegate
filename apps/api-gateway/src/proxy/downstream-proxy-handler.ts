@@ -4,7 +4,11 @@ import type {
   HookHandlerDoneFunction,
 } from "fastify";
 
-import type { ApiUsageCacheStatus, ApiUsageRecorder } from "../api-usage/api-usage-recorder.js";
+import type {
+  ApiUsageCacheStatus,
+  ApiUsageRecorder,
+} from "../api-usage/api-usage-recorder.js";
+import type { UsageQuotaChecker } from "../usage-plans/usage-quota-checker.js";
 
 import type { ResponseCacheStore } from "../cache/redis-response-cache-store.js";
 import type { DownstreamRouteConfig } from "../config/downstream-routes.js";
@@ -142,6 +146,17 @@ export function buildRouteNotFoundResponse(requestId: string) {
   };
 }
 
+export function buildQuotaExceededResponse(requestId: string) {
+  return {
+    error: {
+      code: "QUOTA_EXCEEDED",
+      message:
+        "API key quota has been exceeded for the current quota window.",
+      requestId,
+    },
+  };
+}
+
 export function resolveRuntimeRouteConfig(
   registeredRouteConfig: DownstreamRouteConfig,
   routeRuntimeRegistry?: RouteRuntimeRegistry,
@@ -232,6 +247,7 @@ function runRuntimePreHandler(
 export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
   rateLimitStore: RateLimitStore;
   apiKeyAuthMiddleware?: RuntimePreHandlerMiddleware;
+  usageQuotaChecker?: UsageQuotaChecker;
 }) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const runtimeRouteConfig = resolveDownstreamRouteConfig(request, options);
@@ -278,10 +294,27 @@ export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
 
     if (routePolicies.auth.requireJwt) {
       await runRuntimePreHandler(jwtAuthMiddleware, request, reply);
+
+      if (reply.sent) {
+        return;
+      }
+    }
+
+    if (
+      request.apiKeyAuthSource === "database" &&
+      request.apiKeyId &&
+      options.usageQuotaChecker
+    ) {
+      const quotaCheck = await options.usageQuotaChecker.checkApiKeyQuota(
+        request.apiKeyId,
+      );
+
+      if (!quotaCheck.allowed) {
+        return reply.status(429).send(buildQuotaExceededResponse(request.id));
+      }
     }
   };
 }
-
 export function createDownstreamProxyHandler(options: RouteResolverOptions & {
   responseCacheStore?: ResponseCacheStore;
   responseCacheTtlSeconds?: number;

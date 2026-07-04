@@ -2,6 +2,7 @@ import Fastify from "fastify";
 
 import { RedisResponseCacheStore } from "./cache/redis-response-cache-store.js";
 import { createPrismaApiUsageRecorder } from "./api-usage/api-usage-recorder.js";
+import { createPrismaUsageQuotaChecker } from "./usage-plans/usage-quota-checker.js";
 import {
   downstreamRouteConfigs,
   type DownstreamRouteConfig,
@@ -127,6 +128,12 @@ export async function buildApiGatewayApp(
       ? undefined
       : createPrismaApiUsageRecorder(gatewayPrisma));
 
+  const usageQuotaChecker =
+    options.productProxy?.usageQuotaChecker ??
+    (options.productProxy
+      ? undefined
+      : createPrismaUsageQuotaChecker(gatewayPrisma));
+
   const downstreamProxyOptions: DownstreamProxyRouteOptions = {
     ...(options.productProxy ?? {
       rateLimitStore: new RedisRateLimitStore(redisClient),
@@ -134,6 +141,7 @@ export async function buildApiGatewayApp(
     }),
     apiKeyAuthMiddleware,
     usageRecorder: apiUsageRecorder,
+    usageQuotaChecker,
     routeConfigs: resolvedRouteConfigs,
     routeRuntimeRegistry,
   };

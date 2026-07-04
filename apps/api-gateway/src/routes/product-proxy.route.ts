@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 
 import type { ApiUsageRecorder } from "../api-usage/api-usage-recorder.js";
+import type { UsageQuotaChecker } from "../usage-plans/usage-quota-checker.js";
 
 import type { ResponseCacheStore } from "../cache/redis-response-cache-store.js";
 import {
@@ -28,6 +29,7 @@ export type ProductProxyRouteOptions = {
   responseCacheTtlSeconds?: number;
   apiKeyAuthMiddleware?: RuntimePreHandlerMiddleware;
   usageRecorder?: ApiUsageRecorder;
+  usageQuotaChecker?: UsageQuotaChecker;
 };
 
 export type DownstreamProxyRouteOptions = ProductProxyRouteOptions & {
@@ -84,6 +86,7 @@ export async function downstreamProxyRoute(
           routeRuntimeRegistry: options.routeRuntimeRegistry,
           rateLimitStore,
           apiKeyAuthMiddleware: options.apiKeyAuthMiddleware,
+          usageQuotaChecker: options.usageQuotaChecker,
         }),
       ],
       handler: createDownstreamProxyHandler({
@@ -109,6 +112,7 @@ export async function downstreamProxyRoute(
           routeConfigResolver,
           rateLimitStore,
           apiKeyAuthMiddleware: options.apiKeyAuthMiddleware,
+          usageQuotaChecker: options.usageQuotaChecker,
         }),
       ],
       handler: createDownstreamProxyHandler({
