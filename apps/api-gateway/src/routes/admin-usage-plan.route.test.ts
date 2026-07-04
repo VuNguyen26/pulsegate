@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+﻿import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildApiGatewayApp } from "../app.js";
@@ -9,6 +9,10 @@ import type {
   UsagePlanReadModel,
   UsagePlanUpdateData,
 } from "../usage-plans/usage-plan-management.types.js";
+import type {
+  UsagePlanUsageSummaryReadModel,
+  UsagePlanUsageSummaryReader,
+} from "../usage-plans/usage-plan-usage-summary.js";
 
 const createdAt = new Date("2026-07-04T00:00:00.000Z");
 const updatedAt = new Date("2026-07-04T01:00:00.000Z");
@@ -37,6 +41,37 @@ const enterprisePlan: UsagePlanReadModel = {
   updatedAt,
   createdBy: "admin",
   updatedBy: "admin",
+};
+
+const starterPlanUsageSummary: UsagePlanUsageSummaryReadModel = {
+  usagePlan: {
+    id: "plan_starter",
+    name: "Starter",
+    quotaLimit: 1000,
+    quotaWindow: "DAILY",
+    enabled: true,
+  },
+  windowStartedAt: new Date("2026-07-04T00:00:00.000Z"),
+  windowEndsAt: new Date("2026-07-05T00:00:00.000Z"),
+  resetAt: new Date("2026-07-05T00:00:00.000Z"),
+  assignedApiKeys: 2,
+  activeApiKeys: 1,
+  totalRequestsInCurrentWindow: 850,
+  exceededApiKeys: 0,
+  nearLimitApiKeys: 1,
+  topApiKeysByUsage: [
+    {
+      apiKeyId: "key_mobile_prod",
+      consumerId: "consumer_mobile",
+      name: "Mobile Production Key",
+      keyPrefix: "pgk_live_existing",
+      status: "ACTIVE",
+      usedRequests: 850,
+      remainingRequests: 150,
+      usageRatio: 0.85,
+      exceeded: false,
+    },
+  ],
 };
 
 function createTestRepository(
@@ -101,6 +136,16 @@ function createTestRepository(
   };
 }
 
+function createTestUsageSummaryReader(
+  summaries: Record<string, UsagePlanUsageSummaryReadModel>,
+): UsagePlanUsageSummaryReader {
+  return {
+    getUsagePlanUsageSummary: vi.fn(async (usagePlanId: string) => {
+      return summaries[usagePlanId] ?? null;
+    }),
+  };
+}
+
 describe("adminUsagePlanRoute", () => {
   let app: FastifyInstance;
 
@@ -112,6 +157,9 @@ describe("adminUsagePlanRoute", () => {
       },
       usagePlanManagement: {
         repository: createTestRepository([starterPlan, enterprisePlan]),
+        usageSummaryReader: createTestUsageSummaryReader({
+          plan_starter: starterPlanUsageSummary,
+        }),
         adminApiKey: "test-admin-key",
         adminApiKeyHeader: "x-admin-api-key",
       },
@@ -234,6 +282,88 @@ describe("adminUsagePlanRoute", () => {
         code: "USAGE_PLAN_NOT_FOUND",
         message: "Usage plan was not found",
         requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should reject usage plan usage summary request when admin API key is missing", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/internal/admin/usage-plans/plan_starter/usage-summary",
+    });
+
+    expect(response.statusCode).toBe(401);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "ADMIN_API_KEY_MISSING",
+        message: "Admin API key is required",
+        requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should return 404 when usage plan usage summary is requested for a missing plan", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/internal/admin/usage-plans/missing_plan/usage-summary",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "USAGE_PLAN_NOT_FOUND",
+        message: "Usage plan was not found",
+        requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should return usage plan usage summary for an authenticated admin request", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/internal/admin/usage-plans/plan_starter/usage-summary",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    expect(response.json()).toEqual({
+      data: {
+        usagePlan: {
+          id: "plan_starter",
+          name: "Starter",
+          quotaLimit: 1000,
+          quotaWindow: "DAILY",
+          enabled: true,
+        },
+        windowStartedAt: "2026-07-04T00:00:00.000Z",
+        windowEndsAt: "2026-07-05T00:00:00.000Z",
+        resetAt: "2026-07-05T00:00:00.000Z",
+        assignedApiKeys: 2,
+        activeApiKeys: 1,
+        totalRequestsInCurrentWindow: 850,
+        exceededApiKeys: 0,
+        nearLimitApiKeys: 1,
+        topApiKeysByUsage: [
+          {
+            apiKeyId: "key_mobile_prod",
+            consumerId: "consumer_mobile",
+            name: "Mobile Production Key",
+            keyPrefix: "pgk_live_existing",
+            status: "ACTIVE",
+            usedRequests: 850,
+            remainingRequests: 150,
+            usageRatio: 0.85,
+            exceeded: false,
+          },
+        ],
       },
     });
   });

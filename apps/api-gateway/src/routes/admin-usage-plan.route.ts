@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from "fastify";
+﻿import type { FastifyInstance, FastifyRequest } from "fastify";
 
 import { gatewayPrisma } from "../database/gateway-prisma.js";
 import { createAdminApiKeyAuthMiddleware } from "../middlewares/admin-api-key-auth.middleware.js";
@@ -9,9 +9,15 @@ import {
 } from "../usage-plans/usage-plan-management.mapper.js";
 import { createPrismaUsagePlanManagementRepository } from "../usage-plans/usage-plan-management.repository.js";
 import type { UsagePlanManagementRepository } from "../usage-plans/usage-plan-management.types.js";
+import {
+  createPrismaUsagePlanUsageSummaryReader,
+  mapUsagePlanUsageSummaryReadModelToResponse,
+  type UsagePlanUsageSummaryReader,
+} from "../usage-plans/usage-plan-usage-summary.js";
 
 export type AdminUsagePlanRouteOptions = {
   repository?: UsagePlanManagementRepository;
+  usageSummaryReader?: UsagePlanUsageSummaryReader;
   adminApiKey?: string;
   adminApiKeyHeader?: string;
 };
@@ -54,6 +60,10 @@ export async function adminUsagePlanRoute(
     options.repository ??
     createPrismaUsagePlanManagementRepository(gatewayPrisma);
 
+  const usageSummaryReader =
+    options.usageSummaryReader ??
+    createPrismaUsagePlanUsageSummaryReader(gatewayPrisma);
+
   const requireAdminApiKey = createAdminApiKeyAuthMiddleware({
     apiKey: options.adminApiKey,
     headerName: options.adminApiKeyHeader,
@@ -69,6 +79,32 @@ export async function adminUsagePlanRoute(
 
       return {
         data: usagePlans.map(mapUsagePlanReadModelToResponse),
+      };
+    },
+  );
+
+  app.get<{ Params: UsagePlanIdParams }>(
+    "/internal/admin/usage-plans/:id/usage-summary",
+    {
+      preHandler: requireAdminApiKey,
+    },
+    async (request, reply) => {
+      const usageSummary = await usageSummaryReader.getUsagePlanUsageSummary(
+        request.params.id,
+      );
+
+      if (!usageSummary) {
+        return reply.status(404).send({
+          error: {
+            code: "USAGE_PLAN_NOT_FOUND",
+            message: "Usage plan was not found",
+            requestId: request.id,
+          },
+        });
+      }
+
+      return {
+        data: mapUsagePlanUsageSummaryReadModelToResponse(usageSummary),
       };
     },
   );
