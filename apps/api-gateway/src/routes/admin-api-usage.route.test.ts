@@ -1,8 +1,9 @@
-﻿import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiConsumerManagementRepository } from "../api-consumers/api-consumer-management.types.js";
 import type { ApiKeyManagementRepository } from "../api-keys/api-key-management.types.js";
+import type { ApiUsageEventsListingRepository } from "../api-usage/api-usage-events-listing.types.js";
 import type { ApiUsageSummaryRepository } from "../api-usage/api-usage-summary.types.js";
 import { adminApiUsageRoute } from "./admin-api-usage.route.js";
 
@@ -88,10 +89,40 @@ function createUsageSummaryRepository(): ApiUsageSummaryRepository {
   };
 }
 
+function createUsageEventsListingRepository(): ApiUsageEventsListingRepository {
+  return {
+    listEvents: vi.fn(async (query) => ({
+      items: [
+        {
+          id: "usage_event_1",
+          requestId: "request_1",
+          routePath: "/api/products",
+          routeMethod: "GET" as const,
+          statusCode: 200,
+          durationMs: 42,
+          cacheStatus: "HIT",
+          apiKeyAuthSource: "database",
+          apiKeyId: "api_key_1",
+          consumerId: "consumer_1",
+          occurredAt: new Date("2026-07-04T11:00:00.000Z"),
+        },
+      ],
+      pagination: {
+        limit: query.limit,
+        offset: query.offset,
+        total: 1,
+        hasNextPage: false,
+      },
+      filters: query.filters,
+    })),
+  };
+}
+
 async function buildTestApp(options: {
   consumerRepository?: ApiConsumerManagementRepository;
   apiKeyRepository?: ApiKeyManagementRepository;
   usageSummaryRepository?: ApiUsageSummaryRepository;
+  usageEventsListingRepository?: ApiUsageEventsListingRepository;
 } = {}): Promise<FastifyInstance> {
   const app = Fastify({
     logger: false,
@@ -103,6 +134,9 @@ async function buildTestApp(options: {
     apiKeyRepository: options.apiKeyRepository ?? createApiKeyRepository(),
     usageSummaryRepository:
       options.usageSummaryRepository ?? createUsageSummaryRepository(),
+    usageEventsListingRepository:
+      options.usageEventsListingRepository ??
+      createUsageEventsListingRepository(),
   });
 
   return app;
@@ -116,6 +150,158 @@ describe("adminApiUsageRoute", () => {
       await app.close();
       app = null;
     }
+  });
+
+  it("should reject usage events listing request when admin API key is missing", async () => {
+    app = await buildTestApp();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/internal/admin/usage/events",
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "ADMIN_API_KEY_MISSING",
+        message: "Admin API key is required",
+        requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should return usage events listing with default pagination", async () => {
+    const usageEventsListingRepository = createUsageEventsListingRepository();
+
+    app = await buildTestApp({
+      usageEventsListingRepository,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/internal/admin/usage/events",
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        items: [
+          {
+            id: "usage_event_1",
+            requestId: "request_1",
+            routePath: "/api/products",
+            routeMethod: "GET",
+            statusCode: 200,
+            durationMs: 42,
+            cacheStatus: "HIT",
+            apiKeyAuthSource: "database",
+            apiKeyId: "api_key_1",
+            consumerId: "consumer_1",
+            occurredAt: "2026-07-04T11:00:00.000Z",
+          },
+        ],
+        pagination: {
+          limit: 20,
+          offset: 0,
+          total: 1,
+          hasNextPage: false,
+        },
+        filters: {
+          from: null,
+          to: null,
+          routePath: null,
+          routeMethod: null,
+          statusCode: null,
+          cacheStatus: null,
+          apiKeyAuthSource: null,
+          apiKeyId: null,
+          consumerId: null,
+        },
+      },
+    });
+
+    expect(usageEventsListingRepository.listEvents).toHaveBeenCalledWith({
+      limit: 20,
+      offset: 0,
+      filters: {},
+    });
+  });
+
+  it("should pass usage events listing filters to repository", async () => {
+    const usageEventsListingRepository = createUsageEventsListingRepository();
+
+    app = await buildTestApp({
+      usageEventsListingRepository,
+    });
+
+    const query = new URLSearchParams({
+      limit: "50",
+      offset: "10",
+      from: "2026-07-04T00:00:00.000Z",
+      to: "2026-07-05T00:00:00.000Z",
+      routePath: "/api/products",
+      routeMethod: "get",
+      statusCode: "200",
+      cacheStatus: "miss",
+      apiKeyAuthSource: "database",
+      apiKeyId: "api_key_1",
+      consumerId: "consumer_1",
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/internal/admin/usage/events?${query.toString()}`,
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(usageEventsListingRepository.listEvents).toHaveBeenCalledWith({
+      limit: 50,
+      offset: 10,
+      filters: {
+        from: new Date("2026-07-04T00:00:00.000Z"),
+        to: new Date("2026-07-05T00:00:00.000Z"),
+        routePath: "/api/products",
+        routeMethod: "GET",
+        statusCode: 200,
+        cacheStatus: "MISS",
+        apiKeyAuthSource: "database",
+        apiKeyId: "api_key_1",
+        consumerId: "consumer_1",
+      },
+    });
+  });
+
+  it("should reject invalid usage events listing query", async () => {
+    const usageEventsListingRepository = createUsageEventsListingRepository();
+
+    app = await buildTestApp({
+      usageEventsListingRepository,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/internal/admin/usage/events?limit=101",
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "limit must be an integer between 1 and 100",
+        requestId: expect.any(String),
+      },
+    });
+
+    expect(usageEventsListingRepository.listEvents).not.toHaveBeenCalled();
   });
 
   it("should reject consumer usage summary request when admin API key is missing", async () => {

@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   FastifyInstance,
   FastifyReply,
   FastifyRequest,
@@ -8,6 +8,13 @@ import { createPrismaApiConsumerManagementRepository } from "../api-consumers/ap
 import type { ApiConsumerManagementRepository } from "../api-consumers/api-consumer-management.types.js";
 import { createPrismaApiKeyManagementRepository } from "../api-keys/api-key-management.repository.js";
 import type { ApiKeyManagementRepository } from "../api-keys/api-key-management.types.js";
+import {
+  parseApiUsageEventsListingQuery,
+  type AdminApiUsageEventsQuerystring,
+} from "../api-usage/api-usage-events-listing-query.js";
+import { mapApiUsageEventsListingReadModelToResponse } from "../api-usage/api-usage-events-listing.mapper.js";
+import { createPrismaApiUsageEventsListingRepository } from "../api-usage/api-usage-events-listing.repository.js";
+import type { ApiUsageEventsListingRepository } from "../api-usage/api-usage-events-listing.types.js";
 import {
   parseApiUsageSummaryQuery,
   type AdminApiUsageSummaryQuerystring,
@@ -24,6 +31,7 @@ import { createAdminApiKeyAuthMiddleware } from "../middlewares/admin-api-key-au
 
 export type AdminApiUsageRouteOptions = {
   usageSummaryRepository?: ApiUsageSummaryRepository;
+  usageEventsListingRepository?: ApiUsageEventsListingRepository;
   consumerRepository?: ApiConsumerManagementRepository;
   apiKeyRepository?: ApiKeyManagementRepository;
   adminApiKey?: string;
@@ -88,6 +96,10 @@ export async function adminApiUsageRoute(
     options.usageSummaryRepository ??
     createPrismaApiUsageSummaryRepository(gatewayPrisma);
 
+  const usageEventsListingRepository =
+    options.usageEventsListingRepository ??
+    createPrismaApiUsageEventsListingRepository(gatewayPrisma);
+
   const consumerRepository =
     options.consumerRepository ??
     createPrismaApiConsumerManagementRepository(gatewayPrisma);
@@ -100,6 +112,28 @@ export async function adminApiUsageRoute(
     apiKey: options.adminApiKey,
     headerName: options.adminApiKeyHeader,
   });
+
+  app.get<{ Querystring: AdminApiUsageEventsQuerystring }>(
+    "/internal/admin/usage/events",
+    {
+      preHandler: requireAdminApiKey,
+    },
+    async (request, reply) => {
+      const parsedQuery = parseApiUsageEventsListingQuery(request.query);
+
+      if (!parsedQuery.ok) {
+        return sendInvalidQueryParameter(reply, request, parsedQuery.error);
+      }
+
+      const listing = await usageEventsListingRepository.listEvents(
+        parsedQuery.value,
+      );
+
+      return {
+        data: mapApiUsageEventsListingReadModelToResponse(listing),
+      };
+    },
+  );
 
   app.get<{
     Params: ConsumerUsageSummaryParams;
