@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.19.0
+v0.20.0
 
 ## Current Status
 
-Sprint 18 - Advanced Usage Analytics and Rejected Event Drilldown Complete
+Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design Complete
 
 Current validation:
 
-- 55 test files passed
-- 362 tests passed
+- 56 test files passed
+- 376 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime rejected events listing and filtered summary validation passed
+- Docker runtime filtered usage summary validation passed
 
 ---
 
@@ -188,8 +188,8 @@ API Gateway currently handles:
 - Redis response cache.
 - API usage event recording.
 - API rejected event recording.
-- Consumer usage summary.
-- API key usage summary.
+- Consumer usage summary with filters.
+- API key usage summary with filters.
 - Rejected events summary.
 - Filtered rejected events summary.
 - Rejected events raw listing.
@@ -338,7 +338,7 @@ Current quota limitation:
 
 ---
 
-## API Usage Tracking Architecture
+## API Usage Tracking and Analytics Architecture
 
 Usage table:
 
@@ -366,10 +366,48 @@ Usage recorder behavior:
 - Records response status code and durationMs.
 - Usage recorder failure does not fail the client response.
 
+Admin usage summary endpoints:
+
+- GET /internal/admin/usage/consumers/:consumerId/summary
+- GET /internal/admin/usage/api-keys/:apiKeyId/summary
+
+Summary fields:
+
+- subjectType
+- subjectId
+- totalRequests
+- successfulRequests
+- errorRequests
+- averageDurationMs
+- cacheHits
+- cacheMisses
+- cacheBypasses
+- lastRequestAt
+
+Supported usage summary filters:
+
+- from
+- to
+- routePath
+- routeMethod
+- statusCode
+- cacheStatus
+- apiKeyAuthSource
+
+Usage summary query behavior:
+
+- Invalid query values return 400 INVALID_QUERY_PARAMETER.
+- routeMethod is normalized to uppercase.
+- cacheStatus is normalized to HIT, MISS, or BYPASS.
+- Response includes a filters object with normalized filters.
+- Filters are applied at repository level to gateway.api_usage_events.
+
 Current usage recording limitation:
 
 - Usage tracking is event-based only.
 - No aggregate rollup table yet.
+- No retention policy job yet.
+- Raw successful usage event listing is not implemented yet.
 - Rejected requests are intentionally tracked in gateway.api_rejected_events instead of gateway.api_usage_events.
 
 ---
@@ -419,32 +457,6 @@ Listing endpoint:
 - Supports filters by from, to, rejectionReason, statusCode, routePath, routeMethod, apiKeyAuthSource, apiKeyId, and consumerId.
 - Sorts by occurredAt desc and id desc.
 - Rejects invalid query values with 400 INVALID_QUERY_PARAMETER.
-
----
-
-## Admin Usage Summary Architecture
-
-Admin usage summary endpoints:
-
-- GET /internal/admin/usage/consumers/:consumerId/summary
-- GET /internal/admin/usage/api-keys/:apiKeyId/summary
-
-Both endpoints require:
-
-- x-admin-api-key
-
-Summary fields:
-
-- subjectType
-- subjectId
-- totalRequests
-- successfulRequests
-- errorRequests
-- averageDurationMs
-- cacheHits
-- cacheMisses
-- cacheBypasses
-- lastRequestAt
 
 ---
 
@@ -589,6 +601,16 @@ Current limitations:
 
 ## Current Important Files
 
+API usage analytics:
+
+- apps/api-gateway/prisma/schema.prisma
+- apps/api-gateway/src/api-usage/api-usage-recorder.ts
+- apps/api-gateway/src/api-usage/api-usage-summary-query.ts
+- apps/api-gateway/src/api-usage/api-usage-summary.types.ts
+- apps/api-gateway/src/api-usage/api-usage-summary.mapper.ts
+- apps/api-gateway/src/api-usage/api-usage-summary.repository.ts
+- apps/api-gateway/src/routes/admin-api-usage.route.ts
+
 Rejected events:
 
 - apps/api-gateway/prisma/schema.prisma
@@ -636,7 +658,8 @@ Infrastructure:
 - Usage data is event-based only.
 - Rejected event analytics is event-based only.
 - No aggregate rollup table yet.
-- No retention policy yet.
+- No retention policy job yet.
+- No raw successful usage event listing endpoint yet.
 - No cursor pagination for very large event datasets yet.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
@@ -660,12 +683,13 @@ Infrastructure:
 
 ## Recommended Next Architecture Step
 
-Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design
+Sprint 20 recommended direction:
 
-Recommended direction:
+- Usage Analytics Listing and Event Investigation, or
+- Analytics Retention/Rollup Implementation Foundation
 
-- Add time-range and filter support to successful usage analytics.
-- Evaluate retention policy for usage and rejected events.
-- Design aggregate rollups for high-volume analytics.
-- Consider Grafana panels for quota, usage, and rejected traffic.
+Recommended details:
+
+- Add raw successful usage event listing with safe pagination if admin investigation workflow is next.
+- Or implement a small retention/rollup foundation if data lifecycle is next.
 - Keep successful usage events and rejected/security events clearly separated.

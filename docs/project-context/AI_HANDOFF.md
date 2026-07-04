@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.19.0
+- v0.20.0
 
 Latest completed sprint:
 
-- Sprint 18 - Advanced Usage Analytics and Rejected Event Drilldown
+- Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design
 
 Recommended next technical sprint:
 
-- Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design
+- Sprint 20 - Usage Analytics Listing and Event Investigation, or Analytics Retention/Rollup Implementation Foundation
 
 ---
 
@@ -75,6 +75,7 @@ Long-term product direction:
 - Usage plans and quotas
 - Quota observability
 - Rejected request tracking and drilldown
+- Successful usage analytics
 - Observability stack
 - CI/CD
 - Kubernetes/cloud deployment later
@@ -113,29 +114,28 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 18:
+Latest stable validation from Sprint 19:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Docker runtime rejected events listing and filtered summary validation -> passed
+- Docker runtime filtered usage summary validation -> passed
 
 Latest automated test result:
 
-- 55 test files passed
-- 362 tests passed
+- 56 test files passed
+- 376 tests passed
 
-Sprint 18 runtime validation proved:
+Sprint 19 runtime validation proved:
 
 - GET /health returns 200.
-- GET /internal/admin/api-rejections/summary returns aggregate rejected event totals and filters.
-- GET /internal/admin/api-rejections/summary with filters returns filtered aggregate totals.
-- Invalid rejected summary query returns 400 INVALID_QUERY_PARAMETER.
-- GET /internal/admin/api-rejections/events returns raw rejected event listing.
-- Listing pagination supports limit, offset, total, and hasNextPage.
-- Listing filters support rejection reason, status code, route method, route path, auth source, API key, consumer, and time range.
-- Invalid rejected event listing query returns 400 INVALID_QUERY_PARAMETER.
-- gateway.api_rejected_events persists rejected traffic without corrupting gateway.api_usage_events quota counts.
+- Admin consumer creation works.
+- Admin API key issue works.
+- Invalid usage summary query returns 400 INVALID_QUERY_PARAMETER.
+- Filtered consumer usage summary returns 200 with normalized filters.
+- Filtered API key usage summary returns 200 with normalized filters.
+- gateway.api_usage_events remains the source of truth for successful usage and quota counting.
+- gateway.api_rejected_events remains separate for rejected/security traffic.
 
 ---
 
@@ -163,8 +163,8 @@ API Gateway currently supports:
 - Downstream error normalization.
 - API usage event recording.
 - API rejected event recording.
-- Consumer usage summary.
-- API key usage summary.
+- Consumer usage summary with filters.
+- API key usage summary with filters.
 - Usage plan management.
 - API key usage plan assignment.
 - Event-based quota checker.
@@ -248,6 +248,29 @@ Recorded for successful downstream proxy/cache handler responses:
 - consumerId
 - occurredAt
 
+Admin usage summary endpoints:
+
+- GET /internal/admin/usage/consumers/:consumerId/summary
+- GET /internal/admin/usage/api-keys/:apiKeyId/summary
+
+Usage summary supported filters:
+
+- from
+- to
+- routePath
+- routeMethod
+- statusCode
+- cacheStatus
+- apiKeyAuthSource
+
+Usage summary behavior:
+
+- Invalid query returns 400 INVALID_QUERY_PARAMETER.
+- routeMethod is normalized to uppercase.
+- cacheStatus is normalized to HIT, MISS, or BYPASS.
+- Response includes a filters object with normalized filters.
+- Usage summaries read from gateway.api_usage_events only.
+
 Quota behavior:
 
 - Applies to DB-backed API keys with assigned enabled usage plans.
@@ -268,37 +291,12 @@ Rejected event behavior:
 - Supports aggregate summary and raw listing read APIs.
 - Supports filters by time range, reason, status code, route, auth source, API key, and consumer.
 
-Admin usage summary endpoints:
-
-- GET /internal/admin/usage/consumers/:consumerId/summary
-- GET /internal/admin/usage/api-keys/:apiKeyId/summary
-
-Admin rejected events endpoints:
-
-- GET /internal/admin/api-rejections/summary
-- GET /internal/admin/api-rejections/events
-
-Admin quota observability endpoints:
-
-- GET /internal/admin/api-keys/:id/quota
-- GET /internal/admin/usage-plans/:id/usage-summary
-
-Admin usage plan endpoints:
-
-- GET /internal/admin/usage-plans
-- POST /internal/admin/usage-plans
-- GET /internal/admin/usage-plans/:id
-- PATCH /internal/admin/usage-plans/:id
-
-API key usage plan assignment endpoint:
-
-- PATCH /internal/admin/api-keys/:id/usage-plan
-
-Current limitations:
+Current analytics limitations:
 
 - Usage and rejected traffic analytics are event-based only.
 - No aggregate rollup table yet.
-- No retention policy yet.
+- No retention job yet.
+- No raw successful usage event listing endpoint yet.
 - No cursor pagination for very large event datasets yet.
 
 ---
@@ -362,6 +360,17 @@ JWT local validation:
 
 ## Important Files
 
+API Gateway usage tracking and analytics:
+
+- apps/api-gateway/prisma/schema.prisma
+- apps/api-gateway/src/api-usage/api-usage-recorder.ts
+- apps/api-gateway/src/api-usage/api-usage-summary-query.ts
+- apps/api-gateway/src/api-usage/api-usage-summary.repository.ts
+- apps/api-gateway/src/api-usage/api-usage-summary.mapper.ts
+- apps/api-gateway/src/api-usage/api-usage-summary.types.ts
+- apps/api-gateway/src/routes/admin-api-usage.route.ts
+- apps/api-gateway/src/proxy/downstream-proxy-handler.ts
+
 Rejected events:
 
 - apps/api-gateway/prisma/schema.prisma
@@ -389,16 +398,6 @@ Usage plans, quota, and quota observability:
 - apps/api-gateway/src/routes/admin-api-key.route.ts
 - apps/api-gateway/src/proxy/downstream-proxy-handler.ts
 
-API Gateway usage tracking:
-
-- apps/api-gateway/prisma/schema.prisma
-- apps/api-gateway/src/api-usage/api-usage-recorder.ts
-- apps/api-gateway/src/api-usage/api-usage-summary.repository.ts
-- apps/api-gateway/src/api-usage/api-usage-summary.mapper.ts
-- apps/api-gateway/src/api-usage/api-usage-summary.types.ts
-- apps/api-gateway/src/routes/admin-api-usage.route.ts
-- apps/api-gateway/src/proxy/downstream-proxy-handler.ts
-
 Docs:
 
 - README.md
@@ -407,9 +406,10 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-18.md
+- docs/sdlc/sprint-history/sprint-19.md
+- docs/runbooks/api-usage-analytics.md
 - docs/runbooks/api-rejected-events.md
-- docs/project-context/decisions/2026-07-04-rejected-events-side-table.md
+- docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
 
 ---
 
@@ -462,7 +462,8 @@ Work style:
 - Usage data is event-based only.
 - Rejected event analytics is event-based only.
 - No aggregate rollup table yet.
-- No retention policy yet.
+- No retention policy job yet.
+- No raw successful usage event listing endpoint yet.
 - No cursor pagination for very large event datasets yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
@@ -489,15 +490,12 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 19 after confirming Sprint 18 docs are committed and pushed.
+Start Sprint 20 after confirming Sprint 19 docs are committed and pushed.
 
-Recommended direction:
+Recommended directions:
 
-- Usage Analytics Hardening and Retention/Rollup Design.
-- Add time-range and filter support to successful usage analytics.
-- Evaluate retention policy for usage and rejected events.
-- Design aggregate rollups for high-volume analytics.
-- Consider Grafana panels for quota, usage, and rejected traffic.
+- Usage Analytics Listing and Event Investigation.
+- Or Analytics Retention/Rollup Implementation Foundation.
 
 Before starting:
 

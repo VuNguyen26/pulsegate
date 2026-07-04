@@ -24,66 +24,64 @@ Long decision records live in:
 
 ## Current Version
 
-v0.19.0
+v0.20.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 18 - Advanced Usage Analytics and Rejected Event Drilldown
+Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design
 
 Status:
 
 Done.
 
-Sprint 18 added rejected event drilldown and filterable rejected traffic analytics:
+Sprint 19 hardened successful usage analytics:
 
-- Raw rejected event listing endpoint.
-- Safe pagination with limit, offset, total, and hasNextPage.
-- Filterable rejected event queries.
-- Shared rejected event query parser.
-- Repository and mapper coverage for rejected event listing.
-- Filtered rejected events summary endpoint.
-- Docker runtime validation for listing, filters, pagination, and invalid query handling.
+- Added usage summary query parser.
+- Added usage summary filter model.
+- Added repository-level filters for successful usage summaries.
+- Exposed filtered usage summary APIs for consumers and API keys.
+- Preserved api_usage_events as source of truth for successful usage and quota counting.
+- Preserved api_rejected_events as the separate source of truth for rejected/security traffic.
+- Added retention/rollup design guidance without implementing a migration or rollup table.
 
-Sprint 18 details are archived in:
+Sprint 19 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-18.md
+- docs/sdlc/sprint-history/sprint-19.md
 
-Sprint 18 runbook:
+Sprint 19 runbook:
 
-- docs/runbooks/api-rejected-events.md
+- docs/runbooks/api-usage-analytics.md
 
 Related decision record:
 
-- docs/project-context/decisions/2026-07-04-rejected-events-side-table.md
+- docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
 
 ---
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 18:
+Latest stable validation from Sprint 19:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Docker runtime rejected events listing and filtered summary validation -> passed
+- Docker runtime filtered usage summary validation -> passed
 
 Latest automated test result:
 
-- 55 test files passed
-- 362 tests passed
+- 56 test files passed
+- 376 tests passed
 
 Latest Docker runtime validation proved:
 
 - GET /health returns 200.
-- GET /internal/admin/api-rejections/summary returns aggregate rejected event totals and filters.
-- GET /internal/admin/api-rejections/summary with filters returns filtered aggregate totals.
-- Invalid summary query returns 400 INVALID_QUERY_PARAMETER.
-- GET /internal/admin/api-rejections/events returns raw rejected event listing.
-- Listing pagination supports limit, offset, total, and hasNextPage.
-- Listing filters support rejection reason, status code, route method, route path, auth source, API key, consumer, and time range.
-- Invalid listing query returns 400 INVALID_QUERY_PARAMETER.
+- Admin can create a consumer.
+- Admin can issue an API key.
+- Invalid usage summary query returns 400 INVALID_QUERY_PARAMETER.
+- Filtered consumer usage summary returns 200 with normalized filters.
+- Filtered API key usage summary returns 200 with normalized filters.
 
 ---
 
@@ -111,7 +109,7 @@ PulseGate currently has:
 - Internal/admin API consumer APIs.
 - Internal/admin API key lifecycle APIs.
 - Internal/admin usage plan APIs.
-- Internal/admin API usage summary APIs.
+- Internal/admin filtered API usage summary APIs.
 - Internal/admin quota observability APIs.
 - Internal/admin rejected events summary API.
 - Internal/admin rejected events listing API.
@@ -126,8 +124,9 @@ PulseGate currently has:
 - API rejected event recorder.
 - API key quota state reader.
 - Usage plan usage summary reader.
-- Rejected event summary reader.
-- Rejected event listing reader.
+- Usage summary reader with filters.
+- Rejected event summary reader with filters.
+- Rejected event listing reader with filters and pagination.
 - Static env API key fallback.
 - JWT authentication.
 - Redis-backed rate limiting.
@@ -270,6 +269,13 @@ Usage recording scope:
 - DB-backed API key traffic.
 - Env fallback API key traffic.
 
+Usage analytics:
+
+- Consumer usage summary supports filters.
+- API key usage summary supports filters.
+- Supported filters include from, to, routePath, routeMethod, statusCode, cacheStatus, and apiKeyAuthSource.
+- Invalid usage summary query returns 400 INVALID_QUERY_PARAMETER.
+
 Rejected event table:
 
 - gateway.api_rejected_events
@@ -313,8 +319,9 @@ Current quota scope:
 - Usage data is event-based only.
 - Rejected event analytics is event-based only.
 - No aggregate rollup table yet.
-- No retention policy yet.
+- No retention policy job yet.
 - No cursor pagination for very large event datasets yet.
+- No raw successful usage event listing endpoint yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
 - No quota/rejected-events Grafana dashboard yet.
@@ -339,14 +346,15 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design
+Sprint 20 recommended direction:
+
+- Usage Analytics Listing and Event Investigation, or
+- Analytics Retention/Rollup Implementation Foundation
 
 Recommended scope:
 
-- Add stronger usage analytics filters and time-range querying.
-- Evaluate retention policy for api_usage_events and api_rejected_events.
-- Design aggregate rollups for high-volume analytics.
-- Consider Grafana panels for quota, usage, and rejected traffic.
+- If investigation is prioritized, add raw successful usage event listing with safe pagination.
+- If storage lifecycle is prioritized, implement the first small retention/rollup foundation.
 - Keep successful usage and rejected/security events separate.
 - Avoid adding Kafka, RabbitMQ, Kubernetes, Admin Dashboard UI, Developer Portal UI, billing, paid plans, or multi-tenant organization model unless explicitly selected.
 

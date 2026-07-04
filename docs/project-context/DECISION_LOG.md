@@ -12,15 +12,37 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.19.0
+v0.20.0
 
 ## Latest Completed Sprint
 
-Sprint 18 - Advanced Usage Analytics and Rejected Event Drilldown
+Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-04 - Usage analytics retention and rollup remain design-only in Sprint 19
+
+Decision:
+
+- Add filtered successful usage summary APIs over gateway.api_usage_events.
+- Keep retention and rollup as documented design direction in Sprint 19.
+- Do not add retention jobs, aggregate rollup tables, or migrations yet.
+- Keep successful usage events and rejected/security events separate.
+
+Reason:
+
+- Filtered summaries provide immediate admin analytics value.
+- Retention and rollup need careful schema and lifecycle design before implementation.
+- gateway.api_usage_events is still used for quota counting, so changes must not corrupt quota behavior.
+- Avoiding premature rollup tables keeps Sprint 19 small and safe.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
+
+---
 
 ### 2026-07-04 - Rejected event drilldown uses filterable read endpoints
 
@@ -96,6 +118,10 @@ Reason:
 - Main docs were getting too large.
 - Large docs make future AI handoff and maintenance slower.
 - Compact role-based docs are easier to update safely.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-03-documentation-compaction.md
 
 ---
 

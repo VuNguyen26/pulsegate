@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.19.0
+v0.20.0
 
 ## Latest Completed Sprint
 
-Sprint 18 - Advanced Usage Analytics and Rejected Event Drilldown
+Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design
 
 ---
 
@@ -290,6 +290,38 @@ Current endpoints:
 - GET /internal/admin/usage/consumers/:consumerId/summary
 - GET /internal/admin/usage/api-keys/:apiKeyId/summary
 
+Current summary fields:
+
+- subjectType
+- subjectId
+- totalRequests
+- successfulRequests
+- errorRequests
+- averageDurationMs
+- cacheHits
+- cacheMisses
+- cacheBypasses
+- lastRequestAt
+
+Supported filters:
+
+- from
+- to
+- routePath
+- routeMethod
+- statusCode
+- cacheStatus
+- apiKeyAuthSource
+
+Required behavior:
+
+- Invalid query returns 400 INVALID_QUERY_PARAMETER.
+- routeMethod is normalized to uppercase.
+- cacheStatus is normalized to HIT, MISS, or BYPASS.
+- Response includes normalized filters.
+- Usage summary must read from gateway.api_usage_events.
+- Usage summary must not mix in gateway.api_rejected_events.
+
 Status:
 
 Implemented.
@@ -467,7 +499,25 @@ Required behavior:
 
 Status:
 
-Implemented in Sprint 18.
+Implemented.
+
+---
+
+### FR-022 Usage Analytics Retention and Rollup Design
+
+PulseGate shall keep a clear design path for high-volume analytics storage lifecycle.
+
+Current design direction:
+
+- Keep raw gateway.api_usage_events for recent successful usage investigation.
+- Keep raw gateway.api_rejected_events for recent rejected/security investigation.
+- Add retention policy later to bound raw event growth.
+- Add aggregate rollup tables later for long-range dashboards and reports.
+- Keep quota counting correctness protected when introducing rollups.
+
+Status:
+
+Designed only. Not implemented yet.
 
 ---
 
@@ -493,8 +543,8 @@ The project shall have automated unit/integration-style tests.
 
 Current result:
 
-- 55 test files passed
-- 362 tests passed
+- 56 test files passed
+- 376 tests passed
 
 Validation:
 
@@ -556,6 +606,7 @@ Current signals:
 - Rejected event summary API
 - Rejected event listing API
 - Filtered rejected event drilldown
+- Filtered successful usage summary APIs
 
 Status:
 
@@ -586,7 +637,8 @@ Implemented.
 - Usage data is event-based only.
 - Rejected event analytics is event-based only.
 - No aggregate rollup table yet.
-- No retention policy yet.
+- No retention policy job yet.
+- No raw successful usage event listing endpoint yet.
 - No cursor pagination for very large event datasets yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
@@ -612,10 +664,10 @@ Implemented.
 
 Recommended next:
 
-- Add time-range and filter support to successful usage analytics.
-- Evaluate retention policy for api_usage_events and api_rejected_events.
-- Design aggregate rollup tables for high-volume analytics.
+- Add raw successful usage event listing with safe pagination for admin investigation.
 - Consider cursor pagination for very large event datasets.
+- Implement event retention policy for api_usage_events and api_rejected_events.
+- Implement aggregate rollup tables for high-volume analytics.
 - Add Grafana panels for quota, usage, and rejected traffic later.
 - Add Admin Dashboard later.
 - Add Developer Portal later.
