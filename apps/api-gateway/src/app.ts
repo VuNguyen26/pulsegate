@@ -28,6 +28,10 @@ import {
   type AdminApiUsageRouteOptions,
 } from "./routes/admin-api-usage.route.js";
 import {
+  adminUsagePlanRoute,
+  type AdminUsagePlanRouteOptions,
+} from "./routes/admin-usage-plan.route.js";
+import {
   adminApiKeyRoute,
   type AdminApiKeyRouteOptions,
 } from "./routes/admin-api-key.route.js";
@@ -61,6 +65,7 @@ type BuildApiGatewayAppOptions = {
   consumerManagement?: AdminConsumerRouteOptions;
   apiKeyManagement?: AdminApiKeyRouteOptions;
   apiUsageManagement?: AdminApiUsageRouteOptions;
+  usagePlanManagement?: AdminUsagePlanRouteOptions;
   routeRuntimeRegistry?: RouteRuntimeRegistry;
 };
 
@@ -151,12 +156,17 @@ export async function buildApiGatewayApp(
     ...(options.apiUsageManagement ?? {}),
   };
 
+  const usagePlanManagementOptions: AdminUsagePlanRouteOptions = {
+    ...(options.usagePlanManagement ?? {}),
+  };
+
   await app.register(healthRoute);
   await app.register(metricsRoute, { metrics });
   await app.register(adminRouteConfigRoute, routeManagementOptions);
   await app.register(adminConsumerRoute, consumerManagementOptions);
   await app.register(adminApiKeyRoute, apiKeyManagementOptions);
   await app.register(adminApiUsageRoute, apiUsageManagementOptions);
+  await app.register(adminUsagePlanRoute, usagePlanManagementOptions);
   await app.register(downstreamProxyRoute, downstreamProxyOptions);
 
   return app;
