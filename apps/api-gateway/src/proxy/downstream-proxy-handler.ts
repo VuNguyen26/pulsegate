@@ -225,6 +225,94 @@ async function recordQuotaRejectedEvent(options: {
   }
 }
 
+function readNumericReplyHeader(
+  reply: FastifyReply,
+  headerName: string,
+): number | undefined {
+  const headerValue = reply.getHeader(headerName);
+  const firstValue = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+
+  if (firstValue === undefined) {
+    return undefined;
+  }
+
+  const parsedValue = Number(firstValue);
+
+  return Number.isFinite(parsedValue) ? parsedValue : undefined;
+}
+
+function buildRateLimitRejectedMetadata(options: {
+  identityType: string;
+  limit?: number;
+  remaining?: number;
+  resetAtSeconds?: number;
+  retryAfterSeconds?: number;
+}) {
+  return {
+    identityType: options.identityType,
+    ...(options.limit !== undefined ? { limit: options.limit } : {}),
+    ...(options.remaining !== undefined
+      ? { remaining: options.remaining }
+      : {}),
+    ...(options.retryAfterSeconds !== undefined
+      ? { retryAfterSeconds: options.retryAfterSeconds }
+      : {}),
+    ...(options.resetAtSeconds !== undefined
+      ? { resetAt: new Date(options.resetAtSeconds * 1000).toISOString() }
+      : {}),
+  };
+}
+
+async function recordRateLimitRejectedEvent(options: {
+  rejectedEventRecorder?: ApiRejectedEventRecorder;
+  request: FastifyRequest;
+  reply: FastifyReply;
+  routeConfig: DownstreamRouteConfig;
+  identityType: string;
+}): Promise<void> {
+  if (!options.rejectedEventRecorder) {
+    return;
+  }
+
+  try {
+    await options.rejectedEventRecorder.record({
+      requestId: options.request.id,
+      routePath: options.routeConfig.gatewayPath,
+      routeMethod: options.routeConfig.method,
+      statusCode: 429,
+      rejectionReason: "RATE_LIMIT_EXCEEDED",
+      apiKeyAuthSource: options.request.apiKeyAuthSource,
+      apiKeyId: options.request.apiKeyId,
+      consumerId: options.request.apiConsumerId,
+      metadata: buildRateLimitRejectedMetadata({
+        identityType: options.identityType,
+        limit: readNumericReplyHeader(options.reply, "x-ratelimit-limit"),
+        remaining: readNumericReplyHeader(
+          options.reply,
+          "x-ratelimit-remaining",
+        ),
+        resetAtSeconds: readNumericReplyHeader(
+          options.reply,
+          "x-ratelimit-reset",
+        ),
+        retryAfterSeconds: readNumericReplyHeader(
+          options.reply,
+          "retry-after",
+        ),
+      }),
+    });
+  } catch (error) {
+    options.request.log.error(
+      {
+        error,
+        requestId: options.request.id,
+        route: options.routeConfig.gatewayPath,
+      },
+      "Failed to record rate limit rejected event",
+    );
+  }
+}
+
 export function resolveRuntimeRouteConfig(
   registeredRouteConfig: DownstreamRouteConfig,
   routeRuntimeRegistry?: RouteRuntimeRegistry,
@@ -357,6 +445,16 @@ export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
       await runRuntimePreHandler(rateLimitMiddleware, request, reply);
 
       if (reply.sent) {
+        if (reply.statusCode === 429) {
+          await recordRateLimitRejectedEvent({
+            rejectedEventRecorder: options.rejectedEventRecorder,
+            request,
+            reply,
+            routeConfig: runtimeRouteConfig,
+            identityType: rateLimit.identityType,
+          });
+        }
+
         return;
       }
     }
