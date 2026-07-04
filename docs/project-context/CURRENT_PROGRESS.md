@@ -1,4 +1,4 @@
-# Current Progress
+﻿# Current Progress
 
 ## Project
 
@@ -24,53 +24,55 @@ Long decision records live in:
 
 ## Current Version
 
-v0.16.0
+v0.17.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 15 - Usage Plans and Quota Foundation
+Sprint 16 - Quota Observability and Usage Management Hardening
 
 Status:
 
 Done.
 
-Sprint 15 added usage plan and runtime quota enforcement foundation:
+Sprint 16 added quota observability and quota management hardening:
 
-- Usage plan schema.
-- Usage plan migration.
-- API key usage plan assignment.
-- Admin usage plan APIs.
-- Event-based quota checker.
-- DAILY and MONTHLY quota windows.
-- Runtime quota enforcement for DB-backed API keys with assigned usage plans.
-- 429 QUOTA_EXCEEDED response when quota is exceeded.
-- Docker runtime validation proving first request 200 and second request 429.
+- API key quota state reader.
+- Admin API key quota state endpoint.
+- Usage plan usage summary reader.
+- Admin usage plan usage summary endpoint.
+- Quota metadata in 429 QUOTA_EXCEEDED responses.
+- Explicit decision not to record quota-denied requests into gateway.api_usage_events yet.
+- Docker runtime validation proving quota observability APIs and quota metadata.
 
-Sprint 15 details are archived in:
+Sprint 16 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-15.md
+- docs/sdlc/sprint-history/sprint-16.md
 
-Sprint 15 runbook:
+Sprint 16 runbook:
 
 - docs/runbooks/usage-plans-and-quotas.md
+
+Sprint 16 decision record:
+
+- docs/project-context/decisions/2026-07-04-quota-denied-usage-event-tracking.md
 
 ---
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 15:
+Latest stable validation from Sprint 16:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Docker runtime quota validation -> passed
+- Docker runtime quota observability validation -> passed
 
 Latest automated test result:
 
-- 44 test files passed
-- 314 tests passed
+- 46 test files passed
+- 329 tests passed
 
 Latest Docker runtime validation proved:
 
@@ -78,7 +80,9 @@ Latest Docker runtime validation proved:
 - DB-backed API key can be issued through admin API.
 - Usage plan can be assigned to an API key.
 - First protected /api/products request with limit 1 returns 200.
-- Second protected /api/products request returns 429 QUOTA_EXCEEDED.
+- API key quota state endpoint returns usedRequests=1, remainingRequests=0, exceeded=true, enforced=true.
+- Second protected /api/products request returns 429 QUOTA_EXCEEDED with quota metadata.
+- Usage plan usage summary endpoint returns assigned key count, active key count, current-window usage, exceeded key count, and top API keys by usage.
 
 ---
 
@@ -106,6 +110,7 @@ PulseGate currently has:
 - Internal/admin API key lifecycle APIs.
 - Internal/admin usage plan APIs.
 - Internal/admin API usage summary APIs.
+- Internal/admin quota observability APIs.
 - Runtime route registry.
 - Runtime registry reload endpoint.
 - Catch-all dynamic router for /api/*.
@@ -114,6 +119,8 @@ PulseGate currently has:
 - Event-based quota checker.
 - Runtime quota enforcement.
 - API usage recorder.
+- API key quota state reader.
+- Usage plan usage summary reader.
 - Static env API key fallback.
 - JWT authentication.
 - Redis-backed rate limiting.
@@ -219,6 +226,7 @@ Internal/admin API keys:
 
 - GET /internal/admin/consumers/:consumerId/api-keys
 - POST /internal/admin/consumers/:consumerId/api-keys
+- GET /internal/admin/api-keys/:id/quota
 - PATCH /internal/admin/api-keys/:id/revoke
 - PATCH /internal/admin/api-keys/:id/usage-plan
 
@@ -227,6 +235,7 @@ Internal/admin usage plans:
 - GET /internal/admin/usage-plans
 - POST /internal/admin/usage-plans
 - GET /internal/admin/usage-plans/:id
+- GET /internal/admin/usage-plans/:id/usage-summary
 - PATCH /internal/admin/usage-plans/:id
 
 Internal/admin usage analytics:
@@ -263,13 +272,17 @@ Current quota scope:
 - Quota windows are DAILY or MONTHLY.
 - Quota uses gateway.api_usage_events as source of truth.
 - Over-quota request returns 429 QUOTA_EXCEEDED.
+- Over-quota response includes quota metadata.
 - Env fallback API keys are not quota-enforced.
 - Public routes are not quota-enforced.
+- Quota-denied requests are not recorded into api_usage_events yet.
 
 Current summary APIs:
 
 - Consumer usage summary.
 - API key usage summary.
+- API key quota state.
+- Usage plan usage summary.
 
 Current limitation:
 
@@ -312,27 +325,14 @@ Current limitation:
 
 ## Recommended Next Sprint
 
-Sprint 16 - Quota Observability and Usage Management Hardening
+Sprint 17 - API Usage Rejection Tracking Design or Advanced Usage Analytics Hardening
 
 Recommended scope:
 
-- Add quota usage visibility to admin APIs.
-- Add usage plan usage summaries.
-- Consider tracking quota-denied requests.
-- Improve quota response metadata if needed.
-- Keep API usage events as source of truth unless performance requires rollups.
-
-Do not add yet unless explicitly selected:
-
-- Kafka
-- RabbitMQ
-- Kubernetes
-- Admin Dashboard UI
-- Developer Portal UI
-- Billing
-- Paid plans
-- Multi-tenant organization model
-- Production cloud deployment
+- Design rejected request tracking separately from successful/proxied usage events.
+- Decide whether failed auth, rate-limited, and quota-denied traffic belongs in api_usage_events with outcome/type fields or in a separate rejected/security event table.
+- Keep quota counts accurate.
+- Avoid adding Kafka, RabbitMQ, Kubernetes, Admin Dashboard UI, Developer Portal UI, billing, paid plans, or multi-tenant organization model unless explicitly selected.
 
 ---
 

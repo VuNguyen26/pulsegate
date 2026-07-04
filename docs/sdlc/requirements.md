@@ -1,4 +1,4 @@
-# PulseGate Requirements
+﻿# PulseGate Requirements
 
 ## Project
 
@@ -6,25 +6,17 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.16.0
+v0.17.0
 
-## Current Status
+## Latest Completed Sprint
 
-Sprint 15 - Usage Plans and Quota Foundation Complete
-
-Latest validation:
-
-- 44 test files passed
-- 314 tests passed
-- npm run typecheck passed
-- npm run build passed
-- Docker runtime quota validation passed
+Sprint 16 - Quota Observability and Usage Management Hardening
 
 ---
 
 ## Document Scope
 
-This file tracks current functional requirements, non-functional requirements, constraints, and future requirements.
+This file tracks current and future requirements compactly.
 
 Detailed sprint history lives in:
 
@@ -40,750 +32,554 @@ Long decision records live in:
 
 ---
 
-## Product Purpose
+## Product Vision
 
-PulseGate is a mini API Gateway, API Management, and Observability Platform.
+PulseGate should grow from a backend learning project into a product-like API Gateway and API Management Platform.
 
-The project demonstrates backend engineering around:
+Reference products:
 
-- API Gateway design.
-- Microservice communication.
-- Dynamic route configuration.
-- Runtime route reload.
-- API consumer management.
-- API key lifecycle management.
-- DB-backed runtime API key authentication.
-- API usage tracking.
-- Consumer analytics.
-- API key analytics.
-- Usage plans and quotas.
-- Traffic protection.
-- Response caching.
-- Observability.
-- CI/CD.
-- Production-oriented backend architecture.
+- Kong
+- Apache APISIX
+- Tyk
+- Apigee
+- AWS API Gateway
 
 Long-term target:
 
-Build PulseGate toward a product-like API Gateway/API Management platform, not only a portfolio backend project.
+- API Gateway runtime
+- Admin APIs
+- Admin Dashboard later
+- Developer Portal later
+- API consumers
+- API keys
+- Usage plans
+- Quotas
+- Usage analytics
+- Observability
+- CI/CD
+- Cloud/Kubernetes deployment later
 
 ---
 
-## Current System Summary
+## Current Functional Requirements
 
-Current architecture includes:
+### FR-001 Health and Metrics
 
-- API Gateway.
-- Product Service.
-- PostgreSQL.
-- Prisma.
-- Redis.
-- Prometheus.
-- Grafana.
-- Docker Compose.
-- GitHub Actions CI/CD.
-- Database-backed route config.
-- Runtime route registry.
-- Catch-all dynamic router.
-- API consumers.
-- Issued API keys.
-- Usage plans.
-- API usage events.
-- DB-backed API key authentication.
-- Runtime quota enforcement.
-- Admin route management APIs.
-- Admin consumer APIs.
-- Admin API key lifecycle APIs.
-- Admin usage plan APIs.
-- Admin usage summary APIs.
+PulseGate shall expose:
+
+- GET /health
+- GET /metrics
+
+Status:
+
+Implemented.
 
 ---
 
-# Functional Requirements
+### FR-002 Product Service Proxy
 
-## FR-001: API Gateway Service
+PulseGate shall proxy Product Service endpoints through the gateway.
 
-The system must have an API Gateway service.
+Current endpoints:
+
+- GET /api/product-service/health
+- GET /api/products
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-002: Product Service
+### FR-003 API Key Authentication
 
-The system must have a Product Service.
+PulseGate shall protect selected routes with API key authentication.
+
+Supported modes:
+
+- DB-backed issued API keys.
+- Env fallback API_KEYS for local development.
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-003: Gateway Product Proxy Route
+### FR-004 JWT Authentication
 
-API Gateway must route product requests to Product Service.
+PulseGate shall protect selected routes with JWT authentication.
+
+Current local values:
+
+- JWT_SECRET=local-dev-jwt-secret-change-me
+- JWT_ISSUER=pulsegate-api-gateway
+- JWT_AUDIENCE=pulsegate-clients
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-004: Public Product Service Health Proxy Route
+### FR-005 Rate Limiting
 
-API Gateway must expose a public proxy route to Product Service health.
+PulseGate shall support route-level rate limiting.
+
+Current store:
+
+- Redis-backed rate limit store
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-005: Authentication and Authorization
+### FR-006 Response Caching
 
-API Gateway must support route-level authentication behavior.
+PulseGate shall support route-level response caching.
+
+Current store:
+
+- Redis response cache
+
+Supported cache statuses:
+
+- HIT
+- MISS
+- BYPASS
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-006: Admin API Key Authentication
+### FR-007 Route Policies
 
-API Gateway must protect internal/admin APIs with a separate admin API key.
+PulseGate shall support route-level policies.
+
+Current policies:
+
+- auth
+- timeout
+- cache
+- rateLimit
+- requestTransform
+- responseTransform
+- retry
 
 Status:
 
-Done.
+Implemented as foundation.
 
 ---
 
-## FR-007: Traffic Protection
+### FR-008 Dynamic Route Configuration
 
-API Gateway must protect selected routes from excessive traffic and unsafe payloads.
+PulseGate shall support route configuration from PostgreSQL.
+
+Current behavior:
+
+- Load active route configs from database at startup.
+- Fallback to static route config when database config is unavailable.
+- Manage route configs through internal/admin APIs.
+- Reload runtime registry without app restart.
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-008: Redis Response Caching
+### FR-009 Catch-All Dynamic Router
 
-API Gateway must cache selected downstream responses in Redis.
+PulseGate shall dispatch dynamic /api/* routes through a stable catch-all route.
+
+Current supported methods:
+
+- GET
+- POST
+- PUT
+- PATCH
+- DELETE
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-009: Downstream Error Normalization
+### FR-010 API Consumer Management
 
-API Gateway must return clean and consistent errors when downstream services fail.
+PulseGate shall support API consumer management.
+
+Current endpoints:
+
+- GET /internal/admin/consumers
+- POST /internal/admin/consumers
+- GET /internal/admin/consumers/:id
+- PATCH /internal/admin/consumers/:id
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-010: PostgreSQL and Prisma
+### FR-011 API Key Lifecycle
 
-PulseGate must use PostgreSQL and Prisma for persistent data.
+PulseGate shall support DB-backed issued API keys.
+
+Current behavior:
+
+- Issue API key for consumer.
+- Return raw key only once.
+- Persist key hash and key prefix.
+- Revoke API key.
+- List consumer API keys.
+- Track lastUsedAt best-effort.
+
+Current endpoints:
+
+- GET /internal/admin/consumers/:consumerId/api-keys
+- POST /internal/admin/consumers/:consumerId/api-keys
+- PATCH /internal/admin/api-keys/:id/revoke
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-011: Database-Backed Gateway Route Configuration
+### FR-012 API Usage Tracking
 
-API Gateway must support loading downstream route configuration from PostgreSQL.
+PulseGate shall record usage events for successful proxy/cache responses.
+
+Current usage table:
+
+- gateway.api_usage_events
+
+Current fields:
+
+- requestId
+- routePath
+- routeMethod
+- statusCode
+- durationMs
+- cacheStatus
+- apiKeyAuthSource
+- apiKeyId
+- consumerId
+- occurredAt
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-012: Policy-Driven Gateway Behavior
+### FR-013 Admin Usage Summary
 
-API Gateway must support policy-driven route behavior.
+PulseGate shall expose admin usage summaries.
+
+Current endpoints:
+
+- GET /internal/admin/usage/consumers/:consumerId/summary
+- GET /internal/admin/usage/api-keys/:apiKeyId/summary
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-013: Route Management APIs
+### FR-014 Usage Plans
 
-API Gateway must expose internal/admin APIs to manage route config records.
+PulseGate shall support usage plans.
+
+Current usage plan fields:
+
+- name
+- description
+- quotaLimit
+- quotaWindow
+- enabled
+- createdBy
+- updatedBy
+
+Current quota windows:
+
+- DAILY
+- MONTHLY
+
+Current endpoints:
+
+- GET /internal/admin/usage-plans
+- POST /internal/admin/usage-plans
+- GET /internal/admin/usage-plans/:id
+- PATCH /internal/admin/usage-plans/:id
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-014: Runtime Route Registry and Reload
+### FR-015 API Key Usage Plan Assignment
 
-API Gateway must maintain a runtime route config registry and support safe reload.
+PulseGate shall allow assigning a usage plan to an API key.
+
+Current endpoint:
+
+- PATCH /internal/admin/api-keys/:id/usage-plan
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-015: Catch-All Dynamic Router
+### FR-016 Runtime Quota Enforcement
 
-API Gateway must support brand-new DB-backed /api/* routes without API Gateway restart after reload.
+PulseGate shall enforce usage plan quotas at runtime.
+
+Current behavior:
+
+- Applies to DB-backed API keys.
+- Requires assigned enabled usage plan.
+- Uses gateway.api_usage_events as source of truth.
+- Rejects over-quota requests with 429 QUOTA_EXCEEDED.
+- Does not enforce quota for env fallback API keys.
+- Does not enforce quota for public routes.
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-016: API Consumer Management
+### FR-017 API Key Quota State
 
-API Gateway must support backend API consumer management.
+PulseGate shall expose quota state for one API key.
+
+Current endpoint:
+
+- GET /internal/admin/api-keys/:id/quota
+
+Response includes:
+
+- apiKeyId
+- consumerId
+- reason
+- usagePlan
+- usedRequests
+- remainingRequests
+- windowStartedAt
+- windowEndsAt
+- resetAt
+- exceeded
+- enforced
 
 Status:
 
-Done.
+Implemented in Sprint 16.
 
 ---
 
-## FR-017: API Key Lifecycle Management
+### FR-018 Usage Plan Usage Summary
 
-API Gateway must support issued API key lifecycle management.
+PulseGate shall expose usage summary for one usage plan.
+
+Current endpoint:
+
+- GET /internal/admin/usage-plans/:id/usage-summary
+
+Response includes:
+
+- usagePlan
+- windowStartedAt
+- windowEndsAt
+- resetAt
+- assignedApiKeys
+- activeApiKeys
+- totalRequestsInCurrentWindow
+- exceededApiKeys
+- nearLimitApiKeys
+- topApiKeysByUsage
 
 Status:
 
-Done.
+Implemented in Sprint 16.
 
 ---
 
-## FR-018: API Key Hashing and Secret Storage
+### FR-019 Quota Exceeded Metadata
 
-API Gateway must store issued API keys safely.
+PulseGate shall include quota metadata in 429 QUOTA_EXCEEDED responses.
+
+Current response details:
+
+- quotaLimit
+- quotaWindow
+- usedRequests
+- remainingRequests
+- windowStartedAt
+- windowEndsAt
+- resetAt
 
 Status:
 
-Done.
+Implemented in Sprint 16.
 
 ---
 
-## FR-019: DB-Backed Runtime API Key Authentication
+## Current Non-Functional Requirements
 
-API Gateway must support runtime authentication using DB-backed issued API keys.
+### NFR-001 Type Safety
+
+The project shall use TypeScript and pass typecheck.
+
+Validation:
+
+- npm run typecheck
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-020: Automated Tests
+### NFR-002 Automated Tests
 
-The project must include automated tests for Gateway behavior.
+The project shall have automated unit/integration-style tests.
 
-Current test status:
+Current result:
 
-- 44 test files passed
-- 314 tests passed
+- 46 test files passed
+- 329 tests passed
+
+Validation:
+
+- npm run test
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-021: GitHub Actions CI/CD Foundation
+### NFR-003 Build Stability
 
-The project must support automated CI validation through GitHub Actions.
+The project shall build successfully.
+
+Validation:
+
+- npm run build
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-022: API Usage Event Tracking
+### NFR-004 Docker Local Runtime
 
-API Gateway must record successful proxied API traffic as usage events.
+The project shall run locally through Docker Compose.
 
-Acceptance criteria:
+Current services:
 
-- gateway.api_usage_events table exists.
-- Usage event records requestId.
-- Usage event records routePath.
-- Usage event records routeMethod.
-- Usage event records statusCode.
-- Usage event records durationMs.
-- Usage event records cacheStatus.
-- Usage event records apiKeyAuthSource.
-- Usage event records apiKeyId when DB-backed key is used.
-- Usage event records consumerId when DB-backed key is used.
-- Usage event supports env fallback traffic without apiKeyId and consumerId.
-- Usage event is recorded for cache HIT.
-- Usage event is recorded for cache MISS.
-- Usage event is recorded for cache BYPASS.
-- Usage recorder failure does not fail the client response.
-- Runtime Docker validation proves DB-backed key traffic creates usage event.
+- api-gateway
+- product-service
+- postgres
+- redis
+- prometheus
+- grafana
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-023: Admin Usage Summary APIs
+### NFR-005 Observability
 
-API Gateway must expose admin APIs for consumer and API key usage summaries.
+The gateway shall expose basic observability signals.
 
-Acceptance criteria:
+Current signals:
 
-- GET /internal/admin/usage/consumers/:consumerId/summary exists.
-- GET /internal/admin/usage/api-keys/:apiKeyId/summary exists.
-- Both endpoints require x-admin-api-key.
-- Missing admin API key returns 401 ADMIN_API_KEY_MISSING.
-- Missing consumer returns 404 API_CONSUMER_NOT_FOUND.
-- Missing API key returns 404 API_KEY_NOT_FOUND.
-- Consumer summary returns totalRequests.
-- Consumer summary returns successfulRequests.
-- Consumer summary returns errorRequests.
-- Consumer summary returns averageDurationMs.
-- Consumer summary returns cacheHits.
-- Consumer summary returns cacheMisses.
-- Consumer summary returns cacheBypasses.
-- Consumer summary returns lastRequestAt.
-- API key summary returns the same summary fields.
-- Runtime Docker validation proves summary APIs return usage totals after DB-backed traffic.
+- Request ID
+- Structured logs
+- x-response-time-ms
+- Prometheus metrics
+- Grafana dashboard
+- API usage events
+- Admin usage summary APIs
+- Quota observability APIs
 
 Status:
 
-Done.
+Implemented as foundation.
 
 ---
 
-## FR-024: Usage Plan Management
+### NFR-006 Secure API Key Storage
 
-API Gateway must support internal/admin usage plan management.
+Raw API keys shall not be persisted.
 
-Acceptance criteria:
+Current behavior:
 
-- gateway.usage_plans table exists.
-- Usage plan has name.
-- Usage plan has optional description.
-- Usage plan has quotaLimit.
-- Usage plan has quotaWindow.
-- quotaWindow supports DAILY.
-- quotaWindow supports MONTHLY.
-- Usage plan has enabled flag.
-- GET /internal/admin/usage-plans exists.
-- POST /internal/admin/usage-plans exists.
-- GET /internal/admin/usage-plans/:id exists.
-- PATCH /internal/admin/usage-plans/:id exists.
-- All usage plan endpoints require x-admin-api-key.
-- Invalid quotaLimit returns validation error.
-- Invalid quotaWindow returns validation error.
-- Missing usage plan returns 404 USAGE_PLAN_NOT_FOUND.
+- keyHash is stored.
+- keyPrefix is stored.
+- rawKey is returned only once.
+- keyHash is never exposed in admin responses.
 
 Status:
 
-Done.
+Implemented.
 
 ---
 
-## FR-025: API Key Usage Plan Assignment
+## Important Current Limitations
 
-API Gateway must allow usage plans to be assigned to API keys.
-
-Acceptance criteria:
-
-- gateway.api_keys has usage_plan_id.
-- API key responses include usagePlanId.
-- PATCH /internal/admin/api-keys/:id/usage-plan exists.
-- Endpoint requires x-admin-api-key.
-- usagePlanId can be a string to assign a plan.
-- usagePlanId can be null to unassign a plan.
-- Missing API key returns 404 API_KEY_NOT_FOUND.
-- Missing usage plan returns 404 USAGE_PLAN_NOT_FOUND.
-- Updated API key response returns the assigned usagePlanId.
-
-Status:
-
-Done.
-
----
-
-## FR-026: Runtime Quota Enforcement
-
-API Gateway must enforce usage plan quotas for DB-backed API keys.
-
-Acceptance criteria:
-
-- Quota checker reads API key usage plan assignment.
-- Quota checker ignores API keys without usage plans.
-- Quota checker ignores disabled usage plans.
-- Quota checker ignores env fallback API keys.
-- Quota checker counts usage events in the current quota window.
-- DAILY quota window uses UTC day boundaries.
-- MONTHLY quota window uses UTC month boundaries.
-- Runtime preHandler checks quota after API key/JWT validation and before cache/proxy execution.
-- Over-quota requests return 429 QUOTA_EXCEEDED.
-- Docker runtime validation proves first request returns 200 and second request returns 429 for a DAILY limit of 1.
-
-Status:
-
-Done.
-
----
-
-# Non-Functional Requirements
-
-## NFR-001: Local First
-
-The project must run locally before cloud deployment.
-
-Status:
-
-Done.
-
-## NFR-002: Cost Safe
-
-The project must avoid unnecessary paid services during early development.
-
-Status:
-
-Done.
-
-## NFR-003: Maintainable Structure
-
-The codebase must be organized clearly by config, routes, middlewares, policies, repositories, database helpers, runtime registry, proxy handler, API management modules, usage modules, quota modules, tests, and server startup.
-
-Status:
-
-Done.
-
-## NFR-004: Type Safety
-
-The project must use TypeScript with strict checking.
-
-Status:
-
-Done.
-
-## NFR-005: Observability
-
-The project must provide request ID, structured access logs, latency headers, Prometheus metrics, Prometheus scraping, Grafana dashboards, and API usage events.
-
-Status:
-
-Done.
-
-## NFR-006: Testability
-
-The project must support automated unit and integration testing without requiring live infrastructure for every test.
-
-Status:
-
-Done.
-
-## NFR-007: Failure Isolation
-
-Non-critical failures should not break successful business responses when avoidable.
-
-Status:
-
-Done.
-
-## NFR-008: Reproducible Local Infrastructure
-
-The local infrastructure stack must be reproducible from repository files.
-
-Status:
-
-Done.
-
-## NFR-009: Policy-Driven Gateway Behavior
-
-Gateway route behavior should be policy-driven instead of hardcoded directly inside route handlers.
-
-Status:
-
-Done.
-
-## NFR-010: Automated CI Validation
-
-The project must validate repository health automatically.
-
-Status:
-
-Done.
-
-## NFR-011: Safe Dynamic Config Rollout
-
-Database-backed Gateway route config must be introduced safely with static fallback and validation.
-
-Status:
-
-Done.
-
-## NFR-012: Safe Runtime Registry Reload
-
-Runtime route config reload must validate configs before registry replacement and report runtime scope clearly.
-
-Status:
-
-Done.
-
-## NFR-013: Avoid Unsafe Fastify Runtime Route Mutation
-
-Runtime dynamic routing must avoid unsafe Fastify unregister/register behavior.
-
-Status:
-
-Done.
-
-## NFR-014: Safe API Key Secret Handling
-
-Issued API key secrets must be handled safely.
-
-Status:
-
-Done.
-
-## NFR-015: DB-Backed API Key Auth Must Be Testable
-
-Runtime DB-backed API key auth must remain testable through verifier and middleware injection.
-
-Status:
-
-Done.
-
-## NFR-016: API Usage Recording Must Not Break Traffic
-
-Usage recording failure must not fail an otherwise successful proxied response.
-
-Status:
-
-Done.
-
-## NFR-017: Quota Enforcement Must Be Testable
-
-Runtime quota enforcement must be testable without requiring live infrastructure in every test.
-
-Status:
-
-Done.
-
----
-
-# Current Constraints
-
-Current constraints after Sprint 15:
-
-- Usage tracking records successful downstream proxy handler responses only.
 - Failed authentication requests are not tracked yet.
 - Rate-limited requests are not tracked yet.
 - Quota-denied requests are not tracked yet.
-- Usage tracking is event-based only.
-- No aggregate rollup table exists yet.
-- No retention policy exists yet.
-- Quota evaluation currently counts usage events directly.
-- Redis quota counters are not implemented yet.
-- Disabled usage plans currently skip quota enforcement.
+- Usage data is event-based only.
+- No aggregate rollup table yet.
+- No retention policy yet.
+- No per-consumer Grafana dashboard yet.
+- No per-key Grafana dashboard yet.
+- No quota usage Grafana dashboard yet.
 - Env fallback API keys are not quota-enforced.
-- API Gateway currently proxies Product Service, but supports more than one Gateway route.
-- Startup route configs are loaded from PostgreSQL when available.
-- Static route configs still exist as safe startup fallback.
-- Runtime route registry can refresh existing registered route config.
-- Brand-new DB-backed /api/* paths can be applied through reload without restart.
-- Catch-all dynamic router supports exact method + exact path matching only.
-- Advanced path parameters are not implemented yet.
-- Wildcard upstream path mapping is not implemented yet.
+- Admin Dashboard is not implemented yet.
+- Developer Portal is not implemented yet.
+- Admin auth is still local admin API key based.
+- Admin RBAC is not implemented yet.
+- Dynamic router supports exact method + exact path matching only.
+- Path parameters are not implemented yet.
+- Wildcard upstream path forwarding is not implemented yet.
 - Host-based routing is not implemented yet.
 - Weighted upstreams are not implemented yet.
 - Service discovery is not implemented yet.
-- Route management audit log table is not implemented yet.
-- Admin APIs use a local admin API key foundation, not a full admin user system yet.
-- JWT validation is local-secret based.
-- Request and response transformation foundations support headers only.
-- Retry foundation exists, but retry is disabled by default for current routes.
-- Redis failure currently causes protected product route to return generic 500.
-- /metrics is public in local development.
-- Grafana does not yet include per-consumer, per-key, or quota usage dashboards.
-- CI does not run the full Docker Compose runtime stack yet.
-- CI does not push Docker images to a registry yet.
-- CI does not deploy automatically yet.
-- There is no distributed tracing yet.
-- There is no Kafka or RabbitMQ yet.
-- There is no Admin Dashboard yet.
-- There is no Developer Portal yet.
-- There is no Kubernetes deployment yet.
-- There is no production cloud deployment yet.
+- CI does not run full Docker Compose runtime validation yet.
+- Kubernetes/cloud deployment is planned later.
+- Kafka/RabbitMQ event streaming is planned later.
 
 ---
 
-# Future Requirements
+## Future Requirements Backlog
 
-## Future FR: Quota Observability and Usage Management Hardening
+Recommended next:
 
-Recommended for Sprint 16.
-
-Planned features:
-
-- Show usage plan assignment in more admin usage views.
-- Add quota usage summary endpoints.
-- Consider tracking quota-denied requests.
-- Improve quota response metadata if needed.
-- Keep API usage events as source of truth unless performance requires rollups.
-
-Status:
-
-Recommended next technical sprint.
-
----
-
-## Future FR: Failed Request Usage Tracking
-
-Planned features:
-
-- Track missing API key attempts.
-- Track invalid API key attempts.
-- Track missing JWT attempts.
-- Track invalid JWT attempts.
-- Track rate-limited requests.
-- Decide whether rejected traffic belongs in same usage event table or separate security event table.
-
-Status:
-
-Planned.
-
----
-
-## Future FR: Usage Aggregates and Retention
-
-Planned features:
-
-- Add aggregate rollup table if event table becomes too large.
-- Define retention policy.
-- Define daily/hourly aggregation strategy.
-- Prepare faster dashboard queries.
-
-Status:
-
-Planned.
-
----
-
-## Future FR: Admin Dashboard
-
-Planned features:
-
-- View routes.
-- View consumers.
-- View API keys.
-- View usage summaries.
-- View usage charts.
-- View quota usage.
-- Manage usage plans.
-
-Status:
-
-Planned after backend route lifecycle, API key lifecycle, usage tracking, and usage plans remain stable.
-
----
-
-## Future FR: Developer Portal
-
-Planned features:
-
-- API documentation.
-- API key request flow.
-- Usage overview.
-- Quota overview.
-- Developer onboarding.
-- Self-service key management after backend lifecycle is stable.
-
-Status:
-
-Planned.
-
----
-
-## Future FR: Advanced Observability
-
-Planned features:
-
-- OpenTelemetry instrumentation.
-- Trace ID propagation.
-- Jaeger or Tempo trace viewer.
-- Loki centralized logs.
-- k6 load testing.
-- Advanced Grafana dashboards.
-- Per-consumer, per-key, and per-plan metrics.
-
-Status:
-
-Planned.
-
----
-
-## Future FR: Event-Driven Architecture
-
-Planned features:
-
-- Kafka event streaming.
-- RabbitMQ background jobs.
-- Notification Service.
-- Async processing examples.
-
-Status:
-
-Planned.
-
----
-
-## Future FR: Kubernetes and Cloud Deployment
-
-Planned features:
-
-- Docker image registry push.
-- Kubernetes manifests.
-- ConfigMaps and Secrets.
-- Ingress.
-- Horizontal scaling examples.
-- Production cloud demo.
-
-Status:
-
-Future.
-
----
-
-# Recommended Next Step
-
-Finalize Sprint 15 documentation, validate with:
-
-- npm run test
-- npm run typecheck
-- npm run build
-- git status
-
-Then commit:
-
-docs: finalize sprint 15 documentation
-
-Next technical sprint:
-
-Sprint 16 - Quota Observability and Usage Management Hardening
+- Rejected request tracking design.
+- Decide whether failed auth, rate-limited, and quota-denied events should use typed api_usage_events or a separate rejected/security event table.
+- Keep quota counts accurate.
+- Add aggregate rollups later.
+- Add retention policy later.
+- Add quota dashboard later.
+- Add Admin Dashboard later.
+- Add Developer Portal later.
+- Add service discovery later.
+- Add Kubernetes/cloud deployment later.

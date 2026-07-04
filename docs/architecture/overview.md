@@ -1,4 +1,4 @@
-# PulseGate Architecture Overview
+﻿# PulseGate Architecture Overview
 
 ## Project
 
@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.16.0
+v0.17.0
 
 ## Current Status
 
-Sprint 15 - Usage Plans and Quota Foundation Complete
+Sprint 16 - Quota Observability and Usage Management Hardening Complete
 
 Current validation:
 
-- 44 test files passed
-- 314 tests passed
+- 46 test files passed
+- 329 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime quota validation passed
+- Docker runtime quota observability validation passed
 
 ---
 
@@ -62,6 +62,7 @@ PulseGate demonstrates backend engineering around:
 - API usage tracking
 - Consumer and API key analytics
 - Usage plans and quota enforcement
+- Quota observability
 - Traffic protection
 - Observability
 - CI/CD
@@ -99,7 +100,7 @@ Runtime flow:
         -> Usage quota check when DB-backed key has an enabled usage plan
         -> Redis response cache when enabled
         -> Shared downstream proxy pipeline
-        -> API usage recorder after successful proxy response
+        -> API usage recorder after successful proxy/cache response
       -> Product Service :3001
       -> PostgreSQL / Redis / Prometheus / Grafana
 
@@ -176,6 +177,9 @@ API Gateway currently handles:
 - API key usage plan assignment.
 - Event-based quota evaluation.
 - Runtime quota enforcement.
+- API key quota state calculation.
+- Usage plan usage summary calculation.
+- 429 quota metadata responses.
 - Redis-backed rate limiting.
 - Redis response cache.
 - API usage event recording.
@@ -191,6 +195,7 @@ API Gateway currently handles:
 - Internal/admin API key lifecycle APIs.
 - Internal/admin usage plan APIs.
 - Internal/admin API usage summary APIs.
+- Internal/admin quota observability APIs.
 - Structured access logs.
 - Prometheus metrics.
 
@@ -223,12 +228,6 @@ Runtime registry purpose:
 - Allow catch-all dynamic router to resolve brand-new /api/* routes.
 - Allow admin reload to apply route config changes without unsafe Fastify route mutation.
 - Validate replacement route configs before changing the active snapshot.
-
-Registry capabilities:
-
-- getSnapshot()
-- replaceRoutes(routes)
-- findRoute(method, gatewayPath)
 
 Important safety rule:
 
@@ -326,8 +325,6 @@ If a DB-backed key is found but revoked, expired, or belongs to a disabled consu
 
 ## Usage Plan and Quota Architecture
 
-Sprint 15 added usage plan and runtime quota enforcement.
-
 Usage plan table:
 
     gateway.usage_plans
@@ -368,6 +365,16 @@ Quota evaluation:
 - MONTHLY windows use UTC month boundaries.
 - If usedRequests >= quotaLimit, the request is rejected before cache/proxy execution.
 
+429 quota response metadata:
+
+- quotaLimit
+- quotaWindow
+- usedRequests
+- remainingRequests
+- windowStartedAt
+- windowEndsAt
+- resetAt
+
 Current quota limitation:
 
 - Quota-denied requests are not recorded as usage events yet.
@@ -376,9 +383,55 @@ Current quota limitation:
 
 ---
 
-## API Usage Tracking Architecture
+## Quota Observability Architecture
 
-Sprint 14 added the API usage tracking foundation.
+Sprint 16 added quota observability.
+
+API key quota state endpoint:
+
+- GET /internal/admin/api-keys/:id/quota
+
+Returns:
+
+- apiKeyId
+- consumerId
+- reason
+- usagePlan
+- usedRequests
+- remainingRequests
+- windowStartedAt
+- windowEndsAt
+- resetAt
+- exceeded
+- enforced
+
+Usage plan usage summary endpoint:
+
+- GET /internal/admin/usage-plans/:id/usage-summary
+
+Returns:
+
+- usagePlan
+- windowStartedAt
+- windowEndsAt
+- resetAt
+- assignedApiKeys
+- activeApiKeys
+- totalRequestsInCurrentWindow
+- exceededApiKeys
+- nearLimitApiKeys
+- topApiKeysByUsage
+
+Behavior:
+
+- Uses current quota window boundaries.
+- Counts usage from gateway.api_usage_events.
+- Keeps api_usage_events as source of truth for successful/proxied usage.
+- Does not record quota-denied requests into api_usage_events yet.
+
+---
+
+## API Usage Tracking Architecture
 
 Usage table:
 
@@ -408,7 +461,7 @@ Relations:
 
 Usage recorder behavior:
 
-- Records successful downstream proxy handler responses.
+- Records successful downstream proxy/cache handler responses.
 - Records DB-backed API key traffic with apiKeyId and consumerId.
 - Records env fallback traffic without apiKeyId and consumerId.
 - Records cache status HIT, MISS, or BYPASS.
@@ -439,18 +492,6 @@ Both endpoints require:
 
 - x-admin-api-key
 
-Consumer summary behavior:
-
-- Verifies consumer exists.
-- Returns 404 API_CONSUMER_NOT_FOUND when missing.
-- Returns usage summary for consumerId.
-
-API key summary behavior:
-
-- Verifies API key exists.
-- Returns 404 API_KEY_NOT_FOUND when missing.
-- Returns usage summary for apiKeyId.
-
 Summary fields:
 
 - subjectType
@@ -473,6 +514,7 @@ Admin usage plan endpoints:
 - GET /internal/admin/usage-plans
 - POST /internal/admin/usage-plans
 - GET /internal/admin/usage-plans/:id
+- GET /internal/admin/usage-plans/:id/usage-summary
 - PATCH /internal/admin/usage-plans/:id
 
 API key usage plan assignment endpoint:
@@ -482,23 +524,6 @@ API key usage plan assignment endpoint:
 Both endpoint groups require:
 
 - x-admin-api-key
-
-Usage plan behavior:
-
-- Creates usage plans with name, description, quotaLimit, quotaWindow, and enabled.
-- Lists usage plans ordered by creation time.
-- Reads usage plan detail.
-- Updates usage plan fields.
-- Validates quotaLimit as a positive integer.
-- Validates quotaWindow as DAILY or MONTHLY.
-
-API key assignment behavior:
-
-- Assigns an existing usage plan to an existing API key.
-- Supports unassignment with usagePlanId=null.
-- Returns 404 API_KEY_NOT_FOUND when the API key is missing.
-- Returns 404 USAGE_PLAN_NOT_FOUND when the usage plan is missing.
-- Returns updated API key response with usagePlanId.
 
 ---
 
@@ -551,7 +576,7 @@ Current protected product route:
 - Uses runtime quota check for DB-backed API keys with usage plans.
 - Uses Redis response cache.
 - Proxies to Product Service GET /products on cache MISS.
-- Records API usage event after successful proxy response.
+- Records API usage event after successful proxy/cache response.
 
 Current public health proxy route:
 
@@ -580,6 +605,7 @@ Current observability layers:
 - Provisioned Grafana datasource.
 - Provisioned API Gateway dashboard.
 - API usage event table for API management analytics.
+- Admin quota state and usage plan summary APIs.
 
 Current metrics:
 
@@ -620,28 +646,17 @@ Current limitations:
 
 ## Current Important Files
 
-Usage plans and quotas:
+Usage plans, quota, and quota observability:
 
 - apps/api-gateway/prisma/schema.prisma
-- apps/api-gateway/prisma/migrations/20260704042342_add_usage_plans/migration.sql
 - apps/api-gateway/src/usage-plans/usage-plan-management.types.ts
 - apps/api-gateway/src/usage-plans/usage-plan-management.mapper.ts
 - apps/api-gateway/src/usage-plans/usage-plan-management.repository.ts
 - apps/api-gateway/src/usage-plans/usage-quota-checker.ts
+- apps/api-gateway/src/usage-plans/usage-quota-state.ts
+- apps/api-gateway/src/usage-plans/usage-plan-usage-summary.ts
 - apps/api-gateway/src/routes/admin-usage-plan.route.ts
 - apps/api-gateway/src/routes/admin-api-key.route.ts
-- apps/api-gateway/src/proxy/downstream-proxy-handler.ts
-- apps/api-gateway/src/routes/product-proxy.route.ts
-
-API usage tracking:
-
-- apps/api-gateway/prisma/schema.prisma
-- apps/api-gateway/prisma/migrations/20260703150000_add_api_usage_events/migration.sql
-- apps/api-gateway/src/api-usage/api-usage-recorder.ts
-- apps/api-gateway/src/api-usage/api-usage-summary.repository.ts
-- apps/api-gateway/src/api-usage/api-usage-summary.mapper.ts
-- apps/api-gateway/src/api-usage/api-usage-summary.types.ts
-- apps/api-gateway/src/routes/admin-api-usage.route.ts
 - apps/api-gateway/src/proxy/downstream-proxy-handler.ts
 
 API Gateway core:
@@ -652,6 +667,7 @@ API Gateway core:
 - apps/api-gateway/src/routes/admin-route-config.route.ts
 - apps/api-gateway/src/routes/admin-consumer.route.ts
 - apps/api-gateway/src/routes/admin-api-key.route.ts
+- apps/api-gateway/src/routes/admin-usage-plan.route.ts
 - apps/api-gateway/src/runtime/route-runtime-registry.ts
 - apps/api-gateway/src/api-consumers/
 - apps/api-gateway/src/api-keys/
@@ -702,12 +718,10 @@ Infrastructure:
 
 ## Recommended Next Architecture Step
 
-Sprint 16 - Quota Observability and Usage Management Hardening
+Sprint 17 - API Usage Rejection Tracking Design or Advanced Usage Analytics Hardening
 
 Recommended direction:
 
-- Add quota usage visibility to admin APIs.
-- Consider quota-denied request tracking.
-- Add usage plan usage summaries.
-- Add quota-focused tests and runbooks.
-- Keep event-based usage tracking as source of truth unless performance requires a rollup.
+- Design failed auth, rate-limited, and quota-denied event tracking safely.
+- Keep successful/proxied usage and rejected/security events clearly separated or clearly typed.
+- Avoid corrupting event-based quota counts.
