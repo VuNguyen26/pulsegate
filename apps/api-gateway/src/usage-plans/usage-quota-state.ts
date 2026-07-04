@@ -34,6 +34,24 @@ export type UsageQuotaStateReadModel = {
   quota: UsageQuotaStateQuota;
 };
 
+export type UsageQuotaStateQuotaResponse = {
+  usedRequests: number;
+  remainingRequests: number | null;
+  windowStartedAt: string | null;
+  windowEndsAt: string | null;
+  resetAt: string | null;
+  exceeded: boolean;
+  enforced: boolean;
+};
+
+export type UsageQuotaStateResponse = {
+  apiKeyId: string;
+  consumerId: string | null;
+  reason: UsageQuotaStateReason;
+  usagePlan: UsageQuotaStateUsagePlan | null;
+  quota: UsageQuotaStateQuotaResponse;
+};
+
 export type UsageQuotaStateReader = {
   getApiKeyQuotaState: (apiKeyId: string) => Promise<UsageQuotaStateReadModel>;
 };
@@ -79,6 +97,30 @@ function mapUsagePlanToState(
     quotaLimit: usagePlan.quotaLimit,
     quotaWindow: usagePlan.quotaWindow,
     enabled: usagePlan.enabled,
+  };
+}
+
+function mapNullableDateToIso(value: Date | null): string | null {
+  return value ? value.toISOString() : null;
+}
+
+export function mapUsageQuotaStateReadModelToResponse(
+  state: UsageQuotaStateReadModel,
+): UsageQuotaStateResponse {
+  return {
+    apiKeyId: state.apiKeyId,
+    consumerId: state.consumerId,
+    reason: state.reason,
+    usagePlan: state.usagePlan,
+    quota: {
+      usedRequests: state.quota.usedRequests,
+      remainingRequests: state.quota.remainingRequests,
+      windowStartedAt: mapNullableDateToIso(state.quota.windowStartedAt),
+      windowEndsAt: mapNullableDateToIso(state.quota.windowEndsAt),
+      resetAt: mapNullableDateToIso(state.quota.resetAt),
+      exceeded: state.quota.exceeded,
+      enforced: state.quota.enforced,
+    },
   };
 }
 

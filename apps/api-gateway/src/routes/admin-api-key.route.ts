@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from "fastify";
+﻿import type { FastifyInstance, FastifyRequest } from "fastify";
 
 import { gatewayPrisma } from "../database/gateway-prisma.js";
 import { createAdminApiKeyAuthMiddleware } from "../middlewares/admin-api-key-auth.middleware.js";
@@ -15,11 +15,17 @@ import { createPrismaApiKeyManagementRepository } from "../api-keys/api-key-mana
 import type { ApiKeyManagementRepository } from "../api-keys/api-key-management.types.js";
 import { createPrismaUsagePlanManagementRepository } from "../usage-plans/usage-plan-management.repository.js";
 import type { UsagePlanManagementRepository } from "../usage-plans/usage-plan-management.types.js";
+import {
+  createPrismaUsageQuotaStateReader,
+  mapUsageQuotaStateReadModelToResponse,
+  type UsageQuotaStateReader,
+} from "../usage-plans/usage-quota-state.js";
 
 export type AdminApiKeyRouteOptions = {
   apiKeyRepository?: ApiKeyManagementRepository;
   consumerRepository?: ApiConsumerManagementRepository;
   usagePlanRepository?: UsagePlanManagementRepository;
+  quotaStateReader?: UsageQuotaStateReader;
   adminApiKey?: string;
   adminApiKeyHeader?: string;
   generateApiKey?: () => GeneratedApiKey;
@@ -74,6 +80,9 @@ export async function adminApiKeyRoute(
   const usagePlanRepository =
     options.usagePlanRepository ??
     createPrismaUsagePlanManagementRepository(gatewayPrisma);
+
+  const quotaStateReader =
+    options.quotaStateReader ?? createPrismaUsageQuotaStateReader(gatewayPrisma);
 
   const generateKey = options.generateApiKey ?? generateApiKey;
 
@@ -168,6 +177,32 @@ export async function adminApiKeyRoute(
           generatedApiKey.rawKey,
         ),
       });
+    },
+  );
+
+  app.get<{ Params: ApiKeyIdParams }>(
+    "/internal/admin/api-keys/:id/quota",
+    {
+      preHandler: requireAdminApiKey,
+    },
+    async (request, reply) => {
+      const quotaState = await quotaStateReader.getApiKeyQuotaState(
+        request.params.id,
+      );
+
+      if (quotaState.reason === "API_KEY_NOT_FOUND") {
+        return reply.status(404).send({
+          error: {
+            code: "API_KEY_NOT_FOUND",
+            message: "API key was not found",
+            requestId: request.id,
+          },
+        });
+      }
+
+      return {
+        data: mapUsageQuotaStateReadModelToResponse(quotaState),
+      };
     },
   );
 

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+﻿import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildApiGatewayApp } from "../app.js";
@@ -18,6 +18,10 @@ import type {
   UsagePlanReadModel,
   UsagePlanUpdateData,
 } from "../usage-plans/usage-plan-management.types.js";
+import type {
+  UsageQuotaStateReadModel,
+  UsageQuotaStateReader,
+} from "../usage-plans/usage-quota-state.js";
 
 const createdAt = new Date("2026-07-03T00:00:00.000Z");
 const updatedAt = new Date("2026-07-03T01:00:00.000Z");
@@ -64,6 +68,28 @@ const existingApiKey: ApiKeyReadModel = {
   revokedBy: null,
 };
 
+const existingApiKeyQuotaState: UsageQuotaStateReadModel = {
+  apiKeyId: "key_mobile_prod",
+  consumerId: "consumer_mobile",
+  reason: "ACTIVE_USAGE_PLAN",
+  usagePlan: {
+    id: "plan_starter",
+    name: "Starter",
+    quotaLimit: 1000,
+    quotaWindow: "DAILY",
+    enabled: true,
+  },
+  quota: {
+    usedRequests: 250,
+    remainingRequests: 750,
+    windowStartedAt: new Date("2026-07-04T00:00:00.000Z"),
+    windowEndsAt: new Date("2026-07-05T00:00:00.000Z"),
+    resetAt: new Date("2026-07-05T00:00:00.000Z"),
+    exceeded: false,
+    enforced: true,
+  },
+};
+
 function createTestConsumerRepository(
   consumers: ApiConsumerReadModel[],
 ): ApiConsumerManagementRepository {
@@ -103,6 +129,32 @@ function createTestUsagePlanRepository(
         throw new Error("updateUsagePlan is not used in this test");
       },
     ),
+  };
+}
+
+function createTestUsageQuotaStateReader(
+  states: Record<string, UsageQuotaStateReadModel>,
+): UsageQuotaStateReader {
+  return {
+    getApiKeyQuotaState: vi.fn(async (apiKeyId: string) => {
+      return (
+        states[apiKeyId] ?? {
+          apiKeyId,
+          consumerId: null,
+          reason: "API_KEY_NOT_FOUND",
+          usagePlan: null,
+          quota: {
+            usedRequests: 0,
+            remainingRequests: null,
+            windowStartedAt: null,
+            windowEndsAt: null,
+            resetAt: null,
+            exceeded: false,
+            enforced: false,
+          },
+        }
+      );
+    }),
   };
 }
 
@@ -200,6 +252,9 @@ describe("adminApiKeyRoute", () => {
         consumerRepository: createTestConsumerRepository([activeConsumer]),
         apiKeyRepository: createTestApiKeyRepository([existingApiKey]),
         usagePlanRepository: createTestUsagePlanRepository([starterPlan]),
+        quotaStateReader: createTestUsageQuotaStateReader({
+          key_mobile_prod: existingApiKeyQuotaState,
+        }),
         adminApiKey: "test-admin-key",
         adminApiKeyHeader: "x-admin-api-key",
         generateApiKey: () => ({
@@ -406,6 +461,79 @@ describe("adminApiKeyRoute", () => {
         code: "ADMIN_API_KEY_MISSING",
         message: "Admin API key is required",
         requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should reject API key quota state request when admin API key is missing", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/internal/admin/api-keys/key_mobile_prod/quota",
+    });
+
+    expect(response.statusCode).toBe(401);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "ADMIN_API_KEY_MISSING",
+        message: "Admin API key is required",
+        requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should return 404 when reading quota state for a missing API key", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/internal/admin/api-keys/missing_key/quota",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "API_KEY_NOT_FOUND",
+        message: "API key was not found",
+        requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should return API key quota state for an authenticated admin request", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/internal/admin/api-keys/key_mobile_prod/quota",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    expect(response.json()).toEqual({
+      data: {
+        apiKeyId: "key_mobile_prod",
+        consumerId: "consumer_mobile",
+        reason: "ACTIVE_USAGE_PLAN",
+        usagePlan: {
+          id: "plan_starter",
+          name: "Starter",
+          quotaLimit: 1000,
+          quotaWindow: "DAILY",
+          enabled: true,
+        },
+        quota: {
+          usedRequests: 250,
+          remainingRequests: 750,
+          windowStartedAt: "2026-07-04T00:00:00.000Z",
+          windowEndsAt: "2026-07-05T00:00:00.000Z",
+          resetAt: "2026-07-05T00:00:00.000Z",
+          exceeded: false,
+          enforced: true,
+        },
       },
     });
   });
