@@ -26,6 +26,11 @@ enum ApiKeyStatus {
   REVOKED
 }
 
+enum UsagePlanQuotaWindow {
+  DAILY
+  MONTHLY
+}
+
 model GatewayRoute {
   id            String             @id @default(cuid())
   serviceName   String             @map("service_name")
@@ -114,13 +119,39 @@ model ApiKey {
   revokedAt DateTime? @map("revoked_at")
   revokedBy String?   @map("revoked_by")
 
+  usagePlanId String?    @map("usage_plan_id")
+  usagePlan   UsagePlan? @relation(fields: [usagePlanId], references: [id], onDelete: SetNull)
+
   usageEvents ApiUsageEvent[]
 
   @@index([consumerId], name: "api_keys_consumer_id_idx")
   @@index([status], name: "api_keys_status_idx")
   @@index([keyPrefix], name: "api_keys_key_prefix_idx")
   @@index([expiresAt], name: "api_keys_expires_at_idx")
+  @@index([usagePlanId], name: "api_keys_usage_plan_id_idx")
   @@map("api_keys")
+}
+
+model UsagePlan {
+  id          String               @id @default(cuid())
+  name        String               @unique
+  description String?
+  quotaLimit  Int                  @map("quota_limit")
+  quotaWindow UsagePlanQuotaWindow @map("quota_window")
+  enabled     Boolean              @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  createdBy String? @map("created_by")
+  updatedBy String? @map("updated_by")
+
+  apiKeys ApiKey[]
+
+  @@index([enabled], name: "usage_plans_enabled_idx")
+  @@index([quotaWindow], name: "usage_plans_quota_window_idx")
+  @@index([createdAt], name: "usage_plans_created_at_idx")
+  @@map("usage_plans")
 }
 
 model ApiUsageEvent {
