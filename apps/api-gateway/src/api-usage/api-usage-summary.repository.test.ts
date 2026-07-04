@@ -136,6 +136,137 @@ describe("createPrismaApiUsageSummaryRepository", () => {
     });
   });
 
+  it("should apply usage summary filters to repository queries", async () => {
+    const from = new Date("2026-07-04T00:00:00.000Z");
+    const to = new Date("2026-07-05T00:00:00.000Z");
+    const lastRequestAt = new Date("2026-07-04T12:00:00.000Z");
+
+    const { prisma, count, aggregate, findFirst } = createMockPrisma({
+      countResults: [6, 5, 1, 6],
+      averageDurationMs: 31.2,
+      lastRequestAt,
+    });
+
+    const repository = createPrismaApiUsageSummaryRepository(prisma);
+
+    await expect(
+      repository.getApiKeyUsageSummary("key_1", {
+        from,
+        to,
+        routePath: "/api/products",
+        routeMethod: "GET",
+        cacheStatus: "MISS",
+        apiKeyAuthSource: "database",
+      }),
+    ).resolves.toEqual({
+      subjectType: "apiKey",
+      subjectId: "key_1",
+      totalRequests: 6,
+      successfulRequests: 5,
+      errorRequests: 1,
+      averageDurationMs: 31,
+      cacheHits: 0,
+      cacheMisses: 6,
+      cacheBypasses: 0,
+      lastRequestAt,
+    });
+
+    const filteredWhere = {
+      apiKeyId: "key_1",
+      occurredAt: {
+        gte: from,
+        lte: to,
+      },
+      routePath: "/api/products",
+      routeMethod: "GET",
+      cacheStatus: "MISS",
+      apiKeyAuthSource: "database",
+    };
+
+    expect(count).toHaveBeenCalledTimes(4);
+
+    expect(count).toHaveBeenNthCalledWith(1, {
+      where: filteredWhere,
+    });
+
+    expect(count).toHaveBeenNthCalledWith(2, {
+      where: {
+        ...filteredWhere,
+        statusCode: {
+          gte: 200,
+          lt: 400,
+        },
+      },
+    });
+
+    expect(count).toHaveBeenNthCalledWith(3, {
+      where: {
+        ...filteredWhere,
+        statusCode: {
+          gte: 400,
+        },
+      },
+    });
+
+    expect(count).toHaveBeenNthCalledWith(4, {
+      where: filteredWhere,
+    });
+
+    expect(aggregate).toHaveBeenCalledWith({
+      where: filteredWhere,
+      _avg: {
+        durationMs: true,
+      },
+    });
+
+    expect(findFirst).toHaveBeenCalledWith({
+      where: filteredWhere,
+      orderBy: {
+        occurredAt: "desc",
+      },
+      select: {
+        occurredAt: true,
+      },
+    });
+  });
+
+  it("should keep successful request count at zero when filtering by an error status code", async () => {
+    const { prisma, count } = createMockPrisma({
+      countResults: [2, 2, 1, 1, 0],
+      averageDurationMs: 12,
+      lastRequestAt: null,
+    });
+
+    const repository = createPrismaApiUsageSummaryRepository(prisma);
+
+    await expect(
+      repository.getConsumerUsageSummary("consumer_1", {
+        statusCode: 404,
+      }),
+    ).resolves.toMatchObject({
+      totalRequests: 2,
+      successfulRequests: 0,
+      errorRequests: 2,
+      cacheHits: 1,
+      cacheMisses: 1,
+      cacheBypasses: 0,
+    });
+
+    expect(count).toHaveBeenNthCalledWith(1, {
+      where: {
+        consumerId: "consumer_1",
+        statusCode: 404,
+      },
+    });
+
+    expect(count).toHaveBeenNthCalledWith(2, {
+      where: {
+        consumerId: "consumer_1",
+        statusCode: 404,
+      },
+    });
+  });
+
   it("should build an empty API key usage summary", async () => {
     const { prisma } = createMockPrisma({
       countResults: [0, 0, 0, 0, 0, 0],

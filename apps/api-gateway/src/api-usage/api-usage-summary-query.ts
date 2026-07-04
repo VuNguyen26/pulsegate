@@ -1,5 +1,9 @@
 ﻿import type { GatewayRouteMethod } from "../generated/prisma/index.js";
 import type { ApiUsageCacheStatus } from "./api-usage-recorder.js";
+import type {
+  ApiUsageSummaryFilters,
+  ApiUsageSummaryQuery,
+} from "./api-usage-summary.types.js";
 
 const GATEWAY_ROUTE_METHODS = [
   "GET",
@@ -19,20 +23,6 @@ export type AdminApiUsageSummaryQuerystring = Record<
   string,
   string | undefined
 >;
-
-export type ApiUsageSummaryFilters = {
-  from?: Date;
-  to?: Date;
-  routePath?: string;
-  routeMethod?: GatewayRouteMethod;
-  statusCode?: number;
-  cacheStatus?: ApiUsageCacheStatus;
-  apiKeyAuthSource?: string;
-};
-
-export type ApiUsageSummaryQuery = {
-  filters: ApiUsageSummaryFilters;
-};
 
 export type QueryValidationError = {
   code: "INVALID_QUERY_PARAMETER";
@@ -243,18 +233,20 @@ export function parseApiUsageSummaryQuery(
   const routePath = getOptionalQueryString(query, "routePath");
   const apiKeyAuthSource = getOptionalQueryString(query, "apiKeyAuthSource");
 
+  const filters: ApiUsageSummaryFilters = {
+    ...(from.value ? { from: from.value } : {}),
+    ...(to.value ? { to: to.value } : {}),
+    ...(routePath ? { routePath } : {}),
+    ...(routeMethod.value ? { routeMethod: routeMethod.value } : {}),
+    ...(statusCode.value ? { statusCode: statusCode.value } : {}),
+    ...(cacheStatus.value ? { cacheStatus: cacheStatus.value } : {}),
+    ...(apiKeyAuthSource ? { apiKeyAuthSource } : {}),
+  };
+
   return {
     ok: true,
     value: {
-      filters: {
-        ...(from.value ? { from: from.value } : {}),
-        ...(to.value ? { to: to.value } : {}),
-        ...(routePath ? { routePath } : {}),
-        ...(routeMethod.value ? { routeMethod: routeMethod.value } : {}),
-        ...(statusCode.value ? { statusCode: statusCode.value } : {}),
-        ...(cacheStatus.value ? { cacheStatus: cacheStatus.value } : {}),
-        ...(apiKeyAuthSource ? { apiKeyAuthSource } : {}),
-      },
+      filters,
     },
   };
 }
