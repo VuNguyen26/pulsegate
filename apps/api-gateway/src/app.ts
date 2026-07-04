@@ -30,6 +30,10 @@ import {
   type AdminApiUsageRouteOptions,
 } from "./routes/admin-api-usage.route.js";
 import {
+  adminApiRejectionRoute,
+  type AdminApiRejectionRouteOptions,
+} from "./routes/admin-api-rejection.route.js";
+import {
   adminUsagePlanRoute,
   type AdminUsagePlanRouteOptions,
 } from "./routes/admin-usage-plan.route.js";
@@ -67,6 +71,7 @@ type BuildApiGatewayAppOptions = {
   consumerManagement?: AdminConsumerRouteOptions;
   apiKeyManagement?: AdminApiKeyRouteOptions;
   apiUsageManagement?: AdminApiUsageRouteOptions;
+  apiRejectionManagement?: AdminApiRejectionRouteOptions;
   usagePlanManagement?: AdminUsagePlanRouteOptions;
   routeRuntimeRegistry?: RouteRuntimeRegistry;
 };
@@ -172,6 +177,10 @@ export async function buildApiGatewayApp(
     ...(options.apiUsageManagement ?? {}),
   };
 
+  const apiRejectionManagementOptions: AdminApiRejectionRouteOptions = {
+    ...(options.apiRejectionManagement ?? {}),
+  };
+
   const usagePlanManagementOptions: AdminUsagePlanRouteOptions = {
     ...(options.usagePlanManagement ?? {}),
   };
@@ -182,6 +191,7 @@ export async function buildApiGatewayApp(
   await app.register(adminConsumerRoute, consumerManagementOptions);
   await app.register(adminApiKeyRoute, apiKeyManagementOptions);
   await app.register(adminApiUsageRoute, apiUsageManagementOptions);
+  await app.register(adminApiRejectionRoute, apiRejectionManagementOptions);
   await app.register(adminUsagePlanRoute, usagePlanManagementOptions);
   await app.register(downstreamProxyRoute, downstreamProxyOptions);
 
