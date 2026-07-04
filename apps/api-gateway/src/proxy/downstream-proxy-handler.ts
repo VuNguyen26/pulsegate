@@ -313,6 +313,88 @@ async function recordRateLimitRejectedEvent(options: {
   }
 }
 
+type AuthRejectionType = "api-key" | "jwt";
+
+type AuthRejectionReason =
+  | "API_KEY_MISSING"
+  | "API_KEY_INVALID"
+  | "JWT_TOKEN_MISSING"
+  | "JWT_TOKEN_INVALID";
+
+function resolveAuthRejectionReason(options: {
+  authType: AuthRejectionType;
+  statusCode: number;
+}): AuthRejectionReason | undefined {
+  if (options.authType === "api-key") {
+    if (options.statusCode === 401) {
+      return "API_KEY_MISSING";
+    }
+
+    if (options.statusCode === 403) {
+      return "API_KEY_INVALID";
+    }
+
+    return undefined;
+  }
+
+  if (options.statusCode === 401) {
+    return "JWT_TOKEN_MISSING";
+  }
+
+  if (options.statusCode === 403) {
+    return "JWT_TOKEN_INVALID";
+  }
+
+  return undefined;
+}
+
+async function recordAuthRejectedEvent(options: {
+  rejectedEventRecorder?: ApiRejectedEventRecorder;
+  request: FastifyRequest;
+  reply: FastifyReply;
+  routeConfig: DownstreamRouteConfig;
+  authType: AuthRejectionType;
+}): Promise<void> {
+  if (!options.rejectedEventRecorder) {
+    return;
+  }
+
+  const rejectionReason = resolveAuthRejectionReason({
+    authType: options.authType,
+    statusCode: options.reply.statusCode,
+  });
+
+  if (!rejectionReason) {
+    return;
+  }
+
+  try {
+    await options.rejectedEventRecorder.record({
+      requestId: options.request.id,
+      routePath: options.routeConfig.gatewayPath,
+      routeMethod: options.routeConfig.method,
+      statusCode: options.reply.statusCode,
+      rejectionReason,
+      apiKeyAuthSource: options.request.apiKeyAuthSource,
+      apiKeyId: options.request.apiKeyId,
+      consumerId: options.request.apiConsumerId,
+      metadata: {
+        authType: options.authType,
+      },
+    });
+  } catch (error) {
+    options.request.log.error(
+      {
+        error,
+        requestId: options.request.id,
+        route: options.routeConfig.gatewayPath,
+        authType: options.authType,
+      },
+      "Failed to record auth rejected event",
+    );
+  }
+}
+
 export function resolveRuntimeRouteConfig(
   registeredRouteConfig: DownstreamRouteConfig,
   routeRuntimeRegistry?: RouteRuntimeRegistry,
@@ -422,6 +504,14 @@ export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
       await runRuntimePreHandler(requireApiKey, request, reply);
 
       if (reply.sent) {
+        await recordAuthRejectedEvent({
+          rejectedEventRecorder: options.rejectedEventRecorder,
+          request,
+          reply,
+          routeConfig: runtimeRouteConfig,
+          authType: "api-key",
+        });
+
         return;
       }
     }
@@ -463,6 +553,14 @@ export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
       await runRuntimePreHandler(jwtAuthMiddleware, request, reply);
 
       if (reply.sent) {
+        await recordAuthRejectedEvent({
+          rejectedEventRecorder: options.rejectedEventRecorder,
+          request,
+          reply,
+          routeConfig: runtimeRouteConfig,
+          authType: "jwt",
+        });
+
         return;
       }
     }
