@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.20.0
+v0.21.0
 
 ## Current Status
 
-Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design Complete
+Sprint 20 - Usage Analytics Listing and Event Investigation Complete
 
 Current validation:
 
-- 56 test files passed
-- 376 tests passed
+- 59 test files passed
+- 396 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime filtered usage summary validation passed
+- Docker runtime usage events listing validation passed
 
 ---
 
@@ -42,48 +42,13 @@ Long decision records live in:
 
 ## Product Goal
 
-PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by:
+PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
-- Kong
-- Apache APISIX
-- Tyk
-- Apigee
-- AWS API Gateway
-
-PulseGate demonstrates backend engineering around:
-
-- API Gateway routing
-- Microservice communication
-- Dynamic route configuration
-- Runtime route reload
-- API consumer management
-- Issued API key lifecycle
-- DB-backed API key authentication
-- API usage tracking
-- Consumer and API key analytics
-- Usage plans and quota enforcement
-- Quota observability
-- Rejected request tracking
-- Rejected events observability and drilldown
-- Traffic protection
-- Observability
-- CI/CD
-- Production-oriented backend architecture
+PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, and CI/CD.
 
 ---
 
 ## Current High-Level Architecture
-
-Current runtime system:
-
-- Client or API consumer
-- PulseGate API Gateway
-- Product Service
-- PostgreSQL
-- Redis
-- Prometheus
-- Grafana
-- GitHub Actions CI
 
 Runtime flow:
 
@@ -133,29 +98,20 @@ Ports:
 
 ## Data Ownership
 
-Product Service owns product data.
+Product Service owns:
 
-    PostgreSQL public schema
-      -> public.products
-      -> public._prisma_migrations
+- public.products
+- public._prisma_migrations
 
-API Gateway owns gateway and API management data.
+API Gateway owns:
 
-    PostgreSQL gateway schema
-      -> gateway.gateway_routes
-      -> gateway.api_consumers
-      -> gateway.api_keys
-      -> gateway.usage_plans
-      -> gateway.api_usage_events
-      -> gateway.api_rejected_events
-      -> gateway._prisma_migrations
-
-Reason:
-
-- Product Service owns product data.
-- API Gateway owns route config, API consumers, issued API keys, usage plans, usage events, and rejected request events.
-- Separate schemas avoid Prisma migration ownership conflicts.
-- Gateway auth, route management, API management, quota, and analytics should not depend on downstream service data models.
+- gateway.gateway_routes
+- gateway.api_consumers
+- gateway.api_keys
+- gateway.usage_plans
+- gateway.api_usage_events
+- gateway.api_rejected_events
+- gateway._prisma_migrations
 
 ---
 
@@ -163,178 +119,25 @@ Reason:
 
 API Gateway currently handles:
 
-- Public health endpoint.
-- Prometheus metrics endpoint.
-- Product proxy endpoint.
-- Product Service health proxy endpoint.
+- Public health and metrics endpoints.
+- Product Service proxy routes.
 - Catch-all dynamic dispatcher for /api/*.
-- Startup route config loading.
-- Static route config fallback.
-- Runtime route registry.
-- Runtime reload.
+- Startup route config loading and runtime reload.
 - Shared downstream proxy pipeline.
-- API key authentication.
 - DB-backed issued API key verification.
 - Env API_KEYS fallback.
 - JWT authentication.
-- Usage plan management.
-- API key usage plan assignment.
-- Event-based quota evaluation.
-- Runtime quota enforcement.
-- API key quota state calculation.
-- Usage plan usage summary calculation.
-- 429 quota metadata responses.
-- Redis-backed rate limiting.
-- Redis response cache.
+- Usage plan management and API key assignment.
+- Event-based quota evaluation and runtime quota enforcement.
+- API key quota state and usage plan usage summary.
+- Redis-backed rate limiting and response caching.
 - API usage event recording.
 - API rejected event recording.
-- Consumer usage summary with filters.
-- API key usage summary with filters.
-- Rejected events summary.
-- Filtered rejected events summary.
-- Rejected events raw listing.
-- Request transform foundation.
-- Response transform foundation.
-- Timeout policy.
-- Retry policy foundation.
-- Downstream error normalization.
-- Internal/admin route management APIs.
-- Internal/admin API consumer APIs.
-- Internal/admin API key lifecycle APIs.
-- Internal/admin usage plan APIs.
-- Internal/admin API usage summary APIs.
-- Internal/admin rejected event APIs.
-- Internal/admin quota observability APIs.
-- Structured access logs.
-- Prometheus metrics.
-
----
-
-## Shared Downstream Proxy Pipeline
-
-The shared proxy pipeline applies route behavior from the latest runtime route config.
-
-Pipeline:
-
-    Runtime route lookup
-      -> API key policy
-      -> DB-backed API key verifier or env API_KEYS fallback
-      -> Redis-backed rate limit policy
-      -> JWT policy
-      -> Usage quota policy
-      -> Rejected event recorder for auth, rate limit, and quota rejections
-      -> Redis response cache policy
-      -> Request transform foundation
-      -> Timeout policy
-      -> Retry policy foundation
-      -> Downstream fetch
-      -> Response transform foundation
-      -> API usage recorder
-      -> Normalized downstream errors
-
-The same pipeline is used by:
-
-- Startup registered downstream routes.
-- Catch-all dynamic /api/* routes.
-
----
-
-## API Consumer and API Key Architecture
-
-API consumers:
-
-    gateway.api_consumers
-
-Consumer statuses:
-
-- ACTIVE
-- DISABLED
-
-API keys:
-
-    gateway.api_keys
-
-API key statuses:
-
-- ACTIVE
-- REVOKED
-
-API key usage plan assignment:
-
-- api_keys.usage_plan_id references gateway.usage_plans.
-- Assignment is optional.
-- Unassigned API keys are not quota-enforced.
-- Assigned API keys are quota-enforced when the usage plan is enabled.
-
-API key storage rule:
-
-- Raw API keys are never persisted.
-- keyHash is persisted.
-- keyPrefix is persisted.
-- rawKey is returned only once during issue response.
-- keyHash is never exposed in API responses.
-
-Runtime DB-backed API key auth flow:
-
-    Incoming x-api-key
-      -> hash raw key
-      -> lookup gateway.api_keys by keyHash
-      -> include related consumer
-      -> check key status
-      -> check consumer status
-      -> check expiresAt
-      -> update lastUsedAt best-effort
-      -> attach request.apiKeyId and request.apiConsumerId when valid
-
-Important security rule:
-
-If a DB-backed key is found but revoked, expired, or belongs to a disabled consumer, PulseGate rejects the request and does not fall back to env API_KEYS.
-
----
-
-## Usage Plan and Quota Architecture
-
-Usage plan table:
-
-    gateway.usage_plans
-
-Quota windows:
-
-- DAILY
-- MONTHLY
-
-Quota enforcement behavior:
-
-- Applies only to DB-backed API keys.
-- Applies only when the API key has usagePlanId.
-- Applies only when the usage plan is enabled.
-- Env fallback API keys are not quota-enforced.
-- Public routes without API keys are not quota-enforced.
-- Disabled usage plans currently skip quota enforcement.
-- When quota is exceeded, PulseGate returns 429 QUOTA_EXCEEDED.
-
-Quota evaluation:
-
-- Uses gateway.api_usage_events as the source of truth.
-- Counts API usage events for the current quota window.
-- DAILY windows use UTC day boundaries.
-- MONTHLY windows use UTC month boundaries.
-- If usedRequests >= quotaLimit, the request is rejected before cache/proxy execution.
-
-429 quota response metadata:
-
-- quotaLimit
-- quotaWindow
-- usedRequests
-- remainingRequests
-- windowStartedAt
-- windowEndsAt
-- resetAt
-
-Current quota limitation:
-
-- Redis quota counters are not implemented yet.
-- Aggregate rollup tables are not implemented yet.
+- Consumer and API key usage summaries with filters.
+- Successful usage event raw listing with filters and pagination.
+- Rejected events summary and raw listing.
+- Internal/admin route, consumer, API key, usage plan, usage analytics, rejected event, and quota APIs.
+- Structured access logs and Prometheus metrics.
 
 ---
 
@@ -366,48 +169,36 @@ Usage recorder behavior:
 - Records response status code and durationMs.
 - Usage recorder failure does not fail the client response.
 
-Admin usage summary endpoints:
+Admin usage analytics endpoints:
 
+- GET /internal/admin/usage/events
 - GET /internal/admin/usage/consumers/:consumerId/summary
 - GET /internal/admin/usage/api-keys/:apiKeyId/summary
 
-Summary fields:
+Usage event listing behavior:
 
-- subjectType
-- subjectId
-- totalRequests
-- successfulRequests
-- errorRequests
-- averageDurationMs
-- cacheHits
-- cacheMisses
-- cacheBypasses
-- lastRequestAt
+- Returns raw successful usage event rows from gateway.api_usage_events.
+- Supports safe pagination with limit, offset, total, and hasNextPage.
+- Default limit is 20.
+- Maximum limit is 100.
+- Sorts by occurredAt desc and id desc.
+- Supports filters by from, to, routePath, routeMethod, statusCode, cacheStatus, apiKeyAuthSource, apiKeyId, and consumerId.
+- Invalid query values return 400 INVALID_QUERY_PARAMETER.
+- Does not expose raw API keys, JWTs, or Authorization headers.
 
-Supported usage summary filters:
+Usage summary behavior:
 
-- from
-- to
-- routePath
-- routeMethod
-- statusCode
-- cacheStatus
-- apiKeyAuthSource
-
-Usage summary query behavior:
-
+- Summaries read from gateway.api_usage_events.
+- Supported filters include from, to, routePath, routeMethod, statusCode, cacheStatus, and apiKeyAuthSource.
 - Invalid query values return 400 INVALID_QUERY_PARAMETER.
 - routeMethod is normalized to uppercase.
 - cacheStatus is normalized to HIT, MISS, or BYPASS.
-- Response includes a filters object with normalized filters.
-- Filters are applied at repository level to gateway.api_usage_events.
 
-Current usage recording limitation:
+Current usage analytics limitation:
 
 - Usage tracking is event-based only.
 - No aggregate rollup table yet.
 - No retention policy job yet.
-- Raw successful usage event listing is not implemented yet.
 - Rejected requests are intentionally tracked in gateway.api_rejected_events instead of gateway.api_usage_events.
 
 ---
@@ -427,175 +218,19 @@ Tracked rejection reasons:
 - RATE_LIMIT_EXCEEDED
 - QUOTA_EXCEEDED
 
-Rejected event behavior:
-
-- Records failed API key auth.
-- Records failed JWT auth.
-- Records rate-limited requests.
-- Records quota-denied requests.
-- Stores route, method, status, reason, request id, auth source, API key id, consumer id, and occurredAt when available.
-- Does not store raw API keys, JWTs, or Authorization headers.
-- Does not write rejected requests into gateway.api_usage_events.
-
 Admin rejected event endpoints:
 
 - GET /internal/admin/api-rejections/summary
 - GET /internal/admin/api-rejections/events
 
-Summary endpoint:
-
-- Returns total rejected requests.
-- Returns counts grouped by rejection reason.
-- Returns counts grouped by status code.
-- Returns lastRejectedAt.
-- Supports filters.
-
-Listing endpoint:
+Rejected listing behavior:
 
 - Returns raw rejected event rows.
 - Supports safe pagination with limit, offset, total, and hasNextPage.
 - Supports filters by from, to, rejectionReason, statusCode, routePath, routeMethod, apiKeyAuthSource, apiKeyId, and consumerId.
 - Sorts by occurredAt desc and id desc.
 - Rejects invalid query values with 400 INVALID_QUERY_PARAMETER.
-
----
-
-## Quota Observability Architecture
-
-API key quota state endpoint:
-
-- GET /internal/admin/api-keys/:id/quota
-
-Usage plan usage summary endpoint:
-
-- GET /internal/admin/usage-plans/:id/usage-summary
-
-Behavior:
-
-- Uses current quota window boundaries.
-- Counts usage from gateway.api_usage_events.
-- Keeps api_usage_events as source of truth for successful/proxied usage.
-- Keeps rejected requests in gateway.api_rejected_events.
-
----
-
-## Route Management Architecture
-
-Internal/admin route management endpoints:
-
-- GET /internal/admin/routes
-- GET /internal/admin/routes/runtime
-- GET /internal/admin/routes/:id
-- POST /internal/admin/routes
-- PATCH /internal/admin/routes/:id
-- DELETE /internal/admin/routes/:id
-- POST /internal/admin/routes/reload
-
-Current behavior:
-
-- Protected by x-admin-api-key.
-- Supports optional x-admin-actor.
-- Lists non-deleted route configs.
-- Reads non-deleted route config detail.
-- Creates route configs.
-- Updates route configs.
-- Enables and disables routes through PATCH.
-- Soft deletes routes through DELETE.
-- Validates route configs before persistence.
-- Rejects duplicate active method + gatewayPath.
-- Reloads active DB routes into runtime registry.
-
----
-
-## Route Policy Model
-
-Current route policy model:
-
-- auth
-- timeout
-- cache
-- rateLimit
-- requestTransform
-- responseTransform
-- retry
-
-Current protected product route:
-
-- GET /api/products
-- Requires API key.
-- Requires JWT.
-- Uses Redis-backed rate limit.
-- Uses runtime quota check for DB-backed API keys with usage plans.
-- Uses Redis response cache.
-- Proxies to Product Service GET /products on cache MISS.
-- Records API usage event after successful proxy/cache response.
-
-Current public health proxy route:
-
-- GET /api/product-service/health
-- Does not require API key.
-- Does not require JWT.
-- Does not use Redis rate limit.
-- Does not use Redis response cache.
-- Does not enforce quota.
-- Proxies to Product Service GET /health.
-- Records API usage event with no apiKeyId and no consumerId.
-
----
-
-## Observability Architecture
-
-Current observability layers:
-
-- Request ID propagation.
-- Structured access logs.
-- x-response-time-ms response header.
-- Prometheus metrics registry.
-- GET /metrics endpoint.
-- Prometheus Docker service.
-- Grafana Docker service.
-- Provisioned Grafana datasource.
-- Provisioned API Gateway dashboard.
-- API usage event table for API management analytics.
-- API rejected event table for rejected/security traffic analytics.
-- Admin usage summary APIs.
-- Admin rejected event summary and listing APIs.
-- Admin quota state and usage plan summary APIs.
-
-Current metrics:
-
-- http_requests_total
-- http_request_duration_seconds
-- http_response_cache_total
-
-Current Grafana dashboard:
-
-- PulseGate API Gateway Overview
-
-Current limitation:
-
-- Grafana does not yet show per-consumer, per-key, quota usage, or rejected event panels.
-
----
-
-## CI/CD Architecture
-
-GitHub Actions validates:
-
-- npm ci
-- Product Service Prisma Client generation.
-- API Gateway Prisma Client generation.
-- npm run test
-- npm run typecheck
-- npm run build
-- API Gateway Docker image build
-- Product Service Docker image build
-
-Current limitations:
-
-- CI does not run full Docker Compose runtime stack yet.
-- CI does not push Docker images to a registry yet.
-- CI does not deploy automatically yet.
+- Does not write rejected requests into gateway.api_usage_events.
 
 ---
 
@@ -609,47 +244,27 @@ API usage analytics:
 - apps/api-gateway/src/api-usage/api-usage-summary.types.ts
 - apps/api-gateway/src/api-usage/api-usage-summary.mapper.ts
 - apps/api-gateway/src/api-usage/api-usage-summary.repository.ts
+- apps/api-gateway/src/api-usage/api-usage-events-listing-query.ts
+- apps/api-gateway/src/api-usage/api-usage-events-listing.types.ts
+- apps/api-gateway/src/api-usage/api-usage-events-listing.mapper.ts
+- apps/api-gateway/src/api-usage/api-usage-events-listing.repository.ts
 - apps/api-gateway/src/routes/admin-api-usage.route.ts
 
 Rejected events:
 
-- apps/api-gateway/prisma/schema.prisma
-- apps/api-gateway/src/api-rejections/api-rejected-event-recorder.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-summary.types.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-summary.mapper.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-summary.repository.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-listing.types.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-listing.mapper.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-listing.repository.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-listing-query.ts
+- apps/api-gateway/src/api-rejections/
 - apps/api-gateway/src/routes/admin-api-rejection.route.ts
 
-API Gateway core:
+Core:
 
 - apps/api-gateway/src/app.ts
 - apps/api-gateway/src/server.ts
-- apps/api-gateway/src/routes/product-proxy.route.ts
-- apps/api-gateway/src/routes/admin-route-config.route.ts
-- apps/api-gateway/src/routes/admin-consumer.route.ts
-- apps/api-gateway/src/routes/admin-api-key.route.ts
-- apps/api-gateway/src/routes/admin-usage-plan.route.ts
-- apps/api-gateway/src/runtime/route-runtime-registry.ts
+- apps/api-gateway/src/proxy/downstream-proxy-handler.ts
+- apps/api-gateway/src/routes/
+- apps/api-gateway/src/runtime/
 - apps/api-gateway/src/api-consumers/
 - apps/api-gateway/src/api-keys/
 - apps/api-gateway/src/usage-plans/
-
-Product Service:
-
-- apps/product-service/src/server.ts
-- apps/product-service/src/routes/product.route.ts
-- apps/product-service/src/products/product.repository.ts
-- apps/product-service/prisma/schema.prisma
-
-Infrastructure:
-
-- docker-compose.yml
-- observability/prometheus/prometheus.yml
-- observability/grafana/
 
 ---
 
@@ -659,13 +274,11 @@ Infrastructure:
 - Rejected event analytics is event-based only.
 - No aggregate rollup table yet.
 - No retention policy job yet.
-- No raw successful usage event listing endpoint yet.
 - No cursor pagination for very large event datasets yet.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
 - Admin Dashboard is not implemented yet.
 - Developer Portal is not implemented yet.
-- Route management audit log table is not implemented yet.
 - Stronger admin auth and RBAC are not implemented yet.
 - Dynamic router supports exact method + exact path matching only.
 - Path parameters are not implemented yet.
@@ -683,13 +296,7 @@ Infrastructure:
 
 ## Recommended Next Architecture Step
 
-Sprint 20 recommended direction:
+Sprint 21 recommended direction:
 
-- Usage Analytics Listing and Event Investigation, or
-- Analytics Retention/Rollup Implementation Foundation
-
-Recommended details:
-
-- Add raw successful usage event listing with safe pagination if admin investigation workflow is next.
-- Or implement a small retention/rollup foundation if data lifecycle is next.
-- Keep successful usage events and rejected/security events clearly separated.
+- Analytics Retention/Rollup Implementation Foundation, or
+- Usage Analytics Cursor Pagination and Investigation Hardening

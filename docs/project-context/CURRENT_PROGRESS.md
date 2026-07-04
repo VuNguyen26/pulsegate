@@ -24,37 +24,39 @@ Long decision records live in:
 
 ## Current Version
 
-v0.20.0
+v0.21.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design
+Sprint 20 - Usage Analytics Listing and Event Investigation
 
 Status:
 
 Done.
 
-Sprint 19 hardened successful usage analytics:
+Sprint 20 added raw successful usage event investigation:
 
-- Added usage summary query parser.
-- Added usage summary filter model.
-- Added repository-level filters for successful usage summaries.
-- Exposed filtered usage summary APIs for consumers and API keys.
+- Added usage events listing query parser.
+- Added usage events listing filter model.
+- Added usage events listing repository and mapper.
+- Exposed GET /internal/admin/usage/events.
+- Added safe pagination with limit, offset, total, and hasNextPage.
+- Added filters by from, to, routePath, routeMethod, statusCode, cacheStatus, apiKeyAuthSource, apiKeyId, and consumerId.
 - Preserved api_usage_events as source of truth for successful usage and quota counting.
 - Preserved api_rejected_events as the separate source of truth for rejected/security traffic.
-- Added retention/rollup design guidance without implementing a migration or rollup table.
+- Did not add migrations, retention jobs, rollup tables, quota rewrites, or recorder rewrites.
 
-Sprint 19 details are archived in:
+Sprint 20 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-19.md
+- docs/sdlc/sprint-history/sprint-20.md
 
-Sprint 19 runbook:
+Sprint 20 runbook:
 
 - docs/runbooks/api-usage-analytics.md
 
-Related decision record:
+Related design record:
 
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
 
@@ -62,26 +64,29 @@ Related decision record:
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 19:
+Latest stable validation from Sprint 20:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Docker runtime filtered usage summary validation -> passed
+- Docker runtime usage events listing validation -> passed
 
 Latest automated test result:
 
-- 56 test files passed
-- 376 tests passed
+- 59 test files passed
+- 396 tests passed
 
 Latest Docker runtime validation proved:
 
 - GET /health returns 200.
 - Admin can create a consumer.
 - Admin can issue an API key.
-- Invalid usage summary query returns 400 INVALID_QUERY_PARAMETER.
-- Filtered consumer usage summary returns 200 with normalized filters.
-- Filtered API key usage summary returns 200 with normalized filters.
+- A protected successful request can generate a usage event.
+- Invalid usage events listing query returns 400 INVALID_QUERY_PARAMETER.
+- Default usage events listing returns 200 with limit 20 and offset 0.
+- Filtered usage events listing returns 200 with normalized filters.
+- gateway.api_usage_events remains the source of truth for successful usage and quota counting.
+- gateway.api_rejected_events remains separate for rejected/security traffic.
 
 ---
 
@@ -98,97 +103,40 @@ PulseGate currently has:
 - Prometheus.
 - Grafana.
 - GitHub Actions CI/CD.
-- PostgreSQL-backed Product Service data.
-- PostgreSQL-backed API Gateway route config.
+- Dynamic route config.
+- Runtime route registry and reload endpoint.
+- Catch-all dynamic router for /api/*.
+- Shared downstream proxy pipeline.
+- DB-backed issued API key authentication.
+- Static env API key fallback.
+- JWT authentication.
+- Redis-backed rate limiting.
+- Redis response caching.
 - PostgreSQL-backed API consumers.
 - PostgreSQL-backed issued API keys.
 - PostgreSQL-backed usage plans.
 - PostgreSQL-backed API usage events.
 - PostgreSQL-backed API rejected events.
-- Internal/admin route management APIs.
-- Internal/admin API consumer APIs.
-- Internal/admin API key lifecycle APIs.
-- Internal/admin usage plan APIs.
-- Internal/admin filtered API usage summary APIs.
-- Internal/admin quota observability APIs.
-- Internal/admin rejected events summary API.
-- Internal/admin rejected events listing API.
-- Runtime route registry.
-- Runtime registry reload endpoint.
-- Catch-all dynamic router for /api/*.
-- Shared downstream proxy pipeline.
-- DB-backed issued API key authentication.
-- Event-based quota checker.
-- Runtime quota enforcement.
 - API usage recorder.
 - API rejected event recorder.
+- Event-based quota checker.
+- Runtime quota enforcement.
 - API key quota state reader.
 - Usage plan usage summary reader.
 - Usage summary reader with filters.
+- Usage events listing reader with filters and pagination.
 - Rejected event summary reader with filters.
 - Rejected event listing reader with filters and pagination.
-- Static env API key fallback.
-- JWT authentication.
-- Redis-backed rate limiting.
-- Redis response caching.
-- Route policy foundation.
+- Internal/admin route management APIs.
+- Internal/admin consumer APIs.
+- Internal/admin API key lifecycle APIs.
+- Internal/admin usage plan APIs.
+- Internal/admin usage analytics APIs.
+- Internal/admin quota observability APIs.
+- Internal/admin rejected events APIs.
 - Structured access logs.
 - Prometheus metrics.
 - Grafana dashboard.
-
----
-
-## Current Infrastructure
-
-Docker services:
-
-- api-gateway
-- product-service
-- postgres
-- redis
-- prometheus
-- grafana
-
-Ports:
-
-- API Gateway -> 3000
-- Product Service -> 3001
-- Grafana -> 3002
-- PostgreSQL -> 5432
-- Redis -> 6379
-- Prometheus -> 9090
-
----
-
-## Current Database State
-
-Database:
-
-- PostgreSQL
-
-Database name:
-
-- pulsegate
-
-Schemas:
-
-- public
-- gateway
-
-Product Service tables:
-
-- public._prisma_migrations
-- public.products
-
-API Gateway tables:
-
-- gateway._prisma_migrations
-- gateway.gateway_routes
-- gateway.api_consumers
-- gateway.api_keys
-- gateway.usage_plans
-- gateway.api_usage_events
-- gateway.api_rejected_events
 
 ---
 
@@ -212,82 +160,51 @@ Dynamic dispatcher:
 - PATCH /api/*
 - DELETE /api/*
 
-Internal/admin route management:
-
-- GET /internal/admin/routes
-- GET /internal/admin/routes/runtime
-- GET /internal/admin/routes/:id
-- POST /internal/admin/routes
-- PATCH /internal/admin/routes/:id
-- DELETE /internal/admin/routes/:id
-- POST /internal/admin/routes/reload
-
-Internal/admin consumers:
-
-- GET /internal/admin/consumers
-- POST /internal/admin/consumers
-- GET /internal/admin/consumers/:id
-- PATCH /internal/admin/consumers/:id
-
-Internal/admin API keys:
-
-- GET /internal/admin/consumers/:consumerId/api-keys
-- POST /internal/admin/consumers/:consumerId/api-keys
-- GET /internal/admin/api-keys/:id/quota
-- PATCH /internal/admin/api-keys/:id/revoke
-- PATCH /internal/admin/api-keys/:id/usage-plan
-
-Internal/admin usage plans:
-
-- GET /internal/admin/usage-plans
-- POST /internal/admin/usage-plans
-- GET /internal/admin/usage-plans/:id
-- GET /internal/admin/usage-plans/:id/usage-summary
-- PATCH /internal/admin/usage-plans/:id
-
 Internal/admin usage analytics:
 
+- GET /internal/admin/usage/events
 - GET /internal/admin/usage/consumers/:consumerId/summary
 - GET /internal/admin/usage/api-keys/:apiKeyId/summary
+
+Internal/admin rejected analytics:
+
 - GET /internal/admin/api-rejections/summary
 - GET /internal/admin/api-rejections/events
 
+Internal/admin quota observability:
+
+- GET /internal/admin/api-keys/:id/quota
+- GET /internal/admin/usage-plans/:id/usage-summary
+
+Internal/admin management:
+
+- Route config management.
+- Consumer management.
+- API key issue/list/revoke.
+- API key usage plan assignment.
+- Usage plan create/list/detail/update.
+
 ---
 
-## Current Usage and Quota Behavior
+## Current Usage, Quota, and Rejected Event Behavior
 
 Usage event table:
 
 - gateway.api_usage_events
 
-Usage recording scope:
-
-- Successful downstream proxy/cache handler responses.
-- Cache HIT.
-- Cache MISS.
-- Cache BYPASS.
-- DB-backed API key traffic.
-- Env fallback API key traffic.
-
 Usage analytics:
 
+- GET /internal/admin/usage/events returns raw successful usage event rows.
+- Usage event listing supports safe pagination and filters.
 - Consumer usage summary supports filters.
 - API key usage summary supports filters.
-- Supported filters include from, to, routePath, routeMethod, statusCode, cacheStatus, and apiKeyAuthSource.
-- Invalid usage summary query returns 400 INVALID_QUERY_PARAMETER.
+- Summary filters include from, to, routePath, routeMethod, statusCode, cacheStatus, and apiKeyAuthSource.
+- Listing filters include from, to, routePath, routeMethod, statusCode, cacheStatus, apiKeyAuthSource, apiKeyId, and consumerId.
+- Invalid usage analytics query returns 400 INVALID_QUERY_PARAMETER.
 
 Rejected event table:
 
 - gateway.api_rejected_events
-
-Rejected recording scope:
-
-- API_KEY_MISSING
-- API_KEY_INVALID
-- JWT_TOKEN_MISSING
-- JWT_TOKEN_INVALID
-- RATE_LIMIT_EXCEEDED
-- QUOTA_EXCEEDED
 
 Rejected event observability:
 
@@ -295,11 +212,6 @@ Rejected event observability:
 - GET /internal/admin/api-rejections/summary supports filters.
 - GET /internal/admin/api-rejections/events returns raw rejected event rows.
 - GET /internal/admin/api-rejections/events supports safe pagination and filters.
-- Supported filters include from, to, rejectionReason, statusCode, routePath, routeMethod, apiKeyAuthSource, apiKeyId, and consumerId.
-
-Usage plan table:
-
-- gateway.usage_plans
 
 Current quota scope:
 
@@ -321,7 +233,6 @@ Current quota scope:
 - No aggregate rollup table yet.
 - No retention policy job yet.
 - No cursor pagination for very large event datasets yet.
-- No raw successful usage event listing endpoint yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
 - No quota/rejected-events Grafana dashboard yet.
@@ -346,15 +257,15 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 20 recommended direction:
+Sprint 21 recommended direction:
 
-- Usage Analytics Listing and Event Investigation, or
-- Analytics Retention/Rollup Implementation Foundation
+- Analytics Retention/Rollup Implementation Foundation, or
+- Usage Analytics Cursor Pagination and Investigation Hardening
 
 Recommended scope:
 
-- If investigation is prioritized, add raw successful usage event listing with safe pagination.
 - If storage lifecycle is prioritized, implement the first small retention/rollup foundation.
+- If investigation scalability is prioritized, add cursor pagination for event listings.
 - Keep successful usage and rejected/security events separate.
 - Avoid adding Kafka, RabbitMQ, Kubernetes, Admin Dashboard UI, Developer Portal UI, billing, paid plans, or multi-tenant organization model unless explicitly selected.
 

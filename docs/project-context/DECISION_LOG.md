@@ -12,15 +12,35 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.20.0
+v0.21.0
 
 ## Latest Completed Sprint
 
-Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design
+Sprint 20 - Usage Analytics Listing and Event Investigation
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-04 - Successful usage event investigation uses read-only listing API
+
+Decision:
+
+- Add raw successful usage event listing over gateway.api_usage_events.
+- Expose GET /internal/admin/usage/events.
+- Use safe pagination with limit, offset, total, and hasNextPage.
+- Support filters by time range, route, method, status code, cache status, auth source, API key, and consumer.
+- Keep rejected/security traffic in gateway.api_rejected_events.
+- Do not change quota counting, usage recorder behavior, retention jobs, rollup tables, or migrations.
+
+Reason:
+
+- Admins need raw successful usage investigation similar to rejected event drilldown.
+- A read-only listing endpoint is enough for Sprint 20.
+- Keeping successful usage and rejected/security traffic separate protects quota correctness.
+- Avoiding migrations and rollup tables keeps Sprint 20 small and safe.
+
+---
 
 ### 2026-07-04 - Usage analytics retention and rollup remain design-only in Sprint 19
 
@@ -83,27 +103,6 @@ Detailed record:
 
 ---
 
-### 2026-07-04 - Quota-denied requests are not recorded into api_usage_events yet
-
-Decision:
-
-- Do not record 429 QUOTA_EXCEEDED requests into gateway.api_usage_events in Sprint 16.
-- Keep gateway.api_usage_events as the source of truth for successful/proxied/cache-handler usage.
-- Add quota metadata to 429 QUOTA_EXCEEDED responses instead.
-- Defer rejected request tracking to a future sprint.
-
-Reason:
-
-- Quota checker currently counts gateway.api_usage_events.
-- Recording denied requests into the same table without an event type/outcome field would corrupt quota counts.
-- A future design should separate successful usage from rejected/security events or clearly classify events.
-
-Detailed record:
-
-- docs/project-context/decisions/2026-07-04-quota-denied-usage-event-tracking.md
-
----
-
 ### 2026-07-03 - Keep main documentation compact
 
 Decision:
@@ -122,23 +121,6 @@ Reason:
 Detailed record:
 
 - docs/project-context/decisions/2026-07-03-documentation-compaction.md
-
----
-
-### 2026-07-03 - Usage plans and quotas use event-based counting first
-
-Decision:
-
-- Use gateway.api_usage_events as the source of truth for initial quota enforcement.
-- Support DAILY and MONTHLY quota windows.
-- Enforce quota for DB-backed API keys with assigned enabled usage plans.
-- Do not enforce quota for env fallback API keys.
-
-Reason:
-
-- Event-based counting reuses Sprint 14 usage tracking.
-- It keeps Sprint 15/16 simpler and testable.
-- Redis counters and aggregate rollups can be added later.
 
 ---
 

@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.20.0
+- v0.21.0
 
 Latest completed sprint:
 
-- Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design
+- Sprint 20 - Usage Analytics Listing and Event Investigation
 
 ---
 
@@ -33,6 +33,7 @@ PulseGate currently includes:
 - DB-backed issued API keys
 - API usage tracking
 - Filtered successful usage summary APIs
+- Successful usage events raw listing
 - Usage plans and quotas
 - Runtime quota enforcement
 - Quota observability endpoints
@@ -43,11 +44,11 @@ PulseGate currently includes:
 
 Latest validation:
 
-- 56 test files passed
-- 376 tests passed
+- 59 test files passed
+- 396 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime filtered usage summary validation passed
+- Docker runtime usage events listing validation passed
 
 ---
 
@@ -116,6 +117,7 @@ Current internal/admin capabilities:
 - Usage plan create/list/detail/update
 - Consumer usage summary with filters
 - API key usage summary with filters
+- Successful usage events raw listing with safe pagination
 - API key quota state
 - Usage plan usage summary
 - Rejected events summary
@@ -131,40 +133,15 @@ Successful usage behavior:
 - Successful downstream proxy/cache handler responses are recorded into gateway.api_usage_events.
 - gateway.api_usage_events is the source of truth for successful usage analytics and quota counting.
 - Consumer and API key usage summaries support filters by time range, route, method, status code, cache status, and API key auth source.
-
-Usage plans support:
-
-- DAILY quota window
-- MONTHLY quota window
-- Enabled/disabled plans
-- Optional assignment to API keys
-
-Quota enforcement applies when:
-
-- The route requires API key auth.
-- The request uses a DB-backed API key.
-- The API key has usagePlanId.
-- The assigned usage plan is enabled.
-
-Over-quota behavior:
-
-- Request is rejected before cache/proxy execution.
-- Gateway returns 429 QUOTA_EXCEEDED.
-- Response includes quota metadata:
-  - quotaLimit
-  - quotaWindow
-  - usedRequests
-  - remainingRequests
-  - windowStartedAt
-  - windowEndsAt
-  - resetAt
+- Raw successful usage events can be listed through GET /internal/admin/usage/events.
+- Usage event listing supports safe pagination with limit, offset, total, and hasNextPage.
+- Usage event listing filters include from, to, routePath, routeMethod, statusCode, cacheStatus, apiKeyAuthSource, apiKeyId, and consumerId.
 
 Rejected request behavior:
 
 - Failed auth, rate-limited, and quota-denied requests are recorded into gateway.api_rejected_events.
 - gateway.api_rejected_events is used for rejected/security traffic observability.
 - Rejected events can be queried through aggregate summary and raw paginated listing endpoints.
-- Rejected event filters include time range, rejection reason, status code, route, auth source, API key, and consumer.
 - Raw API keys, JWTs, and Authorization headers are not stored or returned.
 
 Current analytics limitation:
@@ -172,6 +149,7 @@ Current analytics limitation:
 - Usage and rejected analytics are still event-based.
 - No retention job is implemented yet.
 - No aggregate rollup table is implemented yet.
+- Cursor pagination for very large event datasets is not implemented yet.
 
 ---
 
@@ -227,7 +205,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-19.md
+- docs/sdlc/sprint-history/sprint-20.md
 
 Latest usage analytics runbook:
 
@@ -245,14 +223,7 @@ Latest decision record:
 
 ## Recommended Next Sprint
 
-Sprint 20 recommended direction:
+Sprint 21 recommended direction:
 
-- Usage Analytics Listing and Event Investigation, or
-- Analytics Retention/Rollup Implementation Foundation
-
-Recommended focus:
-
-- Add raw successful usage event listing with safe pagination if investigation workflow is prioritized.
-- Or implement the first small retention/rollup foundation if storage lifecycle is prioritized.
-- Keep successful usage and rejected/security events separate.
-- Avoid jumping to Admin Dashboard UI, Developer Portal UI, billing, Kafka, Kubernetes, or multi-tenant organization model unless explicitly selected.
+- Analytics Retention/Rollup Implementation Foundation, or
+- Usage Analytics Cursor Pagination and Investigation Hardening

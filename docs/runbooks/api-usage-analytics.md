@@ -2,14 +2,16 @@
 
 ## Purpose
 
-This runbook validates successful usage analytics summary filters.
+This runbook validates successful usage analytics.
 
-It covers Sprint 19 behavior for:
+It covers current behavior for:
 
 - Consumer usage summary filters.
 - API key usage summary filters.
+- Raw successful usage event listing.
 - Invalid query handling.
 - Normalized filter response.
+- Safe pagination for usage event listing.
 
 ---
 
@@ -23,6 +25,9 @@ Expected local env values:
 
     ADMIN_API_KEY_HEADER=x-admin-api-key
     ADMIN_API_KEY=local-admin-key
+    JWT_SECRET=local-dev-jwt-secret-change-me
+    JWT_ISSUER=pulsegate-api-gateway
+    JWT_AUDIENCE=pulsegate-clients
 
 ---
 
@@ -44,231 +49,7 @@ If the first health call fails immediately after startup, wait a few seconds and
 
 ---
 
-## Runtime Validation Script
-
-Run this after the runtime stack is ready.
-
-    $gatewayBaseUrl = "http://localhost:3000"
-    $adminHeaders = @{
-      "x-admin-api-key" = "local-admin-key"
-    }
-
-    function Invoke-Http {
-      param(
-        [string]$Method,
-        [string]$Uri,
-        [hashtable]$Headers = @{},
-        [object]$Body = $null
-      )
-
-      $params = @{
-        Method = $Method
-        Uri = $Uri
-        Headers = $Headers
-        UseBasicParsing = $true
-      }
-
-      if ($null -ne $Body) {
-        $params.ContentType = "application/json"
-        $params.Body = ($Body | ConvertTo-Json -Depth 20)
-      }
-
-      try {
-        $response = Invoke-WebRequest @params
-        $json = $null
-
-        if ($response.Content) {
-          try {
-            $json = $response.Content | ConvertFrom-Json
-          } catch {}
-        }
-
-        return [pscustomobject]@{
-          StatusCode = [int]$response.StatusCode
-          Body = $response.Content
-          Json = $json
-        }
-      } catch {
-        if ($_.ErrorDetails.Message) {
-          $bodyText = $_.ErrorDetails.Message
-        } elseif ($_.Exception.Response) {
-          $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-          $bodyText = $reader.ReadToEnd()
-        } else {
-          throw
-        }
-
-        $json = $null
-        if ($bodyText) {
-          try {
-            $json = $bodyText | ConvertFrom-Json
-          } catch {}
-        }
-
-        return [pscustomobject]@{
-          StatusCode = [int]$_.Exception.Response.StatusCode
-          Body = $bodyText
-          Json = $json
-        }
-      }
-    }
-
-    Write-Host "Checking health..."
-    $health = Invoke-Http -Method "GET" -Uri "$gatewayBaseUrl/health"
-
-    if ($health.StatusCode -ne 200) {
-      throw "Expected /health to return 200, got $($health.StatusCode)"
-    }
-
-    $suffix = Get-Date -Format "yyyyMMddHHmmss"
-
-    Write-Host "Creating validation consumer..."
-    $consumerResponse = Invoke-Http `
-      -Method "POST" `
-      -Uri "$gatewayBaseUrl/internal/admin/consumers" `
-      -Headers $adminHeaders `
-      -Body @{
-        name = "Usage Filter Validation Consumer $suffix"
-        description = "Runtime validation consumer for usage filters"
-      }
-
-    if ($consumerResponse.StatusCode -ne 201 -and $consumerResponse.StatusCode -ne 200) {
-      $consumerResponse.Body
-      throw "Expected consumer creation to return 200/201, got $($consumerResponse.StatusCode)"
-    }
-
-    $consumerId = $consumerResponse.Json.data.id
-
-    if (-not $consumerId) {
-      $consumerResponse.Json | ConvertTo-Json -Depth 20
-      throw "Could not read consumer ID"
-    }
-
-    Write-Host "Creating validation API key..."
-    $keyResponse = Invoke-Http `
-      -Method "POST" `
-      -Uri "$gatewayBaseUrl/internal/admin/consumers/$consumerId/api-keys" `
-      -Headers $adminHeaders `
-      -Body @{
-        name = "Usage Filter Validation Key $suffix"
-      }
-
-    if ($keyResponse.StatusCode -ne 201 -and $keyResponse.StatusCode -ne 200) {
-      $keyResponse.Body
-      throw "Expected API key creation to return 200/201, got $($keyResponse.StatusCode)"
-    }
-
-    $apiKeyId = $keyResponse.Json.data.id
-
-    if (-not $apiKeyId) {
-      $keyResponse.Json | ConvertTo-Json -Depth 20
-      throw "Could not read API key ID"
-    }
-
-    Write-Host "Checking invalid usage query..."
-    $invalidConsumerSummary = Invoke-Http `
-      -Method "GET" `
-      -Uri "$gatewayBaseUrl/internal/admin/usage/consumers/$consumerId/summary?statusCode=99" `
-      -Headers $adminHeaders
-
-    if ($invalidConsumerSummary.StatusCode -ne 400) {
-      $invalidConsumerSummary.Body
-      throw "Expected invalid consumer usage summary query to return 400, got $($invalidConsumerSummary.StatusCode)"
-    }
-
-    if ($invalidConsumerSummary.Json.error.code -ne "INVALID_QUERY_PARAMETER") {
-      $invalidConsumerSummary.Json | ConvertTo-Json -Depth 20
-      throw "Expected INVALID_QUERY_PARAMETER for invalid consumer usage summary query"
-    }
-
-    Write-Host "Checking filtered consumer usage summary..."
-    $consumerSummary = Invoke-Http `
-      -Method "GET" `
-      -Uri "$gatewayBaseUrl/internal/admin/usage/consumers/$consumerId/summary?routeMethod=get&routePath=/api/products&statusCode=200&cacheStatus=miss&apiKeyAuthSource=database" `
-      -Headers $adminHeaders
-
-    if ($consumerSummary.StatusCode -ne 200) {
-      $consumerSummary.Body
-      throw "Expected filtered consumer usage summary to return 200, got $($consumerSummary.StatusCode)"
-    }
-
-    if ($consumerSummary.Json.filters.routeMethod -ne "GET") {
-      $consumerSummary.Json | ConvertTo-Json -Depth 20
-      throw "Expected consumer summary routeMethod filter to be GET"
-    }
-
-    if ($consumerSummary.Json.filters.cacheStatus -ne "MISS") {
-      $consumerSummary.Json | ConvertTo-Json -Depth 20
-      throw "Expected consumer summary cacheStatus filter to be MISS"
-    }
-
-    if ($consumerSummary.Json.filters.statusCode -ne 200) {
-      $consumerSummary.Json | ConvertTo-Json -Depth 20
-      throw "Expected consumer summary statusCode filter to be 200"
-    }
-
-    Write-Host "Checking filtered API key usage summary..."
-    $apiKeySummary = Invoke-Http `
-      -Method "GET" `
-      -Uri "$gatewayBaseUrl/internal/admin/usage/api-keys/$apiKeyId/summary?routeMethod=post&statusCode=500&cacheStatus=bypass" `
-      -Headers $adminHeaders
-
-    if ($apiKeySummary.StatusCode -ne 200) {
-      $apiKeySummary.Body
-      throw "Expected filtered API key usage summary to return 200, got $($apiKeySummary.StatusCode)"
-    }
-
-    if ($apiKeySummary.Json.filters.routeMethod -ne "POST") {
-      $apiKeySummary.Json | ConvertTo-Json -Depth 20
-      throw "Expected API key summary routeMethod filter to be POST"
-    }
-
-    if ($apiKeySummary.Json.filters.cacheStatus -ne "BYPASS") {
-      $apiKeySummary.Json | ConvertTo-Json -Depth 20
-      throw "Expected API key summary cacheStatus filter to be BYPASS"
-    }
-
-    if ($apiKeySummary.Json.filters.statusCode -ne 500) {
-      $apiKeySummary.Json | ConvertTo-Json -Depth 20
-      throw "Expected API key summary statusCode filter to be 500"
-    }
-
-    Write-Host "Filtered usage summary runtime validation PASSED"
-
----
-
-## Expected Output
-
-Expected status sequence:
-
-    Checking health...
-    Creating validation consumer...
-    Creating validation API key...
-    Checking invalid usage query...
-    Checking filtered consumer usage summary...
-    Checking filtered API key usage summary...
-    Filtered usage summary runtime validation PASSED
-
-Expected invalid query:
-
-    StatusCode = 400
-    error.code = INVALID_QUERY_PARAMETER
-
-Expected normalized consumer filters:
-
-    routeMethod = GET
-    cacheStatus = MISS
-    statusCode = 200
-
-Expected normalized API key filters:
-
-    routeMethod = POST
-    cacheStatus = BYPASS
-    statusCode = 500
-
----
-
-## Supported Query Parameters
+## Usage Summary Endpoints
 
 Consumer usage summary:
 
@@ -295,6 +76,109 @@ Validation rules:
 - statusCode must be an integer between 100 and 599.
 - routeMethod must be one of GET, POST, PUT, PATCH, DELETE.
 - cacheStatus must be one of HIT, MISS, BYPASS.
+- Invalid query returns 400 INVALID_QUERY_PARAMETER.
+
+---
+
+## Usage Events Listing Endpoint
+
+Successful usage events listing:
+
+    GET /internal/admin/usage/events
+
+Supported pagination:
+
+- limit
+- offset
+- total
+- hasNextPage
+
+Pagination rules:
+
+- Default limit is 20.
+- Maximum limit is 100.
+- Default offset is 0.
+- Sort order is occurredAt desc and id desc.
+
+Supported filters:
+
+- from
+- to
+- routePath
+- routeMethod
+- statusCode
+- cacheStatus
+- apiKeyAuthSource
+- apiKeyId
+- consumerId
+
+Validation rules:
+
+- from and to must be valid ISO date-time strings.
+- from must be earlier than or equal to to.
+- statusCode must be an integer between 100 and 599.
+- routeMethod must be one of GET, POST, PUT, PATCH, DELETE.
+- cacheStatus must be one of HIT, MISS, BYPASS.
+- limit must be an integer between 1 and 100.
+- offset must be an integer greater than or equal to 0.
+- Invalid query returns 400 INVALID_QUERY_PARAMETER.
+
+Important behavior:
+
+- Usage events listing reads from gateway.api_usage_events only.
+- Rejected requests are stored in gateway.api_rejected_events, not gateway.api_usage_events.
+- Raw API keys, JWTs, and Authorization headers are not stored or returned.
+
+---
+
+## Runtime Validation Summary
+
+Sprint 20 runtime validation proved:
+
+- GET /health returns 200.
+- Admin can create a consumer.
+- Admin can issue an API key.
+- Protected GET /api/products succeeds when both x-api-key and Authorization Bearer JWT are provided.
+- A successful protected request creates a gateway.api_usage_events row.
+- GET /internal/admin/usage/events?limit=101 returns 400 INVALID_QUERY_PARAMETER.
+- GET /internal/admin/usage/events returns 200 with default limit 20 and offset 0.
+- Filtered usage event listing returns 200 with normalized filters.
+- Filtered usage event listing can return the generated successful usage event.
+
+Expected status sequence:
+
+    Checking health...
+    Creating validation consumer...
+    Creating validation API key...
+    Generating successful usage event...
+    Checking invalid usage events listing query...
+    Checking default usage events listing...
+    Checking filtered usage events listing...
+    Usage events listing runtime validation PASSED
+
+---
+
+## Manual Validation Notes
+
+When generating a protected usage event for GET /api/products, send both:
+
+    x-api-key: <rawKey from API key issue response>
+    Authorization: Bearer <valid local JWT>
+
+The API key issue response returns the raw key as:
+
+    data.rawKey
+
+The protected product route currently requires:
+
+- DB-backed or env API key.
+- Valid JWT.
+
+Local JWT values:
+
+    JWT_SECRET=local-dev-jwt-secret-change-me
+    JWT_ISSUER=pulsegate-api-gateway
+    JWT_AUDIENCE=pulsegate-clients
 
 ---
 
@@ -313,23 +197,36 @@ Check admin API key header:
 
     x-admin-api-key: local-admin-key
 
+### Protected product request returns JWT_TOKEN_MISSING
+
+The protected route GET /api/products requires both x-api-key and Authorization Bearer JWT.
+
+### API key creation response does not include key
+
+The issue API key response returns the raw key as rawKey.
+
+Use:
+
+    $plainApiKey = $keyResponse.Json.data.rawKey
+
 ### Invalid query does not return 400
 
 Check that the query parser is wired in:
 
 - apps/api-gateway/src/routes/admin-api-usage.route.ts
+- apps/api-gateway/src/api-usage/api-usage-events-listing-query.ts
 - apps/api-gateway/src/api-usage/api-usage-summary-query.ts
 
 ### Filters are not normalized
 
 Check parser tests:
 
-    npm run test --workspace api-gateway -- src/api-usage/api-usage-summary-query.test.ts
+    npm run test --workspace api-gateway -- src/api-usage/api-usage-events-listing-query.test.ts src/api-usage/api-usage-summary-query.test.ts
 
-### Summary numbers are unexpected
+### Listing rows are unexpected
 
 Remember:
 
-- Usage summaries read from gateway.api_usage_events.
+- Usage events listing reads from gateway.api_usage_events.
 - Rejected requests are stored in gateway.api_rejected_events, not gateway.api_usage_events.
-- A newly created consumer/API key may have zero usage events.
+- A newly created consumer/API key needs at least one successful protected request before a matching usage event appears.

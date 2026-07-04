@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.20.0
+- v0.21.0
 
 Latest completed sprint:
 
-- Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design
+- Sprint 20 - Usage Analytics Listing and Event Investigation
 
 Recommended next technical sprint:
 
-- Sprint 20 - Usage Analytics Listing and Event Investigation, or Analytics Retention/Rollup Implementation Foundation
+- Sprint 21 - Analytics Retention/Rollup Implementation Foundation, or Usage Analytics Cursor Pagination and Investigation Hardening
 
 ---
 
@@ -50,13 +50,7 @@ Recommended next technical sprint:
 
 PulseGate is not just a portfolio backend project.
 
-The long-term target is to build it toward a product-like API Gateway and API Management Platform inspired by:
-
-- Kong
-- Apache APISIX
-- Tyk
-- Apigee
-- AWS API Gateway
+The long-term target is to build it toward a product-like API Gateway and API Management Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
 Long-term product direction:
 
@@ -75,7 +69,7 @@ Long-term product direction:
 - Usage plans and quotas
 - Quota observability
 - Rejected request tracking and drilldown
-- Successful usage analytics
+- Successful usage analytics and event investigation
 - Observability stack
 - CI/CD
 - Kubernetes/cloud deployment later
@@ -114,26 +108,27 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 19:
+Latest stable validation from Sprint 20:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Docker runtime filtered usage summary validation -> passed
+- Docker runtime usage events listing validation -> passed
 
 Latest automated test result:
 
-- 56 test files passed
-- 376 tests passed
+- 59 test files passed
+- 396 tests passed
 
-Sprint 19 runtime validation proved:
+Sprint 20 runtime validation proved:
 
 - GET /health returns 200.
 - Admin consumer creation works.
 - Admin API key issue works.
-- Invalid usage summary query returns 400 INVALID_QUERY_PARAMETER.
-- Filtered consumer usage summary returns 200 with normalized filters.
-- Filtered API key usage summary returns 200 with normalized filters.
+- A protected successful request can generate a usage event.
+- Invalid usage events listing query returns 400 INVALID_QUERY_PARAMETER.
+- Default usage events listing returns 200 with limit 20 and offset 0.
+- Filtered usage events listing returns 200 with normalized filters.
 - gateway.api_usage_events remains the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events remains separate for rejected/security traffic.
 
@@ -165,6 +160,7 @@ API Gateway currently supports:
 - API rejected event recording.
 - Consumer usage summary with filters.
 - API key usage summary with filters.
+- Successful usage events listing with filters and safe pagination.
 - Usage plan management.
 - API key usage plan assignment.
 - Event-based quota checker.
@@ -179,7 +175,7 @@ API Gateway currently supports:
 - Internal/admin API consumer APIs.
 - Internal/admin API key lifecycle APIs.
 - Internal/admin usage plan APIs.
-- Internal/admin API usage summary APIs.
+- Internal/admin API usage analytics APIs.
 - Structured access logs.
 - Prometheus metrics.
 - Grafana dashboard.
@@ -193,10 +189,6 @@ Product Service currently supports:
 ---
 
 ## Current Data Ownership
-
-PostgreSQL database:
-
-- pulsegate
 
 Product Service owns:
 
@@ -235,41 +227,31 @@ Rejected event table:
 
 - gateway.api_rejected_events
 
-Recorded for successful downstream proxy/cache handler responses:
+Admin usage analytics endpoints:
 
-- requestId
-- routePath
-- routeMethod
-- statusCode
-- durationMs
-- cacheStatus
-- apiKeyAuthSource
-- apiKeyId
-- consumerId
-- occurredAt
-
-Admin usage summary endpoints:
-
+- GET /internal/admin/usage/events
 - GET /internal/admin/usage/consumers/:consumerId/summary
 - GET /internal/admin/usage/api-keys/:apiKeyId/summary
 
-Usage summary supported filters:
+Usage events listing behavior:
 
-- from
-- to
-- routePath
-- routeMethod
-- statusCode
-- cacheStatus
-- apiKeyAuthSource
+- Reads from gateway.api_usage_events only.
+- Returns raw successful usage event rows.
+- Supports safe pagination with limit, offset, total, and hasNextPage.
+- Default limit is 20.
+- Maximum limit is 100.
+- Sorts by occurredAt desc and id desc.
+- Supports filters by from, to, routePath, routeMethod, statusCode, cacheStatus, apiKeyAuthSource, apiKeyId, and consumerId.
+- Invalid query returns 400 INVALID_QUERY_PARAMETER.
+- Does not expose raw API keys, JWTs, or Authorization headers.
 
 Usage summary behavior:
 
+- Usage summaries read from gateway.api_usage_events only.
+- Supported filters include from, to, routePath, routeMethod, statusCode, cacheStatus, and apiKeyAuthSource.
 - Invalid query returns 400 INVALID_QUERY_PARAMETER.
 - routeMethod is normalized to uppercase.
 - cacheStatus is normalized to HIT, MISS, or BYPASS.
-- Response includes a filters object with normalized filters.
-- Usage summaries read from gateway.api_usage_events only.
 
 Quota behavior:
 
@@ -277,7 +259,6 @@ Quota behavior:
 - Supports DAILY and MONTHLY quota windows.
 - Counts usage events from gateway.api_usage_events.
 - Returns 429 QUOTA_EXCEEDED when the current window quota is exhausted.
-- 429 response includes quotaLimit, quotaWindow, usedRequests, remainingRequests, windowStartedAt, windowEndsAt, and resetAt.
 - Does not enforce quota for env fallback API keys.
 - Does not enforce quota for public routes.
 - Records quota-denied requests into gateway.api_rejected_events.
@@ -286,7 +267,6 @@ Quota behavior:
 Rejected event behavior:
 
 - Records API_KEY_MISSING, API_KEY_INVALID, JWT_TOKEN_MISSING, JWT_TOKEN_INVALID, RATE_LIMIT_EXCEEDED, and QUOTA_EXCEEDED.
-- Stores route, method, auth source, status, reason, API key id, consumer id, request id, and occurredAt when available.
 - Does not store raw API keys, JWTs, or Authorization headers.
 - Supports aggregate summary and raw listing read APIs.
 - Supports filters by time range, reason, status code, route, auth source, API key, and consumer.
@@ -296,7 +276,6 @@ Current analytics limitations:
 - Usage and rejected traffic analytics are event-based only.
 - No aggregate rollup table yet.
 - No retention job yet.
-- No raw successful usage event listing endpoint yet.
 - No cursor pagination for very large event datasets yet.
 
 ---
@@ -323,6 +302,7 @@ Dynamic dispatcher:
 
 Internal/admin usage analytics:
 
+- GET /internal/admin/usage/events
 - GET /internal/admin/usage/consumers/:consumerId/summary
 - GET /internal/admin/usage/api-keys/:apiKeyId/summary
 - GET /internal/admin/api-rejections/summary
@@ -368,32 +348,22 @@ API Gateway usage tracking and analytics:
 - apps/api-gateway/src/api-usage/api-usage-summary.repository.ts
 - apps/api-gateway/src/api-usage/api-usage-summary.mapper.ts
 - apps/api-gateway/src/api-usage/api-usage-summary.types.ts
+- apps/api-gateway/src/api-usage/api-usage-events-listing-query.ts
+- apps/api-gateway/src/api-usage/api-usage-events-listing.repository.ts
+- apps/api-gateway/src/api-usage/api-usage-events-listing.mapper.ts
+- apps/api-gateway/src/api-usage/api-usage-events-listing.types.ts
 - apps/api-gateway/src/routes/admin-api-usage.route.ts
 - apps/api-gateway/src/proxy/downstream-proxy-handler.ts
 
 Rejected events:
 
-- apps/api-gateway/prisma/schema.prisma
-- apps/api-gateway/src/api-rejections/api-rejected-event-recorder.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-summary.types.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-summary.mapper.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-summary.repository.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-listing.types.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-listing.mapper.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-listing.repository.ts
-- apps/api-gateway/src/api-rejections/api-rejected-events-listing-query.ts
+- apps/api-gateway/src/api-rejections/
 - apps/api-gateway/src/routes/admin-api-rejection.route.ts
 - apps/api-gateway/src/proxy/downstream-proxy-handler.ts
 
 Usage plans, quota, and quota observability:
 
-- apps/api-gateway/prisma/schema.prisma
-- apps/api-gateway/src/usage-plans/usage-plan-management.types.ts
-- apps/api-gateway/src/usage-plans/usage-plan-management.mapper.ts
-- apps/api-gateway/src/usage-plans/usage-plan-management.repository.ts
-- apps/api-gateway/src/usage-plans/usage-quota-checker.ts
-- apps/api-gateway/src/usage-plans/usage-quota-state.ts
-- apps/api-gateway/src/usage-plans/usage-plan-usage-summary.ts
+- apps/api-gateway/src/usage-plans/
 - apps/api-gateway/src/routes/admin-usage-plan.route.ts
 - apps/api-gateway/src/routes/admin-api-key.route.ts
 - apps/api-gateway/src/proxy/downstream-proxy-handler.ts
@@ -406,7 +376,7 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-19.md
+- docs/sdlc/sprint-history/sprint-20.md
 - docs/runbooks/api-usage-analytics.md
 - docs/runbooks/api-rejected-events.md
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
@@ -463,7 +433,6 @@ Work style:
 - Rejected event analytics is event-based only.
 - No aggregate rollup table yet.
 - No retention policy job yet.
-- No raw successful usage event listing endpoint yet.
 - No cursor pagination for very large event datasets yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
@@ -490,12 +459,12 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 20 after confirming Sprint 19 docs are committed and pushed.
+Start Sprint 21 after confirming Sprint 20 docs are committed and pushed.
 
 Recommended directions:
 
-- Usage Analytics Listing and Event Investigation.
-- Or Analytics Retention/Rollup Implementation Foundation.
+- Analytics Retention/Rollup Implementation Foundation.
+- Usage Analytics Cursor Pagination and Investigation Hardening.
 
 Before starting:
 
