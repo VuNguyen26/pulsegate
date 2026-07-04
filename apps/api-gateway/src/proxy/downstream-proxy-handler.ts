@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   FastifyReply,
   FastifyRequest,
   HookHandlerDoneFunction,
@@ -8,7 +8,10 @@ import type {
   ApiUsageCacheStatus,
   ApiUsageRecorder,
 } from "../api-usage/api-usage-recorder.js";
-import type { UsageQuotaChecker } from "../usage-plans/usage-quota-checker.js";
+import type {
+  UsageQuotaChecker,
+  UsageQuotaCheckResult,
+} from "../usage-plans/usage-quota-checker.js";
 
 import type { ResponseCacheStore } from "../cache/redis-response-cache-store.js";
 import type { DownstreamRouteConfig } from "../config/downstream-routes.js";
@@ -146,12 +149,38 @@ export function buildRouteNotFoundResponse(requestId: string) {
   };
 }
 
-export function buildQuotaExceededResponse(requestId: string) {
+type UsageQuotaExceededCheckResult = Extract<
+  UsageQuotaCheckResult,
+  {
+    allowed: false;
+  }
+>;
+
+export function buildQuotaExceededResponse(
+  requestId: string,
+  quotaCheck?: UsageQuotaExceededCheckResult,
+) {
+  const details = quotaCheck
+    ? {
+        quotaLimit: quotaCheck.quotaLimit,
+        quotaWindow: quotaCheck.quotaWindow,
+        usedRequests: quotaCheck.usedRequests,
+        remainingRequests: Math.max(
+          quotaCheck.quotaLimit - quotaCheck.usedRequests,
+          0,
+        ),
+        windowStartedAt: quotaCheck.windowStartedAt.toISOString(),
+        windowEndsAt: quotaCheck.windowEndsAt.toISOString(),
+        resetAt: quotaCheck.windowEndsAt.toISOString(),
+      }
+    : undefined;
+
   return {
     error: {
       code: "QUOTA_EXCEEDED",
       message:
         "API key quota has been exceeded for the current quota window.",
+      ...(details ? { details } : {}),
       requestId,
     },
   };
@@ -310,7 +339,9 @@ export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
       );
 
       if (!quotaCheck.allowed) {
-        return reply.status(429).send(buildQuotaExceededResponse(request.id));
+        return reply
+          .status(429)
+          .send(buildQuotaExceededResponse(request.id, quotaCheck));
       }
     }
   };

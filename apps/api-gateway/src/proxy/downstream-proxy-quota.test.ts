@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from "fastify";
+﻿import Fastify, { type FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -132,6 +132,15 @@ describe("downstream proxy quota preHandler", () => {
         code: "QUOTA_EXCEEDED",
         message:
           "API key quota has been exceeded for the current quota window.",
+        details: {
+          quotaLimit: 1,
+          quotaWindow: "DAILY",
+          usedRequests: 1,
+          remainingRequests: 0,
+          windowStartedAt: "2026-07-04T00:00:00.000Z",
+          windowEndsAt: "2026-07-05T00:00:00.000Z",
+          resetAt: "2026-07-05T00:00:00.000Z",
+        },
         requestId: expect.any(String),
       },
     });
