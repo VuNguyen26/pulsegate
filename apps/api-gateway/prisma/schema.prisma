@@ -91,8 +91,9 @@ model ApiConsumer {
   createdBy String? @map("created_by")
   updatedBy String? @map("updated_by")
 
-  apiKeys        ApiKey[]
-  apiUsageEvents ApiUsageEvent[]
+  apiKeys           ApiKey[]
+  apiUsageEvents    ApiUsageEvent[]
+  apiRejectedEvents ApiRejectedEvent[]
 
   @@index([status], name: "api_consumers_status_idx")
   @@index([createdAt], name: "api_consumers_created_at_idx")
@@ -122,7 +123,8 @@ model ApiKey {
   usagePlanId String?    @map("usage_plan_id")
   usagePlan   UsagePlan? @relation(fields: [usagePlanId], references: [id], onDelete: SetNull)
 
-  usageEvents ApiUsageEvent[]
+  usageEvents    ApiUsageEvent[]
+  rejectedEvents ApiRejectedEvent[]
 
   @@index([consumerId], name: "api_keys_consumer_id_idx")
   @@index([status], name: "api_keys_status_idx")
@@ -183,4 +185,47 @@ model ApiUsageEvent {
   @@index([statusCode], name: "api_usage_events_status_code_idx")
   @@index([apiKeyAuthSource], name: "api_usage_events_auth_source_idx")
   @@map("api_usage_events")
+}
+
+enum ApiRejectionReason {
+  API_KEY_MISSING
+  API_KEY_INVALID
+  JWT_TOKEN_MISSING
+  JWT_TOKEN_INVALID
+  RATE_LIMIT_EXCEEDED
+  QUOTA_EXCEEDED
+}
+
+model ApiRejectedEvent {
+  id String @id @default(cuid())
+
+  requestId String @map("request_id")
+
+  routePath   String?             @map("route_path")
+  routeMethod GatewayRouteMethod? @map("route_method")
+
+  statusCode Int @map("status_code")
+
+  rejectionReason ApiRejectionReason @map("rejection_reason")
+
+  apiKeyAuthSource String? @map("api_key_auth_source")
+
+  apiKeyId String? @map("api_key_id")
+  apiKey   ApiKey? @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+
+  consumerId String?      @map("consumer_id")
+  consumer   ApiConsumer? @relation(fields: [consumerId], references: [id], onDelete: SetNull)
+
+  metadata Json? @map("metadata")
+
+  occurredAt DateTime @default(now()) @map("occurred_at")
+
+  @@index([occurredAt], name: "api_rejected_events_occurred_at_idx")
+  @@index([rejectionReason, occurredAt], name: "api_rejected_events_reason_occurred_at_idx")
+  @@index([apiKeyId, occurredAt], name: "api_rejected_events_api_key_id_occurred_at_idx")
+  @@index([consumerId, occurredAt], name: "api_rejected_events_consumer_id_occurred_at_idx")
+  @@index([routeMethod, routePath, occurredAt], name: "api_rejected_events_route_method_path_occurred_at_idx")
+  @@index([statusCode], name: "api_rejected_events_status_code_idx")
+  @@index([apiKeyAuthSource], name: "api_rejected_events_auth_source_idx")
+  @@map("api_rejected_events")
 }
