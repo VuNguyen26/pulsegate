@@ -1,4 +1,4 @@
-﻿# Current Progress
+# Current Progress
 
 ## Project
 
@@ -24,68 +24,61 @@ Long decision records live in:
 
 ## Current Version
 
-v0.15.0
+v0.16.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation
+Sprint 15 - Usage Plans and Quota Foundation
 
 Status:
 
 Done.
 
-Sprint 14 added the first usage tracking and consumer analytics foundation:
+Sprint 15 added usage plan and runtime quota enforcement foundation:
 
-- API usage event schema.
-- API usage event migration.
-- API usage recorder service.
-- Runtime usage recording during successful downstream proxy responses.
-- DB-backed API key usage attribution.
-- Env fallback traffic support.
-- Cache status tracking.
-- Consumer usage summary repository.
-- API key usage summary repository.
-- Admin consumer usage summary API.
-- Admin API key usage summary API.
-- Docker runtime validation for usage tracking.
+- Usage plan schema.
+- Usage plan migration.
+- API key usage plan assignment.
+- Admin usage plan APIs.
+- Event-based quota checker.
+- DAILY and MONTHLY quota windows.
+- Runtime quota enforcement for DB-backed API keys with assigned usage plans.
+- 429 QUOTA_EXCEEDED response when quota is exceeded.
+- Docker runtime validation proving first request 200 and second request 429.
 
-Sprint 14 details are archived in:
+Sprint 15 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-14.md
+- docs/sdlc/sprint-history/sprint-15.md
 
-Sprint 14 runbook:
+Sprint 15 runbook:
 
-- docs/runbooks/api-usage-tracking.md
+- docs/runbooks/usage-plans-and-quotas.md
 
 ---
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 14:
+Latest stable validation from Sprint 15:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Docker runtime validation -> passed
+- Docker runtime quota validation -> passed
 
 Latest automated test result:
 
-- 40 test files passed
-- 270 tests passed
+- 44 test files passed
+- 314 tests passed
 
 Latest Docker runtime validation proved:
 
-- gateway.api_usage_events table exists.
-- DB-backed API key traffic records usage event.
-- Usage event records apiKeyId and consumerId.
-- Usage event records apiKeyAuthSource=database.
-- Usage event records route, method, status code, duration, and cache status.
-- Consumer usage summary API returns usage totals.
-- API key usage summary API returns usage totals.
-- Revoked DB-backed key returns 403.
-- Revoked DB-backed request does not create a new successful usage event.
+- Usage plan can be created through admin API.
+- DB-backed API key can be issued through admin API.
+- Usage plan can be assigned to an API key.
+- First protected /api/products request with limit 1 returns 200.
+- Second protected /api/products request returns 429 QUOTA_EXCEEDED.
 
 ---
 
@@ -106,16 +99,20 @@ PulseGate currently has:
 - PostgreSQL-backed API Gateway route config.
 - PostgreSQL-backed API consumers.
 - PostgreSQL-backed issued API keys.
+- PostgreSQL-backed usage plans.
 - PostgreSQL-backed API usage events.
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
 - Internal/admin API key lifecycle APIs.
+- Internal/admin usage plan APIs.
 - Internal/admin API usage summary APIs.
 - Runtime route registry.
 - Runtime registry reload endpoint.
 - Catch-all dynamic router for /api/*.
 - Shared downstream proxy pipeline.
 - DB-backed issued API key authentication.
+- Event-based quota checker.
+- Runtime quota enforcement.
 - API usage recorder.
 - Static env API key fallback.
 - JWT authentication.
@@ -176,6 +173,7 @@ API Gateway tables:
 - gateway.gateway_routes
 - gateway.api_consumers
 - gateway.api_keys
+- gateway.usage_plans
 - gateway.api_usage_events
 
 ---
@@ -222,6 +220,14 @@ Internal/admin API keys:
 - GET /internal/admin/consumers/:consumerId/api-keys
 - POST /internal/admin/consumers/:consumerId/api-keys
 - PATCH /internal/admin/api-keys/:id/revoke
+- PATCH /internal/admin/api-keys/:id/usage-plan
+
+Internal/admin usage plans:
+
+- GET /internal/admin/usage-plans
+- POST /internal/admin/usage-plans
+- GET /internal/admin/usage-plans/:id
+- PATCH /internal/admin/usage-plans/:id
 
 Internal/admin usage analytics:
 
@@ -230,24 +236,15 @@ Internal/admin usage analytics:
 
 ---
 
-## Current Usage Tracking Behavior
+## Current Usage and Quota Behavior
 
 Usage event table:
 
 - gateway.api_usage_events
 
-Recorded fields:
+Usage plan table:
 
-- requestId
-- routePath
-- routeMethod
-- statusCode
-- durationMs
-- cacheStatus
-- apiKeyAuthSource
-- apiKeyId
-- consumerId
-- occurredAt
+- gateway.usage_plans
 
 Current recording scope:
 
@@ -258,27 +255,27 @@ Current recording scope:
 - DB-backed API key traffic.
 - Env fallback API key traffic.
 
+Current quota scope:
+
+- DB-backed API keys only.
+- API key must have usagePlanId.
+- Usage plan must be enabled.
+- Quota windows are DAILY or MONTHLY.
+- Quota uses gateway.api_usage_events as source of truth.
+- Over-quota request returns 429 QUOTA_EXCEEDED.
+- Env fallback API keys are not quota-enforced.
+- Public routes are not quota-enforced.
+
 Current summary APIs:
 
 - Consumer usage summary.
 - API key usage summary.
 
-Summary fields:
-
-- totalRequests
-- successfulRequests
-- errorRequests
-- averageDurationMs
-- cacheHits
-- cacheMisses
-- cacheBypasses
-- lastRequestAt
-
 Current limitation:
 
 - Failed auth requests are not tracked yet.
 - Rate-limited requests are not tracked yet.
-- No usage plans or quotas yet.
+- Quota-denied requests are not tracked yet.
 - No aggregate rollup table yet.
 
 ---
@@ -287,12 +284,15 @@ Current limitation:
 
 - Failed authentication requests are not tracked yet.
 - Rate-limited requests are not tracked yet.
+- Quota-denied requests are not tracked yet.
 - Usage data is event-based only.
 - No aggregate rollup table yet.
 - No retention policy yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
-- Usage plans and quotas are not implemented yet.
+- No quota usage Grafana dashboard yet.
+- Disabled usage plans currently skip quota enforcement.
+- Env fallback API keys are not quota-enforced.
 - Admin Dashboard is not implemented yet.
 - Developer Portal is not implemented yet.
 - Admin auth is still local admin API key based.
@@ -312,16 +312,15 @@ Current limitation:
 
 ## Recommended Next Sprint
 
-Sprint 15 - Usage Plans and Quota Foundation
+Sprint 16 - Quota Observability and Usage Management Hardening
 
 Recommended scope:
 
-- Add usage plan schema.
-- Attach consumers or API keys to usage plans.
-- Define quota window model.
-- Prepare quota counters.
-- Start enforcing simple quota limits.
-- Keep API usage event tracking as source of truth.
+- Add quota usage visibility to admin APIs.
+- Add usage plan usage summaries.
+- Consider tracking quota-denied requests.
+- Improve quota response metadata if needed.
+- Keep API usage events as source of truth unless performance requires rollups.
 
 Do not add yet unless explicitly selected:
 

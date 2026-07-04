@@ -1,4 +1,4 @@
-﻿# Decision Log
+# Decision Log
 
 ## Purpose
 
@@ -451,7 +451,26 @@ Accepted.
 
 ---
 
-# API Usage Decisions
+## Attach Usage Plans to API Keys First
+
+Decision:
+
+Usage plan assignment is attached to API keys first, not consumers.
+
+Reason:
+
+- Sprint 13 established issued API keys as the runtime credential.
+- Runtime quota enforcement needs a direct apiKeyId.
+- API key-level plans are easier to validate and reason about first.
+- Consumer-level plan inheritance can be added later if needed.
+
+Status:
+
+Accepted in Sprint 15.
+
+---
+
+# API Usage and Quota Decisions
 
 ## Store API Usage Events in Gateway Schema
 
@@ -493,11 +512,12 @@ Current not recorded:
 - Missing JWT.
 - Invalid JWT.
 - Rate-limited request.
+- Quota-denied request.
 
 Reason:
 
-- Sprint 14 focuses on API Management usage attribution for proxied traffic.
-- Failed auth and security events need separate design.
+- Sprint 14 focused on API Management usage attribution for proxied traffic.
+- Failed auth, quota-denied, and security events need separate design.
 
 Status:
 
@@ -547,6 +567,51 @@ Accepted in Sprint 14.
 
 ---
 
+## Use Event-Based Quota Evaluation First
+
+Decision:
+
+Runtime quota enforcement should count gateway.api_usage_events in the current quota window first.
+
+Reason:
+
+- Reuses Sprint 14 usage event foundation.
+- Avoids adding Redis counters or rollup tables too early.
+- Keeps quota behavior auditable during the foundation stage.
+- Makes Docker runtime validation straightforward.
+
+Deferred:
+
+- Redis quota counters.
+- Distributed quota consistency tuning.
+- Aggregate rollup table.
+- Quota-denied event tracking.
+
+Status:
+
+Accepted in Sprint 15.
+
+---
+
+## Enforce Quota After Auth and Before Cache/Proxy
+
+Decision:
+
+Runtime quota should be checked after API key/JWT validation and before cache/proxy execution.
+
+Reason:
+
+- Invalid requests should not consume quota.
+- Public routes and env fallback keys are intentionally out of current quota scope.
+- Cache HIT requests should still be subject to quota for DB-backed keys with plans.
+- Over-quota requests should be rejected before downstream calls.
+
+Status:
+
+Accepted in Sprint 15.
+
+---
+
 ## Add Admin Usage Summary APIs
 
 Decision:
@@ -567,6 +632,31 @@ Reason:
 Status:
 
 Accepted in Sprint 14.
+
+---
+
+## Add Admin Usage Plan APIs
+
+Decision:
+
+Expose admin APIs for usage plan management.
+
+Endpoints:
+
+- GET /internal/admin/usage-plans
+- POST /internal/admin/usage-plans
+- GET /internal/admin/usage-plans/:id
+- PATCH /internal/admin/usage-plans/:id
+
+Reason:
+
+- Usage plans are the foundation for API Management quotas.
+- Admin APIs allow local/manual validation without an Admin Dashboard UI.
+- Backend lifecycle should be stable before UI work.
+
+Status:
+
+Accepted in Sprint 15.
 
 ---
 
@@ -602,26 +692,57 @@ Done.
 
 ---
 
-## Sprint 15 Recommended Direction
+## Sprint 15 Completed Direction
 
 Decision:
 
-Sprint 15 should focus on Usage Plans and Quota Foundation.
+Sprint 15 focused on Usage Plans and Quota Foundation.
+
+Included:
+
+- Usage plan schema.
+- Usage plan migration.
+- Admin usage plan APIs.
+- API key usage plan assignment.
+- Event-based quota checker.
+- DAILY and MONTHLY quota windows.
+- Runtime quota enforcement.
+- 429 QUOTA_EXCEEDED response.
+- Docker runtime quota validation.
+
+Detailed archive:
+
+- docs/sdlc/sprint-history/sprint-15.md
+
+Runbook:
+
+- docs/runbooks/usage-plans-and-quotas.md
+
+Status:
+
+Done.
+
+---
+
+## Sprint 16 Recommended Direction
+
+Decision:
+
+Sprint 16 should focus on Quota Observability and Usage Management Hardening.
 
 Reason:
 
-- Sprint 13 introduced API consumers and issued API keys.
-- Sprint 14 introduced usage tracking and usage summaries.
-- The next API Management step is attaching usage limits to consumers or keys.
+- Sprint 15 enforces quotas but quota visibility is still minimal.
+- Admins need better quota usage visibility before UI work.
+- Quota-denied request tracking needs a deliberate design.
 
 Recommended scope:
 
-- Usage plan schema.
-- Consumer or API key plan assignment.
-- Quota window model.
-- Simple quota counters.
-- Basic quota enforcement.
-- Keep usage events as source of truth.
+- API key quota usage summary.
+- Usage plan usage summary.
+- Quota-denied request tracking decision.
+- Better quota-focused operational runbook.
+- Keep event-based tracking as source of truth unless performance requires rollups.
 
 Status:
 
@@ -635,6 +756,7 @@ These are intentionally deferred:
 
 - Failed auth request tracking.
 - Rate-limited request tracking.
+- Quota-denied request tracking.
 - Usage aggregate rollup table.
 - Usage retention policy.
 - Admin Dashboard UI.

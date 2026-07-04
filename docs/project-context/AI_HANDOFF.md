@@ -1,4 +1,4 @@
-﻿# PulseGate AI Handoff
+# PulseGate AI Handoff
 
 ## Purpose
 
@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.15.0
+- v0.16.0
 
 Latest completed sprint:
 
-- Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation
+- Sprint 15 - Usage Plans and Quota Foundation
 
 Recommended next technical sprint:
 
-- Sprint 15 - Usage Plans and Quota Foundation
+- Sprint 16 - Quota Observability and Usage Management Hardening
 
 ---
 
@@ -111,28 +111,26 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 14:
+Latest stable validation from Sprint 15:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Docker runtime validation -> passed
+- Docker runtime quota validation -> passed
 
 Latest automated test result:
 
-- 40 test files passed
-- 270 tests passed
+- 44 test files passed
+- 314 tests passed
 
-Sprint 14 runtime validation proved:
+Sprint 15 runtime validation proved:
 
-- gateway.api_usage_events table exists.
-- DB-backed API key request records usage event.
-- Usage event includes apiKeyId and consumerId.
-- Usage event includes apiKeyAuthSource=database.
-- Consumer usage summary API works.
-- API key usage summary API works.
-- Revoked DB-backed key returns 403.
-- Revoked request does not create a new successful usage event.
+- Usage plan can be created through admin API.
+- DB-backed API key can be issued through admin API.
+- Usage plan can be assigned to an API key.
+- Valid JWT with DB-backed API key can call protected /api/products.
+- First /api/products request with DAILY quota limit 1 returns 200.
+- Second /api/products request returns 429 QUOTA_EXCEEDED.
 
 ---
 
@@ -161,9 +159,14 @@ API Gateway currently supports:
 - API usage event recording.
 - Consumer usage summary.
 - API key usage summary.
+- Usage plan management.
+- API key usage plan assignment.
+- Event-based quota checker.
+- Runtime quota enforcement.
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
 - Internal/admin API key lifecycle APIs.
+- Internal/admin usage plan APIs.
 - Internal/admin API usage summary APIs.
 - Structured access logs.
 - Prometheus metrics.
@@ -193,22 +196,27 @@ API Gateway owns:
 - gateway.gateway_routes
 - gateway.api_consumers
 - gateway.api_keys
+- gateway.usage_plans
 - gateway.api_usage_events
 - gateway._prisma_migrations
 
 Reason:
 
 - Product Service owns product data.
-- API Gateway owns Gateway route config, API consumers, issued API keys, and usage events.
+- API Gateway owns Gateway route config, API consumers, issued API keys, usage plans, and usage events.
 - Separate schemas avoid Prisma migration drift and ownership conflicts.
 
 ---
 
-## Current API Usage Behavior
+## Current API Usage and Quota Behavior
 
 Usage event table:
 
 - gateway.api_usage_events
+
+Usage plan table:
+
+- gateway.usage_plans
 
 Recorded for successful downstream proxy handler responses:
 
@@ -229,27 +237,37 @@ Cache status values:
 - MISS
 - BYPASS
 
+Quota behavior:
+
+- Applies to DB-backed API keys with assigned enabled usage plans.
+- Supports DAILY and MONTHLY quota windows.
+- Counts usage events from gateway.api_usage_events.
+- Returns 429 QUOTA_EXCEEDED when the current window quota is exhausted.
+- Does not enforce quota for env fallback API keys.
+- Does not enforce quota for public routes.
+
 Admin usage summary endpoints:
 
 - GET /internal/admin/usage/consumers/:consumerId/summary
 - GET /internal/admin/usage/api-keys/:apiKeyId/summary
 
-Summary fields:
+Admin usage plan endpoints:
 
-- totalRequests
-- successfulRequests
-- errorRequests
-- averageDurationMs
-- cacheHits
-- cacheMisses
-- cacheBypasses
-- lastRequestAt
+- GET /internal/admin/usage-plans
+- POST /internal/admin/usage-plans
+- GET /internal/admin/usage-plans/:id
+- PATCH /internal/admin/usage-plans/:id
+
+API key usage plan assignment endpoint:
+
+- PATCH /internal/admin/api-keys/:id/usage-plan
 
 Current limitation:
 
 - Failed auth requests are not tracked yet.
 - Rate-limited requests are not tracked yet.
-- No usage plan or quota enforcement yet.
+- Quota-denied requests are not tracked yet.
+- No aggregate rollup table yet.
 
 ---
 
@@ -273,6 +291,17 @@ Dynamic dispatcher:
 - PATCH /api/*
 - DELETE /api/*
 
+Internal/admin usage plans:
+
+- GET /internal/admin/usage-plans
+- POST /internal/admin/usage-plans
+- GET /internal/admin/usage-plans/:id
+- PATCH /internal/admin/usage-plans/:id
+
+Internal/admin API key usage plan assignment:
+
+- PATCH /internal/admin/api-keys/:id/usage-plan
+
 Internal/admin usage analytics:
 
 - GET /internal/admin/usage/consumers/:consumerId/summary
@@ -284,9 +313,28 @@ Admin auth:
 - Local key: local-admin-key
 - Optional actor header: x-admin-actor
 
+JWT local validation:
+
+- JWT_SECRET=local-dev-jwt-secret-change-me
+- JWT_ISSUER=pulsegate-api-gateway
+- JWT_AUDIENCE=pulsegate-clients
+
 ---
 
 ## Important Files
+
+Usage plans and quotas:
+
+- apps/api-gateway/prisma/schema.prisma
+- apps/api-gateway/prisma/migrations/20260704042342_add_usage_plans/migration.sql
+- apps/api-gateway/src/usage-plans/usage-plan-management.types.ts
+- apps/api-gateway/src/usage-plans/usage-plan-management.mapper.ts
+- apps/api-gateway/src/usage-plans/usage-plan-management.repository.ts
+- apps/api-gateway/src/usage-plans/usage-quota-checker.ts
+- apps/api-gateway/src/routes/admin-usage-plan.route.ts
+- apps/api-gateway/src/routes/admin-api-key.route.ts
+- apps/api-gateway/src/proxy/downstream-proxy-handler.ts
+- apps/api-gateway/src/routes/product-proxy.route.ts
 
 API Gateway usage tracking:
 
@@ -307,8 +355,8 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-14.md
-- docs/runbooks/api-usage-tracking.md
+- docs/sdlc/sprint-history/sprint-15.md
+- docs/runbooks/usage-plans-and-quotas.md
 
 ---
 
@@ -360,12 +408,15 @@ Work style:
 
 - Failed auth requests are not tracked yet.
 - Rate-limited requests are not tracked yet.
-- No usage plan model yet.
-- No quota enforcement yet.
+- Quota-denied requests are not tracked yet.
+- Usage data is event-based only.
 - No aggregate rollup table yet.
 - No retention policy yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
+- No quota usage dashboard yet.
+- Disabled usage plans currently skip quota enforcement.
+- Env fallback API keys are not quota-enforced.
 - No Admin Dashboard yet.
 - No Developer Portal yet.
 - No admin user/RBAC system yet.
@@ -386,17 +437,14 @@ Work style:
 
 ## Recommended Next Step
 
-Finish Sprint 14 docs:
+Start Sprint 16 - Quota Observability and Usage Management Hardening.
 
-- Update overview.md.
-- Update requirements.md.
-- Update DECISION_LOG.md.
-- Run npm run test.
-- Run npm run typecheck.
-- Run npm run build.
-- Commit docs with message: docs: finalize sprint 14 documentation.
-- Push.
+Suggested first checkpoint:
 
-Then start:
+- Add admin quota usage summary foundation for API keys.
 
-- Sprint 15 - Usage Plans and Quota Foundation
+Before starting:
+
+- Confirm git status is clean.
+- Confirm latest docs commit is pushed.
+- Keep implementation small and testable.

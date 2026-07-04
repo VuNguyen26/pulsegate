@@ -1,4 +1,4 @@
-﻿# PulseGate Architecture Overview
+# PulseGate Architecture Overview
 
 ## Project
 
@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.15.0
+v0.16.0
 
 ## Current Status
 
-Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation Complete
+Sprint 15 - Usage Plans and Quota Foundation Complete
 
 Current validation:
 
-- 40 test files passed
-- 270 tests passed
+- 44 test files passed
+- 314 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime validation passed
+- Docker runtime quota validation passed
 
 ---
 
@@ -61,6 +61,7 @@ PulseGate demonstrates backend engineering around:
 - DB-backed API key authentication
 - API usage tracking
 - Consumer and API key analytics
+- Usage plans and quota enforcement
 - Traffic protection
 - Observability
 - CI/CD
@@ -95,6 +96,7 @@ Runtime flow:
         -> DB-backed API key auth or env API key fallback
         -> Redis-backed rate limit when enabled
         -> JWT auth when required
+        -> Usage quota check when DB-backed key has an enabled usage plan
         -> Redis response cache when enabled
         -> Shared downstream proxy pipeline
         -> API usage recorder after successful proxy response
@@ -139,15 +141,16 @@ API Gateway owns gateway and API management data.
       -> gateway.gateway_routes
       -> gateway.api_consumers
       -> gateway.api_keys
+      -> gateway.usage_plans
       -> gateway.api_usage_events
       -> gateway._prisma_migrations
 
 Reason:
 
 - Product Service owns product data.
-- API Gateway owns route config, API consumers, issued API keys, and usage events.
+- API Gateway owns route config, API consumers, issued API keys, usage plans, and usage events.
 - Separate schemas avoid Prisma migration ownership conflicts.
-- Gateway auth, route management, and API management should not depend on downstream service data models.
+- Gateway auth, route management, API management, quota, and analytics should not depend on downstream service data models.
 
 ---
 
@@ -169,6 +172,10 @@ API Gateway currently handles:
 - DB-backed issued API key verification.
 - Env API_KEYS fallback.
 - JWT authentication.
+- Usage plan management.
+- API key usage plan assignment.
+- Event-based quota evaluation.
+- Runtime quota enforcement.
 - Redis-backed rate limiting.
 - Redis response cache.
 - API usage event recording.
@@ -182,6 +189,7 @@ API Gateway currently handles:
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
 - Internal/admin API key lifecycle APIs.
+- Internal/admin usage plan APIs.
 - Internal/admin API usage summary APIs.
 - Structured access logs.
 - Prometheus metrics.
@@ -246,6 +254,7 @@ Pipeline:
       -> DB-backed API key verifier or env API_KEYS fallback
       -> Redis-backed rate limit policy
       -> JWT policy
+      -> Usage quota policy
       -> Redis response cache policy
       -> Request transform foundation
       -> Timeout policy
@@ -282,6 +291,13 @@ API key statuses:
 - ACTIVE
 - REVOKED
 
+API key usage plan assignment:
+
+- api_keys.usage_plan_id references gateway.usage_plans.
+- Assignment is optional.
+- Unassigned API keys are not quota-enforced.
+- Assigned API keys are quota-enforced when the usage plan is enabled.
+
 API key storage rule:
 
 - Raw API keys are never persisted.
@@ -305,6 +321,58 @@ Runtime DB-backed API key auth flow:
 Important security rule:
 
 If a DB-backed key is found but revoked, expired, or belongs to a disabled consumer, PulseGate rejects the request and does not fall back to env API_KEYS.
+
+---
+
+## Usage Plan and Quota Architecture
+
+Sprint 15 added usage plan and runtime quota enforcement.
+
+Usage plan table:
+
+    gateway.usage_plans
+
+Usage plan fields:
+
+- id
+- name
+- description
+- quotaLimit
+- quotaWindow
+- enabled
+- createdAt
+- updatedAt
+- createdBy
+- updatedBy
+
+Quota windows:
+
+- DAILY
+- MONTHLY
+
+Quota enforcement behavior:
+
+- Applies only to DB-backed API keys.
+- Applies only when the API key has usagePlanId.
+- Applies only when the usage plan is enabled.
+- Env fallback API keys are not quota-enforced.
+- Public routes without API keys are not quota-enforced.
+- Disabled usage plans currently skip quota enforcement.
+- When quota is exceeded, PulseGate returns 429 QUOTA_EXCEEDED.
+
+Quota evaluation:
+
+- Uses gateway.api_usage_events as the source of truth.
+- Counts API usage events for the current quota window.
+- DAILY windows use UTC day boundaries.
+- MONTHLY windows use UTC month boundaries.
+- If usedRequests >= quotaLimit, the request is rejected before cache/proxy execution.
+
+Current quota limitation:
+
+- Quota-denied requests are not recorded as usage events yet.
+- Redis quota counters are not implemented yet.
+- Aggregate rollup tables are not implemented yet.
 
 ---
 
@@ -335,6 +403,8 @@ Relations:
 - ApiUsageEvent -> ApiConsumer
 - ApiKey -> usageEvents
 - ApiConsumer -> apiUsageEvents
+- ApiKey -> UsagePlan
+- UsagePlan -> ApiKey[]
 
 Usage recorder behavior:
 
@@ -352,6 +422,7 @@ Current usage recording limitation:
 - Missing JWT requests are not tracked yet.
 - Invalid JWT requests are not tracked yet.
 - Rate-limited requests are not tracked yet.
+- Quota-denied requests are not tracked yet.
 - Usage tracking is event-based only.
 - No aggregate rollup table yet.
 
@@ -392,6 +463,42 @@ Summary fields:
 - cacheMisses
 - cacheBypasses
 - lastRequestAt
+
+---
+
+## Usage Plan Admin Architecture
+
+Admin usage plan endpoints:
+
+- GET /internal/admin/usage-plans
+- POST /internal/admin/usage-plans
+- GET /internal/admin/usage-plans/:id
+- PATCH /internal/admin/usage-plans/:id
+
+API key usage plan assignment endpoint:
+
+- PATCH /internal/admin/api-keys/:id/usage-plan
+
+Both endpoint groups require:
+
+- x-admin-api-key
+
+Usage plan behavior:
+
+- Creates usage plans with name, description, quotaLimit, quotaWindow, and enabled.
+- Lists usage plans ordered by creation time.
+- Reads usage plan detail.
+- Updates usage plan fields.
+- Validates quotaLimit as a positive integer.
+- Validates quotaWindow as DAILY or MONTHLY.
+
+API key assignment behavior:
+
+- Assigns an existing usage plan to an existing API key.
+- Supports unassignment with usagePlanId=null.
+- Returns 404 API_KEY_NOT_FOUND when the API key is missing.
+- Returns 404 USAGE_PLAN_NOT_FOUND when the usage plan is missing.
+- Returns updated API key response with usagePlanId.
 
 ---
 
@@ -441,6 +548,7 @@ Current protected product route:
 - Requires API key.
 - Requires JWT.
 - Uses Redis-backed rate limit.
+- Uses runtime quota check for DB-backed API keys with usage plans.
 - Uses Redis response cache.
 - Proxies to Product Service GET /products on cache MISS.
 - Records API usage event after successful proxy response.
@@ -452,6 +560,7 @@ Current public health proxy route:
 - Does not require JWT.
 - Does not use Redis rate limit.
 - Does not use Redis response cache.
+- Does not enforce quota.
 - Proxies to Product Service GET /health.
 - Records API usage event with no apiKeyId and no consumerId.
 
@@ -484,7 +593,7 @@ Current Grafana dashboard:
 
 Current limitation:
 
-- Grafana does not yet show per-consumer or per-key usage panels.
+- Grafana does not yet show per-consumer, per-key, or quota usage panels.
 
 ---
 
@@ -511,6 +620,19 @@ Current limitations:
 
 ## Current Important Files
 
+Usage plans and quotas:
+
+- apps/api-gateway/prisma/schema.prisma
+- apps/api-gateway/prisma/migrations/20260704042342_add_usage_plans/migration.sql
+- apps/api-gateway/src/usage-plans/usage-plan-management.types.ts
+- apps/api-gateway/src/usage-plans/usage-plan-management.mapper.ts
+- apps/api-gateway/src/usage-plans/usage-plan-management.repository.ts
+- apps/api-gateway/src/usage-plans/usage-quota-checker.ts
+- apps/api-gateway/src/routes/admin-usage-plan.route.ts
+- apps/api-gateway/src/routes/admin-api-key.route.ts
+- apps/api-gateway/src/proxy/downstream-proxy-handler.ts
+- apps/api-gateway/src/routes/product-proxy.route.ts
+
 API usage tracking:
 
 - apps/api-gateway/prisma/schema.prisma
@@ -533,6 +655,7 @@ API Gateway core:
 - apps/api-gateway/src/runtime/route-runtime-registry.ts
 - apps/api-gateway/src/api-consumers/
 - apps/api-gateway/src/api-keys/
+- apps/api-gateway/src/usage-plans/
 
 Product Service:
 
@@ -553,11 +676,12 @@ Infrastructure:
 
 - Failed authentication requests are not tracked yet.
 - Rate-limited requests are not tracked yet.
+- Quota-denied requests are not tracked yet.
 - Usage data is event-based only.
 - No aggregate rollup table yet.
 - No retention policy yet.
-- No usage plan model yet.
-- No quota enforcement yet.
+- Disabled usage plans currently skip quota enforcement.
+- Env fallback API keys are not quota-enforced.
 - Admin Dashboard is not implemented yet.
 - Developer Portal is not implemented yet.
 - Route management audit log table is not implemented yet.
@@ -578,13 +702,12 @@ Infrastructure:
 
 ## Recommended Next Architecture Step
 
-Sprint 15 - Usage Plans and Quota Foundation
+Sprint 16 - Quota Observability and Usage Management Hardening
 
 Recommended direction:
 
-- Add usage plan schema.
-- Attach consumers or API keys to usage plans.
-- Define quota windows.
-- Prepare quota counters.
-- Start enforcing simple quota limits.
-- Keep API usage event tracking as source of truth.
+- Add quota usage visibility to admin APIs.
+- Consider quota-denied request tracking.
+- Add usage plan usage summaries.
+- Add quota-focused tests and runbooks.
+- Keep event-based usage tracking as source of truth unless performance requires a rollup.

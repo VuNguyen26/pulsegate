@@ -5,24 +5,23 @@
 </p>
 
 <p align="center">
-  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, GitHub Actions CI/CD, route policies, database-backed dynamic route configuration, runtime route reload, API consumers, issued API keys, and DB-backed API key authentication.
-- API usage event tracking.
-- Consumer and API key usage summary APIs.
+  A local-first API Gateway, API Management, and Observability learning project built with Node.js, TypeScript, Fastify, Docker Compose, PostgreSQL, Prisma, Redis, Prometheus, Grafana, GitHub Actions CI/CD, route policies, database-backed dynamic route configuration, runtime route reload, API consumers, issued API keys, DB-backed API key authentication, API usage analytics, usage plans, and runtime quota enforcement.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Sprint%2014%20Complete-brightgreen" />
-  <img src="https://img.shields.io/badge/version-v0.15.0-blue" />
+  <img src="https://img.shields.io/badge/status-Sprint%2015%20Complete-brightgreen" />
+  <img src="https://img.shields.io/badge/version-v0.16.0-blue" />
   <a href="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml">
     <img src="https://github.com/VuNguyen26/pulsegate/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
   </a>
-  <img src="https://img.shields.io/badge/tests-270%20passing-brightgreen" />
+  <img src="https://img.shields.io/badge/tests-314%20passing-brightgreen" />
   <img src="https://img.shields.io/badge/typecheck-passing-brightgreen" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
   <img src="https://img.shields.io/badge/Node.js-20%2B-green" />
   <img src="https://img.shields.io/badge/TypeScript-strict-blue" />
   <img src="https://img.shields.io/badge/Fastify-API%20Gateway-black" />
   <img src="https://img.shields.io/badge/Auth-DB%20API%20Key%20%2B%20JWT-purple" />
+  <img src="https://img.shields.io/badge/Quota-Usage%20Plans-purple" />
   <img src="https://img.shields.io/badge/Rate%20Limit-Redis-red" />
   <img src="https://img.shields.io/badge/Cache-Redis-red" />
   <img src="https://img.shields.io/badge/Database-PostgreSQL-blue" />
@@ -49,6 +48,7 @@ The project demonstrates backend engineering around:
 - API consumer management.
 - Issued API key lifecycle management.
 - DB-backed API key authentication.
+- Usage plans and API key quota enforcement.
 - API usage event tracking.
 - Consumer and API key usage summary APIs.
 - JWT authentication.
@@ -60,24 +60,24 @@ The project demonstrates backend engineering around:
 
 Current version:
 
-    v0.15.0
+    v0.16.0
 
 Current status:
 
-    Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation Complete
+    Sprint 15 - Usage Plans and Quota Foundation Complete
 
 Current validation:
 
-    40 test files passed
-    270 tests passed
+    44 test files passed
+    314 tests passed
     npm run typecheck passed
     npm run build passed
-    Docker runtime validation passed
+    Docker runtime quota validation passed
     GitHub Actions CI passing
 
 Recommended next sprint:
 
-    Sprint 15 - Usage Plans and Quota Foundation
+    Sprint 16 - Quota Observability and Usage Management Hardening
 
 ---
 
@@ -96,6 +96,7 @@ High-level runtime flow:
         -> DB-backed API key auth or env API_KEYS fallback
         -> Redis rate limit
         -> JWT auth
+        -> Usage quota check
         -> Redis response cache
         -> Downstream proxy
       -> Product Service :3001
@@ -112,6 +113,8 @@ Current data ownership:
       -> gateway.gateway_routes
       -> gateway.api_consumers
       -> gateway.api_keys
+      -> gateway.usage_plans
+      -> gateway.api_usage_events
 
 Current infrastructure:
 
@@ -153,6 +156,16 @@ Current infrastructure:
 - DB-backed runtime API key authentication.
 - Local env `API_KEYS` fallback.
 
+### Usage Plans and Quotas
+
+- Usage plans stored in `gateway.usage_plans`.
+- API keys can be assigned to usage plans.
+- Usage plans support `DAILY` and `MONTHLY` quota windows.
+- Runtime quota enforcement applies to DB-backed API keys with assigned usage plans.
+- Quota counting is event-based and reads from `gateway.api_usage_events`.
+- Over-quota requests return `429 QUOTA_EXCEEDED`.
+- Env fallback API keys and public routes are not quota-enforced.
+
 ### Route Management
 
 - Internal/admin route list, detail, create, update, soft delete.
@@ -167,6 +180,7 @@ Current infrastructure:
 - DB-backed API key auth.
 - Env API key fallback.
 - JWT auth.
+- Usage plan quota enforcement.
 - Redis-backed rate limiting.
 - Request size limit.
 - Basic security headers.
@@ -182,6 +196,8 @@ Current infrastructure:
 - Prometheus Docker service.
 - Grafana Docker service.
 - Provisioned API Gateway dashboard.
+- API usage event tracking.
+- Consumer and API key usage summary APIs.
 
 ### CI/CD
 
@@ -240,6 +256,14 @@ Internal/admin API keys:
     GET /internal/admin/consumers/:consumerId/api-keys
     POST /internal/admin/consumers/:consumerId/api-keys
     PATCH /internal/admin/api-keys/:id/revoke
+    PATCH /internal/admin/api-keys/:id/usage-plan
+
+Internal/admin usage plans:
+
+    GET /internal/admin/usage-plans
+    POST /internal/admin/usage-plans
+    GET /internal/admin/usage-plans/:id
+    PATCH /internal/admin/usage-plans/:id
 
 Internal/admin usage analytics:
 
@@ -278,7 +302,9 @@ For detailed local validation commands, see:
 - `docs/runbooks/local-validation.md`
 - `docs/runbooks/admin-route-management.md`
 - `docs/runbooks/api-key-lifecycle.md`
+- `docs/runbooks/api-usage-tracking.md`
 - `docs/runbooks/runtime-reload.md`
+- `docs/runbooks/usage-plans-and-quotas.md`
 
 ---
 
@@ -300,6 +326,8 @@ For detailed local validation commands, see:
 | Containerization | Docker, Docker Compose |
 | CI/CD | GitHub Actions |
 | Auth | DB-backed API key, env API key fallback, JWT, admin API key |
+| API Management | Consumers, issued API keys, usage plans, quotas |
+| Analytics | API usage events, consumer summary, API key summary |
 
 ---
 
@@ -337,14 +365,14 @@ Completed:
     Sprint 12 -> Catch-All Dynamic Router Foundation
     Sprint 13 -> API Consumer and API Key Lifecycle Foundation
     Sprint 14 -> API Key Usage Tracking and Consumer Analytics Foundation
+    Sprint 15 -> Usage Plans and Quota Foundation
 
 Recommended next:
 
-    Sprint 15 -> Usage Plans and Quota Foundation
+    Sprint 16 -> Quota Observability and Usage Management Hardening
 
 Later:
 
-- Usage plans and quotas.
 - Advanced route matching.
 - Route management audit log.
 - Stronger admin authentication and RBAC.
@@ -372,13 +400,19 @@ Later:
 - Weighted upstreams are not implemented yet.
 - Service discovery is not implemented yet.
 - Failed auth request usage tracking is not implemented yet.
-- Usage plans and quotas are not implemented yet.
+- Rate-limited request usage tracking is not implemented yet.
+- Quota-denied requests are not recorded as usage events yet.
+- Usage data is event-based only.
+- No aggregate rollup table exists yet.
+- No usage retention policy exists yet.
+- Disabled usage plans currently skip quota enforcement.
+- Env fallback API keys are not quota-enforced.
 - Admin Dashboard is not implemented yet.
 - Developer Portal is not implemented yet.
 - Admin auth is still local admin API key based.
 - JWT auth is still local secret based.
 - Rate limit identity still uses raw API key value, not `apiKeyId` or `consumerId`.
-- Grafana does not yet include per-consumer or per-key usage dashboards.
+- Grafana does not yet include per-consumer, per-key, or quota usage dashboards.
 - CI does not run the full Docker Compose runtime stack yet.
 - CI does not push Docker images to a registry yet.
 - CI does not deploy automatically yet.

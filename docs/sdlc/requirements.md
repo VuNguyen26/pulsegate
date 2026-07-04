@@ -1,4 +1,4 @@
-﻿# PulseGate Requirements
+# PulseGate Requirements
 
 ## Project
 
@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.15.0
+v0.16.0
 
 ## Current Status
 
-Sprint 14 - API Key Usage Tracking and Consumer Analytics Foundation Complete
+Sprint 15 - Usage Plans and Quota Foundation Complete
 
 Latest validation:
 
-- 40 test files passed
-- 270 tests passed
+- 44 test files passed
+- 314 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime validation passed
+- Docker runtime quota validation passed
 
 ---
 
@@ -56,6 +56,7 @@ The project demonstrates backend engineering around:
 - API usage tracking.
 - Consumer analytics.
 - API key analytics.
+- Usage plans and quotas.
 - Traffic protection.
 - Response caching.
 - Observability.
@@ -86,11 +87,14 @@ Current architecture includes:
 - Catch-all dynamic router.
 - API consumers.
 - Issued API keys.
+- Usage plans.
 - API usage events.
 - DB-backed API key authentication.
+- Runtime quota enforcement.
 - Admin route management APIs.
 - Admin consumer APIs.
 - Admin API key lifecycle APIs.
+- Admin usage plan APIs.
 - Admin usage summary APIs.
 
 ---
@@ -293,8 +297,8 @@ The project must include automated tests for Gateway behavior.
 
 Current test status:
 
-- 40 test files passed
-- 270 tests passed
+- 44 test files passed
+- 314 tests passed
 
 Status:
 
@@ -370,6 +374,80 @@ Done.
 
 ---
 
+## FR-024: Usage Plan Management
+
+API Gateway must support internal/admin usage plan management.
+
+Acceptance criteria:
+
+- gateway.usage_plans table exists.
+- Usage plan has name.
+- Usage plan has optional description.
+- Usage plan has quotaLimit.
+- Usage plan has quotaWindow.
+- quotaWindow supports DAILY.
+- quotaWindow supports MONTHLY.
+- Usage plan has enabled flag.
+- GET /internal/admin/usage-plans exists.
+- POST /internal/admin/usage-plans exists.
+- GET /internal/admin/usage-plans/:id exists.
+- PATCH /internal/admin/usage-plans/:id exists.
+- All usage plan endpoints require x-admin-api-key.
+- Invalid quotaLimit returns validation error.
+- Invalid quotaWindow returns validation error.
+- Missing usage plan returns 404 USAGE_PLAN_NOT_FOUND.
+
+Status:
+
+Done.
+
+---
+
+## FR-025: API Key Usage Plan Assignment
+
+API Gateway must allow usage plans to be assigned to API keys.
+
+Acceptance criteria:
+
+- gateway.api_keys has usage_plan_id.
+- API key responses include usagePlanId.
+- PATCH /internal/admin/api-keys/:id/usage-plan exists.
+- Endpoint requires x-admin-api-key.
+- usagePlanId can be a string to assign a plan.
+- usagePlanId can be null to unassign a plan.
+- Missing API key returns 404 API_KEY_NOT_FOUND.
+- Missing usage plan returns 404 USAGE_PLAN_NOT_FOUND.
+- Updated API key response returns the assigned usagePlanId.
+
+Status:
+
+Done.
+
+---
+
+## FR-026: Runtime Quota Enforcement
+
+API Gateway must enforce usage plan quotas for DB-backed API keys.
+
+Acceptance criteria:
+
+- Quota checker reads API key usage plan assignment.
+- Quota checker ignores API keys without usage plans.
+- Quota checker ignores disabled usage plans.
+- Quota checker ignores env fallback API keys.
+- Quota checker counts usage events in the current quota window.
+- DAILY quota window uses UTC day boundaries.
+- MONTHLY quota window uses UTC month boundaries.
+- Runtime preHandler checks quota after API key/JWT validation and before cache/proxy execution.
+- Over-quota requests return 429 QUOTA_EXCEEDED.
+- Docker runtime validation proves first request returns 200 and second request returns 429 for a DAILY limit of 1.
+
+Status:
+
+Done.
+
+---
+
 # Non-Functional Requirements
 
 ## NFR-001: Local First
@@ -390,7 +468,7 @@ Done.
 
 ## NFR-003: Maintainable Structure
 
-The codebase must be organized clearly by config, routes, middlewares, policies, repositories, database helpers, runtime registry, proxy handler, API management modules, usage modules, tests, and server startup.
+The codebase must be organized clearly by config, routes, middlewares, policies, repositories, database helpers, runtime registry, proxy handler, API management modules, usage modules, quota modules, tests, and server startup.
 
 Status:
 
@@ -500,19 +578,31 @@ Status:
 
 Done.
 
+## NFR-017: Quota Enforcement Must Be Testable
+
+Runtime quota enforcement must be testable without requiring live infrastructure in every test.
+
+Status:
+
+Done.
+
 ---
 
 # Current Constraints
 
-Current constraints after Sprint 14:
+Current constraints after Sprint 15:
 
 - Usage tracking records successful downstream proxy handler responses only.
 - Failed authentication requests are not tracked yet.
 - Rate-limited requests are not tracked yet.
+- Quota-denied requests are not tracked yet.
 - Usage tracking is event-based only.
 - No aggregate rollup table exists yet.
-- No usage plan model exists yet.
-- No quota enforcement exists yet.
+- No retention policy exists yet.
+- Quota evaluation currently counts usage events directly.
+- Redis quota counters are not implemented yet.
+- Disabled usage plans currently skip quota enforcement.
+- Env fallback API keys are not quota-enforced.
 - API Gateway currently proxies Product Service, but supports more than one Gateway route.
 - Startup route configs are loaded from PostgreSQL when available.
 - Static route configs still exist as safe startup fallback.
@@ -531,7 +621,7 @@ Current constraints after Sprint 14:
 - Retry foundation exists, but retry is disabled by default for current routes.
 - Redis failure currently causes protected product route to return generic 500.
 - /metrics is public in local development.
-- Grafana does not yet include per-consumer or per-key usage dashboards.
+- Grafana does not yet include per-consumer, per-key, or quota usage dashboards.
 - CI does not run the full Docker Compose runtime stack yet.
 - CI does not push Docker images to a registry yet.
 - CI does not deploy automatically yet.
@@ -546,18 +636,17 @@ Current constraints after Sprint 14:
 
 # Future Requirements
 
-## Future FR: Usage Plans and Quotas
+## Future FR: Quota Observability and Usage Management Hardening
 
-Recommended for Sprint 15.
+Recommended for Sprint 16.
 
 Planned features:
 
-- Define usage plans.
-- Attach consumers or API keys to plans.
-- Define quota windows.
-- Prepare quota counters.
-- Enforce simple quota limits.
-- Keep API usage events as source of truth.
+- Show usage plan assignment in more admin usage views.
+- Add quota usage summary endpoints.
+- Consider tracking quota-denied requests.
+- Improve quota response metadata if needed.
+- Keep API usage events as source of truth unless performance requires rollups.
 
 Status:
 
@@ -606,7 +695,8 @@ Planned features:
 - View API keys.
 - View usage summaries.
 - View usage charts.
-- View quota usage after usage plans exist.
+- View quota usage.
+- Manage usage plans.
 
 Status:
 
@@ -621,6 +711,7 @@ Planned features:
 - API documentation.
 - API key request flow.
 - Usage overview.
+- Quota overview.
 - Developer onboarding.
 - Self-service key management after backend lifecycle is stable.
 
@@ -640,7 +731,7 @@ Planned features:
 - Loki centralized logs.
 - k6 load testing.
 - Advanced Grafana dashboards.
-- Per-consumer and per-key metrics after usage tracking exists.
+- Per-consumer, per-key, and per-plan metrics.
 
 Status:
 
@@ -682,7 +773,7 @@ Future.
 
 # Recommended Next Step
 
-Finish Sprint 14 documentation, validate with:
+Finalize Sprint 15 documentation, validate with:
 
 - npm run test
 - npm run typecheck
@@ -691,8 +782,8 @@ Finish Sprint 14 documentation, validate with:
 
 Then commit:
 
-docs: finalize sprint 14 documentation
+docs: finalize sprint 15 documentation
 
 Next technical sprint:
 
-Sprint 15 - Usage Plans and Quota Foundation
+Sprint 16 - Quota Observability and Usage Management Hardening
