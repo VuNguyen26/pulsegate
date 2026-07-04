@@ -8,6 +8,7 @@ import type {
   ApiUsageCacheStatus,
   ApiUsageRecorder,
 } from "../api-usage/api-usage-recorder.js";
+import type { ApiRejectedEventRecorder } from "../api-rejections/api-rejected-event-recorder.js";
 import type {
   UsageQuotaChecker,
   UsageQuotaCheckResult,
@@ -156,24 +157,28 @@ type UsageQuotaExceededCheckResult = Extract<
   }
 >;
 
+function buildQuotaExceededDetails(quotaCheck: UsageQuotaExceededCheckResult) {
+  const resetAt = quotaCheck.windowEndsAt.toISOString();
+
+  return {
+    quotaLimit: quotaCheck.quotaLimit,
+    quotaWindow: quotaCheck.quotaWindow,
+    usedRequests: quotaCheck.usedRequests,
+    remainingRequests: Math.max(
+      quotaCheck.quotaLimit - quotaCheck.usedRequests,
+      0,
+    ),
+    windowStartedAt: quotaCheck.windowStartedAt.toISOString(),
+    windowEndsAt: quotaCheck.windowEndsAt.toISOString(),
+    resetAt,
+  };
+}
+
 export function buildQuotaExceededResponse(
   requestId: string,
   quotaCheck?: UsageQuotaExceededCheckResult,
 ) {
-  const details = quotaCheck
-    ? {
-        quotaLimit: quotaCheck.quotaLimit,
-        quotaWindow: quotaCheck.quotaWindow,
-        usedRequests: quotaCheck.usedRequests,
-        remainingRequests: Math.max(
-          quotaCheck.quotaLimit - quotaCheck.usedRequests,
-          0,
-        ),
-        windowStartedAt: quotaCheck.windowStartedAt.toISOString(),
-        windowEndsAt: quotaCheck.windowEndsAt.toISOString(),
-        resetAt: quotaCheck.windowEndsAt.toISOString(),
-      }
-    : undefined;
+  const details = quotaCheck ? buildQuotaExceededDetails(quotaCheck) : undefined;
 
   return {
     error: {
@@ -184,6 +189,40 @@ export function buildQuotaExceededResponse(
       requestId,
     },
   };
+}
+
+async function recordQuotaRejectedEvent(options: {
+  rejectedEventRecorder?: ApiRejectedEventRecorder;
+  request: FastifyRequest;
+  routeConfig: DownstreamRouteConfig;
+  quotaCheck: UsageQuotaExceededCheckResult;
+}): Promise<void> {
+  if (!options.rejectedEventRecorder) {
+    return;
+  }
+
+  try {
+    await options.rejectedEventRecorder.record({
+      requestId: options.request.id,
+      routePath: options.routeConfig.gatewayPath,
+      routeMethod: options.routeConfig.method,
+      statusCode: 429,
+      rejectionReason: "QUOTA_EXCEEDED",
+      apiKeyAuthSource: options.request.apiKeyAuthSource,
+      apiKeyId: options.request.apiKeyId,
+      consumerId: options.request.apiConsumerId,
+      metadata: buildQuotaExceededDetails(options.quotaCheck),
+    });
+  } catch (error) {
+    options.request.log.error(
+      {
+        error,
+        requestId: options.request.id,
+        route: options.routeConfig.gatewayPath,
+      },
+      "Failed to record quota rejected event",
+    );
+  }
 }
 
 export function resolveRuntimeRouteConfig(
@@ -277,6 +316,7 @@ export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
   rateLimitStore: RateLimitStore;
   apiKeyAuthMiddleware?: RuntimePreHandlerMiddleware;
   usageQuotaChecker?: UsageQuotaChecker;
+  rejectedEventRecorder?: ApiRejectedEventRecorder;
 }) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const runtimeRouteConfig = resolveDownstreamRouteConfig(request, options);
@@ -339,6 +379,13 @@ export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
       );
 
       if (!quotaCheck.allowed) {
+        await recordQuotaRejectedEvent({
+          rejectedEventRecorder: options.rejectedEventRecorder,
+          request,
+          routeConfig: runtimeRouteConfig,
+          quotaCheck,
+        });
+
         return reply
           .status(429)
           .send(buildQuotaExceededResponse(request.id, quotaCheck));

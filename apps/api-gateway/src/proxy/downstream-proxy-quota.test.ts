@@ -1,6 +1,7 @@
 ﻿import Fastify, { type FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { ApiRejectedEventRecorder } from "../api-rejections/api-rejected-event-recorder.js";
 import {
   productProductsRouteConfig,
   type DownstreamRouteConfig,
@@ -62,9 +63,16 @@ function createQuotaChecker(
   };
 }
 
+function createRejectedEventRecorder(): ApiRejectedEventRecorder {
+  return {
+    record: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
 async function buildTestApp(options: {
   apiKeyAuthMiddleware: RuntimePreHandlerMiddleware;
   usageQuotaChecker?: UsageQuotaChecker;
+  rejectedEventRecorder?: ApiRejectedEventRecorder;
 }): Promise<FastifyInstance> {
   const app = Fastify({
     logger: false,
@@ -81,6 +89,7 @@ async function buildTestApp(options: {
           rateLimitStore: new InMemoryRateLimitStore(),
           apiKeyAuthMiddleware: options.apiKeyAuthMiddleware,
           usageQuotaChecker: options.usageQuotaChecker,
+          rejectedEventRecorder: options.rejectedEventRecorder,
         }),
       ],
     },
@@ -116,9 +125,12 @@ describe("downstream proxy quota preHandler", () => {
       windowEndsAt: new Date("2026-07-05T00:00:00.000Z"),
     });
 
+    const rejectedEventRecorder = createRejectedEventRecorder();
+
     app = await buildTestApp({
       apiKeyAuthMiddleware: createDatabaseApiKeyMiddleware("key_1"),
       usageQuotaChecker,
+      rejectedEventRecorder,
     });
 
     const response = await app.inject({
@@ -146,6 +158,25 @@ describe("downstream proxy quota preHandler", () => {
     });
 
     expect(usageQuotaChecker.checkApiKeyQuota).toHaveBeenCalledWith("key_1");
+    expect(rejectedEventRecorder.record).toHaveBeenCalledWith({
+      requestId: expect.any(String),
+      routePath: "/test",
+      routeMethod: "GET",
+      statusCode: 429,
+      rejectionReason: "QUOTA_EXCEEDED",
+      apiKeyAuthSource: "database",
+      apiKeyId: "key_1",
+      consumerId: "consumer_1",
+      metadata: {
+        quotaLimit: 1,
+        quotaWindow: "DAILY",
+        usedRequests: 1,
+        remainingRequests: 0,
+        windowStartedAt: "2026-07-04T00:00:00.000Z",
+        windowEndsAt: "2026-07-05T00:00:00.000Z",
+        resetAt: "2026-07-05T00:00:00.000Z",
+      },
+    });
   });
 
   it("should allow DB-backed API key request when quota is under limit", async () => {

@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 
+import type { ApiRejectedEventRecorder } from "../api-rejections/api-rejected-event-recorder.js";
 import type { ApiUsageRecorder } from "../api-usage/api-usage-recorder.js";
 import type { UsageQuotaChecker } from "../usage-plans/usage-quota-checker.js";
 
@@ -30,6 +31,7 @@ export type ProductProxyRouteOptions = {
   apiKeyAuthMiddleware?: RuntimePreHandlerMiddleware;
   usageRecorder?: ApiUsageRecorder;
   usageQuotaChecker?: UsageQuotaChecker;
+  rejectedEventRecorder?: ApiRejectedEventRecorder;
 };
 
 export type DownstreamProxyRouteOptions = ProductProxyRouteOptions & {
@@ -87,6 +89,7 @@ export async function downstreamProxyRoute(
           rateLimitStore,
           apiKeyAuthMiddleware: options.apiKeyAuthMiddleware,
           usageQuotaChecker: options.usageQuotaChecker,
+          rejectedEventRecorder: options.rejectedEventRecorder,
         }),
       ],
       handler: createDownstreamProxyHandler({
@@ -113,6 +116,7 @@ export async function downstreamProxyRoute(
           rateLimitStore,
           apiKeyAuthMiddleware: options.apiKeyAuthMiddleware,
           usageQuotaChecker: options.usageQuotaChecker,
+          rejectedEventRecorder: options.rejectedEventRecorder,
         }),
       ],
       handler: createDownstreamProxyHandler({

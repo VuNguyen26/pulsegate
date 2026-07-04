@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 
 import { RedisResponseCacheStore } from "./cache/redis-response-cache-store.js";
+import { createPrismaApiRejectedEventRecorder } from "./api-rejections/api-rejected-event-recorder.js";
 import { createPrismaApiUsageRecorder } from "./api-usage/api-usage-recorder.js";
 import { createPrismaUsageQuotaChecker } from "./usage-plans/usage-quota-checker.js";
 import {
@@ -134,6 +135,12 @@ export async function buildApiGatewayApp(
       ? undefined
       : createPrismaUsageQuotaChecker(gatewayPrisma));
 
+  const apiRejectedEventRecorder =
+    options.productProxy?.rejectedEventRecorder ??
+    (options.productProxy
+      ? undefined
+      : createPrismaApiRejectedEventRecorder(gatewayPrisma));
+
   const downstreamProxyOptions: DownstreamProxyRouteOptions = {
     ...(options.productProxy ?? {
       rateLimitStore: new RedisRateLimitStore(redisClient),
@@ -142,6 +149,7 @@ export async function buildApiGatewayApp(
     apiKeyAuthMiddleware,
     usageRecorder: apiUsageRecorder,
     usageQuotaChecker,
+    rejectedEventRecorder: apiRejectedEventRecorder,
     routeConfigs: resolvedRouteConfigs,
     routeRuntimeRegistry,
   };
