@@ -12,15 +12,34 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.18.0
+v0.19.0
 
 ## Latest Completed Sprint
 
-Sprint 17 - API Rejection Tracking and Rejected Events Observability
+Sprint 18 - Advanced Usage Analytics and Rejected Event Drilldown
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-04 - Rejected event drilldown uses filterable read endpoints
+
+Decision:
+
+- Keep rejected event drilldown as read-only admin APIs over gateway.api_rejected_events.
+- Add raw rejected event listing with safe pagination.
+- Add filters to rejected events summary.
+- Reuse the same query parser and filter model for rejected summary and listing APIs.
+- Keep gateway.api_usage_events for successful proxy/cache usage and quota counting.
+
+Reason:
+
+- Admins need both aggregate and raw rejected traffic visibility.
+- Filterable read endpoints are enough for Sprint 18 without introducing rollup tables.
+- Keeping successful usage and rejected/security traffic separate protects quota correctness.
+- Avoiding raw key/JWT storage keeps rejected event observability safer.
+
+---
 
 ### 2026-07-04 - Rejected requests use a separate table
 

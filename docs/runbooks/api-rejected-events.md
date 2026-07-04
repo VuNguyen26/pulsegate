@@ -1,8 +1,8 @@
-# API Rejected Events Runbook
+﻿# API Rejected Events Runbook
 
 ## Purpose
 
-This runbook validates rejected request tracking added in Sprint 17.
+This runbook validates rejected request tracking and rejected event drilldown.
 
 It covers:
 
@@ -11,6 +11,9 @@ It covers:
 - JWT_TOKEN_MISSING
 - RATE_LIMIT_EXCEEDED
 - Admin rejected events summary
+- Filtered rejected events summary
+- Admin rejected events raw listing
+- Safe pagination and query validation
 - PostgreSQL rejected event records
 
 ---
@@ -109,6 +112,76 @@ Expected response fields:
 - data.byReason
 - data.byStatusCode
 - data.lastRejectedAt
+- data.filters
+
+Check filtered rejected events summary:
+
+    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/summary?rejectionReason=RATE_LIMIT_EXCEEDED&statusCode=429&routeMethod=GET" -H "x-admin-api-key: local-admin-key"
+
+Expected:
+
+- HTTP 200
+- data.totalRejectedRequests only includes matching events
+- data.byReason includes RATE_LIMIT_EXCEEDED
+- data.byStatusCode includes 429
+- data.filters.rejectionReason = RATE_LIMIT_EXCEEDED
+- data.filters.statusCode = 429
+- data.filters.routeMethod = GET
+
+Check invalid rejected events summary query:
+
+    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/summary?statusCode=99" -H "x-admin-api-key: local-admin-key"
+
+Expected:
+
+- HTTP 400
+- error.code = INVALID_QUERY_PARAMETER
+
+Check admin rejected events raw listing:
+
+    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/events" -H "x-admin-api-key: local-admin-key"
+
+Expected response fields:
+
+- data.items
+- data.pagination.limit
+- data.pagination.offset
+- data.pagination.total
+- data.pagination.hasNextPage
+- data.filters
+
+Check listing pagination:
+
+    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/events?limit=5&offset=0" -H "x-admin-api-key: local-admin-key"
+
+Expected:
+
+- HTTP 200
+- data.pagination.limit = 5
+- data.pagination.offset = 0
+- data.pagination.total is present
+- data.pagination.hasNextPage is present
+
+Check filtered listing:
+
+    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/events?rejectionReason=RATE_LIMIT_EXCEEDED&statusCode=429&routeMethod=GET" -H "x-admin-api-key: local-admin-key"
+
+Expected:
+
+- HTTP 200
+- Returned items match the filter when matching events exist
+- data.filters.rejectionReason = RATE_LIMIT_EXCEEDED
+- data.filters.statusCode = 429
+- data.filters.routeMethod = GET
+
+Check invalid listing query:
+
+    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/events?limit=101" -H "x-admin-api-key: local-admin-key"
+
+Expected:
+
+- HTTP 400
+- error.code = INVALID_QUERY_PARAMETER
 
 Check rejected events in PostgreSQL:
 
@@ -150,6 +223,25 @@ Validation status:
 
 ---
 
+## Sprint 18 Runtime Validation Result
+
+Observed runtime result:
+
+- GET /health -> 200.
+- GET /internal/admin/api-rejections/events -> 200.
+- GET /internal/admin/api-rejections/events?limit=5&offset=0 -> 200.
+- GET /internal/admin/api-rejections/events?limit=101 -> 400 INVALID_QUERY_PARAMETER.
+- GET /internal/admin/api-rejections/events?rejectionReason=RATE_LIMIT_EXCEEDED&statusCode=429&routeMethod=GET -> 200.
+- GET /internal/admin/api-rejections/summary -> 200 with filters.
+- GET /internal/admin/api-rejections/summary?rejectionReason=RATE_LIMIT_EXCEEDED&statusCode=429&routeMethod=GET -> 200.
+- GET /internal/admin/api-rejections/summary?statusCode=99 -> 400 INVALID_QUERY_PARAMETER.
+
+Validation status:
+
+- Passed.
+
+---
+
 ## Design Safety Notes
 
 Rejected events are stored in:
@@ -161,3 +253,9 @@ Successful proxy/cache usage events are stored in:
 - gateway.api_usage_events
 
 Do not record rejected requests into gateway.api_usage_events unless the quota counting model is redesigned.
+
+Rejected event analytics must not store or return:
+
+- Raw API keys
+- JWTs
+- Authorization headers

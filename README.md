@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.18.0
+- v0.19.0
 
 Latest completed sprint:
 
-- Sprint 17 - API Rejection Tracking and Rejected Events Observability
+- Sprint 18 - Advanced Usage Analytics and Rejected Event Drilldown
 
 ---
 
@@ -36,15 +36,17 @@ PulseGate currently includes:
 - Runtime quota enforcement
 - Quota observability endpoints
 - Rejected request tracking
-- Rejected events observability endpoint
+- Rejected events summary
+- Rejected events raw listing
+- Filterable rejected event drilldown
 
 Latest validation:
 
-- 52 test files passed
-- 342 tests passed
+- 55 test files passed
+- 362 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime rejected events validation passed
+- Docker runtime rejected events listing and filtered summary validation passed
 
 ---
 
@@ -97,6 +99,7 @@ Current gateway capabilities:
 - Usage plan quota enforcement
 - Quota observability
 - Rejected request event recording
+- Rejected request analytics
 - Structured access logs
 - Prometheus metrics
 
@@ -114,10 +117,12 @@ Current internal/admin capabilities:
 - API key quota state
 - Usage plan usage summary
 - Rejected events summary
+- Filtered rejected events summary
+- Rejected events raw listing with safe pagination
 
 ---
 
-## Current Quota Behavior
+## Current Quota and Rejection Behavior
 
 Usage plans support:
 
@@ -151,6 +156,9 @@ Rejected request behavior:
 - Failed auth, rate-limited, and quota-denied requests are recorded into gateway.api_rejected_events.
 - gateway.api_usage_events remains the source of truth for successful proxy/cache usage and quota counting.
 - gateway.api_rejected_events is used for rejected/security traffic observability.
+- Rejected events can be queried through aggregate summary and raw paginated listing endpoints.
+- Rejected event filters include time range, rejection reason, status code, route, auth source, API key, and consumer.
+- Raw API keys, JWTs, and Authorization headers are not stored or returned.
 - No aggregate rollup table yet.
 
 ---
@@ -207,7 +215,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-17.md
+- docs/sdlc/sprint-history/sprint-18.md
 
 Latest rejected events runbook:
 
@@ -221,13 +229,15 @@ Latest decision record:
 
 ## Recommended Next Sprint
 
-Sprint 18 recommended direction:
+Sprint 19 recommended direction:
 
-- Advanced Usage Analytics and Rejected Event Drilldown
+- Usage Analytics Hardening and Retention/Rollup Design
 
 Recommended focus:
 
-- Add filtered rejected event queries by time range, route, reason, consumer, and API key.
-- Add raw rejected event listing with safe pagination.
-- Consider aggregate rollups for usage and rejected traffic analytics.
+- Add stronger usage analytics filters and time-range querying.
+- Evaluate event retention policy for usage and rejected events.
+- Design aggregate rollups for high-volume analytics.
+- Consider Grafana panels for quota, usage, and rejected traffic.
 - Keep successful usage and rejected/security events separate.
+- Avoid jumping to Admin Dashboard UI, Developer Portal UI, billing, Kafka, Kubernetes, or multi-tenant organization model unless explicitly selected.

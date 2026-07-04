@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.18.0
+v0.19.0
 
 ## Current Status
 
-Sprint 17 - API Rejection Tracking and Rejected Events Observability Complete
+Sprint 18 - Advanced Usage Analytics and Rejected Event Drilldown Complete
 
 Current validation:
 
-- 52 test files passed
-- 342 tests passed
+- 55 test files passed
+- 362 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime rejected events validation passed
+- Docker runtime rejected events listing and filtered summary validation passed
 
 ---
 
@@ -64,7 +64,7 @@ PulseGate demonstrates backend engineering around:
 - Usage plans and quota enforcement
 - Quota observability
 - Rejected request tracking
-- Rejected events observability
+- Rejected events observability and drilldown
 - Traffic protection
 - Observability
 - CI/CD
@@ -190,6 +190,9 @@ API Gateway currently handles:
 - API rejected event recording.
 - Consumer usage summary.
 - API key usage summary.
+- Rejected events summary.
+- Filtered rejected events summary.
+- Rejected events raw listing.
 - Request transform foundation.
 - Response transform foundation.
 - Timeout policy.
@@ -200,51 +203,10 @@ API Gateway currently handles:
 - Internal/admin API key lifecycle APIs.
 - Internal/admin usage plan APIs.
 - Internal/admin API usage summary APIs.
-- Internal/admin rejected events summary API.
+- Internal/admin rejected event APIs.
 - Internal/admin quota observability APIs.
 - Structured access logs.
 - Prometheus metrics.
-
----
-
-## Product Service Responsibilities
-
-Product Service currently handles:
-
-- GET /health
-- GET /products
-- PostgreSQL-backed product data
-- Prisma Client access
-- Request ID reuse
-- Basic service-level error handling
-
-Current seeded products:
-
-- prod_001 - Mechanical Keyboard - 120
-- prod_002 - Gaming Mouse - 45
-
----
-
-## Runtime Route Registry
-
-Runtime registry purpose:
-
-- Keep an in-memory snapshot of active route configs.
-- Allow existing registered routes to resolve latest config per request.
-- Allow catch-all dynamic router to resolve brand-new /api/* routes.
-- Allow admin reload to apply route config changes without unsafe Fastify route mutation.
-- Validate replacement route configs before changing the active snapshot.
-
-Important safety rule:
-
-PulseGate does not dynamically unregister or register arbitrary Fastify routes at runtime.
-
-Instead:
-
-- Fastify route table stays stable.
-- Runtime registry stores active route config.
-- Existing registered routes read from the registry.
-- The stable /api/* catch-all route dispatches new DB-backed paths through registry lookup.
 
 ---
 
@@ -336,19 +298,6 @@ Usage plan table:
 
     gateway.usage_plans
 
-Usage plan fields:
-
-- id
-- name
-- description
-- quotaLimit
-- quotaWindow
-- enabled
-- createdAt
-- updatedAt
-- createdBy
-- updatedBy
-
 Quota windows:
 
 - DAILY
@@ -384,57 +333,8 @@ Quota evaluation:
 
 Current quota limitation:
 
-- Quota-denied requests are not recorded as usage events yet.
 - Redis quota counters are not implemented yet.
 - Aggregate rollup tables are not implemented yet.
-
----
-
-## Quota Observability Architecture
-
-Sprint 16 added quota observability.
-
-API key quota state endpoint:
-
-- GET /internal/admin/api-keys/:id/quota
-
-Returns:
-
-- apiKeyId
-- consumerId
-- reason
-- usagePlan
-- usedRequests
-- remainingRequests
-- windowStartedAt
-- windowEndsAt
-- resetAt
-- exceeded
-- enforced
-
-Usage plan usage summary endpoint:
-
-- GET /internal/admin/usage-plans/:id/usage-summary
-
-Returns:
-
-- usagePlan
-- windowStartedAt
-- windowEndsAt
-- resetAt
-- assignedApiKeys
-- activeApiKeys
-- totalRequestsInCurrentWindow
-- exceededApiKeys
-- nearLimitApiKeys
-- topApiKeysByUsage
-
-Behavior:
-
-- Uses current quota window boundaries.
-- Counts usage from gateway.api_usage_events.
-- Keeps api_usage_events as source of truth for successful/proxied usage.
-- Does not record quota-denied requests into api_usage_events yet.
 
 ---
 
@@ -457,15 +357,6 @@ Usage event fields:
 - consumerId
 - occurredAt
 
-Relations:
-
-- ApiUsageEvent -> ApiKey
-- ApiUsageEvent -> ApiConsumer
-- ApiKey -> usageEvents
-- ApiConsumer -> apiUsageEvents
-- ApiKey -> UsagePlan
-- UsagePlan -> ApiKey[]
-
 Usage recorder behavior:
 
 - Records successful downstream proxy/cache handler responses.
@@ -477,14 +368,57 @@ Usage recorder behavior:
 
 Current usage recording limitation:
 
-- Missing API key requests are not tracked yet.
-- Invalid API key requests are not tracked yet.
-- Missing JWT requests are not tracked yet.
-- Invalid JWT requests are not tracked yet.
-- Rate-limited requests are tracked in gateway.api_rejected_events.
-- Quota-denied requests are tracked in gateway.api_rejected_events.
 - Usage tracking is event-based only.
 - No aggregate rollup table yet.
+- Rejected requests are intentionally tracked in gateway.api_rejected_events instead of gateway.api_usage_events.
+
+---
+
+## API Rejected Event Architecture
+
+Rejected event table:
+
+    gateway.api_rejected_events
+
+Tracked rejection reasons:
+
+- API_KEY_MISSING
+- API_KEY_INVALID
+- JWT_TOKEN_MISSING
+- JWT_TOKEN_INVALID
+- RATE_LIMIT_EXCEEDED
+- QUOTA_EXCEEDED
+
+Rejected event behavior:
+
+- Records failed API key auth.
+- Records failed JWT auth.
+- Records rate-limited requests.
+- Records quota-denied requests.
+- Stores route, method, status, reason, request id, auth source, API key id, consumer id, and occurredAt when available.
+- Does not store raw API keys, JWTs, or Authorization headers.
+- Does not write rejected requests into gateway.api_usage_events.
+
+Admin rejected event endpoints:
+
+- GET /internal/admin/api-rejections/summary
+- GET /internal/admin/api-rejections/events
+
+Summary endpoint:
+
+- Returns total rejected requests.
+- Returns counts grouped by rejection reason.
+- Returns counts grouped by status code.
+- Returns lastRejectedAt.
+- Supports filters.
+
+Listing endpoint:
+
+- Returns raw rejected event rows.
+- Supports safe pagination with limit, offset, total, and hasNextPage.
+- Supports filters by from, to, rejectionReason, statusCode, routePath, routeMethod, apiKeyAuthSource, apiKeyId, and consumerId.
+- Sorts by occurredAt desc and id desc.
+- Rejects invalid query values with 400 INVALID_QUERY_PARAMETER.
 
 ---
 
@@ -514,23 +448,22 @@ Summary fields:
 
 ---
 
-## Usage Plan Admin Architecture
+## Quota Observability Architecture
 
-Admin usage plan endpoints:
+API key quota state endpoint:
 
-- GET /internal/admin/usage-plans
-- POST /internal/admin/usage-plans
-- GET /internal/admin/usage-plans/:id
+- GET /internal/admin/api-keys/:id/quota
+
+Usage plan usage summary endpoint:
+
 - GET /internal/admin/usage-plans/:id/usage-summary
-- PATCH /internal/admin/usage-plans/:id
 
-API key usage plan assignment endpoint:
+Behavior:
 
-- PATCH /internal/admin/api-keys/:id/usage-plan
-
-Both endpoint groups require:
-
-- x-admin-api-key
+- Uses current quota window boundaries.
+- Counts usage from gateway.api_usage_events.
+- Keeps api_usage_events as source of truth for successful/proxied usage.
+- Keeps rejected requests in gateway.api_rejected_events.
 
 ---
 
@@ -612,6 +545,9 @@ Current observability layers:
 - Provisioned Grafana datasource.
 - Provisioned API Gateway dashboard.
 - API usage event table for API management analytics.
+- API rejected event table for rejected/security traffic analytics.
+- Admin usage summary APIs.
+- Admin rejected event summary and listing APIs.
 - Admin quota state and usage plan summary APIs.
 
 Current metrics:
@@ -626,7 +562,7 @@ Current Grafana dashboard:
 
 Current limitation:
 
-- Grafana does not yet show per-consumer, per-key, or quota usage panels.
+- Grafana does not yet show per-consumer, per-key, quota usage, or rejected event panels.
 
 ---
 
@@ -653,18 +589,18 @@ Current limitations:
 
 ## Current Important Files
 
-Usage plans, quota, and quota observability:
+Rejected events:
 
 - apps/api-gateway/prisma/schema.prisma
-- apps/api-gateway/src/usage-plans/usage-plan-management.types.ts
-- apps/api-gateway/src/usage-plans/usage-plan-management.mapper.ts
-- apps/api-gateway/src/usage-plans/usage-plan-management.repository.ts
-- apps/api-gateway/src/usage-plans/usage-quota-checker.ts
-- apps/api-gateway/src/usage-plans/usage-quota-state.ts
-- apps/api-gateway/src/usage-plans/usage-plan-usage-summary.ts
-- apps/api-gateway/src/routes/admin-usage-plan.route.ts
-- apps/api-gateway/src/routes/admin-api-key.route.ts
-- apps/api-gateway/src/proxy/downstream-proxy-handler.ts
+- apps/api-gateway/src/api-rejections/api-rejected-event-recorder.ts
+- apps/api-gateway/src/api-rejections/api-rejected-events-summary.types.ts
+- apps/api-gateway/src/api-rejections/api-rejected-events-summary.mapper.ts
+- apps/api-gateway/src/api-rejections/api-rejected-events-summary.repository.ts
+- apps/api-gateway/src/api-rejections/api-rejected-events-listing.types.ts
+- apps/api-gateway/src/api-rejections/api-rejected-events-listing.mapper.ts
+- apps/api-gateway/src/api-rejections/api-rejected-events-listing.repository.ts
+- apps/api-gateway/src/api-rejections/api-rejected-events-listing-query.ts
+- apps/api-gateway/src/routes/admin-api-rejection.route.ts
 
 API Gateway core:
 
@@ -697,12 +633,11 @@ Infrastructure:
 
 ## Current Limitations
 
-- Failed authentication requests are tracked in gateway.api_rejected_events.
-- Rate-limited requests are tracked in gateway.api_rejected_events.
-- Quota-denied requests are tracked in gateway.api_rejected_events.
 - Usage data is event-based only.
+- Rejected event analytics is event-based only.
 - No aggregate rollup table yet.
 - No retention policy yet.
+- No cursor pagination for very large event datasets yet.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
 - Admin Dashboard is not implemented yet.
@@ -725,10 +660,12 @@ Infrastructure:
 
 ## Recommended Next Architecture Step
 
-Sprint 17 - API Usage Rejection Tracking Design or Advanced Usage Analytics Hardening
+Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design
 
 Recommended direction:
 
-- Design failed auth, rate-limited, and quota-denied event tracking safely.
-- Keep successful/proxied usage and rejected/security events clearly separated or clearly typed.
-- Avoid corrupting event-based quota counts.
+- Add time-range and filter support to successful usage analytics.
+- Evaluate retention policy for usage and rejected events.
+- Design aggregate rollups for high-volume analytics.
+- Consider Grafana panels for quota, usage, and rejected traffic.
+- Keep successful usage events and rejected/security events clearly separated.

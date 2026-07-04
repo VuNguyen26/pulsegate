@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.18.0
+v0.19.0
 
 ## Latest Completed Sprint
 
-Sprint 17 - API Rejection Tracking and Rejected Events Observability
+Sprint 18 - Advanced Usage Analytics and Rejected Event Drilldown
 
 ---
 
@@ -55,7 +55,7 @@ Long-term target:
 - Usage plans
 - Quotas
 - Usage analytics
-- Rejected request tracking
+- Rejected request tracking and drilldown
 - Observability
 - CI/CD
 - Cloud/Kubernetes deployment later
@@ -369,23 +369,9 @@ Current endpoint:
 
 - GET /internal/admin/api-keys/:id/quota
 
-Response includes:
-
-- apiKeyId
-- consumerId
-- reason
-- usagePlan
-- usedRequests
-- remainingRequests
-- windowStartedAt
-- windowEndsAt
-- resetAt
-- exceeded
-- enforced
-
 Status:
 
-Implemented in Sprint 16.
+Implemented.
 
 ---
 
@@ -397,22 +383,9 @@ Current endpoint:
 
 - GET /internal/admin/usage-plans/:id/usage-summary
 
-Response includes:
-
-- usagePlan
-- windowStartedAt
-- windowEndsAt
-- resetAt
-- assignedApiKeys
-- activeApiKeys
-- totalRequestsInCurrentWindow
-- exceededApiKeys
-- nearLimitApiKeys
-- topApiKeysByUsage
-
 Status:
 
-Implemented in Sprint 16.
+Implemented.
 
 ---
 
@@ -432,7 +405,69 @@ Current response details:
 
 Status:
 
-Implemented in Sprint 16.
+Implemented.
+
+---
+
+### FR-020 API Rejection Tracking
+
+PulseGate shall record rejected gateway requests separately from successful/proxied usage events.
+
+Rejected event table:
+
+- gateway.api_rejected_events
+
+Tracked rejection reasons:
+
+- API_KEY_MISSING
+- API_KEY_INVALID
+- JWT_TOKEN_MISSING
+- JWT_TOKEN_INVALID
+- RATE_LIMIT_EXCEEDED
+- QUOTA_EXCEEDED
+
+Required behavior:
+
+- Failed auth requests are recorded as rejected events.
+- Rate-limited requests are recorded as rejected events.
+- Quota-denied requests are recorded as rejected events.
+- Rejected requests are not recorded into gateway.api_usage_events.
+- gateway.api_usage_events remains the source of truth for quota counting.
+- Raw API keys, JWTs, and Authorization headers must never be stored.
+
+Admin endpoint:
+
+- GET /internal/admin/api-rejections/summary
+
+Status:
+
+Implemented.
+
+---
+
+### FR-021 API Rejected Event Drilldown
+
+PulseGate shall expose filterable rejected event analytics for admin investigation.
+
+Current endpoints:
+
+- GET /internal/admin/api-rejections/summary
+- GET /internal/admin/api-rejections/events
+
+Required behavior:
+
+- Summary endpoint supports filters.
+- Listing endpoint returns raw rejected event rows.
+- Listing endpoint supports safe pagination.
+- Listing endpoint returns limit, offset, total, and hasNextPage.
+- Query validation returns 400 INVALID_QUERY_PARAMETER for invalid values.
+- Supported filters include from, to, rejectionReason, statusCode, routePath, routeMethod, apiKeyAuthSource, apiKeyId, and consumerId.
+- Rejected event listing must not expose raw API keys, JWTs, or Authorization headers.
+- Rejected event analytics must not write into gateway.api_usage_events.
+
+Status:
+
+Implemented in Sprint 18.
 
 ---
 
@@ -458,8 +493,8 @@ The project shall have automated unit/integration-style tests.
 
 Current result:
 
-- 52 test files passed
-- 342 tests passed
+- 55 test files passed
+- 362 tests passed
 
 Validation:
 
@@ -518,6 +553,9 @@ Current signals:
 - API usage events
 - Admin usage summary APIs
 - Quota observability APIs
+- Rejected event summary API
+- Rejected event listing API
+- Filtered rejected event drilldown
 
 Status:
 
@@ -535,6 +573,7 @@ Current behavior:
 - keyPrefix is stored.
 - rawKey is returned only once.
 - keyHash is never exposed in admin responses.
+- Rejected event analytics does not store or return raw API keys.
 
 Status:
 
@@ -544,12 +583,11 @@ Implemented.
 
 ## Important Current Limitations
 
-- Failed authentication requests are tracked in gateway.api_rejected_events.
-- Rate-limited requests are tracked in gateway.api_rejected_events.
-- Quota-denied requests are tracked in gateway.api_rejected_events.
 - Usage data is event-based only.
+- Rejected event analytics is event-based only.
 - No aggregate rollup table yet.
 - No retention policy yet.
+- No cursor pagination for very large event datasets yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
 - No quota usage Grafana dashboard yet.
@@ -574,50 +612,12 @@ Implemented.
 
 Recommended next:
 
-- Rejected request tracking design.
-- Decide whether failed auth, rate-limited, and quota-denied events should use typed api_usage_events or a separate rejected/security event table.
-- Keep quota counts accurate.
-- Add aggregate rollups later.
-- Add retention policy later.
-- Add quota dashboard later.
+- Add time-range and filter support to successful usage analytics.
+- Evaluate retention policy for api_usage_events and api_rejected_events.
+- Design aggregate rollup tables for high-volume analytics.
+- Consider cursor pagination for very large event datasets.
+- Add Grafana panels for quota, usage, and rejected traffic later.
 - Add Admin Dashboard later.
 - Add Developer Portal later.
 - Add service discovery later.
 - Add Kubernetes/cloud deployment later.
-
-
----
-
-### FR-020 API Rejection Tracking
-
-PulseGate shall record rejected gateway requests separately from successful/proxied usage events.
-
-Rejected event table:
-
-- gateway.api_rejected_events
-
-Tracked rejection reasons:
-
-- API_KEY_MISSING
-- API_KEY_INVALID
-- JWT_TOKEN_MISSING
-- JWT_TOKEN_INVALID
-- RATE_LIMIT_EXCEEDED
-- QUOTA_EXCEEDED
-
-Required behavior:
-
-- Failed auth requests are recorded as rejected events.
-- Rate-limited requests are recorded as rejected events.
-- Quota-denied requests are recorded as rejected events.
-- Rejected requests are not recorded into gateway.api_usage_events.
-- gateway.api_usage_events remains the source of truth for quota counting.
-- Raw API keys, JWTs, and Authorization headers must never be stored.
-
-Admin endpoint:
-
-- GET /internal/admin/api-rejections/summary
-
-Status:
-
-Implemented in Sprint 17.

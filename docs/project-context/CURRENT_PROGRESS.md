@@ -24,37 +24,37 @@ Long decision records live in:
 
 ## Current Version
 
-v0.18.0
+v0.19.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 17 - API Rejection Tracking and Rejected Events Observability
+Sprint 18 - Advanced Usage Analytics and Rejected Event Drilldown
 
 Status:
 
 Done.
 
-Sprint 17 added rejected request tracking and rejected traffic observability:
+Sprint 18 added rejected event drilldown and filterable rejected traffic analytics:
 
-- Separate gateway.api_rejected_events table.
-- Rejected event recorder foundation.
-- QUOTA_EXCEEDED rejected event tracking.
-- RATE_LIMIT_EXCEEDED rejected event tracking.
-- Failed auth rejected event tracking for API key and JWT failures.
-- Admin rejected events summary endpoint.
-- Docker runtime validation proving rejected events are persisted and summarized.
+- Raw rejected event listing endpoint.
+- Safe pagination with limit, offset, total, and hasNextPage.
+- Filterable rejected event queries.
+- Shared rejected event query parser.
+- Repository and mapper coverage for rejected event listing.
+- Filtered rejected events summary endpoint.
+- Docker runtime validation for listing, filters, pagination, and invalid query handling.
 
-Sprint 17 details are archived in:
+Sprint 18 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-17.md
+- docs/sdlc/sprint-history/sprint-18.md
 
-Sprint 17 runbook:
+Sprint 18 runbook:
 
 - docs/runbooks/api-rejected-events.md
 
-Sprint 17 decision record:
+Related decision record:
 
 - docs/project-context/decisions/2026-07-04-rejected-events-side-table.md
 
@@ -62,26 +62,28 @@ Sprint 17 decision record:
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 17:
+Latest stable validation from Sprint 18:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Docker runtime rejected events validation -> passed
+- Docker runtime rejected events listing and filtered summary validation -> passed
 
 Latest automated test result:
 
-- 52 test files passed
-- 342 tests passed
+- 55 test files passed
+- 362 tests passed
 
 Latest Docker runtime validation proved:
 
-- Missing API key returns 401 API_KEY_MISSING and records a rejected event.
-- Invalid API key returns 403 API_KEY_INVALID and records a rejected event.
-- Missing JWT returns 401 JWT_TOKEN_MISSING and records rejected events.
-- Route rate limit returns 429 TOO_MANY_REQUESTS and records RATE_LIMIT_EXCEEDED.
-- GET /internal/admin/api-rejections/summary returns totals grouped by rejection reason and status code.
-- gateway.api_rejected_events stores route, method, auth source, status, reason, and occurredAt.
+- GET /health returns 200.
+- GET /internal/admin/api-rejections/summary returns aggregate rejected event totals and filters.
+- GET /internal/admin/api-rejections/summary with filters returns filtered aggregate totals.
+- Invalid summary query returns 400 INVALID_QUERY_PARAMETER.
+- GET /internal/admin/api-rejections/events returns raw rejected event listing.
+- Listing pagination supports limit, offset, total, and hasNextPage.
+- Listing filters support rejection reason, status code, route method, route path, auth source, API key, consumer, and time range.
+- Invalid listing query returns 400 INVALID_QUERY_PARAMETER.
 
 ---
 
@@ -110,8 +112,9 @@ PulseGate currently has:
 - Internal/admin API key lifecycle APIs.
 - Internal/admin usage plan APIs.
 - Internal/admin API usage summary APIs.
-- Internal/admin rejected events summary API.
 - Internal/admin quota observability APIs.
+- Internal/admin rejected events summary API.
+- Internal/admin rejected events listing API.
 - Runtime route registry.
 - Runtime registry reload endpoint.
 - Catch-all dynamic router for /api/*.
@@ -123,6 +126,8 @@ PulseGate currently has:
 - API rejected event recorder.
 - API key quota state reader.
 - Usage plan usage summary reader.
+- Rejected event summary reader.
+- Rejected event listing reader.
 - Static env API key fallback.
 - JWT authentication.
 - Redis-backed rate limiting.
@@ -246,6 +251,7 @@ Internal/admin usage analytics:
 - GET /internal/admin/usage/consumers/:consumerId/summary
 - GET /internal/admin/usage/api-keys/:apiKeyId/summary
 - GET /internal/admin/api-rejections/summary
+- GET /internal/admin/api-rejections/events
 
 ---
 
@@ -277,6 +283,14 @@ Rejected recording scope:
 - RATE_LIMIT_EXCEEDED
 - QUOTA_EXCEEDED
 
+Rejected event observability:
+
+- GET /internal/admin/api-rejections/summary returns aggregate rejected traffic totals.
+- GET /internal/admin/api-rejections/summary supports filters.
+- GET /internal/admin/api-rejections/events returns raw rejected event rows.
+- GET /internal/admin/api-rejections/events supports safe pagination and filters.
+- Supported filters include from, to, rejectionReason, statusCode, routePath, routeMethod, apiKeyAuthSource, apiKeyId, and consumerId.
+
 Usage plan table:
 
 - gateway.usage_plans
@@ -296,12 +310,11 @@ Current quota scope:
 
 ## Current Limitations
 
-- Rejected events summary is aggregate-only.
-- Raw rejected event listing is not implemented yet.
-- Filterable rejected event drilldown is not implemented yet.
 - Usage data is event-based only.
+- Rejected event analytics is event-based only.
 - No aggregate rollup table yet.
 - No retention policy yet.
+- No cursor pagination for very large event datasets yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
 - No quota/rejected-events Grafana dashboard yet.
@@ -326,13 +339,15 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 17 - API Usage Rejection Tracking Design or Advanced Usage Analytics Hardening
+Sprint 19 - Usage Analytics Hardening and Retention/Rollup Design
 
 Recommended scope:
 
-- Design rejected request tracking separately from successful/proxied usage events.
-- Decide whether failed auth, rate-limited, and quota-denied traffic belongs in api_usage_events with outcome/type fields or in a separate rejected/security event table.
-- Keep quota counts accurate.
+- Add stronger usage analytics filters and time-range querying.
+- Evaluate retention policy for api_usage_events and api_rejected_events.
+- Design aggregate rollups for high-volume analytics.
+- Consider Grafana panels for quota, usage, and rejected traffic.
+- Keep successful usage and rejected/security events separate.
 - Avoid adding Kafka, RabbitMQ, Kubernetes, Admin Dashboard UI, Developer Portal UI, billing, paid plans, or multi-tenant organization model unless explicitly selected.
 
 ---
