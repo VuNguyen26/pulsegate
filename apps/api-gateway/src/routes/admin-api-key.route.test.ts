@@ -12,6 +12,12 @@ import type {
   ApiKeyReadModel,
 } from "../api-keys/api-key-management.types.js";
 import { InMemoryRateLimitStore } from "../rate-limit/in-memory-rate-limit-store.js";
+import type {
+  UsagePlanCreateData,
+  UsagePlanManagementRepository,
+  UsagePlanReadModel,
+  UsagePlanUpdateData,
+} from "../usage-plans/usage-plan-management.types.js";
 
 const createdAt = new Date("2026-07-03T00:00:00.000Z");
 const updatedAt = new Date("2026-07-03T01:00:00.000Z");
@@ -28,9 +34,23 @@ const activeConsumer: ApiConsumerReadModel = {
   updatedBy: "admin",
 };
 
+const starterPlan: UsagePlanReadModel = {
+  id: "plan_starter",
+  name: "Starter",
+  description: "Starter daily quota",
+  quotaLimit: 1000,
+  quotaWindow: "DAILY",
+  enabled: true,
+  createdAt,
+  updatedAt,
+  createdBy: "admin",
+  updatedBy: "admin",
+};
+
 const existingApiKey: ApiKeyReadModel = {
   id: "key_mobile_prod",
   consumerId: "consumer_mobile",
+  usagePlanId: null,
   name: "Mobile Production Key",
   keyPrefix: "pgk_live_existing",
   keyHash: "a".repeat(64),
@@ -64,6 +84,28 @@ function createTestConsumerRepository(
   };
 }
 
+function createTestUsagePlanRepository(
+  usagePlans: UsagePlanReadModel[],
+): UsagePlanManagementRepository {
+  return {
+    listUsagePlans: vi.fn(async () => usagePlans),
+
+    findUsagePlanById: vi.fn(async (id: string) => {
+      return usagePlans.find((usagePlan) => usagePlan.id === id) ?? null;
+    }),
+
+    createUsagePlan: vi.fn(async (_data: UsagePlanCreateData) => {
+      throw new Error("createUsagePlan is not used in this test");
+    }),
+
+    updateUsagePlan: vi.fn(
+      async (_id: string, _data: UsagePlanUpdateData) => {
+        throw new Error("updateUsagePlan is not used in this test");
+      },
+    ),
+  };
+}
+
 function createTestApiKeyRepository(
   apiKeys: ApiKeyReadModel[],
 ): ApiKeyManagementRepository {
@@ -82,6 +124,7 @@ function createTestApiKeyRepository(
       const createdApiKey: ApiKeyReadModel = {
         id: `key_${storedApiKeys.length + 1}`,
         consumerId: data.consumerId,
+        usagePlanId: null,
         name: data.name,
         keyPrefix: data.keyPrefix,
         keyHash: data.keyHash,
@@ -119,6 +162,28 @@ function createTestApiKeyRepository(
 
       return revokedApiKey;
     }),
+
+    assignUsagePlanToApiKey: vi.fn(
+      async (id: string, usagePlanId: string | null) => {
+        const apiKeyIndex = storedApiKeys.findIndex(
+          (apiKey) => apiKey.id === id,
+        );
+
+        if (apiKeyIndex === -1) {
+          throw new Error("API key not found");
+        }
+
+        const updatedApiKey: ApiKeyReadModel = {
+          ...storedApiKeys[apiKeyIndex],
+          usagePlanId,
+          updatedAt,
+        };
+
+        storedApiKeys[apiKeyIndex] = updatedApiKey;
+
+        return updatedApiKey;
+      },
+    ),
   };
 }
 
@@ -134,6 +199,7 @@ describe("adminApiKeyRoute", () => {
       apiKeyManagement: {
         consumerRepository: createTestConsumerRepository([activeConsumer]),
         apiKeyRepository: createTestApiKeyRepository([existingApiKey]),
+        usagePlanRepository: createTestUsagePlanRepository([starterPlan]),
         adminApiKey: "test-admin-key",
         adminApiKeyHeader: "x-admin-api-key",
         generateApiKey: () => ({
@@ -203,6 +269,7 @@ describe("adminApiKeyRoute", () => {
     expect(body.data[0]).toMatchObject({
       id: "key_mobile_prod",
       consumerId: "consumer_mobile",
+      usagePlanId: null,
       name: "Mobile Production Key",
       keyPrefix: "pgk_live_existing",
       status: "ACTIVE",
@@ -259,6 +326,7 @@ describe("adminApiKeyRoute", () => {
     expect(body.data).toMatchObject({
       id: "key_2",
       consumerId: "consumer_mobile",
+      usagePlanId: null,
       name: "Mobile Staging Key",
       keyPrefix: "pgk_live_raw_secret",
       status: "ACTIVE",
@@ -391,6 +459,160 @@ describe("adminApiKeyRoute", () => {
     const response = await app.inject({
       method: "PATCH",
       url: "/internal/admin/api-keys/key_mobile_prod/revoke",
+    });
+
+    expect(response.statusCode).toBe(401);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "ADMIN_API_KEY_MISSING",
+        message: "Admin API key is required",
+        requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should assign a usage plan to an API key for an authenticated admin request", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/internal/admin/api-keys/key_mobile_prod/usage-plan",
+      headers: {
+        "content-type": "application/json",
+        "x-admin-api-key": "test-admin-key",
+      },
+      payload: JSON.stringify({
+        usagePlanId: "plan_starter",
+      }),
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    expect(response.json()).toMatchObject({
+      data: {
+        id: "key_mobile_prod",
+        usagePlanId: "plan_starter",
+      },
+    });
+  });
+
+  it("should remove usage plan assignment from an API key for an authenticated admin request", async () => {
+    await app.inject({
+      method: "PATCH",
+      url: "/internal/admin/api-keys/key_mobile_prod/usage-plan",
+      headers: {
+        "content-type": "application/json",
+        "x-admin-api-key": "test-admin-key",
+      },
+      payload: JSON.stringify({
+        usagePlanId: "plan_starter",
+      }),
+    });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/internal/admin/api-keys/key_mobile_prod/usage-plan",
+      headers: {
+        "content-type": "application/json",
+        "x-admin-api-key": "test-admin-key",
+      },
+      payload: JSON.stringify({
+        usagePlanId: null,
+      }),
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    expect(response.json()).toMatchObject({
+      data: {
+        id: "key_mobile_prod",
+        usagePlanId: null,
+      },
+    });
+  });
+
+  it("should return 404 when assigning usage plan to a missing API key", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/internal/admin/api-keys/missing_key/usage-plan",
+      headers: {
+        "content-type": "application/json",
+        "x-admin-api-key": "test-admin-key",
+      },
+      payload: JSON.stringify({
+        usagePlanId: "plan_starter",
+      }),
+    });
+
+    expect(response.statusCode).toBe(404);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "API_KEY_NOT_FOUND",
+        message: "API key was not found",
+        requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should return 404 when assigning a missing usage plan to an API key", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/internal/admin/api-keys/key_mobile_prod/usage-plan",
+      headers: {
+        "content-type": "application/json",
+        "x-admin-api-key": "test-admin-key",
+      },
+      payload: JSON.stringify({
+        usagePlanId: "missing_plan",
+      }),
+    });
+
+    expect(response.statusCode).toBe(404);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "USAGE_PLAN_NOT_FOUND",
+        message: "Usage plan was not found",
+        requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should reject invalid usage plan assignment payload", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/internal/admin/api-keys/key_mobile_prod/usage-plan",
+      headers: {
+        "content-type": "application/json",
+        "x-admin-api-key": "test-admin-key",
+      },
+      payload: JSON.stringify({
+        usagePlanId: "",
+      }),
+    });
+
+    expect(response.statusCode).toBe(400);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "API_KEY_USAGE_PLAN_ASSIGNMENT_INVALID",
+        message: "API key usage plan assignment is invalid",
+        details: "usagePlanId must be a non-empty string or null",
+        requestId: expect.any(String),
+      },
+    });
+  });
+
+  it("should reject usage plan assignment when admin API key is missing", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/internal/admin/api-keys/key_mobile_prod/usage-plan",
+      headers: {
+        "content-type": "application/json",
+      },
+      payload: JSON.stringify({
+        usagePlanId: "plan_starter",
+      }),
     });
 
     expect(response.statusCode).toBe(401);

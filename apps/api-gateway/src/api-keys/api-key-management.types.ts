@@ -3,6 +3,7 @@ export type ApiKeyStatusValue = "ACTIVE" | "REVOKED";
 export type ApiKeyReadModel = {
   id: string;
   consumerId: string;
+  usagePlanId: string | null;
   name: string;
   keyPrefix: string;
   keyHash: string;
@@ -31,16 +32,25 @@ export type ApiKeyCreateData = {
   createdBy?: string | null;
 };
 
+export type ApiKeyUsagePlanAssignmentData = {
+  usagePlanId: string | null;
+};
+
 export type ApiKeyManagementRepository = {
   listApiKeysByConsumerId: (consumerId: string) => Promise<ApiKeyReadModel[]>;
   findApiKeyById: (id: string) => Promise<ApiKeyReadModel | null>;
   createApiKey: (data: ApiKeyCreateData) => Promise<ApiKeyReadModel>;
   revokeApiKey: (id: string, actor: string) => Promise<ApiKeyReadModel>;
+  assignUsagePlanToApiKey: (
+    id: string,
+    usagePlanId: string | null,
+  ) => Promise<ApiKeyReadModel>;
 };
 
 export type ApiKeyResponse = {
   id: string;
   consumerId: string;
+  usagePlanId: string | null;
   name: string;
   keyPrefix: string;
   status: ApiKeyStatusValue;

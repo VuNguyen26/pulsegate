@@ -8,14 +8,18 @@ import { generateApiKey, type GeneratedApiKey } from "../api-keys/api-key-hashin
 import {
   mapApiKeyCreateRequestToCreateRequestData,
   mapApiKeyReadModelToResponse,
+  mapApiKeyUsagePlanAssignmentRequestToData,
   mapIssuedApiKeyToResponse,
 } from "../api-keys/api-key-management.mapper.js";
 import { createPrismaApiKeyManagementRepository } from "../api-keys/api-key-management.repository.js";
 import type { ApiKeyManagementRepository } from "../api-keys/api-key-management.types.js";
+import { createPrismaUsagePlanManagementRepository } from "../usage-plans/usage-plan-management.repository.js";
+import type { UsagePlanManagementRepository } from "../usage-plans/usage-plan-management.types.js";
 
 export type AdminApiKeyRouteOptions = {
   apiKeyRepository?: ApiKeyManagementRepository;
   consumerRepository?: ApiConsumerManagementRepository;
+  usagePlanRepository?: UsagePlanManagementRepository;
   adminApiKey?: string;
   adminApiKeyHeader?: string;
   generateApiKey?: () => GeneratedApiKey;
@@ -66,6 +70,10 @@ export async function adminApiKeyRoute(
   const consumerRepository =
     options.consumerRepository ??
     createPrismaApiConsumerManagementRepository(gatewayPrisma);
+
+  const usagePlanRepository =
+    options.usagePlanRepository ??
+    createPrismaUsagePlanManagementRepository(gatewayPrisma);
 
   const generateKey = options.generateApiKey ?? generateApiKey;
 
@@ -191,6 +199,70 @@ export async function adminApiKeyRoute(
 
       return {
         data: mapApiKeyReadModelToResponse(revokedApiKey),
+      };
+    },
+  );
+
+  app.patch<{ Params: ApiKeyIdParams }>(
+    "/internal/admin/api-keys/:id/usage-plan",
+    {
+      preHandler: requireAdminApiKey,
+    },
+    async (request, reply) => {
+      const existingApiKey = await apiKeyRepository.findApiKeyById(
+        request.params.id,
+      );
+
+      if (!existingApiKey) {
+        return reply.status(404).send({
+          error: {
+            code: "API_KEY_NOT_FOUND",
+            message: "API key was not found",
+            requestId: request.id,
+          },
+        });
+      }
+
+      let assignmentData;
+
+      try {
+        assignmentData = mapApiKeyUsagePlanAssignmentRequestToData(
+          request.body,
+        );
+      } catch (error) {
+        return reply.status(400).send({
+          error: {
+            code: "API_KEY_USAGE_PLAN_ASSIGNMENT_INVALID",
+            message: "API key usage plan assignment is invalid",
+            details: getErrorMessage(error),
+            requestId: request.id,
+          },
+        });
+      }
+
+      if (assignmentData.usagePlanId) {
+        const usagePlan = await usagePlanRepository.findUsagePlanById(
+          assignmentData.usagePlanId,
+        );
+
+        if (!usagePlan) {
+          return reply.status(404).send({
+            error: {
+              code: "USAGE_PLAN_NOT_FOUND",
+              message: "Usage plan was not found",
+              requestId: request.id,
+            },
+          });
+        }
+      }
+
+      const updatedApiKey = await apiKeyRepository.assignUsagePlanToApiKey(
+        existingApiKey.id,
+        assignmentData.usagePlanId,
+      );
+
+      return {
+        data: mapApiKeyReadModelToResponse(updatedApiKey),
       };
     },
   );

@@ -67,5 +67,21 @@ export function createPrismaApiKeyManagementRepository(
 
       return apiKey as ApiKeyReadModel;
     },
+
+    assignUsagePlanToApiKey: async (
+      id: string,
+      usagePlanId: string | null,
+    ) => {
+      const apiKey = await prisma.apiKey.update({
+        where: {
+          id,
+        },
+        data: {
+          usagePlanId,
+        },
+      });
+
+      return apiKey as ApiKeyReadModel;
+    },
   };
 }

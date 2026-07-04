@@ -36,6 +36,7 @@ function createApiKeyRepository(
   apiKey: Awaited<ReturnType<ApiKeyManagementRepository["findApiKeyById"]>> = {
     id: "key_1",
     consumerId: "consumer_1",
+    usagePlanId: null,
     name: "Local Key",
     keyPrefix: "pgk_live_abcdefghijk",
     keyHash: "a".repeat(64),
@@ -54,6 +55,7 @@ function createApiKeyRepository(
     findApiKeyById: vi.fn(async () => apiKey),
     createApiKey: vi.fn(),
     revokeApiKey: vi.fn(),
+    assignUsagePlanToApiKey: vi.fn(),
   };
 }
 

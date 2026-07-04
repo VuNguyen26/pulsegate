@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   mapApiKeyCreateRequestToCreateRequestData,
   mapApiKeyReadModelToResponse,
+  mapApiKeyUsagePlanAssignmentRequestToData,
   mapIssuedApiKeyToResponse,
 } from "./api-key-management.mapper.js";
 import type { ApiKeyReadModel } from "./api-key-management.types.js";
@@ -16,6 +17,7 @@ const revokedAt = new Date("2026-07-03T03:00:00.000Z");
 const activeApiKey: ApiKeyReadModel = {
   id: "key_1",
   consumerId: "consumer_1",
+  usagePlanId: null,
   name: "Production Key",
   keyPrefix: "pgk_live_abcdefghijk",
   keyHash: "a".repeat(64),
@@ -86,12 +88,55 @@ describe("api key management mapper", () => {
     ).toThrow("expiresAt must be a valid ISO datetime string");
   });
 
+  it("should map usage plan assignment request", () => {
+    expect(
+      mapApiKeyUsagePlanAssignmentRequestToData({
+        usagePlanId: "  plan_starter  ",
+      }),
+    ).toEqual({
+      usagePlanId: "plan_starter",
+    });
+  });
+
+  it("should map usage plan unassignment request", () => {
+    expect(
+      mapApiKeyUsagePlanAssignmentRequestToData({
+        usagePlanId: null,
+      }),
+    ).toEqual({
+      usagePlanId: null,
+    });
+  });
+
+  it("should reject usage plan assignment when usagePlanId is missing", () => {
+    expect(() => mapApiKeyUsagePlanAssignmentRequestToData({})).toThrow(
+      "usagePlanId must be a non-empty string or null",
+    );
+  });
+
+  it("should reject usage plan assignment when usagePlanId is empty", () => {
+    expect(() =>
+      mapApiKeyUsagePlanAssignmentRequestToData({
+        usagePlanId: "   ",
+      }),
+    ).toThrow("usagePlanId must be a non-empty string or null");
+  });
+
+  it("should reject usage plan assignment when usagePlanId is invalid", () => {
+    expect(() =>
+      mapApiKeyUsagePlanAssignmentRequestToData({
+        usagePlanId: 123,
+      }),
+    ).toThrow("usagePlanId must be a non-empty string or null");
+  });
+
   it("should map API key read model to response without exposing keyHash", () => {
     const response = mapApiKeyReadModelToResponse(activeApiKey);
 
     expect(response).toEqual({
       id: "key_1",
       consumerId: "consumer_1",
+      usagePlanId: null,
       name: "Production Key",
       keyPrefix: "pgk_live_abcdefghijk",
       status: "ACTIVE",
@@ -105,6 +150,17 @@ describe("api key management mapper", () => {
     });
 
     expect(response).not.toHaveProperty("keyHash");
+  });
+
+  it("should include usagePlanId in API key response when assigned", () => {
+    expect(
+      mapApiKeyReadModelToResponse({
+        ...activeApiKey,
+        usagePlanId: "plan_starter",
+      }),
+    ).toMatchObject({
+      usagePlanId: "plan_starter",
+    });
   });
 
   it("should map nullable fields to null", () => {

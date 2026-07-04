@@ -2,6 +2,7 @@ import type {
   ApiKeyCreateRequestData,
   ApiKeyReadModel,
   ApiKeyResponse,
+  ApiKeyUsagePlanAssignmentData,
   IssuedApiKeyResponse,
 } from "./api-key-management.types.js";
 
@@ -69,6 +70,33 @@ function readOptionalDate(
   return parsedDate;
 }
 
+function readRequiredNullableString(
+  body: Record<string, unknown>,
+  fieldName: string,
+): string | null {
+  if (!(fieldName in body)) {
+    throw new Error(`${fieldName} must be a non-empty string or null`);
+  }
+
+  const value = body[fieldName];
+
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new Error(`${fieldName} must be a non-empty string or null`);
+  }
+
+  const trimmedValue = value.trim();
+
+  if (trimmedValue.length === 0) {
+    throw new Error(`${fieldName} must be a non-empty string or null`);
+  }
+
+  return trimmedValue;
+}
+
 function mapNullableDateToIso(value: Date | null | undefined): string | null {
   return value ? value.toISOString() : null;
 }
@@ -84,12 +112,23 @@ export function mapApiKeyCreateRequestToCreateRequestData(
   };
 }
 
+export function mapApiKeyUsagePlanAssignmentRequestToData(
+  body: unknown,
+): ApiKeyUsagePlanAssignmentData {
+  const requestBody = assertRequestBodyObject(body);
+
+  return {
+    usagePlanId: readRequiredNullableString(requestBody, "usagePlanId"),
+  };
+}
+
 export function mapApiKeyReadModelToResponse(
   apiKey: ApiKeyReadModel,
 ): ApiKeyResponse {
   return {
     id: apiKey.id,
     consumerId: apiKey.consumerId,
+    usagePlanId: apiKey.usagePlanId,
     name: apiKey.name,
     keyPrefix: apiKey.keyPrefix,
     status: apiKey.status,
