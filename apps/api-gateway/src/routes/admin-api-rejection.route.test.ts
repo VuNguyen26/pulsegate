@@ -7,7 +7,7 @@ import { adminApiRejectionRoute } from "./admin-api-rejection.route.js";
 
 function createRejectedEventsSummaryRepository(): ApiRejectedEventsSummaryRepository {
   return {
-    getSummary: vi.fn(async () => ({
+    getSummary: vi.fn(async (filters = {}) => ({
       totalRejectedRequests: 6,
       byReason: [
         {
@@ -38,6 +38,7 @@ function createRejectedEventsSummaryRepository(): ApiRejectedEventsSummaryReposi
         },
       ],
       lastRejectedAt: new Date("2026-07-04T10:00:00.000Z"),
+      filters,
     })),
   };
 }
@@ -173,10 +174,91 @@ describe("adminApiRejectionRoute", () => {
           },
         ],
         lastRejectedAt: "2026-07-04T10:00:00.000Z",
+        filters: {
+          from: null,
+          to: null,
+          rejectionReason: null,
+          statusCode: null,
+          routePath: null,
+          routeMethod: null,
+          apiKeyAuthSource: null,
+          apiKeyId: null,
+          consumerId: null,
+        },
       },
     });
 
-    expect(rejectedEventsSummaryRepository.getSummary).toHaveBeenCalledTimes(1);
+    expect(rejectedEventsSummaryRepository.getSummary).toHaveBeenCalledWith({});
+  });
+
+  it("should pass rejected events summary filters to repository", async () => {
+    const rejectedEventsSummaryRepository =
+      createRejectedEventsSummaryRepository();
+
+    app = await buildTestApp({
+      rejectedEventsSummaryRepository,
+    });
+
+    const query = new URLSearchParams({
+      from: "2026-07-04T00:00:00.000Z",
+      to: "2026-07-05T00:00:00.000Z",
+      rejectionReason: "rate_limit_exceeded",
+      statusCode: "429",
+      routePath: "/api/products",
+      routeMethod: "get",
+      apiKeyAuthSource: "env",
+      apiKeyId: "api_key_1",
+      consumerId: "consumer_1",
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/internal/admin/api-rejections/summary?${query.toString()}`,
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(rejectedEventsSummaryRepository.getSummary).toHaveBeenCalledWith({
+      from: new Date("2026-07-04T00:00:00.000Z"),
+      to: new Date("2026-07-05T00:00:00.000Z"),
+      rejectionReason: "RATE_LIMIT_EXCEEDED",
+      statusCode: 429,
+      routePath: "/api/products",
+      routeMethod: "GET",
+      apiKeyAuthSource: "env",
+      apiKeyId: "api_key_1",
+      consumerId: "consumer_1",
+    });
+  });
+
+  it("should reject invalid rejected events summary query", async () => {
+    const rejectedEventsSummaryRepository =
+      createRejectedEventsSummaryRepository();
+
+    app = await buildTestApp({
+      rejectedEventsSummaryRepository,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/internal/admin/api-rejections/summary?statusCode=99",
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "statusCode must be an integer between 100 and 599",
+        requestId: expect.any(String),
+      },
+    });
+
+    expect(rejectedEventsSummaryRepository.getSummary).not.toHaveBeenCalled();
   });
 
   it("should reject rejected events listing request when admin API key is missing", async () => {

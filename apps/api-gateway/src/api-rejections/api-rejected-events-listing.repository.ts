@@ -9,7 +9,7 @@ import type {
   ApiRejectedEventsListingRepository,
 } from "./api-rejected-events-listing.types.js";
 
-function buildApiRejectedEventsWhereInput(
+export function buildApiRejectedEventsWhereInput(
   filters: ApiRejectedEventsListingFilters,
 ): Prisma.ApiRejectedEventWhereInput {
   const where: Prisma.ApiRejectedEventWhereInput = {};

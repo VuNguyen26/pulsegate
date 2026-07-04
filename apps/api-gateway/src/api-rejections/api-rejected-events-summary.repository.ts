@@ -1,4 +1,6 @@
-import type { PrismaClient } from "../generated/prisma/index.js";
+﻿import type { PrismaClient } from "../generated/prisma/index.js";
+import { buildApiRejectedEventsWhereInput } from "./api-rejected-events-listing.repository.js";
+import type { ApiRejectedEventsListingFilters } from "./api-rejected-events-listing.types.js";
 import type {
   ApiRejectedEventsSummaryReadModel,
   ApiRejectedEventsSummaryRepository,
@@ -8,12 +10,19 @@ export function createPrismaApiRejectedEventsSummaryRepository(
   prisma: PrismaClient,
 ): ApiRejectedEventsSummaryRepository {
   return {
-    async getSummary(): Promise<ApiRejectedEventsSummaryReadModel> {
+    async getSummary(
+      filters: ApiRejectedEventsListingFilters = {},
+    ): Promise<ApiRejectedEventsSummaryReadModel> {
+      const where = buildApiRejectedEventsWhereInput(filters);
+
       const [totalRejectedRequests, byReason, byStatusCode, lastRejectedEvent] =
         await Promise.all([
-          prisma.apiRejectedEvent.count(),
+          prisma.apiRejectedEvent.count({
+            where,
+          }),
           prisma.apiRejectedEvent.groupBy({
             by: ["rejectionReason"],
+            where,
             _count: {
               _all: true,
             },
@@ -23,6 +32,7 @@ export function createPrismaApiRejectedEventsSummaryRepository(
           }),
           prisma.apiRejectedEvent.groupBy({
             by: ["statusCode"],
+            where,
             _count: {
               _all: true,
             },
@@ -31,6 +41,7 @@ export function createPrismaApiRejectedEventsSummaryRepository(
             },
           }),
           prisma.apiRejectedEvent.findFirst({
+            where,
             orderBy: {
               occurredAt: "desc",
             },
@@ -51,6 +62,7 @@ export function createPrismaApiRejectedEventsSummaryRepository(
           count: item._count._all,
         })),
         lastRejectedAt: lastRejectedEvent?.occurredAt ?? null,
+        filters,
       };
     },
   };

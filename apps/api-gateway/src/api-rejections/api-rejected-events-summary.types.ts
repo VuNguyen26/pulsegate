@@ -1,4 +1,8 @@
-import type { ApiRejectionReason } from "../generated/prisma/index.js";
+﻿import type { ApiRejectionReason } from "../generated/prisma/index.js";
+import type {
+  ApiRejectedEventsListingFilters,
+  ApiRejectedEventsListingFiltersResponse,
+} from "./api-rejected-events-listing.types.js";
 
 export type ApiRejectedEventsByReasonReadModel = {
   rejectionReason: ApiRejectionReason;
@@ -15,6 +19,7 @@ export type ApiRejectedEventsSummaryReadModel = {
   byReason: ApiRejectedEventsByReasonReadModel[];
   byStatusCode: ApiRejectedEventsByStatusCodeReadModel[];
   lastRejectedAt: Date | null;
+  filters: ApiRejectedEventsListingFilters;
 };
 
 export type ApiRejectedEventsByReasonResponse = {
@@ -32,8 +37,11 @@ export type ApiRejectedEventsSummaryResponse = {
   byReason: ApiRejectedEventsByReasonResponse[];
   byStatusCode: ApiRejectedEventsByStatusCodeResponse[];
   lastRejectedAt: string | null;
+  filters: ApiRejectedEventsListingFiltersResponse;
 };
 
 export type ApiRejectedEventsSummaryRepository = {
-  getSummary(): Promise<ApiRejectedEventsSummaryReadModel>;
+  getSummary(
+    filters?: ApiRejectedEventsListingFilters,
+  ): Promise<ApiRejectedEventsSummaryReadModel>;
 };

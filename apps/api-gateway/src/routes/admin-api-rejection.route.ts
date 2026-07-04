@@ -52,13 +52,21 @@ export async function adminApiRejectionRoute(
     headerName: options.adminApiKeyHeader,
   });
 
-  app.get(
+  app.get<{ Querystring: AdminApiRejectedEventsQuerystring }>(
     "/internal/admin/api-rejections/summary",
     {
       preHandler: requireAdminApiKey,
     },
-    async () => {
-      const summary = await rejectedEventsSummaryRepository.getSummary();
+    async (request, reply) => {
+      const parsedQuery = parseRejectedEventsListingQuery(request.query);
+
+      if (!parsedQuery.ok) {
+        return sendBadQueryResponse(request, reply, parsedQuery.error);
+      }
+
+      const summary = await rejectedEventsSummaryRepository.getSummary(
+        parsedQuery.value.filters,
+      );
 
       return {
         data: mapApiRejectedEventsSummaryReadModelToResponse(summary),
