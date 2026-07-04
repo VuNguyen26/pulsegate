@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.17.0
+- v0.18.0
 
 Latest completed sprint:
 
-- Sprint 16 - Quota Observability and Usage Management Hardening
+- Sprint 17 - API Rejection Tracking and Rejected Events Observability
 
 Recommended next technical sprint:
 
-- Sprint 17 - API Usage Rejection Tracking Design or Advanced Usage Analytics Hardening
+- Sprint 18 - Advanced Usage Analytics and Rejected Event Drilldown
 
 ---
 
@@ -112,27 +112,26 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 16:
+Latest stable validation from Sprint 17:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Docker runtime quota observability validation -> passed
+- Docker runtime rejected events validation -> passed
 
 Latest automated test result:
 
-- 46 test files passed
-- 329 tests passed
+- 52 test files passed
+- 342 tests passed
 
-Sprint 16 runtime validation proved:
+Sprint 17 runtime validation proved:
 
-- Usage plan can be created through admin API.
-- DB-backed API key can be issued through admin API.
-- Usage plan can be assigned to an API key.
-- First protected /api/products request with DAILY quota limit 1 returns 200.
-- API key quota state endpoint returns usedRequests=1, remainingRequests=0, exceeded=true, enforced=true.
-- Second protected /api/products request returns 429 QUOTA_EXCEEDED with quota metadata.
-- Usage plan usage summary endpoint returns assigned key count, active key count, total current-window usage, exceeded key count, and top API keys by usage.
+- Missing API key -> 401 API_KEY_MISSING and rejected event.
+- Invalid API key -> 403 API_KEY_INVALID and rejected event.
+- Missing JWT -> 401 JWT_TOKEN_MISSING and rejected events.
+- Rate limit exceeded -> 429 TOO_MANY_REQUESTS and RATE_LIMIT_EXCEEDED rejected event.
+- GET /internal/admin/api-rejections/summary returns grouped rejected request totals.
+- gateway.api_rejected_events persists rejected traffic without corrupting gateway.api_usage_events quota counts.
 
 ---
 
@@ -159,6 +158,7 @@ API Gateway currently supports:
 - Retry policy foundation.
 - Downstream error normalization.
 - API usage event recording.
+- API rejected event recording.
 - Consumer usage summary.
 - API key usage summary.
 - Usage plan management.
@@ -167,6 +167,7 @@ API Gateway currently supports:
 - Runtime quota enforcement.
 - API key quota state endpoint.
 - Usage plan usage summary endpoint.
+- Rejected events summary endpoint.
 - 429 QUOTA_EXCEEDED responses with quota metadata.
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
@@ -203,12 +204,13 @@ API Gateway owns:
 - gateway.api_keys
 - gateway.usage_plans
 - gateway.api_usage_events
+- gateway.api_rejected_events
 - gateway._prisma_migrations
 
 Reason:
 
 - Product Service owns product data.
-- API Gateway owns Gateway route config, API consumers, issued API keys, usage plans, and usage events.
+- API Gateway owns Gateway route config, API consumers, issued API keys, usage plans, usage events, and rejected request events.
 - Separate schemas avoid Prisma migration drift and ownership conflicts.
 
 ---
@@ -222,6 +224,10 @@ Usage event table:
 Usage plan table:
 
 - gateway.usage_plans
+
+Rejected event table:
+
+- gateway.api_rejected_events
 
 Recorded for successful downstream proxy/cache handler responses:
 
@@ -245,12 +251,17 @@ Quota behavior:
 - 429 response includes quotaLimit, quotaWindow, usedRequests, remainingRequests, windowStartedAt, windowEndsAt, and resetAt.
 - Does not enforce quota for env fallback API keys.
 - Does not enforce quota for public routes.
-- Does not record quota-denied requests into gateway.api_usage_events yet.
+- Records quota-denied requests into gateway.api_rejected_events.
+- Does not record rejected requests into gateway.api_usage_events.
 
 Admin usage summary endpoints:
 
 - GET /internal/admin/usage/consumers/:consumerId/summary
 - GET /internal/admin/usage/api-keys/:apiKeyId/summary
+
+Admin rejected events endpoint:
+
+- GET /internal/admin/api-rejections/summary
 
 Admin quota observability endpoints:
 
@@ -270,9 +281,8 @@ API key usage plan assignment endpoint:
 
 Current limitation:
 
-- Failed auth requests are not tracked yet.
-- Rate-limited requests are not tracked yet.
-- Quota-denied requests are not tracked yet.
+- Rejected events summary is aggregate-only.
+- Raw rejected event listing and filterable drilldown are not implemented yet.
 - No aggregate rollup table yet.
 
 ---
@@ -417,9 +427,9 @@ Work style:
 
 ## Current Known Limitations
 
-- Failed auth requests are not tracked yet.
-- Rate-limited requests are not tracked yet.
-- Quota-denied requests are not tracked yet.
+- Failed auth requests are tracked in gateway.api_rejected_events.
+- Rate-limited requests are tracked in gateway.api_rejected_events.
+- Quota-denied requests are tracked in gateway.api_rejected_events.
 - Usage data is event-based only.
 - No aggregate rollup table yet.
 - No retention policy yet.

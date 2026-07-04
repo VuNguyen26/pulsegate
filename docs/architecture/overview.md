@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.17.0
+v0.18.0
 
 ## Current Status
 
-Sprint 16 - Quota Observability and Usage Management Hardening Complete
+Sprint 17 - API Rejection Tracking and Rejected Events Observability Complete
 
 Current validation:
 
-- 46 test files passed
-- 329 tests passed
+- 52 test files passed
+- 342 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime quota observability validation passed
+- Docker runtime rejected events validation passed
 
 ---
 
@@ -63,6 +63,8 @@ PulseGate demonstrates backend engineering around:
 - Consumer and API key analytics
 - Usage plans and quota enforcement
 - Quota observability
+- Rejected request tracking
+- Rejected events observability
 - Traffic protection
 - Observability
 - CI/CD
@@ -98,6 +100,7 @@ Runtime flow:
         -> Redis-backed rate limit when enabled
         -> JWT auth when required
         -> Usage quota check when DB-backed key has an enabled usage plan
+        -> Rejected event recording when auth, rate limit, or quota rejects the request
         -> Redis response cache when enabled
         -> Shared downstream proxy pipeline
         -> API usage recorder after successful proxy/cache response
@@ -144,12 +147,13 @@ API Gateway owns gateway and API management data.
       -> gateway.api_keys
       -> gateway.usage_plans
       -> gateway.api_usage_events
+      -> gateway.api_rejected_events
       -> gateway._prisma_migrations
 
 Reason:
 
 - Product Service owns product data.
-- API Gateway owns route config, API consumers, issued API keys, usage plans, and usage events.
+- API Gateway owns route config, API consumers, issued API keys, usage plans, usage events, and rejected request events.
 - Separate schemas avoid Prisma migration ownership conflicts.
 - Gateway auth, route management, API management, quota, and analytics should not depend on downstream service data models.
 
@@ -183,6 +187,7 @@ API Gateway currently handles:
 - Redis-backed rate limiting.
 - Redis response cache.
 - API usage event recording.
+- API rejected event recording.
 - Consumer usage summary.
 - API key usage summary.
 - Request transform foundation.
@@ -195,6 +200,7 @@ API Gateway currently handles:
 - Internal/admin API key lifecycle APIs.
 - Internal/admin usage plan APIs.
 - Internal/admin API usage summary APIs.
+- Internal/admin rejected events summary API.
 - Internal/admin quota observability APIs.
 - Structured access logs.
 - Prometheus metrics.
@@ -254,6 +260,7 @@ Pipeline:
       -> Redis-backed rate limit policy
       -> JWT policy
       -> Usage quota policy
+      -> Rejected event recorder for auth, rate limit, and quota rejections
       -> Redis response cache policy
       -> Request transform foundation
       -> Timeout policy
@@ -474,8 +481,8 @@ Current usage recording limitation:
 - Invalid API key requests are not tracked yet.
 - Missing JWT requests are not tracked yet.
 - Invalid JWT requests are not tracked yet.
-- Rate-limited requests are not tracked yet.
-- Quota-denied requests are not tracked yet.
+- Rate-limited requests are tracked in gateway.api_rejected_events.
+- Quota-denied requests are tracked in gateway.api_rejected_events.
 - Usage tracking is event-based only.
 - No aggregate rollup table yet.
 
@@ -690,9 +697,9 @@ Infrastructure:
 
 ## Current Limitations
 
-- Failed authentication requests are not tracked yet.
-- Rate-limited requests are not tracked yet.
-- Quota-denied requests are not tracked yet.
+- Failed authentication requests are tracked in gateway.api_rejected_events.
+- Rate-limited requests are tracked in gateway.api_rejected_events.
+- Quota-denied requests are tracked in gateway.api_rejected_events.
 - Usage data is event-based only.
 - No aggregate rollup table yet.
 - No retention policy yet.

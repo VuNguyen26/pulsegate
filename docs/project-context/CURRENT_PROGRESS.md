@@ -24,65 +24,64 @@ Long decision records live in:
 
 ## Current Version
 
-v0.17.0
+v0.18.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 16 - Quota Observability and Usage Management Hardening
+Sprint 17 - API Rejection Tracking and Rejected Events Observability
 
 Status:
 
 Done.
 
-Sprint 16 added quota observability and quota management hardening:
+Sprint 17 added rejected request tracking and rejected traffic observability:
 
-- API key quota state reader.
-- Admin API key quota state endpoint.
-- Usage plan usage summary reader.
-- Admin usage plan usage summary endpoint.
-- Quota metadata in 429 QUOTA_EXCEEDED responses.
-- Explicit decision not to record quota-denied requests into gateway.api_usage_events yet.
-- Docker runtime validation proving quota observability APIs and quota metadata.
+- Separate gateway.api_rejected_events table.
+- Rejected event recorder foundation.
+- QUOTA_EXCEEDED rejected event tracking.
+- RATE_LIMIT_EXCEEDED rejected event tracking.
+- Failed auth rejected event tracking for API key and JWT failures.
+- Admin rejected events summary endpoint.
+- Docker runtime validation proving rejected events are persisted and summarized.
 
-Sprint 16 details are archived in:
+Sprint 17 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-16.md
+- docs/sdlc/sprint-history/sprint-17.md
 
-Sprint 16 runbook:
+Sprint 17 runbook:
 
-- docs/runbooks/usage-plans-and-quotas.md
+- docs/runbooks/api-rejected-events.md
 
-Sprint 16 decision record:
+Sprint 17 decision record:
 
-- docs/project-context/decisions/2026-07-04-quota-denied-usage-event-tracking.md
+- docs/project-context/decisions/2026-07-04-rejected-events-side-table.md
 
 ---
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 16:
+Latest stable validation from Sprint 17:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Docker runtime quota observability validation -> passed
+- Docker runtime rejected events validation -> passed
 
 Latest automated test result:
 
-- 46 test files passed
-- 329 tests passed
+- 52 test files passed
+- 342 tests passed
 
 Latest Docker runtime validation proved:
 
-- Usage plan can be created through admin API.
-- DB-backed API key can be issued through admin API.
-- Usage plan can be assigned to an API key.
-- First protected /api/products request with limit 1 returns 200.
-- API key quota state endpoint returns usedRequests=1, remainingRequests=0, exceeded=true, enforced=true.
-- Second protected /api/products request returns 429 QUOTA_EXCEEDED with quota metadata.
-- Usage plan usage summary endpoint returns assigned key count, active key count, current-window usage, exceeded key count, and top API keys by usage.
+- Missing API key returns 401 API_KEY_MISSING and records a rejected event.
+- Invalid API key returns 403 API_KEY_INVALID and records a rejected event.
+- Missing JWT returns 401 JWT_TOKEN_MISSING and records rejected events.
+- Route rate limit returns 429 TOO_MANY_REQUESTS and records RATE_LIMIT_EXCEEDED.
+- GET /internal/admin/api-rejections/summary returns totals grouped by rejection reason and status code.
+- gateway.api_rejected_events stores route, method, auth source, status, reason, and occurredAt.
 
 ---
 
@@ -105,11 +104,13 @@ PulseGate currently has:
 - PostgreSQL-backed issued API keys.
 - PostgreSQL-backed usage plans.
 - PostgreSQL-backed API usage events.
+- PostgreSQL-backed API rejected events.
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
 - Internal/admin API key lifecycle APIs.
 - Internal/admin usage plan APIs.
 - Internal/admin API usage summary APIs.
+- Internal/admin rejected events summary API.
 - Internal/admin quota observability APIs.
 - Runtime route registry.
 - Runtime registry reload endpoint.
@@ -119,6 +120,7 @@ PulseGate currently has:
 - Event-based quota checker.
 - Runtime quota enforcement.
 - API usage recorder.
+- API rejected event recorder.
 - API key quota state reader.
 - Usage plan usage summary reader.
 - Static env API key fallback.
@@ -182,6 +184,7 @@ API Gateway tables:
 - gateway.api_keys
 - gateway.usage_plans
 - gateway.api_usage_events
+- gateway.api_rejected_events
 
 ---
 
@@ -242,6 +245,7 @@ Internal/admin usage analytics:
 
 - GET /internal/admin/usage/consumers/:consumerId/summary
 - GET /internal/admin/usage/api-keys/:apiKeyId/summary
+- GET /internal/admin/api-rejections/summary
 
 ---
 
@@ -251,18 +255,31 @@ Usage event table:
 
 - gateway.api_usage_events
 
-Usage plan table:
+Usage recording scope:
 
-- gateway.usage_plans
-
-Current recording scope:
-
-- Successful downstream proxy handler responses.
+- Successful downstream proxy/cache handler responses.
 - Cache HIT.
 - Cache MISS.
 - Cache BYPASS.
 - DB-backed API key traffic.
 - Env fallback API key traffic.
+
+Rejected event table:
+
+- gateway.api_rejected_events
+
+Rejected recording scope:
+
+- API_KEY_MISSING
+- API_KEY_INVALID
+- JWT_TOKEN_MISSING
+- JWT_TOKEN_INVALID
+- RATE_LIMIT_EXCEEDED
+- QUOTA_EXCEEDED
+
+Usage plan table:
+
+- gateway.usage_plans
 
 Current quota scope:
 
@@ -271,39 +288,23 @@ Current quota scope:
 - Usage plan must be enabled.
 - Quota windows are DAILY or MONTHLY.
 - Quota uses gateway.api_usage_events as source of truth.
-- Over-quota request returns 429 QUOTA_EXCEEDED.
-- Over-quota response includes quota metadata.
-- Env fallback API keys are not quota-enforced.
-- Public routes are not quota-enforced.
-- Quota-denied requests are not recorded into api_usage_events yet.
-
-Current summary APIs:
-
-- Consumer usage summary.
-- API key usage summary.
-- API key quota state.
-- Usage plan usage summary.
-
-Current limitation:
-
-- Failed auth requests are not tracked yet.
-- Rate-limited requests are not tracked yet.
-- Quota-denied requests are not tracked yet.
+- Rejected requests are tracked in gateway.api_rejected_events.
+- Rejected requests are intentionally not stored in gateway.api_usage_events.
 - No aggregate rollup table yet.
 
 ---
 
 ## Current Limitations
 
-- Failed authentication requests are not tracked yet.
-- Rate-limited requests are not tracked yet.
-- Quota-denied requests are not tracked yet.
+- Rejected events summary is aggregate-only.
+- Raw rejected event listing is not implemented yet.
+- Filterable rejected event drilldown is not implemented yet.
 - Usage data is event-based only.
 - No aggregate rollup table yet.
 - No retention policy yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
-- No quota usage Grafana dashboard yet.
+- No quota/rejected-events Grafana dashboard yet.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
 - Admin Dashboard is not implemented yet.

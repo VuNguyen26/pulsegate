@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.17.0
+- v0.18.0
 
 Latest completed sprint:
 
-- Sprint 16 - Quota Observability and Usage Management Hardening
+- Sprint 17 - API Rejection Tracking and Rejected Events Observability
 
 ---
 
@@ -35,14 +35,16 @@ PulseGate currently includes:
 - Usage plans and quotas
 - Runtime quota enforcement
 - Quota observability endpoints
+- Rejected request tracking
+- Rejected events observability endpoint
 
 Latest validation:
 
-- 46 test files passed
-- 329 tests passed
+- 52 test files passed
+- 342 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime quota observability validation passed
+- Docker runtime rejected events validation passed
 
 ---
 
@@ -94,6 +96,7 @@ Current gateway capabilities:
 - API usage recording
 - Usage plan quota enforcement
 - Quota observability
+- Rejected request event recording
 - Structured access logs
 - Prometheus metrics
 
@@ -110,6 +113,7 @@ Current internal/admin capabilities:
 - API key usage summary
 - API key quota state
 - Usage plan usage summary
+- Rejected events summary
 
 ---
 
@@ -142,11 +146,11 @@ Over-quota behavior:
   - windowEndsAt
   - resetAt
 
-Current limitation:
+Rejected request behavior:
 
-- Quota-denied requests are not recorded into gateway.api_usage_events yet.
-- Failed auth and rate-limited requests are not tracked yet.
-- Usage data is event-based only.
+- Failed auth, rate-limited, and quota-denied requests are recorded into gateway.api_rejected_events.
+- gateway.api_usage_events remains the source of truth for successful proxy/cache usage and quota counting.
+- gateway.api_rejected_events is used for rejected/security traffic observability.
 - No aggregate rollup table yet.
 
 ---
@@ -203,27 +207,27 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-16.md
+- docs/sdlc/sprint-history/sprint-17.md
 
-Latest quota runbook:
+Latest rejected events runbook:
 
-- docs/runbooks/usage-plans-and-quotas.md
+- docs/runbooks/api-rejected-events.md
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-04-quota-denied-usage-event-tracking.md
+- docs/project-context/decisions/2026-07-04-rejected-events-side-table.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 17 recommended direction:
+Sprint 18 recommended direction:
 
-- API Usage Rejection Tracking Design, or
-- Advanced Usage Analytics Hardening
+- Advanced Usage Analytics and Rejected Event Drilldown
 
 Recommended focus:
 
-- Decide how to track failed auth, rate-limited, and quota-denied requests.
-- Keep successful/proxied usage and rejected/security events clearly separated or clearly typed.
-- Avoid corrupting event-based quota counts.
+- Add filtered rejected event queries by time range, route, reason, consumer, and API key.
+- Add raw rejected event listing with safe pagination.
+- Consider aggregate rollups for usage and rejected traffic analytics.
+- Keep successful usage and rejected/security events separate.

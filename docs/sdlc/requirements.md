@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.17.0
+v0.18.0
 
 ## Latest Completed Sprint
 
-Sprint 16 - Quota Observability and Usage Management Hardening
+Sprint 17 - API Rejection Tracking and Rejected Events Observability
 
 ---
 
@@ -55,6 +55,7 @@ Long-term target:
 - Usage plans
 - Quotas
 - Usage analytics
+- Rejected request tracking
 - Observability
 - CI/CD
 - Cloud/Kubernetes deployment later
@@ -457,8 +458,8 @@ The project shall have automated unit/integration-style tests.
 
 Current result:
 
-- 46 test files passed
-- 329 tests passed
+- 52 test files passed
+- 342 tests passed
 
 Validation:
 
@@ -543,9 +544,9 @@ Implemented.
 
 ## Important Current Limitations
 
-- Failed authentication requests are not tracked yet.
-- Rate-limited requests are not tracked yet.
-- Quota-denied requests are not tracked yet.
+- Failed authentication requests are tracked in gateway.api_rejected_events.
+- Rate-limited requests are tracked in gateway.api_rejected_events.
+- Quota-denied requests are tracked in gateway.api_rejected_events.
 - Usage data is event-based only.
 - No aggregate rollup table yet.
 - No retention policy yet.
@@ -583,3 +584,40 @@ Recommended next:
 - Add Developer Portal later.
 - Add service discovery later.
 - Add Kubernetes/cloud deployment later.
+
+
+---
+
+### FR-020 API Rejection Tracking
+
+PulseGate shall record rejected gateway requests separately from successful/proxied usage events.
+
+Rejected event table:
+
+- gateway.api_rejected_events
+
+Tracked rejection reasons:
+
+- API_KEY_MISSING
+- API_KEY_INVALID
+- JWT_TOKEN_MISSING
+- JWT_TOKEN_INVALID
+- RATE_LIMIT_EXCEEDED
+- QUOTA_EXCEEDED
+
+Required behavior:
+
+- Failed auth requests are recorded as rejected events.
+- Rate-limited requests are recorded as rejected events.
+- Quota-denied requests are recorded as rejected events.
+- Rejected requests are not recorded into gateway.api_usage_events.
+- gateway.api_usage_events remains the source of truth for quota counting.
+- Raw API keys, JWTs, and Authorization headers must never be stored.
+
+Admin endpoint:
+
+- GET /internal/admin/api-rejections/summary
+
+Status:
+
+Implemented in Sprint 17.

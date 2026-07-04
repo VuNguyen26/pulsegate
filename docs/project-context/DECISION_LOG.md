@@ -12,15 +12,35 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.17.0
+v0.18.0
 
 ## Latest Completed Sprint
 
-Sprint 16 - Quota Observability and Usage Management Hardening
+Sprint 17 - API Rejection Tracking and Rejected Events Observability
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-04 - Rejected requests use a separate table
+
+Decision:
+
+- Store failed auth, rate-limited, and quota-denied requests in gateway.api_rejected_events.
+- Keep gateway.api_usage_events for successful proxy/cache usage and quota counting.
+- Add admin summary endpoint for rejected request observability.
+
+Reason:
+
+- Quota enforcement counts gateway.api_usage_events.
+- Recording rejected traffic in that table would risk corrupting quota counts.
+- A separate table keeps usage analytics and security/rejection observability cleanly separated.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-04-rejected-events-side-table.md
+
+---
 
 ### 2026-07-04 - Quota-denied requests are not recorded into api_usage_events yet
 
