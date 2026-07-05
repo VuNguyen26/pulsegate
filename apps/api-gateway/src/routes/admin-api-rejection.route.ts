@@ -1,4 +1,4 @@
-﻿import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { createPrismaApiRejectedEventsListingRepository } from "../api-rejections/api-rejected-events-listing.repository.js";
 import {
@@ -58,7 +58,9 @@ export async function adminApiRejectionRoute(
       preHandler: requireAdminApiKey,
     },
     async (request, reply) => {
-      const parsedQuery = parseRejectedEventsListingQuery(request.query);
+      const parsedQuery = parseRejectedEventsListingQuery(request.query, {
+        allowCursor: false,
+      });
 
       if (!parsedQuery.ok) {
         return sendBadQueryResponse(request, reply, parsedQuery.error);
@@ -96,3 +98,5 @@ export async function adminApiRejectionRoute(
     },
   );
 }
+
+

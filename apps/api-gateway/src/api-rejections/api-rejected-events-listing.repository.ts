@@ -1,16 +1,38 @@
-﻿import type {
+import type {
   Prisma,
   PrismaClient,
 } from "../generated/prisma/index.js";
 import type {
+  ApiRejectedEventsListingCursor,
   ApiRejectedEventsListingFilters,
   ApiRejectedEventsListingQuery,
   ApiRejectedEventsListingReadModel,
   ApiRejectedEventsListingRepository,
 } from "./api-rejected-events-listing.types.js";
 
+function buildApiRejectedEventsCursorWhereInput(
+  cursor: ApiRejectedEventsListingCursor,
+): Prisma.ApiRejectedEventWhereInput {
+  return {
+    OR: [
+      {
+        occurredAt: {
+          lt: cursor.occurredAt,
+        },
+      },
+      {
+        occurredAt: cursor.occurredAt,
+        id: {
+          lt: cursor.id,
+        },
+      },
+    ],
+  };
+}
+
 export function buildApiRejectedEventsWhereInput(
   filters: ApiRejectedEventsListingFilters,
+  cursor?: ApiRejectedEventsListingCursor,
 ): Prisma.ApiRejectedEventWhereInput {
   const where: Prisma.ApiRejectedEventWhereInput = {};
 
@@ -49,6 +71,10 @@ export function buildApiRejectedEventsWhereInput(
     where.consumerId = filters.consumerId;
   }
 
+  if (cursor) {
+    where.AND = [buildApiRejectedEventsCursorWhereInput(cursor)];
+  }
+
   return where;
 }
 
@@ -59,7 +85,10 @@ export function createPrismaApiRejectedEventsListingRepository(
     async listEvents(
       query: ApiRejectedEventsListingQuery,
     ): Promise<ApiRejectedEventsListingReadModel> {
-      const where = buildApiRejectedEventsWhereInput(query.filters);
+      const where = buildApiRejectedEventsWhereInput(
+        query.filters,
+        query.cursor,
+      );
 
       const [total, items] = await Promise.all([
         prisma.apiRejectedEvent.count({
@@ -75,7 +104,7 @@ export function createPrismaApiRejectedEventsListingRepository(
               id: "desc",
             },
           ],
-          skip: query.offset,
+          skip: query.cursor ? 0 : query.offset,
           take: query.limit,
           select: {
             id: true,

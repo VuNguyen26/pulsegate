@@ -1,9 +1,19 @@
-﻿import Fastify, { type FastifyInstance } from "fastify";
+import { Buffer } from "node:buffer";
+
+import Fastify, { type FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiRejectedEventsListingRepository } from "../api-rejections/api-rejected-events-listing.types.js";
 import type { ApiRejectedEventsSummaryRepository } from "../api-rejections/api-rejected-events-summary.types.js";
 import { adminApiRejectionRoute } from "./admin-api-rejection.route.js";
+
+function encodeCursor(value: unknown): string {
+  return Buffer.from(JSON.stringify(value), "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
 
 function createRejectedEventsSummaryRepository(): ApiRejectedEventsSummaryRepository {
   return {
@@ -321,6 +331,7 @@ describe("adminApiRejectionRoute", () => {
           offset: 0,
           total: 1,
           hasNextPage: false,
+          nextCursor: null,
         },
         filters: {
           from: null,
@@ -391,6 +402,70 @@ describe("adminApiRejectionRoute", () => {
     });
   });
 
+  it("should pass rejected events listing cursor to repository", async () => {
+    const rejectedEventsListingRepository =
+      createRejectedEventsListingRepository();
+    const cursor = encodeCursor({
+      occurredAt: "2026-07-04T11:00:00.000Z",
+      id: "rejected_event_1",
+    });
+
+    app = await buildTestApp({
+      rejectedEventsListingRepository,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/internal/admin/api-rejections/events?limit=10&cursor=${cursor}`,
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(rejectedEventsListingRepository.listEvents).toHaveBeenCalledWith({
+      limit: 10,
+      offset: 0,
+      cursor: {
+        occurredAt: new Date("2026-07-04T11:00:00.000Z"),
+        id: "rejected_event_1",
+      },
+      filters: {},
+    });
+  });
+
+  it("should reject cursor on rejected events summary query", async () => {
+    const rejectedEventsSummaryRepository =
+      createRejectedEventsSummaryRepository();
+    const cursor = encodeCursor({
+      occurredAt: "2026-07-04T11:00:00.000Z",
+      id: "rejected_event_1",
+    });
+
+    app = await buildTestApp({
+      rejectedEventsSummaryRepository,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/internal/admin/api-rejections/summary?cursor=${cursor}`,
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "cursor is only supported for rejected events listing",
+        requestId: expect.any(String),
+      },
+    });
+
+    expect(rejectedEventsSummaryRepository.getSummary).not.toHaveBeenCalled();
+  });
+
   it("should reject invalid rejected events listing query", async () => {
     const rejectedEventsListingRepository =
       createRejectedEventsListingRepository();
@@ -419,3 +494,4 @@ describe("adminApiRejectionRoute", () => {
     expect(rejectedEventsListingRepository.listEvents).not.toHaveBeenCalled();
   });
 });
+

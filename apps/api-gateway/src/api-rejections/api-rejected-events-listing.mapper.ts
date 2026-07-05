@@ -1,7 +1,37 @@
-﻿import type {
+import { Buffer } from "node:buffer";
+
+import type {
+  ApiRejectedEventListItemReadModel,
   ApiRejectedEventsListingReadModel,
   ApiRejectedEventsListingResponse,
 } from "./api-rejected-events-listing.types.js";
+
+function encodeBase64UrlJson(value: unknown): string {
+  return Buffer.from(JSON.stringify(value), "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function encodeNextCursor(item: ApiRejectedEventListItemReadModel): string {
+  return encodeBase64UrlJson({
+    occurredAt: item.occurredAt.toISOString(),
+    id: item.id,
+  });
+}
+
+function getNextCursor(
+  listing: ApiRejectedEventsListingReadModel,
+): string | null {
+  if (!listing.pagination.hasNextPage) {
+    return null;
+  }
+
+  const lastItem = listing.items[listing.items.length - 1];
+
+  return lastItem ? encodeNextCursor(lastItem) : null;
+}
 
 export function mapApiRejectedEventsListingReadModelToResponse(
   listing: ApiRejectedEventsListingReadModel,
@@ -25,6 +55,7 @@ export function mapApiRejectedEventsListingReadModelToResponse(
       offset: listing.pagination.offset,
       total: listing.pagination.total,
       hasNextPage: listing.pagination.hasNextPage,
+      nextCursor: getNextCursor(listing),
     },
     filters: {
       from: listing.filters.from ? listing.filters.from.toISOString() : null,

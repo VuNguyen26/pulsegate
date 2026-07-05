@@ -1,8 +1,13 @@
-﻿import type {
+import { Buffer } from "node:buffer";
+
+import type {
   ApiRejectionReason,
   GatewayRouteMethod,
 } from "../generated/prisma/index.js";
-import type { ApiRejectedEventsListingQuery } from "./api-rejected-events-listing.types.js";
+import type {
+  ApiRejectedEventsListingCursor,
+  ApiRejectedEventsListingQuery,
+} from "./api-rejected-events-listing.types.js";
 
 const DEFAULT_REJECTED_EVENTS_LIMIT = 20;
 const MAX_REJECTED_EVENTS_LIMIT = 100;
@@ -43,6 +48,10 @@ type QueryParseResult<T> =
       ok: false;
       error: QueryValidationError;
     };
+
+type RejectedEventsListingQueryParseOptions = {
+  allowCursor?: boolean;
+};
 
 function getOptionalQueryString(
   query: AdminApiRejectedEventsQuerystring,
@@ -188,8 +197,110 @@ function parseRouteMethodQueryParam(
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function decodeBase64UrlJson(rawValue: string): QueryParseResult<unknown> {
+  try {
+    const normalizedValue = rawValue.replace(/-/g, "+").replace(/_/g, "/");
+    const paddingLength = (4 - (normalizedValue.length % 4)) % 4;
+    const paddedValue = `${normalizedValue}${"=".repeat(paddingLength)}`;
+    const decodedValue = Buffer.from(paddedValue, "base64").toString("utf8");
+
+    return {
+      ok: true,
+      value: JSON.parse(decodedValue) as unknown,
+    };
+  } catch {
+    return {
+      ok: false,
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "cursor must be a valid base64url encoded JSON object",
+      },
+    };
+  }
+}
+
+function parseCursorQueryParam(
+  query: AdminApiRejectedEventsQuerystring,
+): QueryParseResult<ApiRejectedEventsListingCursor | undefined> {
+  const rawValue = getOptionalQueryString(query, "cursor");
+
+  if (!rawValue) {
+    return {
+      ok: true,
+      value: undefined,
+    };
+  }
+
+  const decodedCursor = decodeBase64UrlJson(rawValue);
+
+  if (!decodedCursor.ok) {
+    return decodedCursor;
+  }
+
+  if (!isRecord(decodedCursor.value)) {
+    return {
+      ok: false,
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "cursor must be a valid base64url encoded JSON object",
+      },
+    };
+  }
+
+  const rawOccurredAt = decodedCursor.value.occurredAt;
+
+  if (typeof rawOccurredAt !== "string" || rawOccurredAt.trim().length === 0) {
+    return {
+      ok: false,
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "cursor.occurredAt must be a valid ISO date-time string",
+      },
+    };
+  }
+
+  const occurredAt = new Date(rawOccurredAt);
+
+  if (Number.isNaN(occurredAt.getTime())) {
+    return {
+      ok: false,
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "cursor.occurredAt must be a valid ISO date-time string",
+      },
+    };
+  }
+
+  const rawId = decodedCursor.value.id;
+
+  if (typeof rawId !== "string" || rawId.trim().length === 0) {
+    return {
+      ok: false,
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "cursor.id must be a non-empty string",
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      occurredAt,
+      id: rawId.trim(),
+    },
+  };
+}
+
 export function parseRejectedEventsListingQuery(
   query: AdminApiRejectedEventsQuerystring,
+  options: RejectedEventsListingQueryParseOptions = {
+    allowCursor: true,
+  },
 ): QueryParseResult<ApiRejectedEventsListingQuery> {
   const limit = parseIntegerQueryParam({
     query,
@@ -213,6 +324,32 @@ export function parseRejectedEventsListingQuery(
 
   if (!offset.ok) {
     return offset;
+  }
+
+  const cursor = parseCursorQueryParam(query);
+
+  if (!cursor.ok) {
+    return cursor;
+  }
+
+  if (cursor.value && options.allowCursor === false) {
+    return {
+      ok: false,
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "cursor is only supported for rejected events listing",
+      },
+    };
+  }
+
+  if (cursor.value && getOptionalQueryString(query, "offset")) {
+    return {
+      ok: false,
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "offset cannot be used with cursor",
+      },
+    };
   }
 
   const statusCode = parseIntegerQueryParam({
@@ -270,6 +407,7 @@ export function parseRejectedEventsListingQuery(
     value: {
       limit: limit.value ?? DEFAULT_REJECTED_EVENTS_LIMIT,
       offset: offset.value ?? 0,
+      ...(cursor.value ? { cursor: cursor.value } : {}),
       filters: {
         ...(from.value ? { from: from.value } : {}),
         ...(to.value ? { to: to.value } : {}),

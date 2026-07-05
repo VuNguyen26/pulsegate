@@ -1,7 +1,17 @@
-﻿import { describe, expect, it } from "vitest";
+import { Buffer } from "node:buffer";
+
+import { describe, expect, it } from "vitest";
 
 import { mapApiRejectedEventsListingReadModelToResponse } from "./api-rejected-events-listing.mapper.js";
 import type { ApiRejectedEventsListingReadModel } from "./api-rejected-events-listing.types.js";
+
+function encodeCursor(value: unknown): string {
+  return Buffer.from(JSON.stringify(value), "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
 
 describe("mapApiRejectedEventsListingReadModelToResponse", () => {
   it("should map rejected events listing read model to response", () => {
@@ -67,6 +77,10 @@ describe("mapApiRejectedEventsListingReadModelToResponse", () => {
         offset: 20,
         total: 31,
         hasNextPage: true,
+        nextCursor: encodeCursor({
+          occurredAt: "2026-07-04T11:00:00.000Z",
+          id: "rejected_event_1",
+        }),
       },
       filters: {
         from: "2026-07-04T00:00:00.000Z",
@@ -129,6 +143,7 @@ describe("mapApiRejectedEventsListingReadModelToResponse", () => {
         offset: 0,
         total: 1,
         hasNextPage: false,
+        nextCursor: null,
       },
       filters: {
         from: null,
@@ -142,5 +157,23 @@ describe("mapApiRejectedEventsListingReadModelToResponse", () => {
         consumerId: null,
       },
     });
+  });
+
+  it("should return null nextCursor when the page is empty", () => {
+    const listing: ApiRejectedEventsListingReadModel = {
+      items: [],
+      pagination: {
+        limit: 20,
+        offset: 0,
+        total: 1,
+        hasNextPage: true,
+      },
+      filters: {},
+    };
+
+    expect(
+      mapApiRejectedEventsListingReadModelToResponse(listing).pagination
+        .nextCursor,
+    ).toBeNull();
   });
 });

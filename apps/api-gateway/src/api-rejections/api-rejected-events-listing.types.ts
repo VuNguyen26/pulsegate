@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   ApiRejectionReason,
   GatewayRouteMethod,
   Prisma,
@@ -16,9 +16,15 @@ export type ApiRejectedEventsListingFilters = {
   consumerId?: string;
 };
 
+export type ApiRejectedEventsListingCursor = {
+  occurredAt: Date;
+  id: string;
+};
+
 export type ApiRejectedEventsListingQuery = {
   limit: number;
   offset: number;
+  cursor?: ApiRejectedEventsListingCursor;
   filters: ApiRejectedEventsListingFilters;
 };
 
@@ -68,6 +74,7 @@ export type ApiRejectedEventsListingPaginationResponse = {
   offset: number;
   total: number;
   hasNextPage: boolean;
+  nextCursor: string | null;
 };
 
 export type ApiRejectedEventsListingFiltersResponse = {
