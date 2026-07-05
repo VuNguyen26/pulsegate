@@ -1,4 +1,7 @@
-﻿import type { AnalyticsRollupBackfillEventReader } from "./analytics-rollup-backfill-event-reader.js";
+﻿import {
+  DEFAULT_ANALYTICS_ROLLUP_BACKFILL_EVENT_LIMIT,
+  type AnalyticsRollupBackfillEventReader,
+} from "./analytics-rollup-backfill-event-reader.js";
 import type {
   AnalyticsRollupBackfillPlan,
   AnalyticsRollupBackfillSource,
@@ -78,6 +81,29 @@ function createSourceSummary(
   };
 }
 
+function resolveEventLimit(eventLimit: number | undefined): number {
+  const resolvedEventLimit =
+    eventLimit ?? DEFAULT_ANALYTICS_ROLLUP_BACKFILL_EVENT_LIMIT;
+
+  if (!Number.isInteger(resolvedEventLimit) || resolvedEventLimit < 1) {
+    throw new RangeError("eventLimit must be a positive integer");
+  }
+
+  return resolvedEventLimit;
+}
+
+function assertWithinEventLimit(
+  source: AnalyticsRollupBackfillSource,
+  eventCount: number,
+  eventLimit: number,
+): void {
+  if (eventCount > eventLimit) {
+    throw new RangeError(
+      `${source} backfill event count exceeds eventLimit; split the time window or increase eventLimit`,
+    );
+  }
+}
+
 export function createAnalyticsRollupBackfillService(dependencies: {
   eventReader: AnalyticsRollupBackfillEventReader;
   persistenceService: AnalyticsRollupPersistenceService;
@@ -100,6 +126,9 @@ export function createAnalyticsRollupBackfillService(dependencies: {
           createSourceSummary(source, "skipped-empty-window"),
         );
       } else {
+        const eventLimit = resolveEventLimit(input.eventLimit);
+        const readLimit = eventLimit + 1;
+
         sourceResults = [];
 
         for (const source of plan.sources) {
@@ -107,8 +136,11 @@ export function createAnalyticsRollupBackfillService(dependencies: {
             const events = await dependencies.eventReader.listUsageEvents({
               rebuildFrom: plan.windowPlan.rebuildFrom,
               rebuildTo: plan.windowPlan.rebuildTo,
-              limit: input.eventLimit,
+              limit: readLimit,
             });
+
+            assertWithinEventLimit(source, events.length, eventLimit);
+
             const persistenceSummary =
               await dependencies.persistenceService.persistUsageEvents(
                 events,
@@ -124,8 +156,11 @@ export function createAnalyticsRollupBackfillService(dependencies: {
             const events = await dependencies.eventReader.listRejectedEvents({
               rebuildFrom: plan.windowPlan.rebuildFrom,
               rebuildTo: plan.windowPlan.rebuildTo,
-              limit: input.eventLimit,
+              limit: readLimit,
             });
+
+            assertWithinEventLimit(source, events.length, eventLimit);
+
             const persistenceSummary =
               await dependencies.persistenceService.persistRejectedEvents(
                 events,

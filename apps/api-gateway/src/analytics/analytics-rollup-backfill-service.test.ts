@@ -5,7 +5,10 @@ import {
   GatewayRouteMethod,
 } from "../generated/prisma/index.js";
 import type { AnalyticsRejectedRollupEvent } from "./analytics-rejected-rollup-aggregate.js";
-import type { AnalyticsRollupBackfillEventReader } from "./analytics-rollup-backfill-event-reader.js";
+import {
+  DEFAULT_ANALYTICS_ROLLUP_BACKFILL_EVENT_LIMIT,
+  type AnalyticsRollupBackfillEventReader,
+} from "./analytics-rollup-backfill-event-reader.js";
 import { createAnalyticsRollupBackfillPlan } from "./analytics-rollup-backfill-plan.js";
 import { createAnalyticsRollupBackfillService } from "./analytics-rollup-backfill-service.js";
 import type { AnalyticsRollupPersistenceService } from "./analytics-rollup-persistence-service.js";
@@ -153,7 +156,7 @@ describe("createAnalyticsRollupBackfillService", () => {
     expect(dependencies.listUsageEvents).toHaveBeenCalledWith({
       rebuildFrom: new Date("2026-07-05T10:00:00.000Z"),
       rebuildTo: new Date("2026-07-05T13:00:00.000Z"),
-      limit: 500,
+      limit: 501,
     });
     expect(dependencies.persistUsageEvents).toHaveBeenCalledWith(
       usageEvents,
@@ -210,7 +213,7 @@ describe("createAnalyticsRollupBackfillService", () => {
     expect(dependencies.listRejectedEvents).toHaveBeenCalledWith({
       rebuildFrom: new Date("2026-07-05T10:00:00.000Z"),
       rebuildTo: new Date("2026-07-05T13:00:00.000Z"),
-      limit: undefined,
+      limit: DEFAULT_ANALYTICS_ROLLUP_BACKFILL_EVENT_LIMIT + 1,
     });
     expect(dependencies.persistRejectedEvents).toHaveBeenCalledWith(
       rejectedEvents,
@@ -345,6 +348,108 @@ describe("createAnalyticsRollupBackfillService", () => {
     expect(dependencies.listUsageEvents).not.toHaveBeenCalled();
     expect(dependencies.listRejectedEvents).not.toHaveBeenCalled();
     expect(dependencies.persistUsageEvents).not.toHaveBeenCalled();
+    expect(dependencies.persistRejectedEvents).not.toHaveBeenCalled();
+  });
+
+  it("should reject usage execute before persisting when usage event count exceeds eventLimit", async () => {
+    const usageEvents: AnalyticsUsageRollupEvent[] = [
+      {
+        occurredAt: new Date("2026-07-05T10:15:00.000Z"),
+        routePath: "/api/products",
+        routeMethod: GatewayRouteMethod.GET,
+        statusCode: 200,
+        durationMs: 42,
+        cacheStatus: "HIT",
+        apiKeyAuthSource: "DATABASE",
+        apiKeyId: "api_key_1",
+        consumerId: "consumer_1",
+      },
+      {
+        occurredAt: new Date("2026-07-05T10:20:00.000Z"),
+        routePath: "/api/products",
+        routeMethod: GatewayRouteMethod.GET,
+        statusCode: 200,
+        durationMs: 36,
+        cacheStatus: "MISS",
+        apiKeyAuthSource: "DATABASE",
+        apiKeyId: "api_key_1",
+        consumerId: "consumer_1",
+      },
+    ];
+
+    const dependencies = createMockDependencies({ usageEvents });
+    const service = createAnalyticsRollupBackfillService(dependencies);
+
+    const plan = createAnalyticsRollupBackfillPlan({
+      from: "2026-07-05T10:15:00.000Z",
+      to: "2026-07-05T13:00:00.000Z",
+      granularity: "hour",
+      source: "usage",
+      mode: "execute",
+    });
+
+    await expect(
+      service.runBackfill({
+        plan,
+        eventLimit: 1,
+      }),
+    ).rejects.toThrow(RangeError);
+
+    expect(dependencies.listUsageEvents).toHaveBeenCalledWith({
+      rebuildFrom: new Date("2026-07-05T10:00:00.000Z"),
+      rebuildTo: new Date("2026-07-05T13:00:00.000Z"),
+      limit: 2,
+    });
+    expect(dependencies.persistUsageEvents).not.toHaveBeenCalled();
+  });
+
+  it("should reject rejected execute before persisting when rejected event count exceeds eventLimit", async () => {
+    const rejectedEvents: AnalyticsRejectedRollupEvent[] = [
+      {
+        occurredAt: new Date("2026-07-05T10:15:00.000Z"),
+        routePath: "/api/products",
+        routeMethod: GatewayRouteMethod.GET,
+        statusCode: 401,
+        rejectionReason: ApiRejectionReason.API_KEY_INVALID,
+        apiKeyAuthSource: "DATABASE",
+        apiKeyId: "api_key_1",
+        consumerId: "consumer_1",
+      },
+      {
+        occurredAt: new Date("2026-07-05T10:20:00.000Z"),
+        routePath: "/api/products",
+        routeMethod: GatewayRouteMethod.GET,
+        statusCode: 429,
+        rejectionReason: ApiRejectionReason.RATE_LIMIT_EXCEEDED,
+        apiKeyAuthSource: "DATABASE",
+        apiKeyId: "api_key_1",
+        consumerId: "consumer_1",
+      },
+    ];
+
+    const dependencies = createMockDependencies({ rejectedEvents });
+    const service = createAnalyticsRollupBackfillService(dependencies);
+
+    const plan = createAnalyticsRollupBackfillPlan({
+      from: "2026-07-05T10:15:00.000Z",
+      to: "2026-07-05T13:00:00.000Z",
+      granularity: "hour",
+      source: "rejected",
+      mode: "execute",
+    });
+
+    await expect(
+      service.runBackfill({
+        plan,
+        eventLimit: 1,
+      }),
+    ).rejects.toThrow(RangeError);
+
+    expect(dependencies.listRejectedEvents).toHaveBeenCalledWith({
+      rebuildFrom: new Date("2026-07-05T10:00:00.000Z"),
+      rebuildTo: new Date("2026-07-05T13:00:00.000Z"),
+      limit: 2,
+    });
     expect(dependencies.persistRejectedEvents).not.toHaveBeenCalled();
   });
 });
