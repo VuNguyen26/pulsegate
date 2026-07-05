@@ -1,4 +1,4 @@
-# PulseGate Requirements
+﻿# PulseGate Requirements
 
 ## Project
 
@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.22.0
+v0.23.0
 
 ## Latest Completed Sprint
 
-Sprint 21 - Usage Analytics Cursor Pagination and Investigation Hardening
+Sprint 22 - Analytics Retention/Rollup Implementation Foundation
 
 ---
 
@@ -49,6 +49,7 @@ Long-term target:
 - Usage analytics
 - Successful usage event investigation
 - Rejected request tracking and drilldown
+- Analytics retention and rollups
 - Observability
 - CI/CD
 - Cloud/Kubernetes deployment later
@@ -316,7 +317,7 @@ PulseGate shall keep a clear design path for high-volume analytics storage lifec
 
 Status:
 
-Designed only. Not implemented yet.
+Designed. Initial code/test-only rollup calculation foundation implemented in Sprint 22. Runtime persistence is not implemented yet.
 
 ---
 
@@ -378,6 +379,33 @@ Implemented.
 
 ---
 
+### FR-025 Analytics Rollup Calculation Foundation
+
+PulseGate shall provide safe code-level foundations for future analytics rollups.
+
+Current helper capabilities:
+
+- UTC hourly and daily bucket calculation.
+- Rollup window planning for partial ranges.
+- maxBuckets guardrail for planned rebuild windows.
+- Usage event aggregate builder.
+- Rejected event aggregate builder.
+
+Required safety:
+
+- Must not read from or write to PostgreSQL.
+- Must not change runtime APIs.
+- Must not change usage recording.
+- Must not change rejected event recording.
+- Must not change quota counting.
+- Must keep successful usage and rejected/security traffic separate.
+
+Status:
+
+Implemented as code/test foundation only.
+
+---
+
 ## Current Non-Functional Requirements
 
 ### NFR-001 Type Safety
@@ -396,8 +424,8 @@ Implemented.
 
 Current result:
 
-- 59 test files passed
-- 414 tests passed
+- 63 test files passed
+- 443 tests passed
 
 Validation:
 
@@ -425,7 +453,8 @@ Implemented.
 
 Latest runtime validation:
 
-- Docker runtime cursor pagination validation passed.
+- Docker runtime cursor pagination validation passed in Sprint 21.
+- Sprint 22 did not require Docker runtime validation because runtime APIs and behavior were not changed.
 
 Status:
 
@@ -463,9 +492,10 @@ Implemented.
 
 ## Important Current Limitations
 
-- Usage data is event-based only.
-- Rejected event analytics is event-based only.
-- No aggregate rollup table yet.
+- Usage data is event-based at runtime.
+- Rejected event analytics is event-based at runtime.
+- Rollup calculation helpers exist, but no aggregate rollup table yet.
+- No rollup backfill command yet.
 - No retention policy job yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
@@ -491,8 +521,9 @@ Implemented.
 
 Recommended next:
 
-- Implement event retention policy for api_usage_events and api_rejected_events.
-- Implement aggregate rollup tables for high-volume analytics.
+- Design or implement a small rollup persistence schema.
+- Add a safe rollup backfill command later.
+- Implement event retention policy for api_usage_events and api_rejected_events later.
 - Add Grafana panels for quota, usage, and rejected traffic later.
 - Add Admin Dashboard later.
 - Add Developer Portal later.

@@ -1,4 +1,4 @@
-# PulseGate Architecture Overview
+﻿# PulseGate Architecture Overview
 
 ## Project
 
@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.22.0
+v0.23.0
 
 ## Current Status
 
-Sprint 21 - Usage Analytics Cursor Pagination and Investigation Hardening Complete
+Sprint 22 - Analytics Retention/Rollup Implementation Foundation Complete
 
 Current validation:
 
-- 59 test files passed
-- 414 tests passed
+- 63 test files passed
+- 443 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime cursor pagination validation passed
+- No Docker runtime validation required for Sprint 22 because runtime APIs and behavior were not changed
 
 ---
 
@@ -44,7 +44,7 @@ Long decision records live in:
 
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
-PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, and CI/CD.
+PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, and CI/CD.
 
 ---
 
@@ -71,6 +71,16 @@ Runtime flow:
         -> API usage recorder after successful proxy/cache response
       -> Product Service :3001
       -> PostgreSQL / Redis / Prometheus / Grafana
+
+Analytics foundation flow:
+
+    Raw usage/rejected events
+      -> UTC time bucket helper
+      -> rollup window planner
+      -> usage or rejected aggregate builder
+      -> future rollup persistence/backfill design
+
+Sprint 22 did not connect rollup helpers to runtime APIs, database writes, background jobs, quota counting, or retention.
 
 ---
 
@@ -136,6 +146,7 @@ API Gateway currently handles:
 - Consumer and API key usage summaries with filters.
 - Successful usage event raw listing with filters, offset pagination, and cursor pagination.
 - Rejected events summary and raw listing with filters, offset pagination, and cursor pagination.
+- Analytics rollup calculation foundations under apps/api-gateway/src/analytics.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected event, and quota APIs.
 - Structured access logs and Prometheus metrics.
 
@@ -199,7 +210,7 @@ Usage summary behavior:
 
 Current usage analytics limitation:
 
-- Usage tracking is event-based only.
+- Usage tracking is event-based at runtime.
 - No aggregate rollup table yet.
 - No retention policy job yet.
 - Rejected requests are intentionally tracked in gateway.api_rejected_events instead of gateway.api_usage_events.
@@ -241,7 +252,45 @@ Rejected listing behavior:
 
 ---
 
+## Analytics Rollup Foundation Architecture
+
+Sprint 22 added code/test-only rollup foundation helpers.
+
+Current files:
+
+- apps/api-gateway/src/analytics/analytics-rollup-time-bucket.ts
+- apps/api-gateway/src/analytics/analytics-rollup-window-plan.ts
+- apps/api-gateway/src/analytics/analytics-usage-rollup-aggregate.ts
+- apps/api-gateway/src/analytics/analytics-rejected-rollup-aggregate.ts
+
+Current behavior:
+
+- Rollup buckets are calculated in UTC.
+- Supported granularities are hour and day.
+- Window planner expands partial ranges to full bucket rebuild windows.
+- Window planner supports maxBuckets guardrails.
+- Usage aggregate builder groups raw usage events by bucket, consumer, API key, route, method, status class, cache status, and auth source.
+- Rejected aggregate builder groups rejected events by bucket, consumer, API key, route, method, rejection reason, status code, and auth source.
+
+Current safety boundaries:
+
+- No database reads.
+- No database writes.
+- No schema migration.
+- No background job.
+- No retention deletion.
+- No runtime API change.
+- No quota checker change.
+- No usage recorder change.
+- No rejected event recorder change.
+
+---
+
 ## Current Important Files
+
+Analytics rollup foundation:
+
+- apps/api-gateway/src/analytics/
 
 API usage analytics:
 
@@ -277,9 +326,10 @@ Core:
 
 ## Current Limitations
 
-- Usage data is event-based only.
-- Rejected event analytics is event-based only.
-- No aggregate rollup table yet.
+- Usage data is event-based at runtime.
+- Rejected event analytics is event-based at runtime.
+- Rollup calculation helpers exist, but no aggregate rollup table yet.
+- No rollup backfill command yet.
 - No retention policy job yet.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
@@ -302,11 +352,11 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 22 recommended direction:
+Sprint 23 recommended direction:
 
-- Analytics Retention/Rollup Implementation Foundation
+- Analytics Rollup Persistence or Retention Safety Foundation
 
 Rationale:
 
-- Raw successful and rejected event investigation now has cursor pagination.
-- Retention and rollup are the next backend foundation for larger analytics datasets.
+- Rollup calculation foundations now exist.
+- The next step can safely choose between persistence schema/backfill or retention configuration without changing quota counting accidentally.

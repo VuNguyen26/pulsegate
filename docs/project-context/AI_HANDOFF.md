@@ -1,4 +1,4 @@
-# PulseGate AI Handoff
+﻿# PulseGate AI Handoff
 
 ## Purpose
 
@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.22.0
+- v0.23.0
 
 Latest completed sprint:
 
-- Sprint 21 - Usage Analytics Cursor Pagination and Investigation Hardening
+- Sprint 22 - Analytics Retention/Rollup Implementation Foundation
 
 Recommended next technical sprint:
 
-- Sprint 22 - Analytics Retention/Rollup Implementation Foundation
+- Sprint 23 - Analytics Rollup Persistence or Retention Safety Foundation
 
 ---
 
@@ -70,6 +70,7 @@ Long-term product direction:
 - Quota observability
 - Rejected request tracking and drilldown
 - Successful usage analytics and event investigation
+- Analytics retention and rollups
 - Observability stack
 - CI/CD
 - Kubernetes/cloud deployment later
@@ -108,30 +109,33 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 21:
+Latest stable validation from Sprint 22:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Docker runtime cursor pagination validation -> passed
 
 Latest automated test result:
 
-- 59 test files passed
-- 414 tests passed
+- 63 test files passed
+- 443 tests passed
 
-Sprint 21 runtime validation proved:
+Docker runtime validation:
 
-- GET /health returns 200.
-- Successful protected requests can generate usage events.
-- Rejected requests can generate rejected events.
-- GET /internal/admin/usage/events supports cursor pagination and returns nextCursor.
-- GET /internal/admin/usage/events rejects offset together with cursor.
-- GET /internal/admin/api-rejections/events supports cursor pagination and returns nextCursor.
-- GET /internal/admin/api-rejections/events rejects offset together with cursor.
-- GET /internal/admin/api-rejections/summary rejects cursor.
-- gateway.api_usage_events remains the source of truth for successful usage and quota counting.
-- gateway.api_rejected_events remains separate for rejected/security traffic.
+- Not required for Sprint 22 because no runtime API, Docker, database schema, recorder, or quota behavior changed.
+- Latest Docker runtime validation remains Sprint 21 cursor pagination validation.
+
+Sprint 22 preserved:
+
+- gateway.api_usage_events as the source of truth for successful usage and quota counting.
+- gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
+- No runtime API behavior changes.
+- No quota checker changes.
+- No usage recorder changes.
+- No rejected event recorder changes.
+- No migration.
+- No retention job.
+- No rollup table.
 
 ---
 
@@ -171,6 +175,7 @@ API Gateway currently supports:
 - Rejected events summary endpoint.
 - Filtered rejected events summary endpoint.
 - Rejected events listing endpoint with filters, safe offset pagination, and cursor pagination.
+- Analytics rollup calculation helpers.
 - 429 QUOTA_EXCEEDED responses with quota metadata.
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
@@ -214,7 +219,7 @@ Reason:
 
 ---
 
-## Current API Usage, Quota, and Rejected Event Behavior
+## Current API Usage, Quota, Rejected Event, and Rollup Behavior
 
 Usage event table:
 
@@ -277,10 +282,20 @@ Rejected event behavior:
 - Supports filters by time range, reason, status code, route, auth source, API key, and consumer.
 - Rejected events summary rejects cursor.
 
+Analytics rollup foundation:
+
+- Rollup helpers live in apps/api-gateway/src/analytics.
+- Helpers support UTC hourly/daily bucket calculation.
+- Helpers support rebuild window planning and maxBuckets.
+- Helpers aggregate raw successful usage events into future rollup-shaped records.
+- Helpers aggregate raw rejected events into future rollup-shaped records.
+- Helpers are code/test-only and not connected to runtime persistence yet.
+
 Current analytics limitations:
 
-- Usage and rejected traffic analytics are event-based only.
+- Usage and rejected traffic analytics are event-based at runtime.
 - No aggregate rollup table yet.
+- No rollup backfill command yet.
 - No retention job yet.
 
 ---
@@ -345,6 +360,13 @@ JWT local validation:
 
 ## Important Files
 
+Analytics rollup foundation:
+
+- apps/api-gateway/src/analytics/analytics-rollup-time-bucket.ts
+- apps/api-gateway/src/analytics/analytics-rollup-window-plan.ts
+- apps/api-gateway/src/analytics/analytics-usage-rollup-aggregate.ts
+- apps/api-gateway/src/analytics/analytics-rejected-rollup-aggregate.ts
+
 API Gateway usage tracking and analytics:
 
 - apps/api-gateway/prisma/schema.prisma
@@ -381,7 +403,7 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-21.md
+- docs/sdlc/sprint-history/sprint-22.md
 - docs/runbooks/api-usage-analytics.md
 - docs/runbooks/api-rejected-events.md
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
@@ -434,9 +456,10 @@ Work style:
 
 ## Current Known Limitations
 
-- Usage data is event-based only.
-- Rejected event analytics is event-based only.
-- No aggregate rollup table yet.
+- Usage data is event-based at runtime.
+- Rejected event analytics is event-based at runtime.
+- Rollup calculation helpers exist, but no aggregate rollup table yet.
+- No rollup backfill command yet.
 - No retention policy job yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
@@ -463,11 +486,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 22 after confirming Sprint 21 docs are committed and pushed.
+Start Sprint 23 after confirming Sprint 22 docs are committed and pushed.
 
 Recommended direction:
 
-- Analytics Retention/Rollup Implementation Foundation.
+- Analytics Rollup Persistence or Retention Safety Foundation.
 
 Before starting:
 

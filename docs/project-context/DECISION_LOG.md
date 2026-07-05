@@ -1,4 +1,4 @@
-# Decision Log
+﻿# Decision Log
 
 ## Scope
 
@@ -12,15 +12,35 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.22.0
+v0.23.0
 
 ## Latest Completed Sprint
 
-Sprint 21 - Usage Analytics Cursor Pagination and Investigation Hardening
+Sprint 22 - Analytics Retention/Rollup Implementation Foundation
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-05 - Analytics rollup foundation starts as code/test-only helpers
+
+Decision:
+
+- Add UTC time bucket helpers for future rollups.
+- Add rollup window planner for partial bucket rebuild planning.
+- Add usage event aggregate builder for future successful usage rollups.
+- Add rejected event aggregate builder for future rejected/security traffic rollups.
+- Keep helpers code/test-only in Sprint 22.
+- Do not add migrations, rollup tables, retention jobs, backfill commands, runtime API changes, quota rewrites, or recorder rewrites.
+
+Reason:
+
+- Rollup and retention need careful foundations around time boundaries, backfill scope, partial recalculation, and quota correctness.
+- Code/test-only helpers provide a safe foundation before persistence.
+- Keeping successful usage and rejected/security event aggregation separate preserves current data ownership and quota safety.
+- Avoiding runtime changes keeps Sprint 22 small and low risk.
+
+---
 
 ### 2026-07-05 - Event investigation uses cursor pagination for large listings
 

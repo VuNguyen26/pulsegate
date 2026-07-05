@@ -1,4 +1,4 @@
-# PulseGate
+﻿# PulseGate
 
 High-Traffic API Gateway & Observability Platform.
 
@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.22.0
+- v0.23.0
 
 Latest completed sprint:
 
-- Sprint 21 - Usage Analytics Cursor Pagination and Investigation Hardening
+- Sprint 22 - Analytics Retention/Rollup Implementation Foundation
 
 ---
 
@@ -41,14 +41,18 @@ PulseGate currently includes:
 - Rejected events summary
 - Rejected events raw listing with cursor pagination
 - Filterable rejected event drilldown
+- Analytics rollup time bucket foundation
+- Analytics rollup window planner foundation
+- Usage rollup aggregate builder foundation
+- Rejected rollup aggregate builder foundation
 
 Latest validation:
 
-- 59 test files passed
-- 414 tests passed
+- 63 test files passed
+- 443 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime cursor pagination validation passed
+- No Docker runtime validation required for Sprint 22 because runtime APIs and behavior were not changed
 
 ---
 
@@ -126,7 +130,7 @@ Current internal/admin capabilities:
 
 ---
 
-## Current Usage, Quota, and Rejection Behavior
+## Current Usage, Quota, Rejection, and Analytics Foundation Behavior
 
 Successful usage behavior:
 
@@ -144,11 +148,18 @@ Rejected request behavior:
 - Rejected events can be queried through aggregate summary and raw listing endpoints with offset and cursor pagination.
 - Raw API keys, JWTs, and Authorization headers are not stored or returned.
 
+Analytics rollup foundation behavior:
+
+- Sprint 22 added code/test-only rollup foundation helpers under apps/api-gateway/src/analytics.
+- Current helpers support UTC hourly/daily bucket calculation, window planning, usage event aggregation, and rejected event aggregation.
+- The helpers do not read from the database, write to the database, change runtime APIs, or change quota counting.
+
 Current analytics limitation:
 
-- Usage and rejected analytics are still event-based.
+- Usage and rejected analytics are still event-based at runtime.
 - No retention job is implemented yet.
 - No aggregate rollup table is implemented yet.
+- No rollup backfill command is implemented yet.
 
 ---
 
@@ -204,7 +215,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-21.md
+- docs/sdlc/sprint-history/sprint-22.md
 
 Latest usage analytics runbook:
 
@@ -222,11 +233,11 @@ Latest decision record:
 
 ## Recommended Next Sprint
 
-Sprint 22 recommended direction:
+Sprint 23 recommended direction:
 
-- Analytics Retention/Rollup Implementation Foundation
+- Analytics Rollup Persistence or Retention Safety Foundation
 
 Reason:
 
-- Sprint 21 hardened raw event investigation with cursor pagination.
-- The next safest backend step is storage lifecycle foundation for retention and rollup design.
+- Sprint 22 added safe rollup calculation foundations without changing runtime behavior.
+- The next backend step can choose between a small rollup persistence schema design or a safe retention configuration foundation.

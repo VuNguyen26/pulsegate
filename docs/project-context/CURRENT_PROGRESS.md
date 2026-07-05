@@ -1,4 +1,4 @@
-# Current Progress
+﻿# Current Progress
 
 ## Project
 
@@ -24,39 +24,32 @@ Long decision records live in:
 
 ## Current Version
 
-v0.22.0
+v0.23.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 21 - Usage Analytics Cursor Pagination and Investigation Hardening
+Sprint 22 - Analytics Retention/Rollup Implementation Foundation
 
 Status:
 
 Done.
 
-Sprint 21 hardened raw event investigation:
+Sprint 22 added code/test-only analytics rollup foundations:
 
-- Added cursor pagination to GET /internal/admin/usage/events.
-- Added cursor pagination to GET /internal/admin/api-rejections/events.
-- Added nextCursor to successful usage event listing pagination responses.
-- Added nextCursor to rejected event listing pagination responses.
-- Cursor pagination follows occurredAt desc and id desc listing order.
-- offset cannot be used together with cursor.
-- Rejected events summary rejects cursor because cursor is only valid for raw listing.
+- Added UTC hourly/daily rollup time bucket helper.
+- Added rollup window planner with partial bucket rebuild ranges and maxBuckets guardrail.
+- Added successful usage event rollup aggregate builder.
+- Added rejected event rollup aggregate builder.
+- Preserved successful usage and rejected/security event separation.
 - Preserved gateway.api_usage_events as source of truth for successful usage and quota counting.
 - Preserved gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
-- Did not add migrations, retention jobs, rollup tables, quota rewrites, or recorder rewrites.
+- Did not add migrations, rollup tables, retention jobs, backfill commands, runtime API changes, quota rewrites, or recorder rewrites.
 
-Sprint 21 details are archived in:
+Sprint 22 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-21.md
-
-Sprint 21 runbooks:
-
-- docs/runbooks/api-usage-analytics.md
-- docs/runbooks/api-rejected-events.md
+- docs/sdlc/sprint-history/sprint-22.md
 
 Related design record:
 
@@ -66,32 +59,21 @@ Related design record:
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 21:
+Latest stable validation from Sprint 22:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Docker runtime cursor pagination validation -> passed
 
 Latest automated test result:
 
-- 59 test files passed
-- 414 tests passed
+- 63 test files passed
+- 443 tests passed
 
-Latest Docker runtime validation proved:
+Docker runtime validation:
 
-- GET /health returns 200.
-- Successful protected requests can generate usage events.
-- Rejected requests can generate rejected events.
-- Usage event listing returns nextCursor when more rows exist.
-- Usage event listing accepts cursor pagination.
-- Usage event listing rejects offset together with cursor.
-- Rejected event listing returns nextCursor when more rows exist.
-- Rejected event listing accepts cursor pagination.
-- Rejected event listing rejects offset together with cursor.
-- Rejected events summary rejects cursor.
-- gateway.api_usage_events remains the source of truth for successful usage and quota counting.
-- gateway.api_rejected_events remains separate for rejected/security traffic.
+- Not required for Sprint 22 because no runtime API, Docker, database schema, recorder, or quota behavior changed.
+- Latest Docker runtime validation remains Sprint 21 cursor pagination validation.
 
 ---
 
@@ -132,6 +114,10 @@ PulseGate currently has:
 - Usage events listing reader with filters, offset pagination, and cursor pagination.
 - Rejected event summary reader with filters.
 - Rejected event listing reader with filters, offset pagination, and cursor pagination.
+- Analytics rollup time bucket helper.
+- Analytics rollup window planner.
+- Usage rollup aggregate builder.
+- Rejected rollup aggregate builder.
 - Internal/admin route management APIs.
 - Internal/admin consumer APIs.
 - Internal/admin API key lifecycle APIs.
@@ -191,7 +177,7 @@ Internal/admin management:
 
 ---
 
-## Current Usage, Quota, and Rejected Event Behavior
+## Current Usage, Quota, Rejected Event, and Rollup Foundation Behavior
 
 Usage event table:
 
@@ -219,6 +205,12 @@ Rejected event observability:
 - GET /internal/admin/api-rejections/events supports filters, offset pagination, and cursor pagination with nextCursor.
 - GET /internal/admin/api-rejections/summary rejects cursor.
 
+Analytics rollup foundation:
+
+- Current rollup helpers live under apps/api-gateway/src/analytics.
+- Helpers calculate UTC buckets, plan rebuild windows, aggregate successful usage events, and aggregate rejected events.
+- Helpers are not connected to database persistence, runtime endpoints, background jobs, retention, or quota counting.
+
 Current quota scope:
 
 - DB-backed API keys only.
@@ -234,9 +226,10 @@ Current quota scope:
 
 ## Current Limitations
 
-- Usage data is event-based only.
-- Rejected event analytics is event-based only.
-- No aggregate rollup table yet.
+- Usage data is event-based at runtime.
+- Rejected event analytics is event-based at runtime.
+- Rollup calculation helpers exist, but no aggregate rollup table yet.
+- No rollup backfill command yet.
 - No retention policy job yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
@@ -262,13 +255,15 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 22 recommended direction:
+Sprint 23 recommended direction:
 
-- Analytics Retention/Rollup Implementation Foundation
+- Analytics Rollup Persistence or Retention Safety Foundation
 
 Recommended scope:
 
-- Start a small storage lifecycle foundation for high-volume analytics.
+- Choose one small backend direction.
+- If choosing rollup persistence, start with a small schema/backfill design and validation plan.
+- If choosing retention, start with safe configuration and dry-run design before deleting anything.
 - Keep successful usage and rejected/security events separate.
 - Avoid changing quota counting unless explicitly designed.
 - Avoid adding Kafka, RabbitMQ, Kubernetes, Admin Dashboard UI, Developer Portal UI, billing, paid plans, or multi-tenant organization model unless explicitly selected.
