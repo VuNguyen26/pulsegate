@@ -1,3 +1,5 @@
+import { Buffer } from "node:buffer";
+
 import Fastify, { type FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -6,6 +8,14 @@ import type { ApiKeyManagementRepository } from "../api-keys/api-key-management.
 import type { ApiUsageEventsListingRepository } from "../api-usage/api-usage-events-listing.types.js";
 import type { ApiUsageSummaryRepository } from "../api-usage/api-usage-summary.types.js";
 import { adminApiUsageRoute } from "./admin-api-usage.route.js";
+
+function encodeCursor(value: unknown): string {
+  return Buffer.from(JSON.stringify(value), "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
 
 const createdAt = new Date("2026-07-03T00:00:00.000Z");
 const updatedAt = new Date("2026-07-03T01:00:00.000Z");
@@ -208,6 +218,7 @@ describe("adminApiUsageRoute", () => {
           offset: 0,
           total: 1,
           hasNextPage: false,
+          nextCursor: null,
         },
         filters: {
           from: null,
@@ -274,6 +285,37 @@ describe("adminApiUsageRoute", () => {
         apiKeyId: "api_key_1",
         consumerId: "consumer_1",
       },
+    });
+  });
+
+  it("should pass usage events listing cursor to repository", async () => {
+    const usageEventsListingRepository = createUsageEventsListingRepository();
+    const cursor = encodeCursor({
+      occurredAt: "2026-07-04T11:00:00.000Z",
+      id: "usage_event_1",
+    });
+
+    app = await buildTestApp({
+      usageEventsListingRepository,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/internal/admin/usage/events?limit=10&cursor=${cursor}`,
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(usageEventsListingRepository.listEvents).toHaveBeenCalledWith({
+      limit: 10,
+      offset: 0,
+      cursor: {
+        occurredAt: new Date("2026-07-04T11:00:00.000Z"),
+        id: "usage_event_1",
+      },
+      filters: {},
     });
   });
 
@@ -588,3 +630,4 @@ describe("adminApiUsageRoute", () => {
     });
   });
 });
+

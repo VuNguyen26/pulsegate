@@ -1,6 +1,16 @@
+import { Buffer } from "node:buffer";
+
 import { describe, expect, it } from "vitest";
 
 import { parseApiUsageEventsListingQuery } from "./api-usage-events-listing-query.js";
+
+function encodeCursor(value: unknown): string {
+  return Buffer.from(JSON.stringify(value), "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
 
 describe("parseApiUsageEventsListingQuery", () => {
   it("should parse default pagination with empty filters", () => {
@@ -24,6 +34,31 @@ describe("parseApiUsageEventsListingQuery", () => {
       value: {
         limit: 100,
         offset: 0,
+        filters: {},
+      },
+    });
+  });
+
+  it("should parse a valid cursor", () => {
+    const cursor = encodeCursor({
+      occurredAt: "2026-07-05T00:00:00.000Z",
+      id: " usage_event_1 ",
+    });
+
+    expect(
+      parseApiUsageEventsListingQuery({
+        limit: "25",
+        cursor,
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        limit: 25,
+        offset: 0,
+        cursor: {
+          occurredAt: new Date("2026-07-05T00:00:00.000Z"),
+          id: "usage_event_1",
+        },
         filters: {},
       },
     });
@@ -106,6 +141,72 @@ describe("parseApiUsageEventsListingQuery", () => {
       error: {
         code: "INVALID_QUERY_PARAMETER",
         message: `offset must be an integer between 0 and ${Number.MAX_SAFE_INTEGER}`,
+      },
+    });
+  });
+
+  it("should reject offset when cursor is provided", () => {
+    expect(
+      parseApiUsageEventsListingQuery({
+        cursor: encodeCursor({
+          occurredAt: "2026-07-05T00:00:00.000Z",
+          id: "usage_event_1",
+        }),
+        offset: "10",
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "offset cannot be used with cursor",
+      },
+    });
+  });
+
+  it("should reject an invalid cursor payload", () => {
+    expect(
+      parseApiUsageEventsListingQuery({
+        cursor: "not-a-valid-cursor",
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "cursor must be a valid base64url encoded JSON object",
+      },
+    });
+  });
+
+  it("should reject a cursor with invalid occurredAt", () => {
+    expect(
+      parseApiUsageEventsListingQuery({
+        cursor: encodeCursor({
+          occurredAt: "not-a-date",
+          id: "usage_event_1",
+        }),
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "cursor.occurredAt must be a valid ISO date-time string",
+      },
+    });
+  });
+
+  it("should reject a cursor with blank id", () => {
+    expect(
+      parseApiUsageEventsListingQuery({
+        cursor: encodeCursor({
+          occurredAt: "2026-07-05T00:00:00.000Z",
+          id: "   ",
+        }),
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "cursor.id must be a non-empty string",
       },
     });
   });

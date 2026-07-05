@@ -13,9 +13,15 @@ export type ApiUsageEventsListingFilters = {
   consumerId?: string;
 };
 
+export type ApiUsageEventsListingCursor = {
+  occurredAt: Date;
+  id: string;
+};
+
 export type ApiUsageEventsListingQuery = {
   limit: number;
   offset: number;
+  cursor?: ApiUsageEventsListingCursor;
   filters: ApiUsageEventsListingFilters;
 };
 
@@ -65,6 +71,7 @@ export type ApiUsageEventsListingPaginationResponse = {
   offset: number;
   total: number;
   hasNextPage: boolean;
+  nextCursor: string | null;
 };
 
 export type ApiUsageEventsListingFiltersResponse = {

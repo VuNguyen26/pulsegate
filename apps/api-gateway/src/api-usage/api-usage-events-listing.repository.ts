@@ -3,14 +3,36 @@ import type {
   PrismaClient,
 } from "../generated/prisma/index.js";
 import type {
+  ApiUsageEventsListingCursor,
   ApiUsageEventsListingFilters,
   ApiUsageEventsListingQuery,
   ApiUsageEventsListingReadModel,
   ApiUsageEventsListingRepository,
 } from "./api-usage-events-listing.types.js";
 
+function buildApiUsageEventsCursorWhereInput(
+  cursor: ApiUsageEventsListingCursor,
+): Prisma.ApiUsageEventWhereInput {
+  return {
+    OR: [
+      {
+        occurredAt: {
+          lt: cursor.occurredAt,
+        },
+      },
+      {
+        occurredAt: cursor.occurredAt,
+        id: {
+          lt: cursor.id,
+        },
+      },
+    ],
+  };
+}
+
 export function buildApiUsageEventsWhereInput(
   filters: ApiUsageEventsListingFilters,
+  cursor?: ApiUsageEventsListingCursor,
 ): Prisma.ApiUsageEventWhereInput {
   const where: Prisma.ApiUsageEventWhereInput = {};
 
@@ -49,6 +71,10 @@ export function buildApiUsageEventsWhereInput(
     where.consumerId = filters.consumerId;
   }
 
+  if (cursor) {
+    where.AND = [buildApiUsageEventsCursorWhereInput(cursor)];
+  }
+
   return where;
 }
 
@@ -59,7 +85,7 @@ export function createPrismaApiUsageEventsListingRepository(
     async listEvents(
       query: ApiUsageEventsListingQuery,
     ): Promise<ApiUsageEventsListingReadModel> {
-      const where = buildApiUsageEventsWhereInput(query.filters);
+      const where = buildApiUsageEventsWhereInput(query.filters, query.cursor);
 
       const [total, items] = await Promise.all([
         prisma.apiUsageEvent.count({
@@ -75,7 +101,7 @@ export function createPrismaApiUsageEventsListingRepository(
               id: "desc",
             },
           ],
-          skip: query.offset,
+          skip: query.cursor ? 0 : query.offset,
           take: query.limit,
           select: {
             id: true,

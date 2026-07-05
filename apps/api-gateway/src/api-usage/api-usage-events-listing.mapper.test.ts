@@ -1,7 +1,17 @@
+import { Buffer } from "node:buffer";
+
 import { describe, expect, it } from "vitest";
 
 import { mapApiUsageEventsListingReadModelToResponse } from "./api-usage-events-listing.mapper.js";
 import type { ApiUsageEventsListingReadModel } from "./api-usage-events-listing.types.js";
+
+function encodeCursor(value: unknown): string {
+  return Buffer.from(JSON.stringify(value), "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
 
 describe("mapApiUsageEventsListingReadModelToResponse", () => {
   it("should map usage events listing read model to response", () => {
@@ -61,6 +71,10 @@ describe("mapApiUsageEventsListingReadModelToResponse", () => {
         offset: 20,
         total: 31,
         hasNextPage: true,
+        nextCursor: encodeCursor({
+          occurredAt: "2026-07-04T11:00:00.000Z",
+          id: "usage_event_1",
+        }),
       },
       filters: {
         from: "2026-07-04T00:00:00.000Z",
@@ -123,6 +137,7 @@ describe("mapApiUsageEventsListingReadModelToResponse", () => {
         offset: 0,
         total: 1,
         hasNextPage: false,
+        nextCursor: null,
       },
       filters: {
         from: null,
@@ -136,5 +151,23 @@ describe("mapApiUsageEventsListingReadModelToResponse", () => {
         consumerId: null,
       },
     });
+  });
+
+  it("should return null nextCursor when the page is empty", () => {
+    const listing: ApiUsageEventsListingReadModel = {
+      items: [],
+      pagination: {
+        limit: 20,
+        offset: 0,
+        total: 1,
+        hasNextPage: true,
+      },
+      filters: {},
+    };
+
+    expect(
+      mapApiUsageEventsListingReadModelToResponse(listing).pagination
+        .nextCursor,
+    ).toBeNull();
   });
 });

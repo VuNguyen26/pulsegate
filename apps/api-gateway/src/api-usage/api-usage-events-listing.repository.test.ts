@@ -128,6 +128,109 @@ describe("createPrismaApiUsageEventsListingRepository", () => {
     });
   });
 
+  it("should list usage events after a cursor", async () => {
+    const cursorOccurredAt = new Date("2026-07-05T00:00:00.000Z");
+    const itemOccurredAt = new Date("2026-07-04T23:59:00.000Z");
+
+    const items: ApiUsageEventListItemReadModel[] = [
+      {
+        id: "usage_event_2",
+        requestId: "request_2",
+        routePath: "/api/products",
+        routeMethod: "GET",
+        statusCode: 200,
+        durationMs: 36,
+        cacheStatus: "MISS",
+        apiKeyAuthSource: "database",
+        apiKeyId: "api_key_1",
+        consumerId: "consumer_1",
+        occurredAt: itemOccurredAt,
+      },
+    ];
+
+    const query: ApiUsageEventsListingQuery = {
+      limit: 10,
+      offset: 0,
+      cursor: {
+        occurredAt: cursorOccurredAt,
+        id: "usage_event_3",
+      },
+      filters: {
+        routePath: "/api/products",
+      },
+    };
+
+    const { prisma, count, findMany } = createMockPrisma({
+      total: 11,
+      items,
+    });
+
+    const repository = createPrismaApiUsageEventsListingRepository(prisma);
+
+    await expect(repository.listEvents(query)).resolves.toEqual({
+      items,
+      pagination: {
+        limit: 10,
+        offset: 0,
+        total: 11,
+        hasNextPage: true,
+      },
+      filters: query.filters,
+    });
+
+    const expectedWhere = {
+      routePath: "/api/products",
+      AND: [
+        {
+          OR: [
+            {
+              occurredAt: {
+                lt: cursorOccurredAt,
+              },
+            },
+            {
+              occurredAt: cursorOccurredAt,
+              id: {
+                lt: "usage_event_3",
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(count).toHaveBeenCalledWith({
+      where: expectedWhere,
+    });
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: expectedWhere,
+      orderBy: [
+        {
+          occurredAt: "desc",
+        },
+        {
+          id: "desc",
+        },
+      ],
+      skip: 0,
+      take: 10,
+      select: {
+        id: true,
+        requestId: true,
+        routePath: true,
+        routeMethod: true,
+        statusCode: true,
+        durationMs: true,
+        cacheStatus: true,
+        apiKeyAuthSource: true,
+        apiKeyId: true,
+        consumerId: true,
+        occurredAt: true,
+      },
+    });
+  });
+
   it("should list usage events without filters and detect the last page", async () => {
     const items: ApiUsageEventListItemReadModel[] = [
       {
