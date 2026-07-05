@@ -1,4 +1,4 @@
-﻿# API Rejected Events Runbook
+# API Rejected Events Runbook
 
 ## Purpose
 
@@ -13,7 +13,7 @@ It covers:
 - Admin rejected events summary
 - Filtered rejected events summary
 - Admin rejected events raw listing
-- Safe pagination and query validation
+- Safe offset and cursor pagination and query validation
 - PostgreSQL rejected event records
 
 ---
@@ -51,60 +51,18 @@ Check gateway health:
 
 Expected:
 
-- HTTP 200
-- status ok
+- HTTP 200.
+- status ok.
 
 If the first health call fails immediately after startup, wait a few seconds and retry.
 
 ---
 
-## Runtime Validation Script
+## Rejected Events Summary Endpoint
 
-Clear Redis rate limit counters for deterministic validation:
+Summary:
 
-    docker exec pulsegate-redis redis-cli FLUSHDB
-
-Check rejected events before validation:
-
-    docker exec pulsegate-postgres psql -U pulsegate -d pulsegate -c "select rejection_reason, status_code, count(*) from gateway.api_rejected_events group by rejection_reason, status_code order by rejection_reason, status_code;"
-
-Call protected route without API key:
-
-    curl.exe -i http://localhost:3000/api/products
-
-Expected:
-
-- HTTP 401
-- error.code = API_KEY_MISSING
-
-Call protected route with invalid API key:
-
-    curl.exe -i http://localhost:3000/api/products -H "x-api-key: wrong-key"
-
-Expected:
-
-- HTTP 403
-- error.code = API_KEY_INVALID
-
-Call protected route with valid env API key but without JWT:
-
-    curl.exe -i http://localhost:3000/api/products -H "x-api-key: dev-api-key"
-
-Expected:
-
-- HTTP 401
-- error.code = JWT_TOKEN_MISSING
-
-Repeat the valid API key but missing JWT request until rate limit is exceeded.
-
-Expected final rate-limited response:
-
-- HTTP 429
-- error.code = TOO_MANY_REQUESTS
-
-Check admin rejected events summary:
-
-    curl.exe -s http://localhost:3000/internal/admin/api-rejections/summary -H "x-admin-api-key: local-admin-key"
+    GET /internal/admin/api-rejections/summary
 
 Expected response fields:
 
@@ -114,32 +72,39 @@ Expected response fields:
 - data.lastRejectedAt
 - data.filters
 
-Check filtered rejected events summary:
+Supported filters:
 
-    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/summary?rejectionReason=RATE_LIMIT_EXCEEDED&statusCode=429&routeMethod=GET" -H "x-admin-api-key: local-admin-key"
+- from
+- to
+- rejectionReason
+- statusCode
+- routePath
+- routeMethod
+- apiKeyAuthSource
+- apiKeyId
+- consumerId
+
+Important:
+
+- Summary does not support cursor.
+- cursor is only valid for raw rejected event listing.
+
+Invalid summary cursor:
+
+    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/summary?cursor=<nextCursor>" -H "x-admin-api-key: local-admin-key"
 
 Expected:
 
-- HTTP 200
-- data.totalRejectedRequests only includes matching events
-- data.byReason includes RATE_LIMIT_EXCEEDED
-- data.byStatusCode includes 429
-- data.filters.rejectionReason = RATE_LIMIT_EXCEEDED
-- data.filters.statusCode = 429
-- data.filters.routeMethod = GET
+- HTTP 400.
+- error.code = INVALID_QUERY_PARAMETER.
 
-Check invalid rejected events summary query:
+---
 
-    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/summary?statusCode=99" -H "x-admin-api-key: local-admin-key"
+## Rejected Events Listing Endpoint
 
-Expected:
+Raw listing:
 
-- HTTP 400
-- error.code = INVALID_QUERY_PARAMETER
-
-Check admin rejected events raw listing:
-
-    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/events" -H "x-admin-api-key: local-admin-key"
+    GET /internal/admin/api-rejections/events
 
 Expected response fields:
 
@@ -148,31 +113,104 @@ Expected response fields:
 - data.pagination.offset
 - data.pagination.total
 - data.pagination.hasNextPage
+- data.pagination.nextCursor
 - data.filters
 
-Check listing pagination:
+Supported pagination:
 
-    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/events?limit=5&offset=0" -H "x-admin-api-key: local-admin-key"
+- limit
+- offset
+- cursor
+- nextCursor
+
+Pagination rules:
+
+- Default limit is 20.
+- Maximum limit is 100.
+- Default offset is 0.
+- Sort order is occurredAt desc and id desc.
+- Offset pagination uses limit and offset.
+- Cursor pagination uses nextCursor from the previous response.
+- Cursor payload is based on occurredAt and id from the last item in the current page.
+- offset cannot be used together with cursor.
+
+Supported filters:
+
+- from
+- to
+- rejectionReason
+- statusCode
+- routePath
+- routeMethod
+- apiKeyAuthSource
+- apiKeyId
+- consumerId
+
+Validation rules:
+
+- from and to must be valid ISO date-time strings.
+- from must be earlier than or equal to to.
+- rejectionReason must be a supported rejection reason.
+- statusCode must be an integer between 100 and 599.
+- routeMethod must be one of GET, POST, PUT, PATCH, DELETE.
+- limit must be an integer between 1 and 100.
+- offset must be an integer greater than or equal to 0.
+- cursor must be a valid base64url encoded JSON object when provided.
+- cursor.occurredAt must be a valid ISO date-time string.
+- cursor.id must be a non-empty string.
+- offset and cursor cannot be used together.
+- Invalid query returns 400 INVALID_QUERY_PARAMETER.
+
+---
+
+## Runtime Validation Script
+
+Clear Redis rate limit counters for deterministic validation:
+
+    docker exec pulsegate-redis redis-cli FLUSHDB
+
+Generate rejected events:
+
+    curl.exe -i http://localhost:3000/api/products
+    curl.exe -i http://localhost:3000/api/products -H "x-api-key: wrong-key"
+    curl.exe -i http://localhost:3000/api/products -H "x-api-key: dev-api-key"
+
+Expected examples:
+
+- Missing API key -> HTTP 401 -> API_KEY_MISSING.
+- Invalid API key -> HTTP 403 -> API_KEY_INVALID.
+- Valid API key without JWT -> HTTP 401 -> JWT_TOKEN_MISSING.
+- Rate limit exceeded -> HTTP 429 -> RATE_LIMIT_EXCEEDED.
+
+Check listing first page:
+
+    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/events?limit=1" -H "x-admin-api-key: local-admin-key"
 
 Expected:
 
-- HTTP 200
-- data.pagination.limit = 5
-- data.pagination.offset = 0
-- data.pagination.total is present
-- data.pagination.hasNextPage is present
+- HTTP 200.
+- data.pagination.limit = 1.
+- data.pagination.offset = 0.
+- data.pagination.nextCursor is present when another page exists.
 
-Check filtered listing:
+Check cursor listing:
 
-    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/events?rejectionReason=RATE_LIMIT_EXCEEDED&statusCode=429&routeMethod=GET" -H "x-admin-api-key: local-admin-key"
+    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/events?limit=1&cursor=<nextCursor>" -H "x-admin-api-key: local-admin-key"
 
 Expected:
 
-- HTTP 200
-- Returned items match the filter when matching events exist
-- data.filters.rejectionReason = RATE_LIMIT_EXCEEDED
-- data.filters.statusCode = 429
-- data.filters.routeMethod = GET
+- HTTP 200.
+- data.pagination.offset = 0.
+- returned items continue after the cursor when more events exist.
+
+Check invalid offset plus cursor:
+
+    curl.exe -i "http://localhost:3000/internal/admin/api-rejections/events?limit=1&offset=1&cursor=<nextCursor>" -H "x-admin-api-key: local-admin-key"
+
+Expected:
+
+- HTTP 400.
+- error.code = INVALID_QUERY_PARAMETER.
 
 Check invalid listing query:
 
@@ -180,19 +218,19 @@ Check invalid listing query:
 
 Expected:
 
-- HTTP 400
-- error.code = INVALID_QUERY_PARAMETER
+- HTTP 400.
+- error.code = INVALID_QUERY_PARAMETER.
 
 Check rejected events in PostgreSQL:
 
     docker exec pulsegate-postgres psql -U pulsegate -d pulsegate -c "select rejection_reason, status_code, count(*) from gateway.api_rejected_events group by rejection_reason, status_code order by rejection_reason, status_code;"
 
-Expected groups:
+Expected groups include:
 
 - API_KEY_MISSING / 401
 - API_KEY_INVALID / 403
 - JWT_TOKEN_MISSING / 401
-- RATE_LIMIT_EXCEEDED / 429
+- RATE_LIMIT_EXCEEDED / 429 when rate limit is reached
 
 Check latest rejected events:
 
@@ -200,45 +238,47 @@ Check latest rejected events:
 
 Expected:
 
-- route_method = GET
-- route_path = /api/products
-- api_key_auth_source is env for env API key requests
-- no raw API key, JWT, or Authorization header is stored
+- route_method = GET for product route validation.
+- route_path = /api/products.
+- api_key_auth_source is env for env API key requests.
+- no raw API key, JWT, or Authorization header is stored.
 
 ---
 
-## Sprint 17 Runtime Validation Result
-
-Observed runtime result:
-
-- API_KEY_MISSING -> 401 -> count 1
-- API_KEY_INVALID -> 403 -> count 1
-- JWT_TOKEN_MISSING -> 401 -> count 5
-- RATE_LIMIT_EXCEEDED -> 429 -> count 1
-- totalRejectedRequests -> 8
-
-Validation status:
-
-- Passed.
-
----
-
-## Sprint 18 Runtime Validation Result
+## Sprint 21 Runtime Validation Result
 
 Observed runtime result:
 
 - GET /health -> 200.
-- GET /internal/admin/api-rejections/events -> 200.
-- GET /internal/admin/api-rejections/events?limit=5&offset=0 -> 200.
-- GET /internal/admin/api-rejections/events?limit=101 -> 400 INVALID_QUERY_PARAMETER.
-- GET /internal/admin/api-rejections/events?rejectionReason=RATE_LIMIT_EXCEEDED&statusCode=429&routeMethod=GET -> 200.
-- GET /internal/admin/api-rejections/summary -> 200 with filters.
-- GET /internal/admin/api-rejections/summary?rejectionReason=RATE_LIMIT_EXCEEDED&statusCode=429&routeMethod=GET -> 200.
-- GET /internal/admin/api-rejections/summary?statusCode=99 -> 400 INVALID_QUERY_PARAMETER.
+- Successful usage events were generated.
+- Rejected events were generated.
+- GET /internal/admin/api-rejections/events?limit=1 returned nextCursor.
+- GET /internal/admin/api-rejections/events?limit=1&cursor=<nextCursor> returned the next page.
+- GET /internal/admin/api-rejections/events?limit=1&offset=1&cursor=<nextCursor> returned 400 INVALID_QUERY_PARAMETER.
+- GET /internal/admin/api-rejections/summary?cursor=<nextCursor> returned 400 INVALID_QUERY_PARAMETER.
 
 Validation status:
 
 - Passed.
+
+---
+
+## Historical Runtime Validation Results
+
+Sprint 17 observed:
+
+- API_KEY_MISSING -> 401.
+- API_KEY_INVALID -> 403.
+- JWT_TOKEN_MISSING -> 401.
+- RATE_LIMIT_EXCEEDED -> 429.
+
+Sprint 18 observed:
+
+- GET /internal/admin/api-rejections/events -> 200.
+- GET /internal/admin/api-rejections/events?limit=5&offset=0 -> 200.
+- GET /internal/admin/api-rejections/events?limit=101 -> 400 INVALID_QUERY_PARAMETER.
+- Filtered rejected event listing and summary returned 200.
+- Invalid rejected summary query returned 400 INVALID_QUERY_PARAMETER.
 
 ---
 

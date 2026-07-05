@@ -1,4 +1,4 @@
-﻿# PulseGate
+# PulseGate
 
 High-Traffic API Gateway & Observability Platform.
 
@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.21.0
+- v0.22.0
 
 Latest completed sprint:
 
-- Sprint 20 - Usage Analytics Listing and Event Investigation
+- Sprint 21 - Usage Analytics Cursor Pagination and Investigation Hardening
 
 ---
 
@@ -33,22 +33,22 @@ PulseGate currently includes:
 - DB-backed issued API keys
 - API usage tracking
 - Filtered successful usage summary APIs
-- Successful usage events raw listing
+- Successful usage events raw listing with cursor pagination
 - Usage plans and quotas
 - Runtime quota enforcement
 - Quota observability endpoints
 - Rejected request tracking
 - Rejected events summary
-- Rejected events raw listing
+- Rejected events raw listing with cursor pagination
 - Filterable rejected event drilldown
 
 Latest validation:
 
 - 59 test files passed
-- 396 tests passed
+- 414 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime usage events listing validation passed
+- Docker runtime cursor pagination validation passed
 
 ---
 
@@ -117,12 +117,12 @@ Current internal/admin capabilities:
 - Usage plan create/list/detail/update
 - Consumer usage summary with filters
 - API key usage summary with filters
-- Successful usage events raw listing with safe pagination
+- Successful usage events raw listing with safe offset and cursor pagination
 - API key quota state
 - Usage plan usage summary
 - Rejected events summary
 - Filtered rejected events summary
-- Rejected events raw listing with safe pagination
+- Rejected events raw listing with safe offset and cursor pagination
 
 ---
 
@@ -134,14 +134,14 @@ Successful usage behavior:
 - gateway.api_usage_events is the source of truth for successful usage analytics and quota counting.
 - Consumer and API key usage summaries support filters by time range, route, method, status code, cache status, and API key auth source.
 - Raw successful usage events can be listed through GET /internal/admin/usage/events.
-- Usage event listing supports safe pagination with limit, offset, total, and hasNextPage.
+- Usage event listing supports offset pagination with limit, offset, total, and hasNextPage, plus cursor pagination with nextCursor.
 - Usage event listing filters include from, to, routePath, routeMethod, statusCode, cacheStatus, apiKeyAuthSource, apiKeyId, and consumerId.
 
 Rejected request behavior:
 
 - Failed auth, rate-limited, and quota-denied requests are recorded into gateway.api_rejected_events.
 - gateway.api_rejected_events is used for rejected/security traffic observability.
-- Rejected events can be queried through aggregate summary and raw paginated listing endpoints.
+- Rejected events can be queried through aggregate summary and raw listing endpoints with offset and cursor pagination.
 - Raw API keys, JWTs, and Authorization headers are not stored or returned.
 
 Current analytics limitation:
@@ -149,7 +149,6 @@ Current analytics limitation:
 - Usage and rejected analytics are still event-based.
 - No retention job is implemented yet.
 - No aggregate rollup table is implemented yet.
-- Cursor pagination for very large event datasets is not implemented yet.
 
 ---
 
@@ -205,7 +204,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-20.md
+- docs/sdlc/sprint-history/sprint-21.md
 
 Latest usage analytics runbook:
 
@@ -223,7 +222,11 @@ Latest decision record:
 
 ## Recommended Next Sprint
 
-Sprint 21 recommended direction:
+Sprint 22 recommended direction:
 
-- Analytics Retention/Rollup Implementation Foundation, or
-- Usage Analytics Cursor Pagination and Investigation Hardening
+- Analytics Retention/Rollup Implementation Foundation
+
+Reason:
+
+- Sprint 21 hardened raw event investigation with cursor pagination.
+- The next safest backend step is storage lifecycle foundation for retention and rollup design.

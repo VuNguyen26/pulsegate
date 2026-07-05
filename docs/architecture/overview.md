@@ -1,4 +1,4 @@
-﻿# PulseGate Architecture Overview
+# PulseGate Architecture Overview
 
 ## Project
 
@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.21.0
+v0.22.0
 
 ## Current Status
 
-Sprint 20 - Usage Analytics Listing and Event Investigation Complete
+Sprint 21 - Usage Analytics Cursor Pagination and Investigation Hardening Complete
 
 Current validation:
 
 - 59 test files passed
-- 396 tests passed
+- 414 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime usage events listing validation passed
+- Docker runtime cursor pagination validation passed
 
 ---
 
@@ -134,8 +134,8 @@ API Gateway currently handles:
 - API usage event recording.
 - API rejected event recording.
 - Consumer and API key usage summaries with filters.
-- Successful usage event raw listing with filters and pagination.
-- Rejected events summary and raw listing.
+- Successful usage event raw listing with filters, offset pagination, and cursor pagination.
+- Rejected events summary and raw listing with filters, offset pagination, and cursor pagination.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected event, and quota APIs.
 - Structured access logs and Prometheus metrics.
 
@@ -178,10 +178,13 @@ Admin usage analytics endpoints:
 Usage event listing behavior:
 
 - Returns raw successful usage event rows from gateway.api_usage_events.
-- Supports safe pagination with limit, offset, total, and hasNextPage.
+- Supports offset pagination with limit, offset, total, and hasNextPage.
+- Supports cursor pagination with nextCursor for large event investigation.
 - Default limit is 20.
 - Maximum limit is 100.
 - Sorts by occurredAt desc and id desc.
+- Cursor pagination uses occurredAt and id from the last item in the current page.
+- offset cannot be used together with cursor.
 - Supports filters by from, to, routePath, routeMethod, statusCode, cacheStatus, apiKeyAuthSource, apiKeyId, and consumerId.
 - Invalid query values return 400 INVALID_QUERY_PARAMETER.
 - Does not expose raw API keys, JWTs, or Authorization headers.
@@ -226,9 +229,13 @@ Admin rejected event endpoints:
 Rejected listing behavior:
 
 - Returns raw rejected event rows.
-- Supports safe pagination with limit, offset, total, and hasNextPage.
+- Supports offset pagination with limit, offset, total, and hasNextPage.
+- Supports cursor pagination with nextCursor for large rejected event investigation.
 - Supports filters by from, to, rejectionReason, statusCode, routePath, routeMethod, apiKeyAuthSource, apiKeyId, and consumerId.
 - Sorts by occurredAt desc and id desc.
+- Cursor pagination uses occurredAt and id from the last item in the current page.
+- offset cannot be used together with cursor.
+- Rejected events summary rejects cursor because cursor is only meaningful for raw event listing.
 - Rejects invalid query values with 400 INVALID_QUERY_PARAMETER.
 - Does not write rejected requests into gateway.api_usage_events.
 
@@ -274,7 +281,6 @@ Core:
 - Rejected event analytics is event-based only.
 - No aggregate rollup table yet.
 - No retention policy job yet.
-- No cursor pagination for very large event datasets yet.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
 - Admin Dashboard is not implemented yet.
@@ -296,7 +302,11 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 21 recommended direction:
+Sprint 22 recommended direction:
 
-- Analytics Retention/Rollup Implementation Foundation, or
-- Usage Analytics Cursor Pagination and Investigation Hardening
+- Analytics Retention/Rollup Implementation Foundation
+
+Rationale:
+
+- Raw successful and rejected event investigation now has cursor pagination.
+- Retention and rollup are the next backend foundation for larger analytics datasets.

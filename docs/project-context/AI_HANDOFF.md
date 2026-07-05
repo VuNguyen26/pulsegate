@@ -1,4 +1,4 @@
-﻿# PulseGate AI Handoff
+# PulseGate AI Handoff
 
 ## Purpose
 
@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.21.0
+- v0.22.0
 
 Latest completed sprint:
 
-- Sprint 20 - Usage Analytics Listing and Event Investigation
+- Sprint 21 - Usage Analytics Cursor Pagination and Investigation Hardening
 
 Recommended next technical sprint:
 
-- Sprint 21 - Analytics Retention/Rollup Implementation Foundation, or Usage Analytics Cursor Pagination and Investigation Hardening
+- Sprint 22 - Analytics Retention/Rollup Implementation Foundation
 
 ---
 
@@ -108,27 +108,28 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 20:
+Latest stable validation from Sprint 21:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Docker runtime usage events listing validation -> passed
+- Docker runtime cursor pagination validation -> passed
 
 Latest automated test result:
 
 - 59 test files passed
-- 396 tests passed
+- 414 tests passed
 
-Sprint 20 runtime validation proved:
+Sprint 21 runtime validation proved:
 
 - GET /health returns 200.
-- Admin consumer creation works.
-- Admin API key issue works.
-- A protected successful request can generate a usage event.
-- Invalid usage events listing query returns 400 INVALID_QUERY_PARAMETER.
-- Default usage events listing returns 200 with limit 20 and offset 0.
-- Filtered usage events listing returns 200 with normalized filters.
+- Successful protected requests can generate usage events.
+- Rejected requests can generate rejected events.
+- GET /internal/admin/usage/events supports cursor pagination and returns nextCursor.
+- GET /internal/admin/usage/events rejects offset together with cursor.
+- GET /internal/admin/api-rejections/events supports cursor pagination and returns nextCursor.
+- GET /internal/admin/api-rejections/events rejects offset together with cursor.
+- GET /internal/admin/api-rejections/summary rejects cursor.
 - gateway.api_usage_events remains the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events remains separate for rejected/security traffic.
 
@@ -160,7 +161,7 @@ API Gateway currently supports:
 - API rejected event recording.
 - Consumer usage summary with filters.
 - API key usage summary with filters.
-- Successful usage events listing with filters and safe pagination.
+- Successful usage events listing with filters, safe offset pagination, and cursor pagination.
 - Usage plan management.
 - API key usage plan assignment.
 - Event-based quota checker.
@@ -169,7 +170,7 @@ API Gateway currently supports:
 - Usage plan usage summary endpoint.
 - Rejected events summary endpoint.
 - Filtered rejected events summary endpoint.
-- Rejected events listing endpoint.
+- Rejected events listing endpoint with filters, safe offset pagination, and cursor pagination.
 - 429 QUOTA_EXCEEDED responses with quota metadata.
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
@@ -237,10 +238,13 @@ Usage events listing behavior:
 
 - Reads from gateway.api_usage_events only.
 - Returns raw successful usage event rows.
-- Supports safe pagination with limit, offset, total, and hasNextPage.
+- Supports offset pagination with limit, offset, total, and hasNextPage.
+- Supports cursor pagination with nextCursor for large event investigation.
 - Default limit is 20.
 - Maximum limit is 100.
 - Sorts by occurredAt desc and id desc.
+- Cursor pagination uses occurredAt and id from the last item in the current page.
+- offset cannot be used together with cursor.
 - Supports filters by from, to, routePath, routeMethod, statusCode, cacheStatus, apiKeyAuthSource, apiKeyId, and consumerId.
 - Invalid query returns 400 INVALID_QUERY_PARAMETER.
 - Does not expose raw API keys, JWTs, or Authorization headers.
@@ -269,14 +273,15 @@ Rejected event behavior:
 - Records API_KEY_MISSING, API_KEY_INVALID, JWT_TOKEN_MISSING, JWT_TOKEN_INVALID, RATE_LIMIT_EXCEEDED, and QUOTA_EXCEEDED.
 - Does not store raw API keys, JWTs, or Authorization headers.
 - Supports aggregate summary and raw listing read APIs.
+- Raw listing supports cursor pagination with nextCursor.
 - Supports filters by time range, reason, status code, route, auth source, API key, and consumer.
+- Rejected events summary rejects cursor.
 
 Current analytics limitations:
 
 - Usage and rejected traffic analytics are event-based only.
 - No aggregate rollup table yet.
 - No retention job yet.
-- No cursor pagination for very large event datasets yet.
 
 ---
 
@@ -376,7 +381,7 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-20.md
+- docs/sdlc/sprint-history/sprint-21.md
 - docs/runbooks/api-usage-analytics.md
 - docs/runbooks/api-rejected-events.md
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
@@ -433,7 +438,6 @@ Work style:
 - Rejected event analytics is event-based only.
 - No aggregate rollup table yet.
 - No retention policy job yet.
-- No cursor pagination for very large event datasets yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
 - No quota usage dashboard yet.
@@ -459,15 +463,16 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 21 after confirming Sprint 20 docs are committed and pushed.
+Start Sprint 22 after confirming Sprint 21 docs are committed and pushed.
 
-Recommended directions:
+Recommended direction:
 
 - Analytics Retention/Rollup Implementation Foundation.
-- Usage Analytics Cursor Pagination and Investigation Hardening.
 
 Before starting:
 
 - Confirm git status is clean.
 - Confirm latest docs commit is pushed.
 - Keep implementation small and testable.
+- Preserve quota correctness.
+- Keep successful usage and rejected/security event storage separate.

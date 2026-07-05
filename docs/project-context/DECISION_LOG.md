@@ -1,4 +1,4 @@
-﻿# Decision Log
+# Decision Log
 
 ## Scope
 
@@ -12,15 +12,35 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.21.0
+v0.22.0
 
 ## Latest Completed Sprint
 
-Sprint 20 - Usage Analytics Listing and Event Investigation
+Sprint 21 - Usage Analytics Cursor Pagination and Investigation Hardening
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-05 - Event investigation uses cursor pagination for large listings
+
+Decision:
+
+- Add cursor pagination to successful usage events listing.
+- Add cursor pagination to rejected events listing.
+- Use occurredAt and id as cursor fields because both listings sort by occurredAt desc and id desc.
+- Return nextCursor in raw event listing pagination responses.
+- Reject requests that combine offset and cursor.
+- Reject cursor on rejected event summary because cursor is only meaningful for raw event listing.
+- Do not change usage recording, rejected event recording, quota counting, migrations, retention jobs, or rollup tables.
+
+Reason:
+
+- Offset pagination becomes less efficient and less stable on larger event datasets.
+- Cursor pagination improves admin investigation continuity without changing storage schema.
+- Keeping this as read-only listing behavior protects quota correctness and event separation.
+
+---
 
 ### 2026-07-04 - Successful usage event investigation uses read-only listing API
 

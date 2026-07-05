@@ -1,4 +1,4 @@
-﻿# PulseGate Requirements
+# PulseGate Requirements
 
 ## Project
 
@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.21.0
+v0.22.0
 
 ## Latest Completed Sprint
 
-Sprint 20 - Usage Analytics Listing and Event Investigation
+Sprint 21 - Usage Analytics Cursor Pagination and Investigation Hardening
 
 ---
 
@@ -336,7 +336,8 @@ Required behavior:
 
 - Endpoint requires x-admin-api-key.
 - Listing returns raw successful usage event rows.
-- Listing supports safe pagination with limit, offset, total, and hasNextPage.
+- Listing supports offset pagination with limit, offset, total, and hasNextPage.
+- Listing supports cursor pagination with nextCursor for large event investigation.
 - Default limit is 20.
 - Maximum limit is 100.
 - Sort order is occurredAt desc and id desc.
@@ -346,6 +347,30 @@ Required behavior:
 - Usage event listing must read from gateway.api_usage_events only.
 - Usage event listing must not mix in gateway.api_rejected_events.
 - Usage event listing must not change quota counting.
+
+Status:
+
+Implemented.
+
+---
+
+### FR-024 Event Listing Cursor Pagination
+
+PulseGate shall support cursor pagination for raw successful usage events and raw rejected events to improve investigation on larger event datasets.
+
+Current endpoints:
+
+- GET /internal/admin/usage/events
+- GET /internal/admin/api-rejections/events
+
+Required behavior:
+
+- Cursor pagination uses occurredAt and id because listings sort by occurredAt desc and id desc.
+- Response pagination includes nextCursor.
+- Cursor requests keep offset at 0.
+- offset cannot be used together with cursor.
+- Rejected events summary rejects cursor because cursor is only meaningful for raw listing.
+- Cursor pagination must not change usage recording, rejected event recording, or quota counting.
 
 Status:
 
@@ -372,7 +397,7 @@ Implemented.
 Current result:
 
 - 59 test files passed
-- 396 tests passed
+- 414 tests passed
 
 Validation:
 
@@ -400,7 +425,7 @@ Implemented.
 
 Latest runtime validation:
 
-- Docker runtime usage events listing validation passed.
+- Docker runtime cursor pagination validation passed.
 
 Status:
 
@@ -442,7 +467,6 @@ Implemented.
 - Rejected event analytics is event-based only.
 - No aggregate rollup table yet.
 - No retention policy job yet.
-- No cursor pagination for very large event datasets yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
 - No quota usage Grafana dashboard yet.
@@ -467,7 +491,6 @@ Implemented.
 
 Recommended next:
 
-- Consider cursor pagination for very large event datasets.
 - Implement event retention policy for api_usage_events and api_rejected_events.
 - Implement aggregate rollup tables for high-volume analytics.
 - Add Grafana panels for quota, usage, and rejected traffic later.

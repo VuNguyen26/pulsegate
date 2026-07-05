@@ -1,4 +1,4 @@
-﻿# API Usage Analytics Runbook
+# API Usage Analytics Runbook
 
 ## Purpose
 
@@ -11,7 +11,7 @@ It covers current behavior for:
 - Raw successful usage event listing.
 - Invalid query handling.
 - Normalized filter response.
-- Safe pagination for usage event listing.
+- Safe offset and cursor pagination for usage event listing.
 
 ---
 
@@ -36,6 +36,11 @@ Expected local env values:
 Start infrastructure:
 
     docker compose up -d postgres redis
+
+Apply API Gateway migrations:
+
+    $env:DATABASE_URL = "postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
+    npx prisma migrate deploy --schema apps/api-gateway/prisma/schema.prisma
 
 Rebuild and start services:
 
@@ -86,12 +91,13 @@ Successful usage events listing:
 
     GET /internal/admin/usage/events
 
-Supported pagination:
+Supported pagination fields:
 
 - limit
 - offset
 - total
 - hasNextPage
+- nextCursor
 
 Pagination rules:
 
@@ -99,6 +105,10 @@ Pagination rules:
 - Maximum limit is 100.
 - Default offset is 0.
 - Sort order is occurredAt desc and id desc.
+- Offset pagination uses limit and offset.
+- Cursor pagination uses nextCursor from the previous response.
+- Cursor payload is based on occurredAt and id from the last item in the current page.
+- offset cannot be used together with cursor.
 
 Supported filters:
 
@@ -121,6 +131,10 @@ Validation rules:
 - cacheStatus must be one of HIT, MISS, BYPASS.
 - limit must be an integer between 1 and 100.
 - offset must be an integer greater than or equal to 0.
+- cursor must be a valid base64url encoded JSON object when provided.
+- cursor.occurredAt must be a valid ISO date-time string.
+- cursor.id must be a non-empty string.
+- offset and cursor cannot be used together.
 - Invalid query returns 400 INVALID_QUERY_PARAMETER.
 
 Important behavior:
@@ -128,33 +142,58 @@ Important behavior:
 - Usage events listing reads from gateway.api_usage_events only.
 - Rejected requests are stored in gateway.api_rejected_events, not gateway.api_usage_events.
 - Raw API keys, JWTs, and Authorization headers are not stored or returned.
+- Cursor pagination does not change usage recording or quota counting.
+
+---
+
+## Cursor Pagination Runtime Check
+
+First page:
+
+    curl.exe -s "http://localhost:3000/internal/admin/usage/events?limit=1" -H "x-admin-api-key: local-admin-key"
+
+Expected:
+
+- HTTP 200.
+- data.items contains at least one item when usage events exist.
+- data.pagination.nextCursor is present when another page exists.
+
+Second page:
+
+    curl.exe -s "http://localhost:3000/internal/admin/usage/events?limit=1&cursor=<nextCursor>" -H "x-admin-api-key: local-admin-key"
+
+Expected:
+
+- HTTP 200.
+- data.pagination.offset = 0.
+- returned item continues after the previous page when more events exist.
+
+Invalid offset plus cursor:
+
+    curl.exe -i "http://localhost:3000/internal/admin/usage/events?limit=1&offset=1&cursor=<nextCursor>" -H "x-admin-api-key: local-admin-key"
+
+Expected:
+
+- HTTP 400.
+- error.code = INVALID_QUERY_PARAMETER.
 
 ---
 
 ## Runtime Validation Summary
 
-Sprint 20 runtime validation proved:
+Sprint 21 runtime validation proved:
 
 - GET /health returns 200.
-- Admin can create a consumer.
-- Admin can issue an API key.
 - Protected GET /api/products succeeds when both x-api-key and Authorization Bearer JWT are provided.
-- A successful protected request creates a gateway.api_usage_events row.
-- GET /internal/admin/usage/events?limit=101 returns 400 INVALID_QUERY_PARAMETER.
-- GET /internal/admin/usage/events returns 200 with default limit 20 and offset 0.
-- Filtered usage event listing returns 200 with normalized filters.
-- Filtered usage event listing can return the generated successful usage event.
+- Successful protected requests create gateway.api_usage_events rows.
+- Rejected requests create gateway.api_rejected_events rows.
+- GET /internal/admin/usage/events?limit=1 returns nextCursor when more rows exist.
+- GET /internal/admin/usage/events?limit=1&cursor=<nextCursor> returns the next page.
+- GET /internal/admin/usage/events?limit=1&offset=1&cursor=<nextCursor> returns 400 INVALID_QUERY_PARAMETER.
 
-Expected status sequence:
+Validation status:
 
-    Checking health...
-    Creating validation consumer...
-    Creating validation API key...
-    Generating successful usage event...
-    Checking invalid usage events listing query...
-    Checking default usage events listing...
-    Checking filtered usage events listing...
-    Usage events listing runtime validation PASSED
+- Passed.
 
 ---
 
@@ -162,12 +201,8 @@ Expected status sequence:
 
 When generating a protected usage event for GET /api/products, send both:
 
-    x-api-key: <rawKey from API key issue response>
+    x-api-key: <rawKey from API key issue response or dev-api-key>
     Authorization: Bearer <valid local JWT>
-
-The API key issue response returns the raw key as:
-
-    data.rawKey
 
 The protected product route currently requires:
 
@@ -201,14 +236,6 @@ Check admin API key header:
 
 The protected route GET /api/products requires both x-api-key and Authorization Bearer JWT.
 
-### API key creation response does not include key
-
-The issue API key response returns the raw key as rawKey.
-
-Use:
-
-    $plainApiKey = $keyResponse.Json.data.rawKey
-
 ### Invalid query does not return 400
 
 Check that the query parser is wired in:
@@ -216,12 +243,6 @@ Check that the query parser is wired in:
 - apps/api-gateway/src/routes/admin-api-usage.route.ts
 - apps/api-gateway/src/api-usage/api-usage-events-listing-query.ts
 - apps/api-gateway/src/api-usage/api-usage-summary-query.ts
-
-### Filters are not normalized
-
-Check parser tests:
-
-    npm run test --workspace api-gateway -- src/api-usage/api-usage-events-listing-query.test.ts src/api-usage/api-usage-summary-query.test.ts
 
 ### Listing rows are unexpected
 
