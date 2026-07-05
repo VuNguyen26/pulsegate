@@ -1,4 +1,4 @@
-﻿# PulseGate
+# PulseGate
 
 High-Traffic API Gateway & Observability Platform.
 
@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.23.0
+- v0.24.0
 
 Latest completed sprint:
 
-- Sprint 22 - Analytics Retention/Rollup Implementation Foundation
+- Sprint 23 - Analytics Rollup Persistence Foundation
 
 ---
 
@@ -45,14 +45,20 @@ PulseGate currently includes:
 - Analytics rollup window planner foundation
 - Usage rollup aggregate builder foundation
 - Rejected rollup aggregate builder foundation
+- Analytics rollup persistence schema
+- Analytics rollup dimension hash builder
+- Usage rollup persistence repository
+- Rejected rollup persistence repository
+- Analytics rollup persistence service
 
 Latest validation:
 
-- 63 test files passed
-- 443 tests passed
+- 67 test files passed
+- 461 tests passed
 - npm run typecheck passed
 - npm run build passed
-- No Docker runtime validation required for Sprint 22 because runtime APIs and behavior were not changed
+- Prisma schema validate passed
+- Shadow database migration deploy passed for all API Gateway migrations, including analytics rollup tables
 
 ---
 
@@ -135,7 +141,7 @@ Current internal/admin capabilities:
 Successful usage behavior:
 
 - Successful downstream proxy/cache handler responses are recorded into gateway.api_usage_events.
-- gateway.api_usage_events is the source of truth for successful usage analytics and quota counting.
+- gateway.api_usage_events remains the source of truth for successful usage analytics and quota counting.
 - Consumer and API key usage summaries support filters by time range, route, method, status code, cache status, and API key auth source.
 - Raw successful usage events can be listed through GET /internal/admin/usage/events.
 - Usage event listing supports offset pagination with limit, offset, total, and hasNextPage, plus cursor pagination with nextCursor.
@@ -144,22 +150,26 @@ Successful usage behavior:
 Rejected request behavior:
 
 - Failed auth, rate-limited, and quota-denied requests are recorded into gateway.api_rejected_events.
-- gateway.api_rejected_events is used for rejected/security traffic observability.
+- gateway.api_rejected_events remains the source of truth for rejected/security traffic observability.
 - Rejected events can be queried through aggregate summary and raw listing endpoints with offset and cursor pagination.
 - Raw API keys, JWTs, and Authorization headers are not stored or returned.
 
-Analytics rollup foundation behavior:
+Analytics rollup persistence foundation behavior:
 
-- Sprint 22 added code/test-only rollup foundation helpers under apps/api-gateway/src/analytics.
-- Current helpers support UTC hourly/daily bucket calculation, window planning, usage event aggregation, and rejected event aggregation.
-- The helpers do not read from the database, write to the database, change runtime APIs, or change quota counting.
+- Sprint 22 added rollup calculation helpers under apps/api-gateway/src/analytics.
+- Sprint 23 added rollup persistence tables, dimension hashing, repositories, and an internal persistence service.
+- Rollup persistence is separate for successful usage and rejected/security traffic.
+- Rollup upserts use a dimensionHash to avoid nullable-dimension uniqueness issues.
+- Current runtime summary and listing APIs still read raw event tables.
+- Rollup persistence is not wired into runtime endpoints or background jobs yet.
+- Quota counting still reads gateway.api_usage_events.
 
 Current analytics limitation:
 
 - Usage and rejected analytics are still event-based at runtime.
-- No retention job is implemented yet.
-- No aggregate rollup table is implemented yet.
 - No rollup backfill command is implemented yet.
+- No retention job is implemented yet.
+- Summary APIs have not been switched to read rollup tables yet.
 
 ---
 
@@ -215,7 +225,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-22.md
+- docs/sdlc/sprint-history/sprint-23.md
 
 Latest usage analytics runbook:
 
@@ -233,11 +243,11 @@ Latest decision record:
 
 ## Recommended Next Sprint
 
-Sprint 23 recommended direction:
+Sprint 24 recommended direction:
 
-- Analytics Rollup Persistence or Retention Safety Foundation
+- Analytics Rollup Backfill Command or Retention Safety Foundation
 
 Reason:
 
-- Sprint 22 added safe rollup calculation foundations without changing runtime behavior.
-- The next backend step can choose between a small rollup persistence schema design or a safe retention configuration foundation.
+- Sprint 23 added safe persistence foundations without changing runtime analytics or quota behavior.
+- The next backend step can either add a controlled backfill command or start safe retention dry-run planning.

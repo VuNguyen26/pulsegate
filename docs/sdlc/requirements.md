@@ -1,4 +1,4 @@
-﻿# PulseGate Requirements
+# PulseGate Requirements
 
 ## Project
 
@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.23.0
+v0.24.0
 
 ## Latest Completed Sprint
 
-Sprint 22 - Analytics Retention/Rollup Implementation Foundation
+Sprint 23 - Analytics Rollup Persistence Foundation
 
 ---
 
@@ -96,12 +96,6 @@ Implemented.
 ### FR-004 JWT Authentication
 
 PulseGate shall protect selected routes with JWT authentication.
-
-Current local values:
-
-- JWT_SECRET=local-dev-jwt-secret-change-me
-- JWT_ISSUER=pulsegate-api-gateway
-- JWT_AUDIENCE=pulsegate-clients
 
 Status:
 
@@ -197,16 +191,6 @@ Current endpoints:
 
 - GET /internal/admin/usage/consumers/:consumerId/summary
 - GET /internal/admin/usage/api-keys/:apiKeyId/summary
-
-Supported filters:
-
-- from
-- to
-- routePath
-- routeMethod
-- statusCode
-- cacheStatus
-- apiKeyAuthSource
 
 Status:
 
@@ -317,7 +301,7 @@ PulseGate shall keep a clear design path for high-volume analytics storage lifec
 
 Status:
 
-Designed. Initial code/test-only rollup calculation foundation implemented in Sprint 22. Runtime persistence is not implemented yet.
+Designed. Rollup calculation foundation implemented in Sprint 22. Rollup persistence foundation implemented in Sprint 23.
 
 ---
 
@@ -328,26 +312,6 @@ PulseGate shall expose raw successful usage events for admin investigation.
 Current endpoint:
 
 - GET /internal/admin/usage/events
-
-Source table:
-
-- gateway.api_usage_events
-
-Required behavior:
-
-- Endpoint requires x-admin-api-key.
-- Listing returns raw successful usage event rows.
-- Listing supports offset pagination with limit, offset, total, and hasNextPage.
-- Listing supports cursor pagination with nextCursor for large event investigation.
-- Default limit is 20.
-- Maximum limit is 100.
-- Sort order is occurredAt desc and id desc.
-- Supported filters include from, to, routePath, routeMethod, statusCode, cacheStatus, apiKeyAuthSource, apiKeyId, and consumerId.
-- Query validation returns 400 INVALID_QUERY_PARAMETER for invalid values.
-- Usage event listing must not expose raw API keys, JWTs, or Authorization headers.
-- Usage event listing must read from gateway.api_usage_events only.
-- Usage event listing must not mix in gateway.api_rejected_events.
-- Usage event listing must not change quota counting.
 
 Status:
 
@@ -363,15 +327,6 @@ Current endpoints:
 
 - GET /internal/admin/usage/events
 - GET /internal/admin/api-rejections/events
-
-Required behavior:
-
-- Cursor pagination uses occurredAt and id because listings sort by occurredAt desc and id desc.
-- Response pagination includes nextCursor.
-- Cursor requests keep offset at 0.
-- offset cannot be used together with cursor.
-- Rejected events summary rejects cursor because cursor is only meaningful for raw listing.
-- Cursor pagination must not change usage recording, rejected event recording, or quota counting.
 
 Status:
 
@@ -391,18 +346,35 @@ Current helper capabilities:
 - Usage event aggregate builder.
 - Rejected event aggregate builder.
 
+Status:
+
+Implemented.
+
+---
+
+### FR-026 Analytics Rollup Persistence Foundation
+
+PulseGate shall provide persistence foundations for future analytics rollup backfill and long-range analytics.
+
+Current persistence capabilities:
+
+- Separate usage and rejected rollup tables.
+- Stable dimensionHash for idempotent upsert keys.
+- Usage rollup persistence repository.
+- Rejected rollup persistence repository.
+- Internal persistence service that aggregates raw-shaped events and persists rollups.
+
 Required safety:
 
-- Must not read from or write to PostgreSQL.
-- Must not change runtime APIs.
-- Must not change usage recording.
-- Must not change rejected event recording.
-- Must not change quota counting.
 - Must keep successful usage and rejected/security traffic separate.
+- Must not change quota counting.
+- Must not change usage or rejected event recorders.
+- Must not switch runtime summary APIs to rollup reads until explicitly designed.
+- Must not delete raw events.
 
 Status:
 
-Implemented as code/test foundation only.
+Implemented as foundation.
 
 ---
 
@@ -424,8 +396,8 @@ Implemented.
 
 Current result:
 
-- 63 test files passed
-- 443 tests passed
+- 67 test files passed
+- 461 tests passed
 
 Validation:
 
@@ -451,10 +423,10 @@ Implemented.
 
 ### NFR-004 Docker Local Runtime
 
-Latest runtime validation:
+Latest validation:
 
-- Docker runtime cursor pagination validation passed in Sprint 21.
-- Sprint 22 did not require Docker runtime validation because runtime APIs and behavior were not changed.
+- Shadow database migration deploy passed for all API Gateway migrations, including analytics rollup tables.
+- Full Docker runtime API validation was not required for Sprint 23 because runtime API behavior was not changed.
 
 Status:
 
@@ -464,7 +436,7 @@ Implemented.
 
 ### NFR-005 Observability
 
-Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, and rejected event APIs.
+Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, and rollup persistence foundations.
 
 Status:
 
@@ -476,14 +448,6 @@ Implemented as foundation.
 
 Raw API keys shall not be persisted.
 
-Current behavior:
-
-- keyHash is stored.
-- keyPrefix is stored.
-- rawKey is returned only once.
-- keyHash is never exposed in admin responses.
-- Usage and rejected event analytics do not store or return raw API keys.
-
 Status:
 
 Implemented.
@@ -494,8 +458,8 @@ Implemented.
 
 - Usage data is event-based at runtime.
 - Rejected event analytics is event-based at runtime.
-- Rollup calculation helpers exist, but no aggregate rollup table yet.
-- No rollup backfill command yet.
+- Rollup tables and persistence repositories exist, but no backfill command uses them yet.
+- Runtime summary APIs have not switched to rollup reads.
 - No retention policy job yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
@@ -521,10 +485,9 @@ Implemented.
 
 Recommended next:
 
-- Design or implement a small rollup persistence schema.
 - Add a safe rollup backfill command later.
 - Implement event retention policy for api_usage_events and api_rejected_events later.
-- Add Grafana panels for quota, usage, and rejected traffic later.
+- Add Grafana panels for quota, usage, rejected traffic, and rollups later.
 - Add Admin Dashboard later.
 - Add Developer Portal later.
 - Add service discovery later.

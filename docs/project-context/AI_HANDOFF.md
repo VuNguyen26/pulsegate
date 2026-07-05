@@ -1,4 +1,4 @@
-﻿# PulseGate AI Handoff
+# PulseGate AI Handoff
 
 ## Purpose
 
@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.23.0
+- v0.24.0
 
 Latest completed sprint:
 
-- Sprint 22 - Analytics Retention/Rollup Implementation Foundation
+- Sprint 23 - Analytics Rollup Persistence Foundation
 
 Recommended next technical sprint:
 
-- Sprint 23 - Analytics Rollup Persistence or Retention Safety Foundation
+- Sprint 24 - Analytics Rollup Backfill Command or Retention Safety Foundation
 
 ---
 
@@ -109,23 +109,25 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 22:
+Latest stable validation from Sprint 23:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
+- npx prisma validate -> passed
+- npx prisma migrate deploy -> passed on clean shadow database
 
 Latest automated test result:
 
-- 63 test files passed
-- 443 tests passed
+- 67 test files passed
+- 461 tests passed
 
-Docker runtime validation:
+Runtime validation:
 
-- Not required for Sprint 22 because no runtime API, Docker, database schema, recorder, or quota behavior changed.
-- Latest Docker runtime validation remains Sprint 21 cursor pagination validation.
+- Full Docker runtime API validation was not required for Sprint 23 because runtime APIs and behavior were not changed.
+- Shadow database migration deploy validated the new analytics rollup migration safely without resetting the main local database.
 
-Sprint 22 preserved:
+Sprint 23 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
@@ -133,9 +135,9 @@ Sprint 22 preserved:
 - No quota checker changes.
 - No usage recorder changes.
 - No rejected event recorder changes.
-- No migration.
 - No retention job.
-- No rollup table.
+- No backfill command.
+- No summary API switch to rollup reads.
 
 ---
 
@@ -175,7 +177,7 @@ API Gateway currently supports:
 - Rejected events summary endpoint.
 - Filtered rejected events summary endpoint.
 - Rejected events listing endpoint with filters, safe offset pagination, and cursor pagination.
-- Analytics rollup calculation helpers.
+- Analytics rollup calculation and persistence foundations.
 - 429 QUOTA_EXCEEDED responses with quota metadata.
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
@@ -209,13 +211,9 @@ API Gateway owns:
 - gateway.usage_plans
 - gateway.api_usage_events
 - gateway.api_rejected_events
+- gateway.api_usage_rollups
+- gateway.api_rejected_rollups
 - gateway._prisma_migrations
-
-Reason:
-
-- Product Service owns product data.
-- API Gateway owns Gateway route config, API consumers, issued API keys, usage plans, usage events, and rejected request events.
-- Separate schemas avoid Prisma migration drift and ownership conflicts.
 
 ---
 
@@ -233,6 +231,11 @@ Rejected event table:
 
 - gateway.api_rejected_events
 
+Rollup tables:
+
+- gateway.api_usage_rollups
+- gateway.api_rejected_rollups
+
 Admin usage analytics endpoints:
 
 - GET /internal/admin/usage/events
@@ -243,35 +246,23 @@ Usage events listing behavior:
 
 - Reads from gateway.api_usage_events only.
 - Returns raw successful usage event rows.
-- Supports offset pagination with limit, offset, total, and hasNextPage.
-- Supports cursor pagination with nextCursor for large event investigation.
-- Default limit is 20.
-- Maximum limit is 100.
-- Sorts by occurredAt desc and id desc.
-- Cursor pagination uses occurredAt and id from the last item in the current page.
-- offset cannot be used together with cursor.
+- Supports offset pagination and cursor pagination.
 - Supports filters by from, to, routePath, routeMethod, statusCode, cacheStatus, apiKeyAuthSource, apiKeyId, and consumerId.
-- Invalid query returns 400 INVALID_QUERY_PARAMETER.
 - Does not expose raw API keys, JWTs, or Authorization headers.
 
 Usage summary behavior:
 
-- Usage summaries read from gateway.api_usage_events only.
+- Usage summaries still read from gateway.api_usage_events only.
 - Supported filters include from, to, routePath, routeMethod, statusCode, cacheStatus, and apiKeyAuthSource.
-- Invalid query returns 400 INVALID_QUERY_PARAMETER.
-- routeMethod is normalized to uppercase.
-- cacheStatus is normalized to HIT, MISS, or BYPASS.
 
 Quota behavior:
 
 - Applies to DB-backed API keys with assigned enabled usage plans.
-- Supports DAILY and MONTHLY quota windows.
 - Counts usage events from gateway.api_usage_events.
 - Returns 429 QUOTA_EXCEEDED when the current window quota is exhausted.
-- Does not enforce quota for env fallback API keys.
-- Does not enforce quota for public routes.
 - Records quota-denied requests into gateway.api_rejected_events.
 - Does not record rejected requests into gateway.api_usage_events.
+- Does not use rollup tables for quota counting.
 
 Rejected event behavior:
 
@@ -287,16 +278,18 @@ Analytics rollup foundation:
 - Rollup helpers live in apps/api-gateway/src/analytics.
 - Helpers support UTC hourly/daily bucket calculation.
 - Helpers support rebuild window planning and maxBuckets.
-- Helpers aggregate raw successful usage events into future rollup-shaped records.
-- Helpers aggregate raw rejected events into future rollup-shaped records.
-- Helpers are code/test-only and not connected to runtime persistence yet.
+- Helpers aggregate raw successful usage events and raw rejected events.
+- Dimension hash builder creates stable SHA-256 hashes from rollup dimensions.
+- Usage and rejected rollup repositories upsert by dimensionHash.
+- Persistence service aggregates raw-shaped events and delegates persistence.
+- Rollups are not connected to runtime summaries, backfill commands, background jobs, retention, or quota counting yet.
 
 Current analytics limitations:
 
 - Usage and rejected traffic analytics are event-based at runtime.
-- No aggregate rollup table yet.
 - No rollup backfill command yet.
 - No retention job yet.
+- Runtime summary APIs have not switched to rollup reads.
 
 ---
 
@@ -350,35 +343,25 @@ Admin auth:
 - Local key: local-admin-key
 - Optional actor header: x-admin-actor
 
-JWT local validation:
-
-- JWT_SECRET=local-dev-jwt-secret-change-me
-- JWT_ISSUER=pulsegate-api-gateway
-- JWT_AUDIENCE=pulsegate-clients
-
 ---
 
 ## Important Files
 
 Analytics rollup foundation:
 
+- apps/api-gateway/prisma/schema.prisma
 - apps/api-gateway/src/analytics/analytics-rollup-time-bucket.ts
 - apps/api-gateway/src/analytics/analytics-rollup-window-plan.ts
 - apps/api-gateway/src/analytics/analytics-usage-rollup-aggregate.ts
 - apps/api-gateway/src/analytics/analytics-rejected-rollup-aggregate.ts
+- apps/api-gateway/src/analytics/analytics-rollup-dimension-hash.ts
+- apps/api-gateway/src/analytics/analytics-usage-rollup.repository.ts
+- apps/api-gateway/src/analytics/analytics-rejected-rollup.repository.ts
+- apps/api-gateway/src/analytics/analytics-rollup-persistence-service.ts
 
 API Gateway usage tracking and analytics:
 
-- apps/api-gateway/prisma/schema.prisma
-- apps/api-gateway/src/api-usage/api-usage-recorder.ts
-- apps/api-gateway/src/api-usage/api-usage-summary-query.ts
-- apps/api-gateway/src/api-usage/api-usage-summary.repository.ts
-- apps/api-gateway/src/api-usage/api-usage-summary.mapper.ts
-- apps/api-gateway/src/api-usage/api-usage-summary.types.ts
-- apps/api-gateway/src/api-usage/api-usage-events-listing-query.ts
-- apps/api-gateway/src/api-usage/api-usage-events-listing.repository.ts
-- apps/api-gateway/src/api-usage/api-usage-events-listing.mapper.ts
-- apps/api-gateway/src/api-usage/api-usage-events-listing.types.ts
+- apps/api-gateway/src/api-usage/
 - apps/api-gateway/src/routes/admin-api-usage.route.ts
 - apps/api-gateway/src/proxy/downstream-proxy-handler.ts
 
@@ -403,7 +386,7 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-22.md
+- docs/sdlc/sprint-history/sprint-23.md
 - docs/runbooks/api-usage-analytics.md
 - docs/runbooks/api-rejected-events.md
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
@@ -458,7 +441,8 @@ Work style:
 
 - Usage data is event-based at runtime.
 - Rejected event analytics is event-based at runtime.
-- Rollup calculation helpers exist, but no aggregate rollup table yet.
+- Rollup tables and persistence repositories exist, but no backfill command uses them yet.
+- Runtime summary APIs have not switched to rollup reads.
 - No rollup backfill command yet.
 - No retention policy job yet.
 - No per-consumer Grafana dashboard yet.
@@ -486,11 +470,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 23 after confirming Sprint 22 docs are committed and pushed.
+Start Sprint 24 after confirming Sprint 23 docs are committed and pushed.
 
 Recommended direction:
 
-- Analytics Rollup Persistence or Retention Safety Foundation.
+- Analytics Rollup Backfill Command or Retention Safety Foundation.
 
 Before starting:
 

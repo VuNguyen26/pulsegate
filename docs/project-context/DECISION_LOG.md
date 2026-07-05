@@ -1,4 +1,4 @@
-﻿# Decision Log
+# Decision Log
 
 ## Scope
 
@@ -12,15 +12,36 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.23.0
+v0.24.0
 
 ## Latest Completed Sprint
 
-Sprint 22 - Analytics Retention/Rollup Implementation Foundation
+Sprint 23 - Analytics Rollup Persistence Foundation
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-05 - Analytics rollup persistence uses separate tables and dimension hashes
+
+Decision:
+
+- Add separate rollup tables for successful usage and rejected/security traffic.
+- Use dimensionHash as a stable unique upsert key for rollup persistence.
+- Build dimensionHash from rollup dimensions only, not metrics.
+- Keep usage and rejected rollup repositories separate.
+- Add an internal persistence service that aggregates raw-shaped events and delegates to repositories.
+- Do not switch runtime summary APIs to rollup reads in Sprint 23.
+- Do not change quota counting, usage recording, rejected event recording, retention, or runtime APIs.
+
+Reason:
+
+- PostgreSQL unique constraints over nullable dimensions are not safe for idempotent rollup upserts because NULL values do not compare as equal.
+- A dimension hash gives a stable upsert key across nullable dimensions.
+- Separate usage and rejected rollup tables preserve existing data ownership and quota safety.
+- Keeping runtime reads on raw event tables avoids silently changing analytics or quota behavior before a backfill strategy exists.
+
+---
 
 ### 2026-07-05 - Analytics rollup foundation starts as code/test-only helpers
 
@@ -38,7 +59,6 @@ Reason:
 - Rollup and retention need careful foundations around time boundaries, backfill scope, partial recalculation, and quota correctness.
 - Code/test-only helpers provide a safe foundation before persistence.
 - Keeping successful usage and rejected/security event aggregation separate preserves current data ownership and quota safety.
-- Avoiding runtime changes keeps Sprint 22 small and low risk.
 
 ---
 
@@ -78,7 +98,6 @@ Reason:
 - Admins need raw successful usage investigation similar to rejected event drilldown.
 - A read-only listing endpoint is enough for Sprint 20.
 - Keeping successful usage and rejected/security traffic separate protects quota correctness.
-- Avoiding migrations and rollup tables keeps Sprint 20 small and safe.
 
 ---
 
@@ -96,7 +115,6 @@ Reason:
 - Filtered summaries provide immediate admin analytics value.
 - Retention and rollup need careful schema and lifecycle design before implementation.
 - gateway.api_usage_events is still used for quota counting, so changes must not corrupt quota behavior.
-- Avoiding premature rollup tables keeps Sprint 19 small and safe.
 
 Detailed record:
 
@@ -119,7 +137,6 @@ Reason:
 - Admins need both aggregate and raw rejected traffic visibility.
 - Filterable read endpoints are enough for Sprint 18 without introducing rollup tables.
 - Keeping successful usage and rejected/security traffic separate protects quota correctness.
-- Avoiding raw key/JWT storage keeps rejected event observability safer.
 
 ---
 
