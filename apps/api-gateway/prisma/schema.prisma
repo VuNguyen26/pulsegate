@@ -196,6 +196,89 @@ enum ApiRejectionReason {
   QUOTA_EXCEEDED
 }
 
+model AnalyticsUsageRollup {
+  id String @id @default(cuid())
+
+  granularity String
+
+  bucketStart DateTime @map("bucket_start")
+  bucketEnd   DateTime @map("bucket_end")
+
+  dimensionHash String @unique @map("dimension_hash")
+
+  consumerId String? @map("consumer_id")
+  apiKeyId   String? @map("api_key_id")
+
+  routePath   String             @map("route_path")
+  routeMethod GatewayRouteMethod @map("route_method")
+
+  statusClass String  @map("status_class")
+  cacheStatus String? @map("cache_status")
+
+  apiKeyAuthSource String? @map("api_key_auth_source")
+
+  totalRequests      Int @map("total_requests")
+  successfulRequests Int @map("successful_requests")
+  errorRequests      Int @map("error_requests")
+
+  totalDurationMs   Int @map("total_duration_ms")
+  averageDurationMs Int @map("average_duration_ms")
+
+  cacheHits     Int @map("cache_hits")
+  cacheMisses   Int @map("cache_misses")
+  cacheBypasses Int @map("cache_bypasses")
+
+  lastRequestAt DateTime @map("last_request_at")
+
+  rolledUpAt DateTime @default(now()) @map("rolled_up_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([granularity, bucketStart], name: "api_usage_rollups_granularity_bucket_start_idx")
+  @@index([consumerId, granularity, bucketStart], name: "api_usage_rollups_consumer_id_granularity_bucket_start_idx")
+  @@index([apiKeyId, granularity, bucketStart], name: "api_usage_rollups_api_key_id_granularity_bucket_start_idx")
+  @@index([routeMethod, routePath, granularity, bucketStart], name: "api_usage_rollups_route_gran_bucket_idx")
+  @@index([statusClass, granularity, bucketStart], name: "api_usage_rollups_status_class_granularity_bucket_start_idx")
+  @@index([cacheStatus, granularity, bucketStart], name: "api_usage_rollups_cache_status_granularity_bucket_start_idx")
+  @@map("api_usage_rollups")
+}
+
+model AnalyticsRejectedRollup {
+  id String @id @default(cuid())
+
+  granularity String
+
+  bucketStart DateTime @map("bucket_start")
+  bucketEnd   DateTime @map("bucket_end")
+
+  dimensionHash String @unique @map("dimension_hash")
+
+  consumerId String? @map("consumer_id")
+  apiKeyId   String? @map("api_key_id")
+
+  routePath   String?             @map("route_path")
+  routeMethod GatewayRouteMethod? @map("route_method")
+
+  rejectionReason ApiRejectionReason @map("rejection_reason")
+  statusCode      Int                @map("status_code")
+
+  apiKeyAuthSource String? @map("api_key_auth_source")
+
+  totalRejectedRequests Int @map("total_rejected_requests")
+
+  lastRejectedAt DateTime @map("last_rejected_at")
+
+  rolledUpAt DateTime @default(now()) @map("rolled_up_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([granularity, bucketStart], name: "api_rejected_rollups_granularity_bucket_start_idx")
+  @@index([consumerId, granularity, bucketStart], name: "api_rejected_rollups_consumer_id_granularity_bucket_start_idx")
+  @@index([apiKeyId, granularity, bucketStart], name: "api_rejected_rollups_api_key_id_granularity_bucket_start_idx")
+  @@index([routeMethod, routePath, granularity, bucketStart], name: "api_rejected_rollups_route_gran_bucket_idx")
+  @@index([rejectionReason, granularity, bucketStart], name: "api_rejected_rollups_reason_granularity_bucket_start_idx")
+  @@index([statusCode, granularity, bucketStart], name: "api_rejected_rollups_status_code_granularity_bucket_start_idx")
+  @@map("api_rejected_rollups")
+}
+
 model ApiRejectedEvent {
   id String @id @default(cuid())
 
