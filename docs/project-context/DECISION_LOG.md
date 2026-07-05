@@ -12,15 +12,39 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.25.0
+v0.26.0
 
 ## Latest Completed Sprint
 
-Sprint 24 - Analytics Rollup Backfill Command
+Sprint 25 - Analytics Rollup Read Model Foundation
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-05 - Analytics rollup read model stays read-only and separate from summaries
+
+Decision:
+
+- Add a read-only analytics rollup query model.
+- Add separate read repositories for usage rollups and rejected rollups.
+- Add a small read service that dispatches by source.
+- Expose GET /internal/admin/analytics/rollups for internal/admin rollup reads.
+- Require source, from, to, and granularity.
+- Support usage-specific cacheStatus filtering only for usage rollups.
+- Support rejected-specific rejectionReason filtering only for rejected rollups.
+- Keep existing usage and rejected summary APIs on raw event tables.
+- Keep quota counting on gateway.api_usage_events.
+- Do not add retention deletion or scheduled/background jobs in Sprint 25.
+
+Reason:
+
+- Rollup tables need an observable read path before retention work.
+- A separate read-only endpoint validates rollup table access without changing existing analytics semantics.
+- Keeping summary APIs event-based prevents accidental behavior changes.
+- Keeping quota counting on raw successful usage events protects quota correctness.
+
+---
 
 ### 2026-07-05 - Analytics rollup persistence uses separate tables and dimension hashes
 

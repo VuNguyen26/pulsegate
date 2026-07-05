@@ -1,0 +1,170 @@
+﻿# Analytics Rollup Read Runbook
+
+## Scope
+
+This runbook covers the read-only analytics rollup endpoint added in Sprint 25.
+
+Endpoint:
+
+- GET /internal/admin/analytics/rollups
+
+The endpoint is intended for internal/admin inspection of analytics rollup tables. It does not replace the existing usage or rejected summary APIs.
+
+---
+
+## Prerequisites
+
+Start the local Docker stack:
+
+cd E:\pulsegate
+
+docker compose up -d --build
+
+Deploy API Gateway migrations into the Docker Postgres database:
+
+docker compose exec -T api-gateway npm run db:migrate:deploy --workspace api-gateway
+
+Confirm rollup tables exist:
+
+docker compose exec -T postgres psql -U pulsegate -d pulsegate -c "select table_schema, table_name from information_schema.tables where table_schema = 'gateway' and table_name like '%rollups%' order by table_name;"
+
+Expected tables:
+
+- gateway.api_usage_rollups
+- gateway.api_rejected_rollups
+
+---
+
+## Base Query
+
+Required query parameters:
+
+- source: usage or rejected.
+- from: inclusive requested ISO timestamp.
+- to: exclusive requested ISO timestamp.
+- granularity: hour or day.
+
+Optional query parameters:
+
+- limit
+- routePath
+- routeMethod
+- statusCode
+- apiKeyAuthSource
+- apiKeyId
+- consumerId
+- cacheStatus for usage rollups only
+- rejectionReason for rejected rollups only
+
+---
+
+## Usage Rollup Read
+
+cd E:\pulsegate
+
+$BaseUrl = "http://localhost:3000"
+$AdminKey = "local-admin-key"
+
+Invoke-RestMethod "$BaseUrl/internal/admin/analytics/rollups?source=usage&from=2026-07-05T00:00:00.000Z&to=2026-07-06T00:00:00.000Z&granularity=day&limit=10" `
+  -Method GET `
+  -Headers @{ "x-admin-api-key" = $AdminKey } | ConvertTo-Json -Depth 30
+
+Expected result:
+
+- HTTP 200.
+- data.source is usage.
+- data.granularity matches the request.
+- data.window contains requested and rebuild window fields.
+- data.items is an array.
+- count can be 0 when no rollup rows exist.
+
+---
+
+## Rejected Rollup Read
+
+cd E:\pulsegate
+
+$BaseUrl = "http://localhost:3000"
+$AdminKey = "local-admin-key"
+
+Invoke-RestMethod "$BaseUrl/internal/admin/analytics/rollups?source=rejected&from=2026-07-05T00:00:00.000Z&to=2026-07-06T00:00:00.000Z&granularity=day&limit=10" `
+  -Method GET `
+  -Headers @{ "x-admin-api-key" = $AdminKey } | ConvertTo-Json -Depth 30
+
+Expected result:
+
+- HTTP 200.
+- data.source is rejected.
+- data.granularity matches the request.
+- data.window contains requested and rebuild window fields.
+- data.items is an array.
+- count can be 0 when no rollup rows exist.
+
+---
+
+## Missing Admin Key Validation
+
+cd E:\pulsegate
+
+$BaseUrl = "http://localhost:3000"
+
+try {
+  Invoke-RestMethod "$BaseUrl/internal/admin/analytics/rollups?source=usage&from=2026-07-05T00:00:00.000Z&to=2026-07-06T00:00:00.000Z&granularity=day" `
+    -Method GET `
+    -ErrorAction Stop | ConvertTo-Json -Depth 20
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+
+Expected result:
+
+- HTTP 401.
+
+---
+
+## Invalid Source-Specific Filter Validation
+
+cacheStatus is only valid for usage rollups.
+
+cd E:\pulsegate
+
+$BaseUrl = "http://localhost:3000"
+$AdminKey = "local-admin-key"
+
+try {
+  Invoke-RestMethod "$BaseUrl/internal/admin/analytics/rollups?source=rejected&from=2026-07-05T00:00:00.000Z&to=2026-07-06T00:00:00.000Z&granularity=day&cacheStatus=HIT" `
+    -Method GET `
+    -Headers @{ "x-admin-api-key" = $AdminKey } `
+    -ErrorAction Stop | ConvertTo-Json -Depth 20
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+
+Expected result:
+
+- HTTP 400.
+- Error code is INVALID_QUERY_PARAMETER.
+
+---
+
+## Operational Notes
+
+- Run db:migrate:deploy when a local Docker database is missing analytics rollup tables.
+- Empty items are valid when no rollup rows exist yet.
+- The endpoint reads rollup tables only.
+- Existing summary APIs still read raw event tables.
+- Quota counting still uses gateway.api_usage_events.
+- Do not use this endpoint as proof that retention deletion is safe.
+- Do not delete raw events until a retention safety sprint explicitly implements and validates that behavior.
+
+---
+
+## Related Files
+
+- apps/api-gateway/src/analytics/analytics-rollup-read-query.ts
+- apps/api-gateway/src/analytics/analytics-usage-rollup-read.repository.ts
+- apps/api-gateway/src/analytics/analytics-rejected-rollup-read.repository.ts
+- apps/api-gateway/src/analytics/analytics-rollup-read-service.ts
+- apps/api-gateway/src/routes/admin-analytics-rollup.route.ts
+- apps/api-gateway/src/app.ts
+- apps/api-gateway/prisma/schema.prisma

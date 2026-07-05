@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.25.0
+- v0.26.0
 
 Latest completed sprint:
 
-- Sprint 24 - Analytics Rollup Backfill Command
+- Sprint 25 - Analytics Rollup Read Model Foundation
 
 Recommended next technical sprint:
 
-- Sprint 25 - Analytics Retention Safety Foundation or Rollup Read Model Investigation
+- Sprint 26 - Analytics Retention Safety Foundation
 
 ---
 
@@ -109,29 +109,32 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 24:
+Latest stable validation from Sprint 25:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- Manual analytics rollup backfill command validation -> passed
+- Docker runtime analytics rollup read endpoint validation -> passed
 
 Latest automated test result:
 
-- 71 test files passed
-- 494 tests passed
+- 76 test files passed
+- 521 tests passed
 
-Manual command validation:
+Manual Docker/runtime validation:
 
-- Dry-run command returned planned usage and rejected summaries.
-- Execute mode with an empty window skipped safely without reading or persisting events.
-- Invalid granularity failed with usage output.
+- Docker Compose build and startup passed.
+- API Gateway health returned 200.
+- Missing admin API key for GET /internal/admin/analytics/rollups returned 401.
+- Usage rollup read returned 200.
+- Rejected rollup read returned 200.
+- Invalid rejected rollup query with cacheStatus returned 400.
+- Runtime migration deploy applied analytics rollup tables when the Docker database was missing them.
 
-Sprint 24 preserved:
+Sprint 25 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
-- No runtime HTTP API behavior changes.
 - No quota checker changes.
 - No usage recorder changes.
 - No rejected event recorder changes.
@@ -177,7 +180,8 @@ API Gateway currently supports:
 - Rejected events summary endpoint.
 - Filtered rejected events summary endpoint.
 - Rejected events listing endpoint with filters, safe offset pagination, and cursor pagination.
-- Analytics rollup calculation and persistence foundations.
+- Analytics rollup calculation, persistence, manual backfill, and read model foundations.
+- Read-only analytics rollup endpoint.
 - 429 QUOTA_EXCEEDED responses with quota metadata.
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
@@ -242,6 +246,15 @@ Admin usage analytics endpoints:
 - GET /internal/admin/usage/consumers/:consumerId/summary
 - GET /internal/admin/usage/api-keys/:apiKeyId/summary
 
+Admin rejected analytics endpoints:
+
+- GET /internal/admin/api-rejections/summary
+- GET /internal/admin/api-rejections/events
+
+Admin rollup analytics endpoint:
+
+- GET /internal/admin/analytics/rollups
+
 Usage events listing behavior:
 
 - Reads from gateway.api_usage_events only.
@@ -282,14 +295,16 @@ Analytics rollup foundation:
 - Dimension hash builder creates stable SHA-256 hashes from rollup dimensions.
 - Usage and rejected rollup repositories upsert by dimensionHash.
 - Persistence service aggregates raw-shaped events and delegates persistence.
-- Rollups are connected to a manual backfill command, but not to runtime summaries, scheduled background jobs, retention, or quota counting yet.
+- Manual backfill command can plan or execute controlled rollup rebuilds.
+- Read model can query usage or rejected rollup rows through an internal/admin endpoint.
+- Rollups are not used by runtime summaries, scheduled background jobs, retention, or quota counting yet.
 
 Current analytics limitations:
 
-- Usage and rejected traffic analytics are event-based at runtime.
-- Manual rollup backfill command exists.
+- Usage and rejected summary APIs are event-based at runtime.
+- Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
 - No retention job yet.
-- Runtime summary APIs have not switched to rollup reads.
+- No scheduled/background rollup job yet.
 
 ---
 
@@ -320,6 +335,7 @@ Internal/admin usage analytics:
 - GET /internal/admin/usage/api-keys/:apiKeyId/summary
 - GET /internal/admin/api-rejections/summary
 - GET /internal/admin/api-rejections/events
+- GET /internal/admin/analytics/rollups
 
 Internal/admin quota observability:
 
@@ -350,14 +366,8 @@ Admin auth:
 Analytics rollup foundation:
 
 - apps/api-gateway/prisma/schema.prisma
-- apps/api-gateway/src/analytics/analytics-rollup-time-bucket.ts
-- apps/api-gateway/src/analytics/analytics-rollup-window-plan.ts
-- apps/api-gateway/src/analytics/analytics-usage-rollup-aggregate.ts
-- apps/api-gateway/src/analytics/analytics-rejected-rollup-aggregate.ts
-- apps/api-gateway/src/analytics/analytics-rollup-dimension-hash.ts
-- apps/api-gateway/src/analytics/analytics-usage-rollup.repository.ts
-- apps/api-gateway/src/analytics/analytics-rejected-rollup.repository.ts
-- apps/api-gateway/src/analytics/analytics-rollup-persistence-service.ts
+- apps/api-gateway/src/analytics/
+- apps/api-gateway/src/routes/admin-analytics-rollup.route.ts
 
 API Gateway usage tracking and analytics:
 
@@ -386,9 +396,11 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-24.md
+- docs/sdlc/sprint-history/sprint-25.md
 - docs/runbooks/api-usage-analytics.md
 - docs/runbooks/api-rejected-events.md
+- docs/runbooks/analytics-rollup-backfill.md
+- docs/runbooks/analytics-rollup-read.md
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
 
 ---
@@ -439,12 +451,11 @@ Work style:
 
 ## Current Known Limitations
 
-- Usage data is event-based at runtime.
-- Rejected event analytics is event-based at runtime.
-- Manual rollup backfill command exists, but runtime summary APIs have not switched to rollup reads.
-- Runtime summary APIs have not switched to rollup reads.
-- Manual rollup backfill command exists.
+- Usage summary APIs still read raw events.
+- Rejected summary APIs still read raw events.
+- Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
 - No retention policy job yet.
+- No scheduled/background rollup job yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
 - No quota usage dashboard yet.
@@ -470,11 +481,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 25 after confirming Sprint 24 docs are committed and pushed.
+Start Sprint 26 after confirming Sprint 25 docs are committed and pushed.
 
 Recommended direction:
 
-- Analytics Retention Safety Foundation or Rollup Read Model Investigation.
+- Analytics Retention Safety Foundation.
 
 Before starting:
 

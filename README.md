@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.25.0
+- v0.26.0
 
 Latest completed sprint:
 
-- Sprint 24 - Analytics Rollup Backfill Command
+- Sprint 25 - Analytics Rollup Read Model Foundation
 
 ---
 
@@ -41,24 +41,20 @@ PulseGate currently includes:
 - Rejected events summary
 - Rejected events raw listing with cursor pagination
 - Filterable rejected event drilldown
-- Analytics rollup time bucket foundation
-- Analytics rollup window planner foundation
-- Usage rollup aggregate builder foundation
-- Rejected rollup aggregate builder foundation
-- Analytics rollup persistence schema
-- Analytics rollup dimension hash builder
-- Usage rollup persistence repository
-- Rejected rollup persistence repository
-- Analytics rollup persistence service
+- Analytics rollup calculation foundation
+- Analytics rollup persistence foundation
+- Analytics rollup manual backfill command
+- Analytics rollup read model foundation
+- Internal analytics rollup read endpoint
 
 Latest validation:
 
-- 71 test files passed
-- 494 tests passed
+- 76 test files passed
+- 521 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Prisma schema validate passed
-- Shadow database migration deploy passed for all API Gateway migrations, including analytics rollup tables
+- Docker runtime validation passed for GET /internal/admin/analytics/rollups
+- Docker runtime migration deploy validated analytics rollup tables
 
 ---
 
@@ -113,6 +109,7 @@ Current gateway capabilities:
 - Rejected request event recording
 - Successful usage analytics
 - Rejected request analytics
+- Analytics rollup read model
 - Structured access logs
 - Prometheus metrics
 
@@ -133,6 +130,7 @@ Current internal/admin capabilities:
 - Rejected events summary
 - Filtered rejected events summary
 - Rejected events raw listing with safe offset and cursor pagination
+- Read-only analytics rollup listing through GET /internal/admin/analytics/rollups
 
 ---
 
@@ -154,22 +152,22 @@ Rejected request behavior:
 - Rejected events can be queried through aggregate summary and raw listing endpoints with offset and cursor pagination.
 - Raw API keys, JWTs, and Authorization headers are not stored or returned.
 
-Analytics rollup persistence foundation behavior:
+Analytics rollup behavior:
 
-- Sprint 22 added rollup calculation helpers under apps/api-gateway/src/analytics.
-- Sprint 23 added rollup persistence tables, dimension hashing, repositories, and an internal persistence service; Sprint 24 added the manual backfill command.
 - Rollup persistence is separate for successful usage and rejected/security traffic.
 - Rollup upserts use a dimensionHash to avoid nullable-dimension uniqueness issues.
+- Manual analytics rollup backfill is available through npm run analytics:rollup:backfill.
+- GET /internal/admin/analytics/rollups exposes read-only usage or rejected rollup rows.
+- Rollup read supports source, from, to, granularity, limit, and safe dimension filters.
 - Current runtime summary and listing APIs still read raw event tables.
-- Rollup persistence is not wired into runtime endpoints or background jobs yet.
-- Quota counting still reads gateway.api_usage_events.
+- Rollup tables are not used for quota counting.
+- No retention deletion or scheduled/background rollup job is implemented yet.
 
 Current analytics limitation:
 
-- Usage and rejected analytics are still event-based at runtime.
-- Manual rollup backfill command is implemented.
+- Usage and rejected summary APIs are still event-based at runtime.
+- Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
 - No retention job is implemented yet.
-- Summary APIs have not been switched to read rollup tables yet.
 
 ---
 
@@ -190,6 +188,10 @@ Start Docker stack:
 
     docker compose up --build -d
     docker compose ps
+
+Deploy API Gateway migrations in Docker runtime:
+
+    docker compose exec -T api-gateway npm run db:migrate:deploy --workspace api-gateway
 
 Check API Gateway health:
 
@@ -225,15 +227,12 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-24.md
+- docs/sdlc/sprint-history/sprint-25.md
 
-Latest usage analytics runbook:
+Latest analytics rollup runbooks:
 
-- docs/runbooks/api-usage-analytics.md
-
-Latest rejected events runbook:
-
-- docs/runbooks/api-rejected-events.md
+- docs/runbooks/analytics-rollup-backfill.md
+- docs/runbooks/analytics-rollup-read.md
 
 Latest decision record:
 
@@ -243,11 +242,11 @@ Latest decision record:
 
 ## Recommended Next Sprint
 
-Sprint 25 recommended direction:
+Sprint 26 recommended direction:
 
-- Analytics Retention Safety Foundation or Rollup Read Model Investigation
+- Analytics Retention Safety Foundation
 
 Reason:
 
-- Sprint 24 added controlled manual backfill without changing runtime analytics or quota behavior.
-- The next backend step can either add a controlled backfill command or start safe retention dry-run planning.
+- Sprint 25 added a safe read-only rollup model and endpoint.
+- The next backend step can start retention planning with dry-run safety while keeping quota counting on raw usage events.

@@ -6,20 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.25.0
+v0.26.0
 
 ## Current Status
 
-Sprint 24 - Analytics Rollup Backfill Command Complete
+Sprint 25 - Analytics Rollup Read Model Foundation Complete
 
 Current validation:
 
-- 71 test files passed
-- 494 tests passed
+- 76 test files passed
+- 521 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Prisma schema validate passed
-- Shadow database migration deploy passed for all API Gateway migrations, including analytics rollup tables
+- Docker runtime analytics rollup read endpoint validation passed
 
 ---
 
@@ -73,18 +72,19 @@ Runtime flow:
       -> Product Service :3001
       -> PostgreSQL / Redis / Prometheus / Grafana
 
-Analytics rollup foundation flow:
+Analytics rollup flow:
 
-    Raw usage/rejected-shaped events
+    Raw usage/rejected event tables
+      -> manual backfill command
       -> UTC time bucket helper
       -> rollup window planner
       -> usage or rejected aggregate builder
       -> dimension hash builder
       -> usage or rejected rollup repository
-      -> analytics rollup persistence service
-      -> future backfill or background job
+      -> rollup tables
+      -> read-only internal/admin rollup endpoint
 
-Sprint 24 connected rollup persistence to a manual/internal backfill command, but not to runtime APIs, quota counting, retention, or background jobs.
+Rollup tables are not used by quota counting or existing summary APIs.
 
 ---
 
@@ -152,8 +152,8 @@ API Gateway currently handles:
 - Consumer and API key usage summaries with filters.
 - Successful usage event raw listing with filters, offset pagination, and cursor pagination.
 - Rejected events summary and raw listing with filters, offset pagination, and cursor pagination.
-- Analytics rollup calculation and persistence foundations under apps/api-gateway/src/analytics.
-- Internal/admin route, consumer, API key, usage plan, usage analytics, rejected event, and quota APIs.
+- Analytics rollup calculation, persistence, manual backfill, and read model foundations.
+- Internal/admin route, consumer, API key, usage plan, usage analytics, rejected event, quota, and rollup APIs.
 - Structured access logs and Prometheus metrics.
 
 ---
@@ -251,7 +251,7 @@ Rejected listing behavior:
 
 ---
 
-## Analytics Rollup Persistence Foundation Architecture
+## Analytics Rollup Architecture
 
 Rollup tables:
 
@@ -260,14 +260,8 @@ Rollup tables:
 
 Current files:
 
-- apps/api-gateway/src/analytics/analytics-rollup-time-bucket.ts
-- apps/api-gateway/src/analytics/analytics-rollup-window-plan.ts
-- apps/api-gateway/src/analytics/analytics-usage-rollup-aggregate.ts
-- apps/api-gateway/src/analytics/analytics-rejected-rollup-aggregate.ts
-- apps/api-gateway/src/analytics/analytics-rollup-dimension-hash.ts
-- apps/api-gateway/src/analytics/analytics-usage-rollup.repository.ts
-- apps/api-gateway/src/analytics/analytics-rejected-rollup.repository.ts
-- apps/api-gateway/src/analytics/analytics-rollup-persistence-service.ts
+- apps/api-gateway/src/analytics/
+- apps/api-gateway/src/routes/admin-analytics-rollup.route.ts
 
 Current behavior:
 
@@ -280,17 +274,31 @@ Current behavior:
 - Dimension hashes are SHA-256 values built from stable rollup dimensions and exclude metrics.
 - Usage and rejected rollups have separate repositories and separate persistence tables.
 - Persistence uses upsert by dimensionHash to support idempotent rebuild behavior.
+- Manual backfill command can plan or execute controlled rebuilds.
+- Read repositories expose rollup rows without changing existing summary APIs.
+- GET /internal/admin/analytics/rollups reads usage or rejected rollups with admin API key protection.
+
+Rollup read endpoint:
+
+- Requires source=usage or source=rejected.
+- Requires from, to, and granularity.
+- Supports limit.
+- Supports routePath, routeMethod, statusCode, apiKeyAuthSource, apiKeyId, and consumerId.
+- Supports cacheStatus for usage rollups only.
+- Supports rejectionReason for rejected rollups only.
+- Maps statusCode to statusClass for usage rollup reads.
+- Uses exact statusCode for rejected rollup reads.
+- Rejects invalid query values with 400 INVALID_QUERY_PARAMETER.
 
 Current safety boundaries:
 
-- No runtime API change.
 - No summary API switch to rollup reads.
 - No scheduled/background rollup job.
-- No background job.
 - No retention deletion.
 - No quota checker change.
 - No usage recorder change.
 - No rejected event recorder change.
+- Rollup tables are not used for quota counting.
 
 ---
 
@@ -299,6 +307,7 @@ Current safety boundaries:
 Analytics rollup foundation:
 
 - apps/api-gateway/src/analytics/
+- apps/api-gateway/src/routes/admin-analytics-rollup.route.ts
 
 API usage analytics:
 
@@ -326,11 +335,11 @@ Core:
 
 ## Current Limitations
 
-- Usage data is event-based at runtime.
-- Rejected event analytics is event-based at runtime.
-- Manual rollup backfill command exists, but runtime summary APIs have not switched to rollup reads.
-- Runtime summary APIs have not switched to rollup reads.
+- Usage summary APIs still read raw events.
+- Rejected summary APIs still read raw events.
+- Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
 - No retention policy job yet.
+- No scheduled/background rollup job yet.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
 - Admin Dashboard is not implemented yet.
@@ -352,11 +361,11 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 25 recommended direction:
+Sprint 26 recommended direction:
 
-- Analytics Retention Safety Foundation or Rollup Read Model Investigation
+- Analytics Retention Safety Foundation
 
 Rationale:
 
-- Rollup persistence foundations now exist.
-- The next step can safely add controlled backfill execution or retention dry-run planning without changing quota counting accidentally.
+- Rollup persistence, backfill, and read foundations now exist.
+- The next step can safely plan retention without changing quota counting or deleting raw events too early.
