@@ -12,15 +12,39 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.26.0
+v0.27.0
 
 ## Latest Completed Sprint
 
-Sprint 25 - Analytics Rollup Read Model Foundation
+Sprint 26 - Analytics Retention Safety Foundation
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-05 - Analytics retention starts as dry-run-only safety foundation
+
+Decision:
+
+- Add retention policy parsing and a retention plan model before any delete execution.
+- Keep usage and rejected retention policies separate.
+- Add minimum retention day guardrails.
+- Add a read-only candidate repository that counts rows older than computed cutoffs.
+- Add a dry-run service that returns policy, plan, and candidate count output.
+- Add a dry-run command exposed as npm run analytics:retention:dry-run.
+- Return dryRunOnly=true and deleteAllowed=false in retention previews.
+- Reject execute mode in Sprint 26.
+- Do not delete raw usage or rejected events.
+- Do not change quota counting, usage recording, rejected event recording, rollup reads, or summary APIs.
+
+Reason:
+
+- Retention can affect quota and analytics correctness if introduced too quickly.
+- A dry-run-only command gives operators visibility into candidate impact before any destructive behavior exists.
+- Keeping usage and rejected event retention separate preserves current data ownership and security/usage separation.
+- Rejecting execute mode prevents accidental raw event deletion before explicit guardrails are designed.
+
+---
 
 ### 2026-07-05 - Analytics rollup read model stays read-only and separate from summaries
 

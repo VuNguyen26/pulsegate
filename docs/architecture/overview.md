@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.26.0
+v0.27.0
 
 ## Current Status
 
-Sprint 25 - Analytics Rollup Read Model Foundation Complete
+Sprint 26 - Analytics Retention Safety Foundation Complete
 
 Current validation:
 
-- 76 test files passed
-- 521 tests passed
+- 80 test files passed
+- 551 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime analytics rollup read endpoint validation passed
+- Analytics retention dry-run command validation passed
 
 ---
 
@@ -44,7 +44,7 @@ Long decision records live in:
 
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
-PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, and CI/CD.
+PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention safety foundations, and CI/CD.
 
 ---
 
@@ -84,7 +84,16 @@ Analytics rollup flow:
       -> rollup tables
       -> read-only internal/admin rollup endpoint
 
-Rollup tables are not used by quota counting or existing summary APIs.
+Analytics retention dry-run flow:
+
+    CLI args
+      -> retention dry-run args parser
+      -> retention policy parser
+      -> dry-run retention plan
+      -> read-only candidate count repository
+      -> dry-run JSON preview
+
+Rollup tables and retention dry-run are not used by quota counting or existing summary APIs.
 
 ---
 
@@ -153,6 +162,7 @@ API Gateway currently handles:
 - Successful usage event raw listing with filters, offset pagination, and cursor pagination.
 - Rejected events summary and raw listing with filters, offset pagination, and cursor pagination.
 - Analytics rollup calculation, persistence, manual backfill, and read model foundations.
+- Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected event, quota, and rollup APIs.
 - Structured access logs and Prometheus metrics.
 
@@ -197,11 +207,7 @@ Usage event listing behavior:
 - Returns raw successful usage event rows from gateway.api_usage_events.
 - Supports offset pagination with limit, offset, total, and hasNextPage.
 - Supports cursor pagination with nextCursor for large event investigation.
-- Default limit is 20.
-- Maximum limit is 100.
 - Sorts by occurredAt desc and id desc.
-- Cursor pagination uses occurredAt and id from the last item in the current page.
-- offset cannot be used together with cursor.
 - Supports filters by from, to, routePath, routeMethod, statusCode, cacheStatus, apiKeyAuthSource, apiKeyId, and consumerId.
 - Invalid query values return 400 INVALID_QUERY_PARAMETER.
 - Does not expose raw API keys, JWTs, or Authorization headers.
@@ -211,8 +217,6 @@ Usage summary behavior:
 - Summaries still read from gateway.api_usage_events.
 - Supported filters include from, to, routePath, routeMethod, statusCode, cacheStatus, and apiKeyAuthSource.
 - Invalid query values return 400 INVALID_QUERY_PARAMETER.
-- routeMethod is normalized to uppercase.
-- cacheStatus is normalized to HIT, MISS, or BYPASS.
 
 ---
 
@@ -243,8 +247,6 @@ Rejected listing behavior:
 - Supports cursor pagination with nextCursor for large rejected event investigation.
 - Supports filters by from, to, rejectionReason, statusCode, routePath, routeMethod, apiKeyAuthSource, apiKeyId, and consumerId.
 - Sorts by occurredAt desc and id desc.
-- Cursor pagination uses occurredAt and id from the last item in the current page.
-- offset cannot be used together with cursor.
 - Rejected events summary rejects cursor because cursor is only meaningful for raw event listing.
 - Rejects invalid query values with 400 INVALID_QUERY_PARAMETER.
 - Does not write rejected requests into gateway.api_usage_events.
@@ -290,21 +292,39 @@ Rollup read endpoint:
 - Uses exact statusCode for rejected rollup reads.
 - Rejects invalid query values with 400 INVALID_QUERY_PARAMETER.
 
-Current safety boundaries:
+---
 
-- No summary API switch to rollup reads.
-- No scheduled/background rollup job.
-- No retention deletion.
-- No quota checker change.
-- No usage recorder change.
-- No rejected event recorder change.
-- Rollup tables are not used for quota counting.
+## Analytics Retention Dry-Run Architecture
+
+Current files:
+
+- apps/api-gateway/src/analytics/analytics-retention-policy.ts
+- apps/api-gateway/src/analytics/analytics-retention-candidate-read.repository.ts
+- apps/api-gateway/src/analytics/analytics-retention-dry-run-service.ts
+- apps/api-gateway/src/analytics/analytics-retention-dry-run-command-args.ts
+- apps/api-gateway/src/analytics/analytics-retention-dry-run.command.ts
+
+Current command:
+
+    npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90
+
+Current behavior:
+
+- Defaults to disabled dry-run planning.
+- Supports source=usage, source=rejected, or source=both.
+- Supports separate usage and rejected retention day windows.
+- Enforces minimum retention day guardrails.
+- Counts candidate rows older than computed cutoffs.
+- Returns JSON preview with candidateCount.
+- Always returns dryRunOnly=true and deleteAllowed=false.
+- Rejects execute mode.
+- Does not delete raw events.
 
 ---
 
 ## Current Important Files
 
-Analytics rollup foundation:
+Analytics foundation:
 
 - apps/api-gateway/src/analytics/
 - apps/api-gateway/src/routes/admin-analytics-rollup.route.ts
@@ -338,7 +358,8 @@ Core:
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- No retention policy job yet.
+- Retention currently supports dry-run candidate counting only.
+- No retention delete job is implemented yet.
 - No scheduled/background rollup job yet.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
@@ -361,11 +382,11 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 26 recommended direction:
+Sprint 27 recommended direction:
 
-- Analytics Retention Safety Foundation
+- Analytics Retention Execution Guardrails
 
 Rationale:
 
-- Rollup persistence, backfill, and read foundations now exist.
-- The next step can safely plan retention without changing quota counting or deleting raw events too early.
+- Sprint 26 added dry-run-only retention planning, candidate counting, and a CLI preview command.
+- The next step can add guarded execution design without changing quota semantics or deleting data without explicit operator intent.

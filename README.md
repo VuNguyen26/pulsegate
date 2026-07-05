@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.26.0
+- v0.27.0
 
 Latest completed sprint:
 
-- Sprint 25 - Analytics Rollup Read Model Foundation
+- Sprint 26 - Analytics Retention Safety Foundation
 
 ---
 
@@ -46,15 +46,18 @@ PulseGate currently includes:
 - Analytics rollup manual backfill command
 - Analytics rollup read model foundation
 - Internal analytics rollup read endpoint
+- Analytics retention dry-run safety foundation
+- Analytics retention dry-run command
 
 Latest validation:
 
-- 76 test files passed
-- 521 tests passed
+- 80 test files passed
+- 551 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker runtime validation passed for GET /internal/admin/analytics/rollups
-- Docker runtime migration deploy validated analytics rollup tables
+- PostgreSQL migration deploy passed with no pending migrations
+- Analytics retention dry-run command validation passed for disabled, usage, rejected, and both sources
+- Invalid retention execute mode failed safely with usage text
 
 ---
 
@@ -110,6 +113,7 @@ Current gateway capabilities:
 - Successful usage analytics
 - Rejected request analytics
 - Analytics rollup read model
+- Analytics retention dry-run planning
 - Structured access logs
 - Prometheus metrics
 
@@ -134,7 +138,7 @@ Current internal/admin capabilities:
 
 ---
 
-## Current Usage, Quota, Rejection, and Analytics Foundation Behavior
+## Current Usage, Quota, Rejection, Rollup, and Retention Behavior
 
 Successful usage behavior:
 
@@ -161,13 +165,23 @@ Analytics rollup behavior:
 - Rollup read supports source, from, to, granularity, limit, and safe dimension filters.
 - Current runtime summary and listing APIs still read raw event tables.
 - Rollup tables are not used for quota counting.
-- No retention deletion or scheduled/background rollup job is implemented yet.
+
+Analytics retention behavior:
+
+- Retention currently supports dry-run planning only.
+- Dry-run retention policy parsing supports usage, rejected, or both sources.
+- Dry-run candidate reading counts raw events older than retention cutoffs.
+- Dry-run command is available through npm run analytics:retention:dry-run.
+- Retention output always reports dryRunOnly=true and deleteAllowed=false.
+- Execute mode is intentionally rejected.
+- No raw event deletion is implemented yet.
 
 Current analytics limitation:
 
 - Usage and rejected summary APIs are still event-based at runtime.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- No retention job is implemented yet.
+- No scheduled/background rollup job is implemented yet.
+- No retention delete job is implemented yet.
 
 ---
 
@@ -192,6 +206,14 @@ Start Docker stack:
 Deploy API Gateway migrations in Docker runtime:
 
     docker compose exec -T api-gateway npm run db:migrate:deploy --workspace api-gateway
+
+Run analytics rollup backfill dry-run:
+
+    npm run analytics:rollup:backfill --workspace api-gateway -- --from 2026-07-05T00:00:00.000Z --to 2026-07-06T00:00:00.000Z --granularity hour
+
+Run analytics retention dry-run:
+
+    npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90
 
 Check API Gateway health:
 
@@ -227,12 +249,13 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-25.md
+- docs/sdlc/sprint-history/sprint-26.md
 
-Latest analytics rollup runbooks:
+Latest analytics runbooks:
 
 - docs/runbooks/analytics-rollup-backfill.md
 - docs/runbooks/analytics-rollup-read.md
+- docs/runbooks/analytics-retention-dry-run.md
 
 Latest decision record:
 
@@ -242,11 +265,11 @@ Latest decision record:
 
 ## Recommended Next Sprint
 
-Sprint 26 recommended direction:
+Sprint 27 recommended direction:
 
-- Analytics Retention Safety Foundation
+- Analytics Retention Execution Guardrails
 
 Reason:
 
-- Sprint 25 added a safe read-only rollup model and endpoint.
-- The next backend step can start retention planning with dry-run safety while keeping quota counting on raw usage events.
+- Sprint 26 added dry-run-only retention planning and candidate counting.
+- The next backend step can design guarded delete execution with strict limits, explicit mode, and validation while preserving quota correctness.

@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.26.0
+v0.27.0
 
 ## Latest Completed Sprint
 
-Sprint 25 - Analytics Rollup Read Model Foundation
+Sprint 26 - Analytics Retention Safety Foundation
 
 ---
 
@@ -301,7 +301,7 @@ PulseGate shall keep a clear design path for high-volume analytics storage lifec
 
 Status:
 
-Designed. Rollup calculation, persistence, manual backfill, and read model foundations are implemented.
+Designed. Rollup calculation, persistence, manual backfill, read model, and retention dry-run foundations are implemented.
 
 ---
 
@@ -338,14 +338,6 @@ Implemented.
 
 PulseGate shall provide safe code-level foundations for future analytics rollups.
 
-Current helper capabilities:
-
-- UTC hourly and daily bucket calculation.
-- Rollup window planning for partial ranges.
-- maxBuckets guardrail for planned rebuild windows.
-- Usage event aggregate builder.
-- Rejected event aggregate builder.
-
 Status:
 
 Implemented.
@@ -355,14 +347,6 @@ Implemented.
 ### FR-026 Analytics Rollup Persistence Foundation
 
 PulseGate shall provide persistence foundations for future analytics rollup backfill and long-range analytics.
-
-Current persistence capabilities:
-
-- Separate usage and rejected rollup tables.
-- Stable dimensionHash for idempotent upsert keys.
-- Usage rollup persistence repository.
-- Rejected rollup persistence repository.
-- Internal persistence service that aggregates raw-shaped events and persists rollups.
 
 Required safety:
 
@@ -409,23 +393,36 @@ Current endpoint:
 
 - GET /internal/admin/analytics/rollups
 
-Required behavior:
-
-- Require admin API key.
-- Require source=usage or source=rejected.
-- Require from, to, and granularity.
-- Support hour and day granularity.
-- Support safe limit guardrails.
-- Support shared filters by route, method, status, auth source, API key, and consumer.
-- Support cacheStatus for usage rollups only.
-- Support rejectionReason for rejected rollups only.
-- Return 400 INVALID_QUERY_PARAMETER for invalid source-specific filters.
-- Keep existing usage and rejected summary APIs on raw event tables.
-- Keep quota counting on gateway.api_usage_events.
-
 Status:
 
 Implemented.
+
+---
+
+### FR-029 Analytics Retention Dry-Run Foundation
+
+PulseGate shall provide a safe dry-run foundation for future retention of raw analytics events.
+
+Current command:
+
+- npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source <usage|rejected|both> --usage-retention-days <n> --rejected-retention-days <n>
+
+Required behavior:
+
+- Default to disabled dry-run planning.
+- Support source=usage, source=rejected, and source=both.
+- Support separate usage and rejected retention day windows.
+- Enforce positive integer and minimum retention day guardrails.
+- Count candidate rows older than computed cutoffs.
+- Return dryRunOnly=true and deleteAllowed=false.
+- Reject execute mode.
+- Do not delete raw events.
+- Do not change quota counting.
+- Do not switch summary APIs to rollup reads.
+
+Status:
+
+Implemented as dry-run foundation.
 
 ---
 
@@ -447,8 +444,8 @@ Implemented.
 
 Current result:
 
-- 76 test files passed
-- 521 tests passed
+- 80 test files passed
+- 551 tests passed
 
 Validation:
 
@@ -476,13 +473,10 @@ Implemented.
 
 Latest validation:
 
-- Docker Compose build and startup passed.
-- Runtime migration deploy applied analytics rollup tables.
-- GET /health returned 200.
-- GET /internal/admin/analytics/rollups returned 401 without admin API key.
-- Usage rollup read returned 200.
-- Rejected rollup read returned 200.
-- Invalid rejected rollup query with cacheStatus returned 400.
+- PostgreSQL container started.
+- Runtime migration deploy found 7 migrations and no pending migrations.
+- Analytics retention dry-run command passed for disabled, usage, rejected, and both-source previews.
+- Invalid execute mode failed safely and printed usage text.
 
 Status:
 
@@ -492,7 +486,7 @@ Implemented.
 
 ### NFR-005 Observability
 
-Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, and rollup read API.
+Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, and retention dry-run candidate previews.
 
 Status:
 
@@ -515,7 +509,8 @@ Implemented.
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- No retention policy job yet.
+- Retention currently supports dry-run candidate counting only.
+- No retention delete job is implemented yet.
 - No scheduled/background rollup job yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
@@ -541,10 +536,10 @@ Implemented.
 
 Recommended next:
 
-- Implement analytics retention safety dry-run foundation.
+- Design guarded analytics retention execution.
+- Keep retention execution explicit, limited, and reversible where possible.
 - Switch selected long-range analytics reads to rollups later after explicit design.
-- Implement event retention policy for api_usage_events and api_rejected_events later.
-- Add Grafana panels for quota, usage, rejected traffic, and rollups later.
+- Add Grafana panels for quota, usage, rejected traffic, rollups, and retention dry-run candidates later.
 - Add Admin Dashboard later.
 - Add Developer Portal later.
 - Add service discovery later.
