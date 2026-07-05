@@ -1,4 +1,4 @@
-# Current Progress
+﻿# Current Progress
 
 ## Project
 
@@ -24,33 +24,41 @@ Long decision records live in:
 
 ## Current Version
 
-v0.24.0
+v0.25.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 23 - Analytics Rollup Persistence Foundation
+Sprint 24 - Analytics Rollup Backfill Command
 
 Status:
 
 Done.
 
-Sprint 23 added analytics rollup persistence foundations:
+Sprint 24 added a controlled manual analytics rollup backfill command:
 
-- Added usage and rejected rollup tables.
-- Added dimensionHash as a stable unique upsert key for nullable rollup dimensions.
-- Added usage rollup persistence repository.
-- Added rejected rollup persistence repository.
-- Added internal rollup persistence service.
+- Added analytics rollup backfill plan parser.
+- Added analytics rollup backfill event reader.
+- Added analytics rollup backfill orchestration service.
+- Added npm command wiring for analytics rollup backfill.
+- Added dry-run default behavior and explicit execute mode.
+- Added safe empty-window skip behavior.
+- Added event limit safety to prevent partial rollup persistence.
 - Preserved successful usage and rejected/security event separation.
 - Preserved gateway.api_usage_events as source of truth for successful usage and quota counting.
-- Preserved gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
-- Did not add backfill commands, retention jobs, runtime API changes, summary API rewrites, quota rewrites, usage recorder rewrites, or rejected event recorder rewrites.
+- Preserved gateway.api_rejected_events as source of truth for rejected/security traffic.
+- Did not switch runtime summary APIs to rollup reads.
+- Did not add retention deletion or scheduled/background jobs.
+- Did not change quota checker, usage recorder, or rejected event recorder.
 
-Sprint 23 details are archived in:
+Sprint 24 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-23.md
+- docs/sdlc/sprint-history/sprint-24.md
+
+Related runbook:
+
+- docs/runbooks/analytics-rollup-backfill.md
 
 Related design record:
 
@@ -60,23 +68,28 @@ Related design record:
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 23:
+Latest stable validation from Sprint 24:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- npx prisma validate -> passed
-- npx prisma migrate deploy -> passed on clean shadow database
+- Manual analytics rollup backfill command validation -> passed
 
 Latest automated test result:
 
-- 67 test files passed
-- 461 tests passed
+- 71 test files passed
+- 494 tests passed
+
+Manual command validation:
+
+- Dry-run command returned planned usage and rejected summaries.
+- Execute mode with an empty window skipped safely without reading or persisting events.
+- Invalid granularity failed with usage output.
 
 Docker/runtime validation:
 
-- Full runtime API validation was not required for Sprint 23 because runtime APIs and behavior were not changed.
-- Shadow database migration deploy validated the new analytics rollup migration safely without resetting the main local database.
+- Full runtime API validation was not required for Sprint 24 because HTTP runtime APIs and gateway request handling were not changed.
+- Backfill command behavior was validated manually through npm command execution.
 
 ---
 
@@ -223,7 +236,7 @@ Analytics rollup foundation:
 - Helpers calculate UTC buckets, plan rebuild windows, aggregate successful usage events, and aggregate rejected events.
 - Persistence repositories upsert usage and rejected rollups by dimensionHash.
 - Internal persistence service aggregates raw-shaped events and delegates persistence to rollup repositories.
-- Rollup persistence is not connected to runtime endpoints, backfill commands, background jobs, retention, or quota counting yet.
+- Rollup backfill is available through a manual command, but rollups are not connected to runtime endpoints, background jobs, retention, or quota counting yet.
 
 Current quota scope:
 
@@ -242,7 +255,7 @@ Current quota scope:
 
 - Usage data is event-based at runtime.
 - Rejected event analytics is event-based at runtime.
-- Rollup tables and persistence repositories exist, but no backfill command uses them yet.
+- Manual rollup backfill command exists, but runtime summary APIs have not switched to rollup reads.
 - Runtime summary APIs have not switched to rollup reads.
 - No retention policy job yet.
 - No per-consumer Grafana dashboard yet.
@@ -269,9 +282,9 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 24 recommended direction:
+Sprint 25 recommended direction:
 
-- Analytics Rollup Backfill Command or Retention Safety Foundation
+- Analytics Retention Safety Foundation or Rollup Read Model Investigation
 
 Recommended scope:
 

@@ -1,4 +1,4 @@
-# PulseGate AI Handoff
+﻿# PulseGate AI Handoff
 
 ## Purpose
 
@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.24.0
+- v0.25.0
 
 Latest completed sprint:
 
-- Sprint 23 - Analytics Rollup Persistence Foundation
+- Sprint 24 - Analytics Rollup Backfill Command
 
 Recommended next technical sprint:
 
-- Sprint 24 - Analytics Rollup Backfill Command or Retention Safety Foundation
+- Sprint 25 - Analytics Retention Safety Foundation or Rollup Read Model Investigation
 
 ---
 
@@ -109,34 +109,34 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 23:
+Latest stable validation from Sprint 24:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- npx prisma validate -> passed
-- npx prisma migrate deploy -> passed on clean shadow database
+- Manual analytics rollup backfill command validation -> passed
 
 Latest automated test result:
 
-- 67 test files passed
-- 461 tests passed
+- 71 test files passed
+- 494 tests passed
 
-Runtime validation:
+Manual command validation:
 
-- Full Docker runtime API validation was not required for Sprint 23 because runtime APIs and behavior were not changed.
-- Shadow database migration deploy validated the new analytics rollup migration safely without resetting the main local database.
+- Dry-run command returned planned usage and rejected summaries.
+- Execute mode with an empty window skipped safely without reading or persisting events.
+- Invalid granularity failed with usage output.
 
-Sprint 23 preserved:
+Sprint 24 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
-- No runtime API behavior changes.
+- No runtime HTTP API behavior changes.
 - No quota checker changes.
 - No usage recorder changes.
 - No rejected event recorder changes.
 - No retention job.
-- No backfill command.
+- No scheduled/background job.
 - No summary API switch to rollup reads.
 
 ---
@@ -282,12 +282,12 @@ Analytics rollup foundation:
 - Dimension hash builder creates stable SHA-256 hashes from rollup dimensions.
 - Usage and rejected rollup repositories upsert by dimensionHash.
 - Persistence service aggregates raw-shaped events and delegates persistence.
-- Rollups are not connected to runtime summaries, backfill commands, background jobs, retention, or quota counting yet.
+- Rollups are connected to a manual backfill command, but not to runtime summaries, scheduled background jobs, retention, or quota counting yet.
 
 Current analytics limitations:
 
 - Usage and rejected traffic analytics are event-based at runtime.
-- No rollup backfill command yet.
+- Manual rollup backfill command exists.
 - No retention job yet.
 - Runtime summary APIs have not switched to rollup reads.
 
@@ -386,7 +386,7 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-23.md
+- docs/sdlc/sprint-history/sprint-24.md
 - docs/runbooks/api-usage-analytics.md
 - docs/runbooks/api-rejected-events.md
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
@@ -441,9 +441,9 @@ Work style:
 
 - Usage data is event-based at runtime.
 - Rejected event analytics is event-based at runtime.
-- Rollup tables and persistence repositories exist, but no backfill command uses them yet.
+- Manual rollup backfill command exists, but runtime summary APIs have not switched to rollup reads.
 - Runtime summary APIs have not switched to rollup reads.
-- No rollup backfill command yet.
+- Manual rollup backfill command exists.
 - No retention policy job yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
@@ -470,11 +470,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 24 after confirming Sprint 23 docs are committed and pushed.
+Start Sprint 25 after confirming Sprint 24 docs are committed and pushed.
 
 Recommended direction:
 
-- Analytics Rollup Backfill Command or Retention Safety Foundation.
+- Analytics Retention Safety Foundation or Rollup Read Model Investigation.
 
 Before starting:
 

@@ -1,4 +1,4 @@
-# PulseGate
+﻿# PulseGate
 
 High-Traffic API Gateway & Observability Platform.
 
@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.24.0
+- v0.25.0
 
 Latest completed sprint:
 
-- Sprint 23 - Analytics Rollup Persistence Foundation
+- Sprint 24 - Analytics Rollup Backfill Command
 
 ---
 
@@ -53,8 +53,8 @@ PulseGate currently includes:
 
 Latest validation:
 
-- 67 test files passed
-- 461 tests passed
+- 71 test files passed
+- 494 tests passed
 - npm run typecheck passed
 - npm run build passed
 - Prisma schema validate passed
@@ -157,7 +157,7 @@ Rejected request behavior:
 Analytics rollup persistence foundation behavior:
 
 - Sprint 22 added rollup calculation helpers under apps/api-gateway/src/analytics.
-- Sprint 23 added rollup persistence tables, dimension hashing, repositories, and an internal persistence service.
+- Sprint 23 added rollup persistence tables, dimension hashing, repositories, and an internal persistence service; Sprint 24 added the manual backfill command.
 - Rollup persistence is separate for successful usage and rejected/security traffic.
 - Rollup upserts use a dimensionHash to avoid nullable-dimension uniqueness issues.
 - Current runtime summary and listing APIs still read raw event tables.
@@ -167,7 +167,7 @@ Analytics rollup persistence foundation behavior:
 Current analytics limitation:
 
 - Usage and rejected analytics are still event-based at runtime.
-- No rollup backfill command is implemented yet.
+- Manual rollup backfill command is implemented.
 - No retention job is implemented yet.
 - Summary APIs have not been switched to read rollup tables yet.
 
@@ -225,7 +225,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-23.md
+- docs/sdlc/sprint-history/sprint-24.md
 
 Latest usage analytics runbook:
 
@@ -243,11 +243,11 @@ Latest decision record:
 
 ## Recommended Next Sprint
 
-Sprint 24 recommended direction:
+Sprint 25 recommended direction:
 
-- Analytics Rollup Backfill Command or Retention Safety Foundation
+- Analytics Retention Safety Foundation or Rollup Read Model Investigation
 
 Reason:
 
-- Sprint 23 added safe persistence foundations without changing runtime analytics or quota behavior.
+- Sprint 24 added controlled manual backfill without changing runtime analytics or quota behavior.
 - The next backend step can either add a controlled backfill command or start safe retention dry-run planning.

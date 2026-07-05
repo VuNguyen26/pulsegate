@@ -1,4 +1,4 @@
-# PulseGate Architecture Overview
+﻿# PulseGate Architecture Overview
 
 ## Project
 
@@ -6,16 +6,16 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.24.0
+v0.25.0
 
 ## Current Status
 
-Sprint 23 - Analytics Rollup Persistence Foundation Complete
+Sprint 24 - Analytics Rollup Backfill Command Complete
 
 Current validation:
 
-- 67 test files passed
-- 461 tests passed
+- 71 test files passed
+- 494 tests passed
 - npm run typecheck passed
 - npm run build passed
 - Prisma schema validate passed
@@ -84,7 +84,7 @@ Analytics rollup foundation flow:
       -> analytics rollup persistence service
       -> future backfill or background job
 
-Sprint 23 did not connect rollup persistence to runtime APIs, quota counting, retention, or background jobs.
+Sprint 24 connected rollup persistence to a manual/internal backfill command, but not to runtime APIs, quota counting, retention, or background jobs.
 
 ---
 
@@ -285,7 +285,7 @@ Current safety boundaries:
 
 - No runtime API change.
 - No summary API switch to rollup reads.
-- No backfill command.
+- No scheduled/background rollup job.
 - No background job.
 - No retention deletion.
 - No quota checker change.
@@ -328,7 +328,7 @@ Core:
 
 - Usage data is event-based at runtime.
 - Rejected event analytics is event-based at runtime.
-- Rollup tables and persistence repositories exist, but no backfill command uses them yet.
+- Manual rollup backfill command exists, but runtime summary APIs have not switched to rollup reads.
 - Runtime summary APIs have not switched to rollup reads.
 - No retention policy job yet.
 - Disabled usage plans currently skip quota enforcement.
@@ -352,9 +352,9 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 24 recommended direction:
+Sprint 25 recommended direction:
 
-- Analytics Rollup Backfill Command or Retention Safety Foundation
+- Analytics Retention Safety Foundation or Rollup Read Model Investigation
 
 Rationale:
 

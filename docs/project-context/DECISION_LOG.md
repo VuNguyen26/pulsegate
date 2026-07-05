@@ -1,4 +1,4 @@
-# Decision Log
+﻿# Decision Log
 
 ## Scope
 
@@ -12,11 +12,11 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.24.0
+v0.25.0
 
 ## Latest Completed Sprint
 
-Sprint 23 - Analytics Rollup Persistence Foundation
+Sprint 24 - Analytics Rollup Backfill Command
 
 ---
 

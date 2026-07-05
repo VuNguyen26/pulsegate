@@ -1,4 +1,4 @@
-# PulseGate Requirements
+﻿# PulseGate Requirements
 
 ## Project
 
@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.24.0
+v0.25.0
 
 ## Latest Completed Sprint
 
-Sprint 23 - Analytics Rollup Persistence Foundation
+Sprint 24 - Analytics Rollup Backfill Command
 
 ---
 
@@ -301,7 +301,7 @@ PulseGate shall keep a clear design path for high-volume analytics storage lifec
 
 Status:
 
-Designed. Rollup calculation foundation implemented in Sprint 22. Rollup persistence foundation implemented in Sprint 23.
+Designed. Rollup calculation, persistence, and manual backfill foundations are implemented.
 
 ---
 
@@ -396,8 +396,8 @@ Implemented.
 
 Current result:
 
-- 67 test files passed
-- 461 tests passed
+- 71 test files passed
+- 494 tests passed
 
 Validation:
 
@@ -426,7 +426,7 @@ Implemented.
 Latest validation:
 
 - Shadow database migration deploy passed for all API Gateway migrations, including analytics rollup tables.
-- Full Docker runtime API validation was not required for Sprint 23 because runtime API behavior was not changed.
+- Full Docker runtime API validation was not required for Sprint 24 because HTTP runtime API behavior was not changed.
 
 Status:
 
@@ -458,7 +458,7 @@ Implemented.
 
 - Usage data is event-based at runtime.
 - Rejected event analytics is event-based at runtime.
-- Rollup tables and persistence repositories exist, but no backfill command uses them yet.
+- Manual rollup backfill command exists, but runtime summary APIs have not switched to rollup reads.
 - Runtime summary APIs have not switched to rollup reads.
 - No retention policy job yet.
 - No per-consumer Grafana dashboard yet.
