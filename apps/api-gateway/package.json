@@ -11,7 +11,8 @@
     "db:generate": "prisma generate --schema prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema prisma/schema.prisma",
     "db:migrate:deploy": "prisma migrate deploy --schema prisma/schema.prisma",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "analytics:rollup:backfill": "tsx src/analytics/analytics-rollup-backfill.command.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
