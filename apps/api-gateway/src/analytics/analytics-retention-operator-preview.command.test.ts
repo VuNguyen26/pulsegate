@@ -29,6 +29,12 @@ describe('runAnalyticsRetentionOperatorPreviewCommand', () => {
       '--mode <dry-run|execute>',
     );
     expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      '--hard-delete-limit <n>',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).not.toContain(
+      '--hard-delete-limit<n>',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
       '--enabled false',
     );
     expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
