@@ -24,42 +24,43 @@ Long decision records live in:
 
 ## Current Version
 
-v0.29.0
+v0.30.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 28 - Analytics Retention Execution Repository Safety Foundation
+Sprint 29 - Analytics Retention Execution Service Orchestration Preview
 
 Status:
 
 Done.
 
-Sprint 28 added repository-level safety foundations for future analytics retention execution:
+Sprint 29 added service-level orchestration preview foundations for future analytics retention execution:
 
-- Added analytics retention delete repository safety contract.
-- Added delete repository port and executor.
-- Added delete operation planner from retention plan and delete batch plan.
-- Added Prisma delete repository implementation behind guardrails.
-- Added candidate recheck enforcement before prepared delete execution.
-- Added bounded selected-ID delete behavior for usage and rejected sources.
+- Added analytics retention execution service preview.
+- Added analytics retention execution service summary model.
+- Added analytics retention execution candidate count loader.
+- Added candidate-read execution preview composition.
+- Composed retention policy, plan, execution args, execution guard, delete batch plan, delete operation plan, and optional repository preparation.
+- Preserved count-only candidate reads through the existing candidate read repository.
 - Preserved source separation between usage and rejected events.
-- Preserved existing analytics:retention:dry-run command behavior.
-- Preserved analytics:retention:execution-preview output with deleteImplementationAvailable=false.
+- Preserved the existing analytics:retention:execution-preview command behavior with deleteImplementationAvailable=false.
 - Did not add a retention execute command.
 - Did not add a retention delete API.
 - Did not add a scheduled/background retention job.
+- Did not call deleteCandidates from an operator-facing flow.
 - Did not add migration or schema changes.
 - Did not change quota checker, usage recorder, or rejected event recorder.
 - Did not switch runtime summary APIs to rollup reads.
 
-Sprint 28 details are archived in:
+Sprint 29 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-28.md
+- docs/sdlc/sprint-history/sprint-29.md
 
 Related runbooks:
 
+- docs/runbooks/analytics-retention-execution-service-preview.md
 - docs/runbooks/analytics-retention-delete-repository.md
 - docs/runbooks/analytics-retention-execution-preview.md
 - docs/runbooks/analytics-retention-dry-run.md
@@ -68,6 +69,7 @@ Related runbooks:
 
 Related design records:
 
+- docs/project-context/decisions/2026-07-06-analytics-retention-execution-service-orchestration-preview.md
 - docs/project-context/decisions/2026-07-06-analytics-retention-delete-repository-safety.md
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
 
@@ -75,27 +77,21 @@ Related design records:
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 28:
+Latest stable validation from Sprint 29:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
-- PostgreSQL migration deploy -> passed with no pending migrations
-- Analytics retention dry-run command validation -> passed with DATABASE_URL
-- Analytics retention execution preview command validation -> passed
-- Analytics retention Prisma delete repository targeted validation -> passed
 
 Latest automated test result:
 
-- 89 test files passed
-- 621 tests passed
+- 93 test files passed
+- 646 tests passed
 
 Manual DB/runtime command validation:
 
-- docker compose up -d postgres redis started or reused pulsegate-postgres and pulsegate-redis.
-- npm run db:migrate:deploy --workspace api-gateway found 7 migrations and no pending migrations.
-- npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90 returned candidateCount=0 for usage and rejected, dryRunOnly=true, and deleteAllowed=false.
-- npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 10 returned execute guard preview with deleteImplementationAvailable=false.
+- No new Docker/runtime validation was required in Sprint 29 because no command, API, migration, scheduled job, or operator-facing delete execution was added.
+- Latest DB/runtime validation remains Sprint 28: migration deploy had no pending migrations, retention dry-run was DB-backed and deleteAllowed=false, and execution preview reported deleteImplementationAvailable=false.
 
 ---
 
@@ -165,6 +161,10 @@ PulseGate currently has:
 - Analytics retention delete repository port and executor.
 - Analytics retention delete operation planner.
 - Analytics retention Prisma delete repository implementation behind guardrails.
+- Analytics retention execution service preview.
+- Analytics retention execution service summary model.
+- Analytics retention execution candidate count loader.
+- Analytics retention candidate-read execution preview composition.
 - Internal/admin route management APIs.
 - Internal/admin consumer APIs.
 - Internal/admin API key lifecycle APIs.
@@ -282,6 +282,12 @@ Analytics retention:
 - Delete repository safety model blocks unsafe repository operations before any delete.
 - Delete operation planner derives source-specific repository requests from retention and batch plans.
 - Prisma delete repository can count source-specific candidates and delete only bounded selected IDs after safety checks.
+- Execution service preview composes policy, plan, guard, batch plan, operation plan, optional repository preparation, and safe flags.
+- Execution service summary provides a compact non-destructive summary contract.
+- Candidate count loader normalizes count-only candidate read repository output for execution planning.
+- Candidate-read execution preview composes existing read-only candidate counts into the service preview.
+- Service previews do not call deleteCandidates.
+- The existing execution preview command remains DB-free and reports deleteImplementationAvailable=false.
 - No operator-facing raw event delete command exists yet.
 - No retention execute command exists yet.
 
@@ -303,7 +309,7 @@ Current quota scope:
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Retention execution has repository-level safety foundations, but no operator-facing execute command yet.
+- Retention execution has repository-level and service-level safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
 - No scheduled/background rollup job yet.
@@ -331,15 +337,15 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 29 recommended direction:
+Sprint 30 recommended direction:
 
-- Analytics Retention Execution Service Orchestration Preview
+- Analytics Retention Execution Operator Preview Command
 
 Recommended scope:
 
-- Compose execution guard, delete batch plan, operation planner, candidate recheck, and repository executor at service level.
-- Keep retention execution explicit and operator-controlled.
-- Keep execution preview command delete-free unless explicitly approved.
+- Add a non-destructive operator-facing command around the Sprint 29 service orchestration preview.
+- Use count-only candidate read repository access for candidate counts.
+- Keep deleteCandidates unavailable from operator-facing flow.
 - Keep successful usage and rejected/security events separate.
 - Keep quota counting on gateway.api_usage_events.
 - Do not expose a destructive execute command until explicitly approved.

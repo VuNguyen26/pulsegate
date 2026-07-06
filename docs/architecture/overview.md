@@ -6,21 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.29.0
+v0.30.0
 
 ## Current Status
 
-Sprint 28 - Analytics Retention Execution Repository Safety Foundation Complete
+Sprint 29 - Analytics Retention Execution Service Orchestration Preview Complete
 
 Current validation:
 
-- 89 test files passed
-- 621 tests passed
+- 93 test files passed
+- 646 tests passed
 - npm run typecheck passed
 - npm run build passed
-- PostgreSQL migration deploy passed with no pending migrations
-- Analytics retention dry-run DB-backed candidate validation passed
-- Analytics retention execution preview command validation passed with deleteImplementationAvailable=false
+- No new Docker/runtime validation was required in Sprint 29 because no command, API, migration, scheduled job, or operator-facing delete execution was added
 
 ---
 
@@ -46,7 +44,7 @@ Long decision records live in:
 
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
-PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, and repository safety foundations, and CI/CD.
+PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, and CI/CD.
 
 ---
 
@@ -104,7 +102,18 @@ Analytics retention repository safety flow:
       -> repository safety decision
       -> bounded Prisma repository delete by selected IDs only
 
-The repository safety flow exists as a backend foundation only. It is not wired to any operator-facing execute command, API, scheduled job, or quota path.
+Analytics retention service orchestration preview flow:
+
+    Retention policy input and execution args
+      -> retention policy and plan
+      -> count-only candidate read loader
+      -> execution guard
+      -> delete batch plan
+      -> delete operation plan
+      -> optional repository prepare operation
+      -> service preview summary
+
+The repository safety flow and service orchestration preview flow exist as backend foundations only. They are not wired to any operator-facing execute command, API, scheduled job, or quota path.
 
 Rollup tables, retention dry-run, and retention repository primitives are not used by quota counting or existing summary APIs.
 
@@ -176,7 +185,7 @@ API Gateway currently handles:
 - Rejected events summary and raw listing with filters, offset pagination, and cursor pagination.
 - Analytics rollup calculation, persistence, manual backfill, and read model foundations.
 - Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
-- Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, and Prisma delete repository foundation.
+- Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, Prisma delete repository foundation, execution service preview, summary model, candidate count loader, and candidate-read preview composition.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected event, quota, and rollup APIs.
 - Structured access logs and Prometheus metrics.
 
@@ -325,6 +334,10 @@ Current files:
 - apps/api-gateway/src/analytics/analytics-retention-delete-repository-safety.ts
 - apps/api-gateway/src/analytics/analytics-retention-delete.repository.ts
 - apps/api-gateway/src/analytics/analytics-retention-delete-operation-plan.ts
+- apps/api-gateway/src/analytics/analytics-retention-execution-service.ts
+- apps/api-gateway/src/analytics/analytics-retention-execution-service-summary.ts
+- apps/api-gateway/src/analytics/analytics-retention-execution-candidate-count-loader.ts
+- apps/api-gateway/src/analytics/analytics-retention-execution-service-candidate-read-preview.ts
 
 Current commands:
 
@@ -347,6 +360,12 @@ Current behavior:
 - Delete repository safety model requires source, cutoff, limit, candidate recheck, and batch-plan safety checks.
 - Delete operation planner derives repository requests from retention plans and batch plans.
 - Prisma delete repository counts candidates by source and can delete only bounded selected IDs after safety checks.
+- Execution service preview composes policy, plan, execution guard, delete batch plan, delete operation plan, optional repository preparation, and safe output flags.
+- Execution service summary maps rich preview output into a compact non-destructive summary contract.
+- Candidate count loader normalizes count-only candidate read repository output for execution planning.
+- Candidate-read execution preview composes existing read-only candidate counts into the service preview.
+- Service previews do not call deleteCandidates.
+- The existing execution preview command remains DB-free and reports deleteImplementationAvailable=false.
 - No operator-facing raw event deletion is exposed yet.
 - No retention execute command is implemented yet.
 
@@ -388,7 +407,7 @@ Core:
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Retention execution has repository-level safety foundations, but no operator-facing execute command yet.
+- Retention execution has repository-level and service-level safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
 - No scheduled/background rollup job yet.
@@ -413,11 +432,12 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 29 recommended direction:
+Sprint 30 recommended direction:
 
-- Analytics Retention Execution Service Orchestration Preview
+- Analytics Retention Execution Operator Preview Command
 
 Rationale:
 
-- Sprint 28 added repository-level delete safety primitives and a bounded Prisma delete repository behind guardrails.
-- The next architecture step should compose the guard, batch plan, operation planner, candidate recheck, and repository executor into a service-level orchestration preview before exposing any destructive operator command.
+- Sprint 29 added service-level orchestration and count-backed candidate-read preview composition.
+- The next architecture step should expose a non-destructive operator preview path around this service layer before any destructive delete execution is considered.
+- Delete execution should remain unavailable until command/API semantics, runtime validation, rollback expectations, and operator controls are explicitly designed.

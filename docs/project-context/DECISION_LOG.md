@@ -12,15 +12,42 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.29.0
+v0.30.0
 
 ## Latest Completed Sprint
 
-Sprint 28 - Analytics Retention Execution Repository Safety Foundation
+Sprint 29 - Analytics Retention Execution Service Orchestration Preview
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-06 - Analytics retention execution service orchestration stays non-destructive
+
+Decision:
+
+- Add service-level retention execution preview orchestration after repository safety primitives exist.
+- Compose retention policy, plan, execution args, execution guard, delete batch plan, delete operation plan, and optional repository preparation.
+- Add a compact service summary model for future operator preview output.
+- Add a candidate count loader that normalizes count-only candidate read repository output.
+- Add candidate-read preview composition over the existing read-only candidate repository.
+- Keep service previews from calling deleteCandidates.
+- Keep the existing analytics:retention:execution-preview command DB-free with deleteImplementationAvailable=false.
+- Do not expose a retention execute command, delete API, scheduled job, or quota path in Sprint 29.
+- Do not change quota counting, usage recording, rejected event recording, rollup reads, or summary APIs.
+
+Reason:
+
+- The bounded Prisma delete repository exists, so service-level orchestration must remain preview-first and non-destructive.
+- Count-only candidate loading lets future operator previews show realistic planning data without deleting raw events.
+- A summary model provides a safer output contract before any command or API wiring is considered.
+- Keeping delete execution unavailable protects quota correctness and raw analytics event separation.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-06-analytics-retention-execution-service-orchestration-preview.md
+
+---
 
 ### 2026-07-06 - Analytics retention delete repository primitives stay behind guardrails
 

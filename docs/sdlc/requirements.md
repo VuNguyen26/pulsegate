@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.29.0
+v0.30.0
 
 ## Latest Completed Sprint
 
-Sprint 28 - Analytics Retention Execution Repository Safety Foundation
+Sprint 29 - Analytics Retention Execution Service Orchestration Preview
 
 ---
 
@@ -301,7 +301,7 @@ PulseGate shall keep a clear design path for high-volume analytics storage lifec
 
 Status:
 
-Designed. Rollup calculation, persistence, manual backfill, read model, retention dry-run, retention execution guardrail, and retention repository safety foundations are implemented.
+Designed. Rollup calculation, persistence, manual backfill, read model, retention dry-run, retention execution guardrail, retention repository safety, and retention execution service preview foundations are implemented.
 
 ---
 
@@ -475,6 +475,27 @@ Implemented as repository safety foundation.
 
 ---
 
+### FR-032 Analytics Retention Execution Service Orchestration Preview
+
+PulseGate shall provide a service-level orchestration preview for future analytics retention execution without exposing destructive operator controls.
+
+Required behavior:
+
+- Compose retention policy, retention plan, execution args, execution guard, delete batch plan, and delete operation plan.
+- Support count-only candidate loading through the existing candidate read repository.
+- Keep usage and rejected candidate counts separate.
+- Support optional repository prepare operation for candidate recheck preview.
+- Produce a compact service summary model for future operator preview output.
+- Do not call deleteCandidates.
+- Do not expose a retention execute command, delete API, scheduled job, or quota path.
+- Do not change quota counting, usage recording, rejected event recording, rollup reads, or summary APIs.
+
+Status:
+
+Implemented as non-destructive service orchestration preview foundation.
+
+---
+
 ## Current Non-Functional Requirements
 
 ### NFR-001 Type Safety
@@ -493,8 +514,8 @@ Implemented.
 
 Current result:
 
-- 89 test files passed
-- 621 tests passed
+- 93 test files passed
+- 646 tests passed
 
 Validation:
 
@@ -522,10 +543,11 @@ Implemented.
 
 Latest validation:
 
-- PostgreSQL and Redis containers started or reused successfully.
-- Runtime migration deploy found 7 migrations and no pending migrations.
-- Analytics retention dry-run DB-backed candidate validation passed with candidateCount=0 and deleteAllowed=false.
-- Analytics retention execution preview command passed with deleteImplementationAvailable=false.
+- Sprint 29 final automated validation passed with 93 test files and 646 tests.
+- npm run typecheck passed.
+- npm run build passed.
+- No new Docker/runtime validation was required in Sprint 29 because no command, API, migration, scheduled job, or operator-facing delete execution was added.
+- Latest DB/runtime validation remains Sprint 28: migration deploy had no pending migrations, retention dry-run was DB-backed and deleteAllowed=false, and execution preview reported deleteImplementationAvailable=false.
 
 Status:
 
@@ -535,7 +557,7 @@ Implemented.
 
 ### NFR-005 Observability
 
-Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, and retention dry-run candidate previews, retention execution guard previews, and retention repository safety tests.
+Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, retention dry-run candidate previews, retention execution guard previews, retention repository safety tests, and retention execution service preview tests.
 
 Status:
 
@@ -558,7 +580,7 @@ Implemented.
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Retention execution has repository-level safety foundations, but no operator-facing execute command yet.
+- Retention execution has repository-level and service-level safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
 - No scheduled/background rollup job yet.
@@ -586,7 +608,7 @@ Implemented.
 
 Recommended next:
 
-- Add a service-level analytics retention execution orchestration preview behind existing guardrails.
+- Add a non-destructive analytics retention execution operator preview command around the service orchestration layer.
 - Keep retention execution explicit, limited, and blocked from operator-facing delete until approved.
 - Switch selected long-range analytics reads to rollups later after explicit design.
 - Add Grafana panels for quota, usage, rejected traffic, rollups, and retention dry-run candidates later.
