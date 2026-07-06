@@ -12,6 +12,9 @@ import {
   buildAnalyticsRetentionExecutionServiceCandidateReadPreview,
 } from './analytics-retention-execution-service-candidate-read-preview.js';
 import {
+  parseAnalyticsRetentionExecutionCommandArgs,
+} from './analytics-retention-execution-command-args.js';
+import {
   splitAnalyticsRetentionExecutionPreviewCommandArgs,
 } from './analytics-retention-execution-preview.command.js';
 import {
@@ -52,6 +55,8 @@ export async function runAnalyticsRetentionOperatorPreviewCommand(
   const splitArgs = splitAnalyticsRetentionExecutionPreviewCommandArgs(
     input.argv ?? process.argv.slice(2),
   );
+
+  parseAnalyticsRetentionExecutionCommandArgs(splitArgs.executionArgs);
 
   const preview =
     await buildAnalyticsRetentionExecutionServiceCandidateReadPreview({

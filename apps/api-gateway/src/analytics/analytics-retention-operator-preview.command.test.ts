@@ -240,6 +240,78 @@ describe('runAnalyticsRetentionOperatorPreviewCommand', () => {
     expectNonDestructiveOperatorPreviewOutput(output);
   });
 
+  it.each([
+    {
+      name: 'confirmation without execute mode',
+      argv: [
+        '--enabled',
+        'true',
+        '--source',
+        'usage',
+        '--usage-retention-days',
+        '90',
+        '--confirm-execute',
+        ANALYTICS_RETENTION_EXECUTE_CONFIRMATION_VALUE,
+      ],
+      errorPattern: /only be used with --mode execute/,
+    },
+    {
+      name: 'hard delete limit in dry-run mode',
+      argv: [
+        '--enabled',
+        'true',
+        '--source',
+        'usage',
+        '--usage-retention-days',
+        '90',
+        '--mode',
+        'dry-run',
+        '--hard-delete-limit',
+        '100',
+      ],
+      errorPattern: /only be used with --mode execute/,
+    },
+    {
+      name: 'unsafe confirmation value',
+      argv: [
+        '--enabled',
+        'true',
+        '--source',
+        'usage',
+        '--usage-retention-days',
+        '90',
+        '--mode',
+        'execute',
+        '--confirm-execute',
+        'DELETE_NOW',
+      ],
+      errorPattern: /must equal/,
+    },
+  ])(
+    'should reject unsafe execution guard args before reading candidates: $name',
+    async ({ argv, errorPattern }) => {
+      const { repository, summarizeCandidates } = createCandidateReadRepository({
+        enabled: true,
+        generatedAt: NOW,
+        usage: null,
+        rejected: null,
+      });
+      const logger = createLogger();
+
+      await expect(
+        runAnalyticsRetentionOperatorPreviewCommand({
+          argv,
+          now: NOW,
+          candidateReadRepository: repository,
+          logger,
+        }),
+      ).rejects.toThrow(errorPattern);
+
+      expect(summarizeCandidates).not.toHaveBeenCalled();
+      expect(logger.log).not.toHaveBeenCalled();
+    },
+  );
+
   it('should reject invalid args before reading candidates', async () => {
     const { repository, summarizeCandidates } = createCandidateReadRepository({
       enabled: true,
