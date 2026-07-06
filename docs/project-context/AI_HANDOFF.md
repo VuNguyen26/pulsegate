@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.27.0
+- v0.28.0
 
 Latest completed sprint:
 
-- Sprint 26 - Analytics Retention Safety Foundation
+- Sprint 27 - Analytics Retention Execution Guardrails
 
 Recommended next technical sprint:
 
-- Sprint 27 - Analytics Retention Execution Guardrails
+- Sprint 28 - Analytics Retention Execution Repository Safety Foundation
 
 ---
 
@@ -109,39 +109,37 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 26:
+Latest stable validation from Sprint 27:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
 - PostgreSQL migration deploy -> passed with no pending migrations
-- Analytics retention dry-run command validation -> passed
-- Invalid execute mode validation -> failed safely with usage text
+- Analytics retention execution preview command validation -> passed
+- Analytics retention dry-run command validation -> passed with DATABASE_URL
 
 Latest automated test result:
 
-- 80 test files passed
-- 551 tests passed
+- 85 test files passed
+- 591 tests passed
 
 Manual DB/runtime command validation:
 
 - docker compose up -d postgres started or reused pulsegate-postgres.
 - npm run db:migrate:deploy --workspace api-gateway found 7 migrations and no pending migrations.
-- Retention dry-run disabled mode returned JSON with usage/rejected plans null.
-- Retention dry-run usage mode returned usage candidateCount and rejected null.
-- Retention dry-run rejected mode returned rejected candidateCount and usage null.
-- Retention dry-run both mode returned both usage and rejected candidate counts.
-- All successful dry-run outputs returned dryRunOnly=true and deleteAllowed=false.
-- --mode execute failed safely and printed usage text.
+- Retention execution preview dry-run mode returned deleteAllowed=false and deleteImplementationAvailable=false.
+- Retention execution preview execute mode returned guard-allowed preview with deleteImplementationAvailable=false.
+- Retention dry-run usage mode returned candidateCount and deleteAllowed=false.
 
-Sprint 26 preserved:
+Sprint 27 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
 - No quota checker changes.
 - No usage recorder changes.
 - No rejected event recorder changes.
-- No retention delete job.
+- No raw event deletion.
+- No retention execute command.
 - No scheduled/background job.
 - No summary API switch to rollup reads.
 
@@ -186,6 +184,7 @@ API Gateway currently supports:
 - Analytics rollup calculation, persistence, manual backfill, and read model foundations.
 - Read-only analytics rollup endpoint.
 - Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
+- Analytics retention execution guard, execution args parser, execution preview command, and delete batch plan model.
 - 429 QUOTA_EXCEEDED responses with quota metadata.
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
@@ -259,9 +258,10 @@ Admin rollup analytics endpoint:
 
 - GET /internal/admin/analytics/rollups
 
-Retention dry-run command:
+Retention commands:
 
 - npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90
+- npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100
 
 Usage events listing behavior:
 
@@ -305,17 +305,21 @@ Analytics rollup foundation:
 - Persistence service aggregates raw-shaped events and delegates persistence.
 - Manual backfill command can plan or execute controlled rollup rebuilds.
 - Read model can query usage or rejected rollup rows through an internal/admin endpoint.
-- Rollups are not used by runtime summaries, scheduled background jobs, retention delete, or quota counting yet.
+- Rollups are not used by runtime summaries, scheduled background jobs, retention delete, execution preview, or quota counting yet.
 
-Analytics retention dry-run foundation:
+Analytics retention foundation:
 
-- Policy parser supports disabled/default dry-run planning.
+- Dry-run policy parser supports disabled/default dry-run planning.
 - Candidate reader counts usage or rejected events older than computed cutoffs.
 - Dry-run service orchestrates policy, plan, and candidate read.
-- CLI args parser accepts enabled, source, mode, usageRetentionDays, and rejectedRetentionDays.
-- Command prints JSON preview.
-- Execute mode is intentionally rejected.
+- Dry-run command prints DB-backed candidate JSON preview.
+- Execution guard models dry-run, execute, confirmation, hard delete limit, and blocked reasons.
+- Execution args parser accepts explicit execute preview flags.
+- Execution preview command prints guard JSON preview without DB access.
+- Delete batch plan model requires candidate recheck and one total hard delete limit.
+- Execution preview reports deleteImplementationAvailable=false.
 - Raw events are not deleted.
+- No retention execute command exists yet.
 
 Current analytics limitations:
 
@@ -420,6 +424,7 @@ Docs:
 - docs/runbooks/analytics-rollup-backfill.md
 - docs/runbooks/analytics-rollup-read.md
 - docs/runbooks/analytics-retention-dry-run.md
+- docs/runbooks/analytics-retention-execution-preview.md
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
 
 ---
@@ -473,7 +478,9 @@ Work style:
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Retention currently supports dry-run candidate counting only.
+- Retention execution is guard/preview/model only.
+- No retention delete repository yet.
+- No retention execute command yet.
 - No retention delete job yet.
 - No scheduled/background rollup job yet.
 - No per-consumer Grafana dashboard yet.
@@ -501,11 +508,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 27 after confirming Sprint 26 docs are committed and pushed.
+Start Sprint 28 after confirming Sprint 27 docs are committed and pushed.
 
 Recommended direction:
 
-- Analytics Retention Execution Guardrails.
+- Analytics Retention Execution Repository Safety Foundation.
 
 Before starting:
 
@@ -515,3 +522,4 @@ Before starting:
 - Preserve quota correctness.
 - Keep successful usage and rejected/security event storage separate.
 - Keep retention execution explicit and guarded.
+- Do not expose a destructive execute command until explicitly approved.

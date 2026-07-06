@@ -6,19 +6,20 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.27.0
+v0.28.0
 
 ## Current Status
 
-Sprint 26 - Analytics Retention Safety Foundation Complete
+Sprint 27 - Analytics Retention Execution Guardrails Complete
 
 Current validation:
 
-- 80 test files passed
-- 551 tests passed
+- 85 test files passed
+- 591 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Analytics retention dry-run command validation passed
+- Analytics retention execution preview command validation passed
+- Analytics retention dry-run DB-backed candidate validation passed
 
 ---
 
@@ -44,7 +45,7 @@ Long decision records live in:
 
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
-PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention safety foundations, and CI/CD.
+PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run and execution guardrail foundations, and CI/CD.
 
 ---
 
@@ -163,6 +164,7 @@ API Gateway currently handles:
 - Rejected events summary and raw listing with filters, offset pagination, and cursor pagination.
 - Analytics rollup calculation, persistence, manual backfill, and read model foundations.
 - Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
+- Analytics retention execution guard, execution args parser, execution preview command, and delete batch plan model.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected event, quota, and rollup APIs.
 - Structured access logs and Prometheus metrics.
 
@@ -294,7 +296,7 @@ Rollup read endpoint:
 
 ---
 
-## Analytics Retention Dry-Run Architecture
+## Analytics Retention Architecture
 
 Current files:
 
@@ -303,10 +305,17 @@ Current files:
 - apps/api-gateway/src/analytics/analytics-retention-dry-run-service.ts
 - apps/api-gateway/src/analytics/analytics-retention-dry-run-command-args.ts
 - apps/api-gateway/src/analytics/analytics-retention-dry-run.command.ts
+- apps/api-gateway/src/analytics/analytics-retention-execution-guard.ts
+- apps/api-gateway/src/analytics/analytics-retention-execution-command-args.ts
+- apps/api-gateway/src/analytics/analytics-retention-execution-preview.ts
+- apps/api-gateway/src/analytics/analytics-retention-execution-preview.command.ts
+- apps/api-gateway/src/analytics/analytics-retention-delete-batch-plan.ts
 
-Current command:
+Current commands:
 
     npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90
+
+    npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100
 
 Current behavior:
 
@@ -317,7 +326,10 @@ Current behavior:
 - Counts candidate rows older than computed cutoffs.
 - Returns JSON preview with candidateCount.
 - Always returns dryRunOnly=true and deleteAllowed=false.
-- Rejects execute mode.
+- Existing dry-run command still rejects execute mode.
+- Execution preview command models explicit execute guardrails without DB access.
+- Execution preview reports deleteImplementationAvailable=false.
+- Delete batch plan model requires candidate recheck and one total hard delete limit.
 - Does not delete raw events.
 
 ---
@@ -358,7 +370,9 @@ Core:
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Retention currently supports dry-run candidate counting only.
+- Retention execution is guard/preview/model only.
+- No retention delete repository is implemented yet.
+- No retention execute command is implemented yet.
 - No retention delete job is implemented yet.
 - No scheduled/background rollup job yet.
 - Disabled usage plans currently skip quota enforcement.
@@ -382,11 +396,11 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 27 recommended direction:
+Sprint 28 recommended direction:
 
-- Analytics Retention Execution Guardrails
+- Analytics Retention Execution Repository Safety Foundation
 
 Rationale:
 
-- Sprint 26 added dry-run-only retention planning, candidate counting, and a CLI preview command.
-- The next step can add guarded execution design without changing quota semantics or deleting data without explicit operator intent.
+- Sprint 27 added guarded execution preview, confirmation parsing, hard delete limit modeling, candidate recheck modeling, and delete batch planning.
+- The next step can add repository-level safety primitives without exposing an operator-facing destructive command yet.

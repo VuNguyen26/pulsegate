@@ -12,15 +12,38 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.27.0
+v0.28.0
 
 ## Latest Completed Sprint
 
-Sprint 26 - Analytics Retention Safety Foundation
+Sprint 27 - Analytics Retention Execution Guardrails
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-06 - Analytics retention execution starts with guardrails and preview only
+
+Decision:
+
+- Add execution guard model before any delete repository or execute command.
+- Require explicit execute mode, confirmation phrase, and hard delete limit for execute preview.
+- Add execution preview composition over policy, plan, args, and guard decision.
+- Add npm run analytics:retention:execution-preview command.
+- Keep execution preview DB-free and delete-free.
+- Return deleteImplementationAvailable=false from execution preview.
+- Add delete batch plan model with candidate recheck requirement and one total hard delete cap.
+- Do not delete raw usage or rejected events in Sprint 27.
+- Do not change quota counting, usage recording, rejected event recording, rollup reads, or summary APIs.
+
+Reason:
+
+- Retention execution is destructive and must be guarded before any repository-level delete primitive exists.
+- A DB-free execution preview lets operators inspect guard decisions without touching data.
+- Candidate recheck and hard delete limits need to be modeled before implementing delete operations.
+- Keeping usage and rejected paths separate preserves current data ownership and quota safety.
+
+---
 
 ### 2026-07-05 - Analytics retention starts as dry-run-only safety foundation
 

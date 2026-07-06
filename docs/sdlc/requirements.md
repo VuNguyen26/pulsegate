@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.27.0
+v0.28.0
 
 ## Latest Completed Sprint
 
-Sprint 26 - Analytics Retention Safety Foundation
+Sprint 27 - Analytics Retention Execution Guardrails
 
 ---
 
@@ -301,7 +301,7 @@ PulseGate shall keep a clear design path for high-volume analytics storage lifec
 
 Status:
 
-Designed. Rollup calculation, persistence, manual backfill, read model, and retention dry-run foundations are implemented.
+Designed. Rollup calculation, persistence, manual backfill, read model, retention dry-run, and retention execution guardrail foundations are implemented.
 
 ---
 
@@ -426,6 +426,33 @@ Implemented as dry-run foundation.
 
 ---
 
+### FR-030 Analytics Retention Execution Guardrails
+
+PulseGate shall provide guardrail foundations for future analytics retention execution without deleting raw analytics events yet.
+
+Current command:
+
+- npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source <usage|rejected|both> --usage-retention-days <n> --rejected-retention-days <n> --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit <n>
+
+Required behavior:
+
+- Dry-run must remain the safe default.
+- Execute preview must require explicit confirmation phrase.
+- Execute preview must require a hard delete limit.
+- Delete batch planning must require candidate recheck.
+- Hard delete limit must apply as one total cap across selected sources.
+- Execution preview must report deleteImplementationAvailable=false.
+- No raw event deletion is implemented in this requirement.
+- No quota counting change.
+- No usage or rejected recorder change.
+- No summary API switch to rollup reads.
+
+Status:
+
+Implemented as guardrail foundation.
+
+---
+
 ## Current Non-Functional Requirements
 
 ### NFR-001 Type Safety
@@ -444,8 +471,8 @@ Implemented.
 
 Current result:
 
-- 80 test files passed
-- 551 tests passed
+- 85 test files passed
+- 591 tests passed
 
 Validation:
 
@@ -475,8 +502,8 @@ Latest validation:
 
 - PostgreSQL container started.
 - Runtime migration deploy found 7 migrations and no pending migrations.
-- Analytics retention dry-run command passed for disabled, usage, rejected, and both-source previews.
-- Invalid execute mode failed safely and printed usage text.
+- Analytics retention execution preview command passed for dry-run and execute-preview cases.
+- Analytics retention dry-run DB-backed candidate validation passed with deleteAllowed=false.
 
 Status:
 
@@ -486,7 +513,7 @@ Implemented.
 
 ### NFR-005 Observability
 
-Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, and retention dry-run candidate previews.
+Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, and retention dry-run candidate previews, and retention execution guard previews.
 
 Status:
 
@@ -509,7 +536,9 @@ Implemented.
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Retention currently supports dry-run candidate counting only.
+- Retention execution is guard/preview/model only.
+- No retention delete repository is implemented yet.
+- No retention execute command is implemented yet.
 - No retention delete job is implemented yet.
 - No scheduled/background rollup job yet.
 - No per-consumer Grafana dashboard yet.
@@ -536,8 +565,8 @@ Implemented.
 
 Recommended next:
 
-- Design guarded analytics retention execution.
-- Keep retention execution explicit, limited, and reversible where possible.
+- Add repository-level analytics retention execution safety primitives behind guardrails.
+- Keep retention execution explicit, limited, and blocked from operator-facing delete until approved.
 - Switch selected long-range analytics reads to rollups later after explicit design.
 - Add Grafana panels for quota, usage, rejected traffic, rollups, and retention dry-run candidates later.
 - Add Admin Dashboard later.

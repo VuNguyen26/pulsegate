@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.27.0
+- v0.28.0
 
 Latest completed sprint:
 
-- Sprint 26 - Analytics Retention Safety Foundation
+- Sprint 27 - Analytics Retention Execution Guardrails
 
 ---
 
@@ -48,16 +48,19 @@ PulseGate currently includes:
 - Internal analytics rollup read endpoint
 - Analytics retention dry-run safety foundation
 - Analytics retention dry-run command
+- Analytics retention execution guardrails foundation
+- Analytics retention execution preview command
+- Analytics retention delete batch plan model
 
 Latest validation:
 
-- 80 test files passed
-- 551 tests passed
+- 85 test files passed
+- 591 tests passed
 - npm run typecheck passed
 - npm run build passed
 - PostgreSQL migration deploy passed with no pending migrations
-- Analytics retention dry-run command validation passed for disabled, usage, rejected, and both sources
-- Invalid retention execute mode failed safely with usage text
+- Analytics retention execution preview command validation passed for dry-run and execute-preview cases
+- Analytics retention dry-run DB-backed candidate validation passed with deleteAllowed=false
 
 ---
 
@@ -114,6 +117,7 @@ Current gateway capabilities:
 - Rejected request analytics
 - Analytics rollup read model
 - Analytics retention dry-run planning
+- Analytics retention execution guard preview
 - Structured access logs
 - Prometheus metrics
 
@@ -168,13 +172,16 @@ Analytics rollup behavior:
 
 Analytics retention behavior:
 
-- Retention currently supports dry-run planning only.
+- Retention dry-run can count candidate raw events older than configured cutoffs.
 - Dry-run retention policy parsing supports usage, rejected, or both sources.
-- Dry-run candidate reading counts raw events older than retention cutoffs.
 - Dry-run command is available through npm run analytics:retention:dry-run.
-- Retention output always reports dryRunOnly=true and deleteAllowed=false.
-- Execute mode is intentionally rejected.
+- Retention dry-run output reports dryRunOnly=true and deleteAllowed=false.
+- Execution guardrails now model explicit execute previews, confirmation phrase, hard delete limit, candidate recheck requirement, and delete batch caps.
+- Execution preview command is available through npm run analytics:retention:execution-preview.
+- Execution preview does not connect to the database.
+- Execution preview reports deleteImplementationAvailable=false.
 - No raw event deletion is implemented yet.
+- No retention execute command is implemented yet.
 
 Current analytics limitation:
 
@@ -215,6 +222,10 @@ Run analytics retention dry-run:
 
     npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90
 
+Run analytics retention execution preview:
+
+    npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100
+
 Check API Gateway health:
 
     Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
@@ -249,13 +260,14 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-26.md
+- docs/sdlc/sprint-history/sprint-27.md
 
 Latest analytics runbooks:
 
 - docs/runbooks/analytics-rollup-backfill.md
 - docs/runbooks/analytics-rollup-read.md
 - docs/runbooks/analytics-retention-dry-run.md
+- docs/runbooks/analytics-retention-execution-preview.md
 
 Latest decision record:
 
@@ -265,11 +277,11 @@ Latest decision record:
 
 ## Recommended Next Sprint
 
-Sprint 27 recommended direction:
+Sprint 28 recommended direction:
 
-- Analytics Retention Execution Guardrails
+- Analytics Retention Execution Repository Safety Foundation
 
 Reason:
 
-- Sprint 26 added dry-run-only retention planning and candidate counting.
-- The next backend step can design guarded delete execution with strict limits, explicit mode, and validation while preserving quota correctness.
+- Sprint 27 added execution guardrails, preview composition, explicit confirmation parsing, hard delete limit modeling, and delete batch planning.
+- The next backend step can add repository-level delete safety primitives behind the existing guardrails, still without enabling an operator-facing delete command until explicitly approved.

@@ -24,42 +24,42 @@ Long decision records live in:
 
 ## Current Version
 
-v0.27.0
+v0.28.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 26 - Analytics Retention Safety Foundation
+Sprint 27 - Analytics Retention Execution Guardrails
 
 Status:
 
 Done.
 
-Sprint 26 added a safe dry-run foundation for future analytics retention:
+Sprint 27 added safe guardrails for future analytics retention execution:
 
-- Added analytics retention policy parser and plan model.
-- Added usage/rejected retention source separation.
-- Added retention day guardrails.
-- Added read-only retention candidate count repository.
-- Added analytics retention dry-run service.
-- Added retention dry-run CLI args parser.
-- Added npm run analytics:retention:dry-run command.
-- Validated disabled, usage-only, rejected-only, and both-source dry-run previews.
-- Intentionally rejected execute mode.
-- Preserved gateway.api_usage_events as source of truth for successful usage and quota counting.
-- Preserved gateway.api_rejected_events as source of truth for rejected/security traffic.
+- Added analytics retention execution guard model.
+- Added explicit execution args parser for mode, confirmation phrase, and hard delete limit.
+- Added execution preview composition across retention policy, retention plan, execution args, and guard decision.
+- Added npm run analytics:retention:execution-preview command.
+- Added delete batch plan model with single total hard delete cap across selected sources.
+- Added candidate recheck requirement modeling before any future delete.
+- Preserved dry-run default behavior.
+- Preserved existing analytics:retention:dry-run command behavior.
 - Did not delete raw events.
-- Did not add retention execute mode.
-- Did not switch runtime summary APIs to rollup reads.
+- Did not add a retention execute command.
+- Did not add a retention delete repository.
+- Did not add migration or schema changes.
 - Did not change quota checker, usage recorder, or rejected event recorder.
+- Did not switch runtime summary APIs to rollup reads.
 
-Sprint 26 details are archived in:
+Sprint 27 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-26.md
+- docs/sdlc/sprint-history/sprint-27.md
 
 Related runbooks:
 
+- docs/runbooks/analytics-retention-execution-preview.md
 - docs/runbooks/analytics-retention-dry-run.md
 - docs/runbooks/analytics-rollup-backfill.md
 - docs/runbooks/analytics-rollup-read.md
@@ -72,29 +72,27 @@ Related design record:
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 26:
+Latest stable validation from Sprint 27:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
 - PostgreSQL migration deploy -> passed with no pending migrations
-- Analytics retention dry-run command validation -> passed
-- Invalid execute mode validation -> failed safely with usage text
+- Analytics retention execution preview command validation -> passed
+- Analytics retention dry-run command validation -> passed with DATABASE_URL
 
 Latest automated test result:
 
-- 80 test files passed
-- 551 tests passed
+- 85 test files passed
+- 591 tests passed
 
 Manual DB/runtime command validation:
 
 - docker compose up -d postgres started or reused pulsegate-postgres.
 - npm run db:migrate:deploy --workspace api-gateway found 7 migrations and no pending migrations.
-- npm run analytics:retention:dry-run --workspace api-gateway -- --enabled false returned disabled dry-run JSON.
-- Usage-only retention dry-run returned candidateCount and deleteAllowed=false.
-- Rejected-only retention dry-run returned candidateCount and deleteAllowed=false.
-- Both-source retention dry-run returned usage and rejected candidate counts with deleteAllowed=false.
-- --mode execute failed safely and printed usage text.
+- npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90 returned dry-run guard preview with deleteAllowed=false.
+- npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100 returned execute guard preview with deleteImplementationAvailable=false.
+- npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90 returned candidateCount and deleteAllowed=false.
 
 ---
 
@@ -156,6 +154,10 @@ PulseGate currently has:
 - Analytics retention dry-run service.
 - Analytics retention dry-run args parser.
 - Analytics retention dry-run command.
+- Analytics retention execution guard model.
+- Analytics retention execution args parser.
+- Analytics retention execution preview command.
+- Analytics retention delete batch plan model.
 - Internal/admin route management APIs.
 - Internal/admin consumer APIs.
 - Internal/admin API key lifecycle APIs.
@@ -259,14 +261,19 @@ Analytics rollup read model:
 - Rejected rollup read supports rejectionReason.
 - statusCode maps to statusClass for usage rollups and exact statusCode for rejected rollups.
 
-Analytics retention dry-run:
+Analytics retention:
 
-- npm run analytics:retention:dry-run previews candidate raw event retention.
+- npm run analytics:retention:dry-run previews DB-backed candidate raw event retention.
 - source can be usage, rejected, or both.
 - usageRetentionDays and rejectedRetentionDays are separate.
 - Retention candidate reads count rows older than cutoff only.
-- Command output is dry-run only and reports deleteAllowed=false.
-- execute mode is not implemented and is rejected.
+- Dry-run command output reports dryRunOnly=true and deleteAllowed=false.
+- npm run analytics:retention:execution-preview previews execution guard decisions without DB access.
+- Execution preview supports explicit execute mode, confirmation phrase, and hard delete limit.
+- Execution preview reports deleteImplementationAvailable=false.
+- Delete batch planning models candidate recheck and a single total hard delete limit.
+- No raw event delete implementation exists yet.
+- No retention execute command exists yet.
 
 Current quota scope:
 
@@ -277,7 +284,7 @@ Current quota scope:
 - Quota uses gateway.api_usage_events as source of truth.
 - Rejected requests are tracked in gateway.api_rejected_events.
 - Rejected requests are intentionally not stored in gateway.api_usage_events.
-- Rollup tables and retention dry-run are not used for quota counting.
+- Rollup tables, retention dry-run, and retention execution preview are not used for quota counting.
 
 ---
 
@@ -286,7 +293,9 @@ Current quota scope:
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Retention currently supports dry-run candidate counting only.
+- Retention execution is guard/preview/model only.
+- No retention delete repository is implemented yet.
+- No retention execute command is implemented yet.
 - No retention delete job is implemented yet.
 - No scheduled/background rollup job yet.
 - No per-consumer Grafana dashboard yet.
@@ -313,16 +322,18 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 27 recommended direction:
+Sprint 28 recommended direction:
 
-- Analytics Retention Execution Guardrails
+- Analytics Retention Execution Repository Safety Foundation
 
 Recommended scope:
 
 - Keep retention execution explicit and operator-controlled.
-- Add hard delete limits and candidate recheck behavior before any delete.
+- Add repository-level delete safety primitives only behind execution guardrails.
+- Require candidate recheck and hard delete limit before any delete.
 - Keep successful usage and rejected/security events separate.
 - Keep quota counting on gateway.api_usage_events.
+- Do not expose an execute command until explicitly approved.
 - Avoid switching summary APIs to rollup reads unless explicitly selected.
 - Avoid adding Kafka, RabbitMQ, Kubernetes, Admin Dashboard UI, Developer Portal UI, billing, paid plans, or multi-tenant organization model unless explicitly selected.
 
