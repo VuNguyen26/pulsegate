@@ -1,4 +1,5 @@
-﻿import type {
+import type { PrismaClient } from '../generated/prisma/index.js';
+import type {
   AnalyticsRetentionDeleteBatchPlan,
   AnalyticsRetentionDeletePlanSource,
 } from './analytics-retention-delete-batch-plan.js';
@@ -156,4 +157,179 @@ function buildExecutionResult(
 
 function cloneDate(value: Date): Date {
   return new Date(value.getTime());
+}
+interface AnalyticsRetentionDeleteCandidateRecord {
+  readonly id: string;
+}
+
+interface AnalyticsRetentionDeleteManyResult {
+  readonly count: number;
+}
+
+export function createPrismaAnalyticsRetentionDeleteRepository(
+  prisma: PrismaClient,
+): AnalyticsRetentionDeleteRepositoryPort {
+  return {
+    async countCandidatesBeforeDelete(
+      input: AnalyticsRetentionDeleteRepositoryCandidateRecheckInput,
+    ): Promise<number> {
+      if (!isValidDate(input.cutoffExclusive)) {
+        return 0;
+      }
+
+      if (input.source === 'usage') {
+        return prisma.apiUsageEvent.count({
+          where: {
+            occurredAt: {
+              lt: input.cutoffExclusive,
+            },
+          },
+        });
+      }
+
+      return prisma.apiRejectedEvent.count({
+        where: {
+          occurredAt: {
+            lt: input.cutoffExclusive,
+          },
+        },
+      });
+    },
+
+    async deleteCandidates(
+      input: AnalyticsRetentionDeleteRepositoryDeleteInput,
+    ): Promise<number> {
+      if (!isSafeDeleteInput(input)) {
+        return 0;
+      }
+
+      if (input.source === 'usage') {
+        return deleteUsageCandidates(prisma, input);
+      }
+
+      return deleteRejectedCandidates(prisma, input);
+    },
+  };
+}
+
+async function deleteUsageCandidates(
+  prisma: PrismaClient,
+  input: AnalyticsRetentionDeleteRepositoryDeleteInput,
+): Promise<number> {
+  const candidates = await prisma.apiUsageEvent.findMany({
+    where: {
+      occurredAt: {
+        lt: input.cutoffExclusive,
+      },
+    },
+    orderBy: [
+      {
+        occurredAt: 'asc',
+      },
+      {
+        id: 'asc',
+      },
+    ],
+    select: {
+      id: true,
+    },
+    take: input.limit,
+  });
+
+  return deleteUsageCandidateIds(prisma, candidates);
+}
+
+async function deleteRejectedCandidates(
+  prisma: PrismaClient,
+  input: AnalyticsRetentionDeleteRepositoryDeleteInput,
+): Promise<number> {
+  const candidates = await prisma.apiRejectedEvent.findMany({
+    where: {
+      occurredAt: {
+        lt: input.cutoffExclusive,
+      },
+    },
+    orderBy: [
+      {
+        occurredAt: 'asc',
+      },
+      {
+        id: 'asc',
+      },
+    ],
+    select: {
+      id: true,
+    },
+    take: input.limit,
+  });
+
+  return deleteRejectedCandidateIds(prisma, candidates);
+}
+
+async function deleteUsageCandidateIds(
+  prisma: PrismaClient,
+  candidates: readonly AnalyticsRetentionDeleteCandidateRecord[],
+): Promise<number> {
+  const ids = candidates.map((candidate) => candidate.id);
+
+  if (ids.length === 0) {
+    return 0;
+  }
+
+  const result: AnalyticsRetentionDeleteManyResult =
+    await prisma.apiUsageEvent.deleteMany({
+      where: {
+        id: {
+          in: ids,
+        },
+      },
+    });
+
+  return result.count;
+}
+
+async function deleteRejectedCandidateIds(
+  prisma: PrismaClient,
+  candidates: readonly AnalyticsRetentionDeleteCandidateRecord[],
+): Promise<number> {
+  const ids = candidates.map((candidate) => candidate.id);
+
+  if (ids.length === 0) {
+    return 0;
+  }
+
+  const result: AnalyticsRetentionDeleteManyResult =
+    await prisma.apiRejectedEvent.deleteMany({
+      where: {
+        id: {
+          in: ids,
+        },
+      },
+    });
+
+  return result.count;
+}
+
+function isSafeDeleteInput(
+  input: AnalyticsRetentionDeleteRepositoryDeleteInput,
+): boolean {
+  return (
+    input.safetyDecision.deleteAllowed &&
+    input.safetyDecision.source === input.source &&
+    input.safetyDecision.requestedLimit === input.limit &&
+    isPositiveSafeInteger(input.limit) &&
+    isValidDate(input.cutoffExclusive) &&
+    isValidDate(input.safetyDecision.cutoffExclusive) &&
+    input.cutoffExclusive.getTime() === input.safetyDecision.cutoffExclusive.getTime() &&
+    isPositiveSafeInteger(input.safetyDecision.candidateCountBeforeDelete) &&
+    input.limit <= input.safetyDecision.candidateCountBeforeDelete
+  );
+}
+
+function isValidDate(value: Date): boolean {
+  return value instanceof Date && !Number.isNaN(value.getTime());
+}
+
+function isPositiveSafeInteger(value: number): boolean {
+  return Number.isSafeInteger(value) && value > 0;
 }
