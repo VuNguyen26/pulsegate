@@ -12,6 +12,7 @@ import {
 } from './analytics-retention-execution-service-candidate-read-preview.js';
 import {
   buildAnalyticsRetentionOperatorPreviewOutput,
+  type AnalyticsRetentionOperatorPreviewOutput,
 } from './analytics-retention-operator-preview-output.js';
 
 const NOW = new Date('2026-07-06T00:00:00.000Z');
@@ -199,7 +200,72 @@ describe('buildAnalyticsRetentionOperatorPreviewOutput', () => {
     expect(output.deleteAllowed).toBe(false);
     expect(output.safety.deleteRepositoryExecuted).toBe(false);
   });
+  it('should keep operator safety contract non-destructive when execute guard is incomplete', async () => {
+    const { repository } = createCandidateReadRepository({
+      enabled: true,
+      generatedAt: NOW,
+      usage: {
+        source: 'usage',
+        cutoffExclusive: new Date('2026-04-07T00:00:00.000Z'),
+        retentionDays: 90,
+        candidateCount: 12,
+        dryRunOnly: true,
+        deleteAllowed: false,
+      },
+      rejected: null,
+    });
+
+    const preview = await buildAnalyticsRetentionExecutionServiceCandidateReadPreview({
+      policy: {
+        enabled: true,
+        source: 'usage',
+        usageRetentionDays: 90,
+      },
+      executionArgs: [
+        '--mode',
+        'execute',
+        '--hard-delete-limit',
+        '100',
+      ],
+      now: NOW,
+      candidateReadRepository: repository,
+    });
+
+    const output = buildAnalyticsRetentionOperatorPreviewOutput(preview);
+
+    expect(output.summary.mode).toBe('execute');
+    expect(output.safety.servicePreviewDeleteAllowed).toBe(false);
+    expect(output.candidateCountLoader.counts).toEqual({
+      usageCandidateCount: 12,
+      rejectedCandidateCount: null,
+    });
+    expectNonDestructiveOperatorPreviewOutput(output);
+  });
 });
+
+function expectNonDestructiveOperatorPreviewOutput(
+  output: AnalyticsRetentionOperatorPreviewOutput,
+): void {
+  expect(output.deleteAllowed).toBe(false);
+  expect(output.destructiveExecutionPerformed).toBe(false);
+  expect(output.summary.deleteAllowed).toBe(false);
+  expect(output.summary.destructiveExecutionPerformed).toBe(false);
+  expect(output.summary.totals.executionResultCount).toBe(0);
+  expect(output.candidateCountLoader.dryRunOnly).toBe(true);
+  expect(output.candidateCountLoader.deleteAllowed).toBe(false);
+  expect(output.safety).toMatchObject({
+    commandDeletesEvents: false,
+    candidateReadOnly: true,
+    deleteRepositoryExecuted: false,
+    deleteAllowed: false,
+    destructiveExecutionPerformed: false,
+  });
+
+  for (const source of output.candidateCountLoader.sources) {
+    expect(source.dryRunOnly).toBe(true);
+    expect(source.deleteAllowed).toBe(false);
+  }
+}
 
 function createCandidateReadRepository(
   result: AnalyticsRetentionCandidateReadResult,

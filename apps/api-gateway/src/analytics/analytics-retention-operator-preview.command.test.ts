@@ -10,6 +10,9 @@ import {
 import {
   runAnalyticsRetentionOperatorPreviewCommand,
 } from './analytics-retention-operator-preview.command.js';
+import type {
+  AnalyticsRetentionOperatorPreviewOutput,
+} from './analytics-retention-operator-preview-output.js';
 
 const NOW = new Date('2026-07-06T00:00:00.000Z');
 
@@ -160,6 +163,52 @@ describe('runAnalyticsRetentionOperatorPreviewCommand', () => {
     expect(logger.log).toHaveBeenCalledOnce();
   });
 
+  it('should print incomplete execute preview as non-destructive JSON without delete execution', async () => {
+    const { repository, summarizeCandidates } = createCandidateReadRepository({
+      enabled: true,
+      generatedAt: NOW,
+      usage: {
+        source: 'usage',
+        cutoffExclusive: new Date('2026-04-07T00:00:00.000Z'),
+        retentionDays: 90,
+        candidateCount: 12,
+        dryRunOnly: true,
+        deleteAllowed: false,
+      },
+      rejected: null,
+    });
+    const logger = createLogger();
+
+    const output = await runAnalyticsRetentionOperatorPreviewCommand({
+      argv: [
+        '--enabled',
+        'true',
+        '--source',
+        'usage',
+        '--usage-retention-days',
+        '90',
+        '--mode',
+        'execute',
+        '--hard-delete-limit',
+        '30',
+      ],
+      now: NOW,
+      candidateReadRepository: repository,
+      logger,
+    });
+
+    expect(summarizeCandidates).toHaveBeenCalledTimes(1);
+    expect(logger.log).toHaveBeenCalledOnce();
+
+    const printedOutput = JSON.parse(String(logger.log.mock.calls[0]?.[0]));
+
+    expect(printedOutput).toEqual(output);
+    expect(output.summary.mode).toBe('execute');
+    expect(output.summary.hardDeleteLimit).toBe(30);
+    expect(output.summary.totals.candidateCount).toBe(12);
+    expectNonDestructiveOperatorPreviewOutput(output);
+  });
+
   it('should reject invalid args before reading candidates', async () => {
     const { repository, summarizeCandidates } = createCandidateReadRepository({
       enabled: true,
@@ -182,6 +231,31 @@ describe('runAnalyticsRetentionOperatorPreviewCommand', () => {
     expect(logger.log).not.toHaveBeenCalled();
   });
 });
+
+function expectNonDestructiveOperatorPreviewOutput(
+  output: AnalyticsRetentionOperatorPreviewOutput,
+): void {
+  expect(output.deleteAllowed).toBe(false);
+  expect(output.destructiveExecutionPerformed).toBe(false);
+  expect(output.summary.deleteAllowed).toBe(false);
+  expect(output.summary.destructiveExecutionPerformed).toBe(false);
+  expect(output.summary.totals.executionResultCount).toBe(0);
+  expect(output.candidateCountLoader.dryRunOnly).toBe(true);
+  expect(output.candidateCountLoader.deleteAllowed).toBe(false);
+  expect(output.safety).toMatchObject({
+    commandDeletesEvents: false,
+    candidateReadOnly: true,
+    deleteRepositoryExecuted: false,
+    deleteAllowed: false,
+    destructiveExecutionPerformed: false,
+    deleteImplementationAvailable: false,
+  });
+
+  for (const source of output.candidateCountLoader.sources) {
+    expect(source.dryRunOnly).toBe(true);
+    expect(source.deleteAllowed).toBe(false);
+  }
+}
 
 function createLogger() {
   return {
