@@ -1,4 +1,4 @@
-﻿# PulseGate
+# PulseGate
 
 High-Traffic API Gateway & Observability Platform.
 
@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.28.0
+- v0.29.0
 
 Latest completed sprint:
 
-- Sprint 27 - Analytics Retention Execution Guardrails
+- Sprint 28 - Analytics Retention Execution Repository Safety Foundation
 
 ---
 
@@ -51,16 +51,20 @@ PulseGate currently includes:
 - Analytics retention execution guardrails foundation
 - Analytics retention execution preview command
 - Analytics retention delete batch plan model
+- Analytics retention repository safety contract
+- Analytics retention delete repository port and operation planner
+- Analytics retention Prisma delete repository implementation behind guardrails
 
 Latest validation:
 
-- 85 test files passed
-- 591 tests passed
+- 89 test files passed
+- 621 tests passed
 - npm run typecheck passed
 - npm run build passed
 - PostgreSQL migration deploy passed with no pending migrations
-- Analytics retention execution preview command validation passed for dry-run and execute-preview cases
-- Analytics retention dry-run DB-backed candidate validation passed with deleteAllowed=false
+- Analytics retention dry-run DB-backed candidate validation passed with candidateCount=0 and deleteAllowed=false
+- Analytics retention execution preview command validation passed with deleteImplementationAvailable=false
+- Analytics retention Prisma delete repository targeted and full test validation passed
 
 ---
 
@@ -118,6 +122,7 @@ Current gateway capabilities:
 - Analytics rollup read model
 - Analytics retention dry-run planning
 - Analytics retention execution guard preview
+- Analytics retention repository safety primitives
 - Structured access logs
 - Prometheus metrics
 
@@ -176,11 +181,13 @@ Analytics retention behavior:
 - Dry-run retention policy parsing supports usage, rejected, or both sources.
 - Dry-run command is available through npm run analytics:retention:dry-run.
 - Retention dry-run output reports dryRunOnly=true and deleteAllowed=false.
-- Execution guardrails now model explicit execute previews, confirmation phrase, hard delete limit, candidate recheck requirement, and delete batch caps.
+- Execution guardrails model explicit execute previews, confirmation phrase, hard delete limit, candidate recheck requirement, and delete batch caps.
 - Execution preview command is available through npm run analytics:retention:execution-preview.
 - Execution preview does not connect to the database.
 - Execution preview reports deleteImplementationAvailable=false.
-- No raw event deletion is implemented yet.
+- Repository-level retention delete safety primitives now exist behind the guardrails.
+- Prisma delete repository implementation deletes only bounded selected IDs after safety decision and candidate recheck checks.
+- No operator-facing raw event deletion is exposed yet.
 - No retention execute command is implemented yet.
 
 Current analytics limitation:
@@ -188,6 +195,8 @@ Current analytics limitation:
 - Usage and rejected summary APIs are still event-based at runtime.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
 - No scheduled/background rollup job is implemented yet.
+- Retention Prisma delete repository exists but is not wired to any command, API, or job yet.
+- No retention execute command is implemented yet.
 - No retention delete job is implemented yet.
 
 ---
@@ -260,7 +269,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-27.md
+- docs/sdlc/sprint-history/sprint-28.md
 
 Latest analytics runbooks:
 
@@ -268,20 +277,21 @@ Latest analytics runbooks:
 - docs/runbooks/analytics-rollup-read.md
 - docs/runbooks/analytics-retention-dry-run.md
 - docs/runbooks/analytics-retention-execution-preview.md
+- docs/runbooks/analytics-retention-delete-repository.md
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
+- docs/project-context/decisions/2026-07-06-analytics-retention-delete-repository-safety.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 28 recommended direction:
+Sprint 29 recommended direction:
 
-- Analytics Retention Execution Repository Safety Foundation
+- Analytics Retention Execution Service Orchestration Preview
 
 Reason:
 
-- Sprint 27 added execution guardrails, preview composition, explicit confirmation parsing, hard delete limit modeling, and delete batch planning.
-- The next backend step can add repository-level delete safety primitives behind the existing guardrails, still without enabling an operator-facing delete command until explicitly approved.
+- Sprint 28 added repository-level safety primitives and a guarded Prisma delete repository implementation.
+- The next backend step should compose existing guard, batch plan, operation planner, candidate recheck, and repository executor into a service-level preview/orchestration layer before any operator-facing destructive command is exposed.

@@ -1,4 +1,4 @@
-﻿# Current Progress
+# Current Progress
 
 ## Project
 
@@ -24,75 +24,78 @@ Long decision records live in:
 
 ## Current Version
 
-v0.28.0
+v0.29.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 27 - Analytics Retention Execution Guardrails
+Sprint 28 - Analytics Retention Execution Repository Safety Foundation
 
 Status:
 
 Done.
 
-Sprint 27 added safe guardrails for future analytics retention execution:
+Sprint 28 added repository-level safety foundations for future analytics retention execution:
 
-- Added analytics retention execution guard model.
-- Added explicit execution args parser for mode, confirmation phrase, and hard delete limit.
-- Added execution preview composition across retention policy, retention plan, execution args, and guard decision.
-- Added npm run analytics:retention:execution-preview command.
-- Added delete batch plan model with single total hard delete cap across selected sources.
-- Added candidate recheck requirement modeling before any future delete.
-- Preserved dry-run default behavior.
+- Added analytics retention delete repository safety contract.
+- Added delete repository port and executor.
+- Added delete operation planner from retention plan and delete batch plan.
+- Added Prisma delete repository implementation behind guardrails.
+- Added candidate recheck enforcement before prepared delete execution.
+- Added bounded selected-ID delete behavior for usage and rejected sources.
+- Preserved source separation between usage and rejected events.
 - Preserved existing analytics:retention:dry-run command behavior.
-- Did not delete raw events.
+- Preserved analytics:retention:execution-preview output with deleteImplementationAvailable=false.
 - Did not add a retention execute command.
-- Did not add a retention delete repository.
+- Did not add a retention delete API.
+- Did not add a scheduled/background retention job.
 - Did not add migration or schema changes.
 - Did not change quota checker, usage recorder, or rejected event recorder.
 - Did not switch runtime summary APIs to rollup reads.
 
-Sprint 27 details are archived in:
+Sprint 28 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-27.md
+- docs/sdlc/sprint-history/sprint-28.md
 
 Related runbooks:
 
+- docs/runbooks/analytics-retention-delete-repository.md
 - docs/runbooks/analytics-retention-execution-preview.md
 - docs/runbooks/analytics-retention-dry-run.md
 - docs/runbooks/analytics-rollup-backfill.md
 - docs/runbooks/analytics-rollup-read.md
 
-Related design record:
+Related design records:
 
+- docs/project-context/decisions/2026-07-06-analytics-retention-delete-repository-safety.md
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
 
 ---
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 27:
+Latest stable validation from Sprint 28:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
 - PostgreSQL migration deploy -> passed with no pending migrations
-- Analytics retention execution preview command validation -> passed
 - Analytics retention dry-run command validation -> passed with DATABASE_URL
+- Analytics retention execution preview command validation -> passed
+- Analytics retention Prisma delete repository targeted validation -> passed
 
 Latest automated test result:
 
-- 85 test files passed
-- 591 tests passed
+- 89 test files passed
+- 621 tests passed
 
 Manual DB/runtime command validation:
 
-- docker compose up -d postgres started or reused pulsegate-postgres.
+- docker compose up -d postgres redis started or reused pulsegate-postgres and pulsegate-redis.
 - npm run db:migrate:deploy --workspace api-gateway found 7 migrations and no pending migrations.
-- npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90 returned dry-run guard preview with deleteAllowed=false.
-- npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100 returned execute guard preview with deleteImplementationAvailable=false.
-- npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90 returned candidateCount and deleteAllowed=false.
+- npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90 returned candidateCount=0 for usage and rejected, dryRunOnly=true, and deleteAllowed=false.
+- npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 10 returned execute guard preview with deleteImplementationAvailable=false.
 
 ---
 
@@ -158,6 +161,10 @@ PulseGate currently has:
 - Analytics retention execution args parser.
 - Analytics retention execution preview command.
 - Analytics retention delete batch plan model.
+- Analytics retention delete repository safety contract.
+- Analytics retention delete repository port and executor.
+- Analytics retention delete operation planner.
+- Analytics retention Prisma delete repository implementation behind guardrails.
 - Internal/admin route management APIs.
 - Internal/admin consumer APIs.
 - Internal/admin API key lifecycle APIs.
@@ -272,7 +279,10 @@ Analytics retention:
 - Execution preview supports explicit execute mode, confirmation phrase, and hard delete limit.
 - Execution preview reports deleteImplementationAvailable=false.
 - Delete batch planning models candidate recheck and a single total hard delete limit.
-- No raw event delete implementation exists yet.
+- Delete repository safety model blocks unsafe repository operations before any delete.
+- Delete operation planner derives source-specific repository requests from retention and batch plans.
+- Prisma delete repository can count source-specific candidates and delete only bounded selected IDs after safety checks.
+- No operator-facing raw event delete command exists yet.
 - No retention execute command exists yet.
 
 Current quota scope:
@@ -293,9 +303,8 @@ Current quota scope:
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Retention execution is guard/preview/model only.
-- No retention delete repository is implemented yet.
-- No retention execute command is implemented yet.
+- Retention execution has repository-level safety foundations, but no operator-facing execute command yet.
+- Retention Prisma delete repository is not wired to any command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
 - No scheduled/background rollup job yet.
 - No per-consumer Grafana dashboard yet.
@@ -322,18 +331,18 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 28 recommended direction:
+Sprint 29 recommended direction:
 
-- Analytics Retention Execution Repository Safety Foundation
+- Analytics Retention Execution Service Orchestration Preview
 
 Recommended scope:
 
+- Compose execution guard, delete batch plan, operation planner, candidate recheck, and repository executor at service level.
 - Keep retention execution explicit and operator-controlled.
-- Add repository-level delete safety primitives only behind execution guardrails.
-- Require candidate recheck and hard delete limit before any delete.
+- Keep execution preview command delete-free unless explicitly approved.
 - Keep successful usage and rejected/security events separate.
 - Keep quota counting on gateway.api_usage_events.
-- Do not expose an execute command until explicitly approved.
+- Do not expose a destructive execute command until explicitly approved.
 - Avoid switching summary APIs to rollup reads unless explicitly selected.
 - Avoid adding Kafka, RabbitMQ, Kubernetes, Admin Dashboard UI, Developer Portal UI, billing, paid plans, or multi-tenant organization model unless explicitly selected.
 

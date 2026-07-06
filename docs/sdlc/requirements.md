@@ -1,4 +1,4 @@
-﻿# PulseGate Requirements
+# PulseGate Requirements
 
 ## Project
 
@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.28.0
+v0.29.0
 
 ## Latest Completed Sprint
 
-Sprint 27 - Analytics Retention Execution Guardrails
+Sprint 28 - Analytics Retention Execution Repository Safety Foundation
 
 ---
 
@@ -301,7 +301,7 @@ PulseGate shall keep a clear design path for high-volume analytics storage lifec
 
 Status:
 
-Designed. Rollup calculation, persistence, manual backfill, read model, retention dry-run, and retention execution guardrail foundations are implemented.
+Designed. Rollup calculation, persistence, manual backfill, read model, retention dry-run, retention execution guardrail, and retention repository safety foundations are implemented.
 
 ---
 
@@ -442,7 +442,7 @@ Required behavior:
 - Delete batch planning must require candidate recheck.
 - Hard delete limit must apply as one total cap across selected sources.
 - Execution preview must report deleteImplementationAvailable=false.
-- No raw event deletion is implemented in this requirement.
+- No operator-facing raw event deletion is exposed by this requirement.
 - No quota counting change.
 - No usage or rejected recorder change.
 - No summary API switch to rollup reads.
@@ -450,6 +450,28 @@ Required behavior:
 Status:
 
 Implemented as guardrail foundation.
+
+---
+
+### FR-031 Analytics Retention Delete Repository Safety Foundation
+
+PulseGate shall provide repository-level safety primitives for future analytics retention execution without exposing destructive operator controls yet.
+
+Required behavior:
+
+- Repository safety must require an allowed delete batch plan.
+- Repository safety must require candidate recheck before delete.
+- Repository safety must keep usage and rejected sources separate.
+- Repository safety must require valid cutoff and positive requested limit.
+- Requested limit must not exceed the hard delete limit, source max delete count, or rechecked candidates.
+- Prisma delete repository must select bounded candidate IDs before deleting.
+- Prisma delete repository must delete by selected IDs only, not by an unbounded cutoff delete.
+- Current execution preview command must continue to report deleteImplementationAvailable=false.
+- No retention execute command, API, scheduled job, or quota path may use this repository until explicitly designed.
+
+Status:
+
+Implemented as repository safety foundation.
 
 ---
 
@@ -471,8 +493,8 @@ Implemented.
 
 Current result:
 
-- 85 test files passed
-- 591 tests passed
+- 89 test files passed
+- 621 tests passed
 
 Validation:
 
@@ -500,10 +522,10 @@ Implemented.
 
 Latest validation:
 
-- PostgreSQL container started.
+- PostgreSQL and Redis containers started or reused successfully.
 - Runtime migration deploy found 7 migrations and no pending migrations.
-- Analytics retention execution preview command passed for dry-run and execute-preview cases.
-- Analytics retention dry-run DB-backed candidate validation passed with deleteAllowed=false.
+- Analytics retention dry-run DB-backed candidate validation passed with candidateCount=0 and deleteAllowed=false.
+- Analytics retention execution preview command passed with deleteImplementationAvailable=false.
 
 Status:
 
@@ -513,7 +535,7 @@ Implemented.
 
 ### NFR-005 Observability
 
-Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, and retention dry-run candidate previews, and retention execution guard previews.
+Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, and retention dry-run candidate previews, retention execution guard previews, and retention repository safety tests.
 
 Status:
 
@@ -536,9 +558,8 @@ Implemented.
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Retention execution is guard/preview/model only.
-- No retention delete repository is implemented yet.
-- No retention execute command is implemented yet.
+- Retention execution has repository-level safety foundations, but no operator-facing execute command yet.
+- Retention Prisma delete repository is not wired to any command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
 - No scheduled/background rollup job yet.
 - No per-consumer Grafana dashboard yet.
@@ -565,7 +586,7 @@ Implemented.
 
 Recommended next:
 
-- Add repository-level analytics retention execution safety primitives behind guardrails.
+- Add a service-level analytics retention execution orchestration preview behind existing guardrails.
 - Keep retention execution explicit, limited, and blocked from operator-facing delete until approved.
 - Switch selected long-range analytics reads to rollups later after explicit design.
 - Add Grafana panels for quota, usage, rejected traffic, rollups, and retention dry-run candidates later.

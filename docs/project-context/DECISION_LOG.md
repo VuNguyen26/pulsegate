@@ -1,4 +1,4 @@
-﻿# Decision Log
+# Decision Log
 
 ## Scope
 
@@ -12,15 +12,42 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.28.0
+v0.29.0
 
 ## Latest Completed Sprint
 
-Sprint 27 - Analytics Retention Execution Guardrails
+Sprint 28 - Analytics Retention Execution Repository Safety Foundation
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-06 - Analytics retention delete repository primitives stay behind guardrails
+
+Decision:
+
+- Add repository-level retention delete safety primitives only after execution guardrails and delete batch planning existed.
+- Add a repository safety contract that requires source, cutoff, requested limit, candidate recheck, and batch-plan safety.
+- Add a repository port/executor that rechecks candidates before prepared delete execution.
+- Add an operation planner that derives repository requests from retention plan cutoffs and delete batch max counts.
+- Add a Prisma repository implementation that selects bounded candidate IDs before deleting.
+- Keep usage and rejected event delete paths separate.
+- Keep analytics:retention:execution-preview reporting deleteImplementationAvailable=false.
+- Do not expose a retention execute command, API, scheduled job, or quota path in Sprint 28.
+- Do not change quota counting, usage recording, rejected event recording, rollup reads, or summary APIs.
+
+Reason:
+
+- Retention deletion is destructive and must be built behind layered safety checks.
+- Selecting bounded IDs before delete avoids unbounded cutoff-based deleteMany operations.
+- Keeping the repository unexposed preserves operator safety while allowing focused unit and runtime validation.
+- Maintaining event separation protects quota correctness and rejected/security traffic observability.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-06-analytics-retention-delete-repository-safety.md
+
+---
 
 ### 2026-07-06 - Analytics retention execution starts with guardrails and preview only
 

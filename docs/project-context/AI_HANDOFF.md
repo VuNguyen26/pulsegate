@@ -1,4 +1,4 @@
-﻿# PulseGate AI Handoff
+# PulseGate AI Handoff
 
 ## Purpose
 
@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.28.0
+- v0.29.0
 
 Latest completed sprint:
 
-- Sprint 27 - Analytics Retention Execution Guardrails
+- Sprint 28 - Analytics Retention Execution Repository Safety Foundation
 
 Recommended next technical sprint:
 
-- Sprint 28 - Analytics Retention Execution Repository Safety Foundation
+- Sprint 29 - Analytics Retention Execution Service Orchestration Preview
 
 ---
 
@@ -109,37 +109,37 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 27:
+Latest stable validation from Sprint 28:
 
 - npm run test -> passed
 - npm run typecheck -> passed
 - npm run build -> passed
 - PostgreSQL migration deploy -> passed with no pending migrations
-- Analytics retention execution preview command validation -> passed
 - Analytics retention dry-run command validation -> passed with DATABASE_URL
+- Analytics retention execution preview command validation -> passed with deleteImplementationAvailable=false
+- Analytics retention Prisma delete repository targeted validation -> passed
 
 Latest automated test result:
 
-- 85 test files passed
-- 591 tests passed
+- 89 test files passed
+- 621 tests passed
 
 Manual DB/runtime command validation:
 
-- docker compose up -d postgres started or reused pulsegate-postgres.
+- docker compose up -d postgres redis started or reused pulsegate-postgres and pulsegate-redis.
 - npm run db:migrate:deploy --workspace api-gateway found 7 migrations and no pending migrations.
-- Retention execution preview dry-run mode returned deleteAllowed=false and deleteImplementationAvailable=false.
+- Retention dry-run both-source mode returned candidateCount=0 for usage and rejected, dryRunOnly=true, and deleteAllowed=false.
 - Retention execution preview execute mode returned guard-allowed preview with deleteImplementationAvailable=false.
-- Retention dry-run usage mode returned candidateCount and deleteAllowed=false.
 
-Sprint 27 preserved:
+Sprint 28 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
 - No quota checker changes.
 - No usage recorder changes.
 - No rejected event recorder changes.
-- No raw event deletion.
 - No retention execute command.
+- No operator-facing raw event deletion.
 - No scheduled/background job.
 - No summary API switch to rollup reads.
 
@@ -184,7 +184,7 @@ API Gateway currently supports:
 - Analytics rollup calculation, persistence, manual backfill, and read model foundations.
 - Read-only analytics rollup endpoint.
 - Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
-- Analytics retention execution guard, execution args parser, execution preview command, and delete batch plan model.
+- Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, and Prisma delete repository foundation.
 - 429 QUOTA_EXCEEDED responses with quota metadata.
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
@@ -317,8 +317,12 @@ Analytics retention foundation:
 - Execution args parser accepts explicit execute preview flags.
 - Execution preview command prints guard JSON preview without DB access.
 - Delete batch plan model requires candidate recheck and one total hard delete limit.
+- Delete repository safety contract blocks unsafe repository operations.
+- Delete repository port and executor require candidate recheck before prepared delete execution.
+- Delete operation planner derives bounded source-specific repository requests.
+- Prisma delete repository can count candidates and delete only bounded selected IDs after safety checks.
 - Execution preview reports deleteImplementationAvailable=false.
-- Raw events are not deleted.
+- No operator-facing raw event deletion exists yet.
 - No retention execute command exists yet.
 
 Current analytics limitations:
@@ -418,13 +422,15 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-26.md
+- docs/sdlc/sprint-history/sprint-28.md
 - docs/runbooks/api-usage-analytics.md
 - docs/runbooks/api-rejected-events.md
 - docs/runbooks/analytics-rollup-backfill.md
 - docs/runbooks/analytics-rollup-read.md
 - docs/runbooks/analytics-retention-dry-run.md
 - docs/runbooks/analytics-retention-execution-preview.md
+- docs/runbooks/analytics-retention-delete-repository.md
+- docs/project-context/decisions/2026-07-06-analytics-retention-delete-repository-safety.md
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
 
 ---
@@ -478,9 +484,8 @@ Work style:
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Retention execution is guard/preview/model only.
-- No retention delete repository yet.
-- No retention execute command yet.
+- Retention execution has repository-level safety foundations, but no operator-facing execute command yet.
+- Retention Prisma delete repository is not wired to any command, API, scheduled job, or quota path yet.
 - No retention delete job yet.
 - No scheduled/background rollup job yet.
 - No per-consumer Grafana dashboard yet.
@@ -508,11 +513,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 28 after confirming Sprint 27 docs are committed and pushed.
+Start Sprint 29 after confirming Sprint 28 docs are committed and pushed.
 
 Recommended direction:
 
-- Analytics Retention Execution Repository Safety Foundation.
+- Analytics Retention Execution Service Orchestration Preview.
 
 Before starting:
 
