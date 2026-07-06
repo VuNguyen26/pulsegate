@@ -8,6 +8,7 @@ import {
   ANALYTICS_RETENTION_EXECUTE_CONFIRMATION_VALUE,
 } from './analytics-retention-execution-command-args.js';
 import {
+  ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE,
   runAnalyticsRetentionOperatorPreviewCommand,
 } from './analytics-retention-operator-preview.command.js';
 import type {
@@ -17,6 +18,36 @@ import type {
 const NOW = new Date('2026-07-06T00:00:00.000Z');
 
 describe('runAnalyticsRetentionOperatorPreviewCommand', () => {
+  it('should document the operator preview command as non-destructive', () => {
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      '--enabled <true|false>',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      '--source <usage|rejected|both>',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      '--mode <dry-run|execute>',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      '--enabled false',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      '--source rejected --rejected-retention-days 90',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      'candidate read repository',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      'operator preview only',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      'does not call deleteCandidates',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      'does not delete analytics events',
+    );
+  });
+
   it('should print a dry-run operator preview from a candidate read repository', async () => {
     const { repository, summarizeCandidates } = createCandidateReadRepository({
       enabled: true,
