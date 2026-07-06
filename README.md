@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.30.0
+- v0.31.0
 
 Latest completed sprint:
 
-- Sprint 29 - Analytics Retention Execution Service Orchestration Preview
+- Sprint 30 - Analytics Retention Execution Operator Preview Command
 
 ---
 
@@ -58,15 +58,19 @@ PulseGate currently includes:
 - Analytics retention execution service summary model
 - Analytics retention execution candidate count loader
 - Analytics retention candidate-read execution preview composition
+- Analytics retention operator preview output model
+- Analytics retention operator preview command runner
+- DB-backed analytics retention operator preview command
 
 Latest validation:
 
-- 93 test files passed
-- 646 tests passed
+- 95 test files passed
+- 653 tests passed
 - npm run typecheck passed
 - npm run build passed
-- No new Docker/runtime validation was required in Sprint 29 because no command, API, migration, scheduled job, or operator-facing delete execution was added
-- Analytics retention execution service preview, summary model, candidate count loader, and candidate-read preview composition tests passed
+- Docker/PostgreSQL runtime validation passed for analytics:retention:operator-preview
+- Prisma migration deploy passed with 7 migrations and no pending migrations
+- Operator preview validation passed for disabled, usage, rejected, both dry-run, and both execute-preview modes while deleteAllowed=false and destructiveExecutionPerformed=false
 
 ---
 
@@ -188,13 +192,15 @@ Analytics retention behavior:
 - Execution preview command is available through npm run analytics:retention:execution-preview.
 - Execution preview does not connect to the database.
 - Execution preview reports deleteImplementationAvailable=false.
-- Repository-level retention delete safety primitives now exist behind the guardrails.
+- Repository-level retention delete safety primitives exist behind guardrails.
 - Prisma delete repository implementation deletes only bounded selected IDs after safety decision and candidate recheck checks.
-- Service-level retention execution preview now composes policy, guard, candidate counts, batch plan, operation plan, optional repository preparation, and safe summary output.
+- Service-level retention execution preview composes policy, guard, candidate counts, batch plan, operation plan, optional repository preparation, and safe summary output.
 - Candidate-read execution preview can load count-only candidates through the existing read repository before building a service preview.
-- Service previews do not call deleteCandidates and do not expose operator-facing raw event deletion.
+- Operator preview command is available through npm run analytics:retention:operator-preview.
+- Operator preview reads candidate counts from PostgreSQL through the Prisma candidate read repository.
+- Operator preview returns JSON with commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
+- Service previews and operator previews do not call deleteCandidates and do not expose raw event deletion.
 - The existing execution preview command remains DB-free and still reports deleteImplementationAvailable=false.
-- No operator-facing raw event deletion is exposed yet.
 - No retention execute command is implemented yet.
 
 Current analytics limitation:
@@ -202,8 +208,8 @@ Current analytics limitation:
 - Usage and rejected summary APIs are still event-based at runtime.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
 - No scheduled/background rollup job is implemented yet.
-- Retention service-level orchestration preview exists, but no destructive operator-facing execution is exposed yet.
-- Retention Prisma delete repository exists but is not wired to any command, API, or job yet.
+- Retention operator preview command exists, but destructive retention execution is still unavailable.
+- Retention Prisma delete repository exists but is not wired to any operator-facing execute command, API, or job.
 - No retention execute command is implemented yet.
 - No retention delete job is implemented yet.
 
@@ -243,6 +249,11 @@ Run analytics retention execution preview:
 
     npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100
 
+Run analytics retention operator preview with DB-backed candidate counts:
+
+    $env:DATABASE_URL = "postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
+    npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120
+
 Check API Gateway health:
 
     Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json -Depth 10
@@ -277,7 +288,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-29.md
+- docs/sdlc/sprint-history/sprint-30.md
 
 Latest analytics runbooks:
 
@@ -287,20 +298,22 @@ Latest analytics runbooks:
 - docs/runbooks/analytics-retention-execution-preview.md
 - docs/runbooks/analytics-retention-delete-repository.md
 - docs/runbooks/analytics-retention-execution-service-preview.md
+- docs/runbooks/analytics-retention-operator-preview.md
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-06-analytics-retention-execution-service-orchestration-preview.md
+- docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-command.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 30 recommended direction:
+Sprint 31 recommended direction:
 
-- Analytics Retention Execution Operator Preview Command
+- Analytics Retention Execution Operator Preview Hardening or Rollup Scheduling Foundation
 
 Reason:
 
-- Sprint 29 added service-level orchestration preview and count-backed candidate-read composition without exposing destructive execution.
-- The next backend step can add a non-destructive operator-facing preview command around this service layer, while still avoiding deleteCandidates, delete APIs, scheduled jobs, and quota-path changes.
+- Sprint 30 added a DB-backed, non-destructive operator preview command for retention planning.
+- A future sprint can either harden operator preview ergonomics and JSON contract tests, or move to a separate non-destructive scheduled rollup planning foundation.
+- Destructive retention execution should remain unavailable until explicitly designed and approved.

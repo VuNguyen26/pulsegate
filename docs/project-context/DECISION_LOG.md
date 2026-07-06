@@ -12,15 +12,43 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.30.0
+v0.31.0
 
 ## Latest Completed Sprint
 
-Sprint 29 - Analytics Retention Execution Service Orchestration Preview
+Sprint 30 - Analytics Retention Execution Operator Preview Command
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-06 - Analytics retention operator preview command stays read-only and non-destructive
+
+Decision:
+
+- Expose npm run analytics:retention:operator-preview as an operator-facing preview command.
+- Use the existing Prisma candidate read repository for count-only DB-backed candidate counts.
+- Build output through the candidate-read execution service preview and operator preview output model.
+- Return explicit safety flags including commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
+- Support execute-preview args for guard inspection without enabling delete execution.
+- Keep the existing analytics:retention:execution-preview command DB-free with deleteImplementationAvailable=false.
+- Do not call deleteCandidates.
+- Do not wire the Prisma delete repository into the operator preview command.
+- Do not expose a retention execute command, delete API, scheduled job, or quota path in Sprint 30.
+- Do not change quota counting, usage recording, rejected event recording, rollup reads, or summary APIs.
+
+Reason:
+
+- Operators need DB-backed candidate counts before any destructive retention execution is considered.
+- A dedicated operator preview command validates the service orchestration layer against PostgreSQL while keeping deletion unavailable.
+- Explicit safety fields make accidental destructive behavior visible in the output contract.
+- Keeping delete repository wiring out of the command protects raw analytics data and quota correctness.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-command.md
+
+---
 
 ### 2026-07-06 - Analytics retention execution service orchestration stays non-destructive
 

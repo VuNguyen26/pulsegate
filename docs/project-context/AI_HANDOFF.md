@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.30.0
+- v0.31.0
 
 Latest completed sprint:
 
-- Sprint 29 - Analytics Retention Execution Service Orchestration Preview
+- Sprint 30 - Analytics Retention Execution Operator Preview Command
 
 Recommended next technical sprint:
 
-- Sprint 30 - Analytics Retention Execution Operator Preview Command
+- Sprint 31 - Analytics Retention Execution Operator Preview Hardening or Rollup Scheduling Foundation
 
 ---
 
@@ -109,7 +109,7 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 29:
+Latest stable validation from Sprint 30:
 
 - npm run test -> passed
 - npm run typecheck -> passed
@@ -117,15 +117,17 @@ Latest stable validation from Sprint 29:
 
 Latest automated test result:
 
-- 93 test files passed
-- 646 tests passed
+- 95 test files passed
+- 653 tests passed
 
 Manual DB/runtime command validation:
 
-- No new Docker/runtime validation was required in Sprint 29 because no command, API, migration, scheduled job, or operator-facing delete execution was added.
-- Latest DB/runtime validation remains Sprint 28: migration deploy had no pending migrations, retention dry-run was DB-backed and deleteAllowed=false, and execution preview reported deleteImplementationAvailable=false.
+- docker compose up -d postgres redis -> passed.
+- npm run db:migrate:deploy --workspace api-gateway -> 7 migrations found, no pending migrations.
+- npm run analytics:retention:operator-preview --workspace api-gateway was validated for disabled, usage, rejected, both dry-run, and both execute-preview modes.
+- Operator preview output preserved commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
 
-Sprint 29 preserved:
+Sprint 30 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
@@ -136,7 +138,6 @@ Sprint 29 preserved:
 - No operator-facing raw event deletion.
 - No scheduled/background job.
 - No summary API switch to rollup reads.
-
 ---
 
 ## Current Architecture Summary
@@ -178,7 +179,7 @@ API Gateway currently supports:
 - Analytics rollup calculation, persistence, manual backfill, and read model foundations.
 - Read-only analytics rollup endpoint.
 - Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
-- Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, Prisma delete repository foundation, execution service preview, summary model, candidate count loader, and candidate-read preview composition.
+- Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, Prisma delete repository foundation, execution service preview, summary model, candidate count loader, candidate-read preview composition, operator preview output, and DB-backed operator preview command.
 - 429 QUOTA_EXCEEDED responses with quota metadata.
 - Internal/admin route management APIs.
 - Internal/admin API consumer APIs.
@@ -256,6 +257,7 @@ Retention commands:
 
 - npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90
 - npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100
+- npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120
 
 Usage events listing behavior:
 
@@ -319,9 +321,11 @@ Analytics retention foundation:
 - Execution service summary provides a compact non-destructive summary contract.
 - Candidate count loader normalizes count-only candidate read repository output for execution planning.
 - Candidate-read execution preview composes existing read-only candidate counts into the service preview.
-- Service previews do not call deleteCandidates.
+- Operator preview command reads candidate counts from PostgreSQL through the Prisma candidate read repository.
+- Operator preview output reports commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
+- Service previews and operator previews do not call deleteCandidates.
 - Execution preview command still reports deleteImplementationAvailable=false.
-- No operator-facing raw event deletion exists yet.
+- No operator-facing raw event deletion exists.
 - No retention execute command exists yet.
 
 Current analytics limitations:
@@ -421,7 +425,7 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-29.md
+- docs/sdlc/sprint-history/sprint-30.md
 - docs/runbooks/api-usage-analytics.md
 - docs/runbooks/api-rejected-events.md
 - docs/runbooks/analytics-rollup-backfill.md
@@ -430,6 +434,8 @@ Docs:
 - docs/runbooks/analytics-retention-execution-preview.md
 - docs/runbooks/analytics-retention-delete-repository.md
 - docs/runbooks/analytics-retention-execution-service-preview.md
+- docs/runbooks/analytics-retention-operator-preview.md
+- docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-command.md
 - docs/project-context/decisions/2026-07-06-analytics-retention-execution-service-orchestration-preview.md
 - docs/project-context/decisions/2026-07-06-analytics-retention-delete-repository-safety.md
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
@@ -485,7 +491,7 @@ Work style:
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Retention execution has repository-level and service-level safety foundations, but no operator-facing execute command yet.
+- Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any command, API, scheduled job, or quota path yet.
 - No retention delete job yet.
 - No scheduled/background rollup job yet.
@@ -514,11 +520,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 30 after confirming Sprint 29 docs are committed and pushed.
+Start Sprint 31 after confirming Sprint 30 docs are committed and pushed.
 
 Recommended direction:
 
-- Analytics Retention Execution Operator Preview Command.
+- Analytics Retention Execution Operator Preview Hardening or Rollup Scheduling Foundation.
 
 Before starting:
 
@@ -528,5 +534,4 @@ Before starting:
 - Preserve quota correctness.
 - Keep successful usage and rejected/security event storage separate.
 - Keep retention execution explicit and guarded.
-- Prefer a non-destructive operator-facing preview command around the Sprint 29 service layer.
 - Do not expose a destructive execute command until explicitly approved.

@@ -24,60 +24,52 @@ Long decision records live in:
 
 ## Current Version
 
-v0.30.0
+v0.31.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 29 - Analytics Retention Execution Service Orchestration Preview
+Sprint 30 - Analytics Retention Execution Operator Preview Command
 
 Status:
 
 Done.
 
-Sprint 29 added service-level orchestration preview foundations for future analytics retention execution:
+Sprint 30 added a non-destructive operator-facing preview command for analytics retention execution planning:
 
-- Added analytics retention execution service preview.
-- Added analytics retention execution service summary model.
-- Added analytics retention execution candidate count loader.
-- Added candidate-read execution preview composition.
-- Composed retention policy, plan, execution args, execution guard, delete batch plan, delete operation plan, and optional repository preparation.
-- Preserved count-only candidate reads through the existing candidate read repository.
-- Preserved source separation between usage and rejected events.
-- Preserved the existing analytics:retention:execution-preview command behavior with deleteImplementationAvailable=false.
-- Did not add a retention execute command.
-- Did not add a retention delete API.
-- Did not add a scheduled/background retention job.
-- Did not call deleteCandidates from an operator-facing flow.
-- Did not add migration or schema changes.
-- Did not change quota checker, usage recorder, or rejected event recorder.
-- Did not switch runtime summary APIs to rollup reads.
+- Added analytics retention operator preview output model.
+- Added analytics retention operator preview command runner with injectable candidate read repository.
+- Exposed npm run analytics:retention:operator-preview.
+- Wired the command to the Prisma candidate read repository for DB-backed count-only candidate reads.
+- Added JSON safety output with commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
+- Preserved usage/rejected source separation.
+- Did not call deleteCandidates.
+- Did not wire the Prisma delete repository into the command.
+- Did not add a retention execute command, delete API, scheduled retention job, migration, quota path, recorder change, or rollup summary switch.
 
-Sprint 29 details are archived in:
+Sprint 30 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-29.md
+- docs/sdlc/sprint-history/sprint-30.md
 
 Related runbooks:
 
+- docs/runbooks/analytics-retention-operator-preview.md
 - docs/runbooks/analytics-retention-execution-service-preview.md
 - docs/runbooks/analytics-retention-delete-repository.md
 - docs/runbooks/analytics-retention-execution-preview.md
 - docs/runbooks/analytics-retention-dry-run.md
-- docs/runbooks/analytics-rollup-backfill.md
-- docs/runbooks/analytics-rollup-read.md
 
 Related design records:
 
+- docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-command.md
 - docs/project-context/decisions/2026-07-06-analytics-retention-execution-service-orchestration-preview.md
 - docs/project-context/decisions/2026-07-06-analytics-retention-delete-repository-safety.md
-- docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
-
 ---
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 29:
+Latest stable validation from Sprint 30:
 
 - npm run test -> passed
 - npm run typecheck -> passed
@@ -85,14 +77,15 @@ Latest stable validation from Sprint 29:
 
 Latest automated test result:
 
-- 93 test files passed
-- 646 tests passed
+- 95 test files passed
+- 653 tests passed
 
 Manual DB/runtime command validation:
 
-- No new Docker/runtime validation was required in Sprint 29 because no command, API, migration, scheduled job, or operator-facing delete execution was added.
-- Latest DB/runtime validation remains Sprint 28: migration deploy had no pending migrations, retention dry-run was DB-backed and deleteAllowed=false, and execution preview reported deleteImplementationAvailable=false.
-
+- docker compose up -d postgres redis -> passed.
+- npm run db:migrate:deploy --workspace api-gateway -> 7 migrations found, no pending migrations.
+- analytics:retention:operator-preview validation passed for disabled, usage, rejected, both dry-run, and both execute-preview modes.
+- Runtime output preserved commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
 ---
 
 ## Current Architecture Summary
@@ -165,6 +158,9 @@ PulseGate currently has:
 - Analytics retention execution service summary model.
 - Analytics retention execution candidate count loader.
 - Analytics retention candidate-read execution preview composition.
+- Analytics retention operator preview output model.
+- Analytics retention operator preview command runner.
+- Analytics retention operator preview command with DB-backed candidate counts.
 - Internal/admin route management APIs.
 - Internal/admin consumer APIs.
 - Internal/admin API key lifecycle APIs.
@@ -286,9 +282,11 @@ Analytics retention:
 - Execution service summary provides a compact non-destructive summary contract.
 - Candidate count loader normalizes count-only candidate read repository output for execution planning.
 - Candidate-read execution preview composes existing read-only candidate counts into the service preview.
-- Service previews do not call deleteCandidates.
+- Operator preview command reads DB-backed candidate counts through the Prisma candidate read repository.
+- Operator preview output reports commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
+- Service previews and operator previews do not call deleteCandidates.
 - The existing execution preview command remains DB-free and reports deleteImplementationAvailable=false.
-- No operator-facing raw event delete command exists yet.
+- No operator-facing raw event delete command exists.
 - No retention execute command exists yet.
 
 Current quota scope:
@@ -309,8 +307,8 @@ Current quota scope:
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Retention execution has repository-level and service-level safety foundations, but no operator-facing execute command yet.
-- Retention Prisma delete repository is not wired to any command, API, scheduled job, or quota path yet.
+- Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
+- Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
 - No scheduled/background rollup job yet.
 - No per-consumer Grafana dashboard yet.
@@ -337,21 +335,18 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 30 recommended direction:
+Sprint 31 recommended direction:
 
-- Analytics Retention Execution Operator Preview Command
+- Analytics Retention Execution Operator Preview Hardening or Rollup Scheduling Foundation
 
 Recommended scope:
 
-- Add a non-destructive operator-facing command around the Sprint 29 service orchestration preview.
-- Use count-only candidate read repository access for candidate counts.
-- Keep deleteCandidates unavailable from operator-facing flow.
+- Keep retention execution explicit, guarded, and non-destructive unless destructive execution is separately approved.
+- Option A: harden operator preview output contract, CLI errors, and runbook validation.
+- Option B: start a separate non-destructive scheduled rollup planning foundation.
 - Keep successful usage and rejected/security events separate.
 - Keep quota counting on gateway.api_usage_events.
 - Do not expose a destructive execute command until explicitly approved.
-- Avoid switching summary APIs to rollup reads unless explicitly selected.
-- Avoid adding Kafka, RabbitMQ, Kubernetes, Admin Dashboard UI, Developer Portal UI, billing, paid plans, or multi-tenant organization model unless explicitly selected.
-
 ---
 
 ## Working Style
