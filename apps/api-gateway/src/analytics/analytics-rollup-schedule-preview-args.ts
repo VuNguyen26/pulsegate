@@ -2,6 +2,18 @@
 import type { AnalyticsRollupSchedulePlanInput } from "./analytics-rollup-schedule-plan.js";
 import type { AnalyticsRollupGranularity } from "./analytics-rollup-time-bucket.js";
 
+export const ANALYTICS_ROLLUP_SCHEDULE_PREVIEW_COMMAND_USAGE = [
+  "Usage:",
+  "  npm run analytics:rollup:schedule-preview --workspace api-gateway -- --run-at <iso> --granularity <hour|day> [--enabled <true|false>] [--source <usage|rejected|both>] [--lookback-buckets <n>] [--safety-delay-ms <n>] [--max-buckets <n>]",
+  "",
+  "Examples:",
+  "  npm run analytics:rollup:schedule-preview --workspace api-gateway -- --run-at 2026-07-06T13:07:00.000Z --granularity hour",
+  "  npm run analytics:rollup:schedule-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1",
+  "",
+  "Safety:",
+  "  Preview only. Does not create scheduled jobs, read events, persist rollups, affect quota counting, or delete raw events.",
+].join("\n");
+
 type SchedulePreviewOption =
   | "--enabled"
   | "--source"

@@ -1,6 +1,9 @@
 ﻿import { describe, expect, it } from "vitest";
 
-import { parseAnalyticsRollupSchedulePreviewArgs } from "./analytics-rollup-schedule-preview-args.js";
+import {
+  ANALYTICS_ROLLUP_SCHEDULE_PREVIEW_COMMAND_USAGE,
+  parseAnalyticsRollupSchedulePreviewArgs,
+} from "./analytics-rollup-schedule-preview-args.js";
 
 describe("analytics rollup schedule preview args", () => {
   it("should parse the required run timestamp and granularity with safe defaults", () => {
@@ -196,5 +199,17 @@ describe("analytics rollup schedule preview args", () => {
         "hour",
       ]),
     ).toThrow(RangeError);
+  });
+
+  it("should expose usage text for command failures", () => {
+    expect(ANALYTICS_ROLLUP_SCHEDULE_PREVIEW_COMMAND_USAGE).toContain(
+      "analytics:rollup:schedule-preview",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULE_PREVIEW_COMMAND_USAGE).toContain(
+      "--run-at <iso>",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULE_PREVIEW_COMMAND_USAGE).toContain(
+      "Preview only",
+    );
   });
 });
