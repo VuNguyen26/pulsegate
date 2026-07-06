@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.31.0
+v0.32.0
 
 ## Current Status
 
-Sprint 30 - Analytics Retention Execution Operator Preview Command Complete
+Sprint 31 - Analytics Retention Execution Operator Preview Hardening Complete
 
 Current validation:
 
 - 95 test files passed
-- 653 tests passed
+- 659 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker/PostgreSQL runtime validation passed for analytics:retention:operator-preview
+- Docker/PostgreSQL runtime validation passed for analytics:retention:operator-preview, including invalid execution argument fail-fast behavior
 
 ---
 
@@ -44,7 +44,7 @@ Long decision records live in:
 
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
-PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, DB-backed non-destructive retention operator preview, and CI/CD.
+PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, DB-backed non-destructive retention operator preview hardening, and CI/CD.
 
 ---
 
@@ -116,6 +116,8 @@ Analytics retention service orchestration preview flow:
 Analytics retention operator preview flow:
 
     CLI args
+      -> retention policy and execution arg split
+      -> fail-fast execution arg validation
       -> Prisma candidate read repository
       -> count-only usage/rejected candidate counts
       -> candidate-read execution service preview
@@ -194,7 +196,7 @@ API Gateway currently handles:
 - Rejected events summary and raw listing with filters, offset pagination, and cursor pagination.
 - Analytics rollup calculation, persistence, manual backfill, and read model foundations.
 - Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
-- Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, Prisma delete repository foundation, execution service preview, summary model, candidate count loader, candidate-read preview composition, operator preview output, and DB-backed operator preview command.
+- Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, Prisma delete repository foundation, execution service preview, summary model, candidate count loader, candidate-read preview composition, operator preview output, DB-backed operator preview command, and operator preview fail-fast CLI hardening.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected event, quota, and rollup APIs.
 - Structured access logs and Prometheus metrics.
 
@@ -378,6 +380,7 @@ Current behavior:
 - Candidate count loader normalizes count-only candidate read repository output for execution planning.
 - Candidate-read execution preview composes existing read-only candidate counts into the service preview.
 - Operator preview command reads candidate counts from PostgreSQL through the Prisma candidate read repository.
+- Operator preview command validates execution args before DB-backed candidate reads, so invalid execute-only flags fail fast before touching the candidate repository.
 - Operator preview output reports commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
 - Service previews and operator previews do not call deleteCandidates.
 - The existing execution preview command remains DB-free and reports deleteImplementationAvailable=false.
@@ -447,12 +450,12 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 31 recommended direction:
+Sprint 32 recommended direction:
 
-- Analytics Retention Execution Operator Preview Hardening or Rollup Scheduling Foundation
+- Rollup Scheduling Foundation or Analytics Retention Execution Design Review
 
 Rationale:
 
-- Sprint 30 exposed a non-destructive DB-backed operator preview command around the Sprint 29 service layer.
-- Future work can harden operator preview ergonomics or separately start non-destructive rollup scheduling foundations.
+- Sprint 31 hardened the non-destructive DB-backed operator preview command around CLI usage, safety contract tests, and fail-fast execution arg validation.
+- Future work can separately start non-destructive rollup scheduling foundations or explicitly design retention execution boundaries.
 - Delete execution should remain unavailable until command/API semantics, runtime validation, rollback expectations, and operator controls are explicitly designed.

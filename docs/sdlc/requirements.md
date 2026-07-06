@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.31.0
+v0.32.0
 
 ## Latest Completed Sprint
 
-Sprint 30 - Analytics Retention Execution Operator Preview Command
+Sprint 31 - Analytics Retention Execution Operator Preview Hardening
 
 ---
 
@@ -511,6 +511,7 @@ Required behavior:
 - Preserve usage and rejected source separation.
 - Return operator safety fields including commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
 - Support dry-run preview and execute-preview arguments for guard inspection.
+- Validate execution arguments before DB-backed candidate reads so invalid execute-only flags fail fast.
 - Do not call deleteCandidates.
 - Do not wire the Prisma delete repository into the command.
 - Do not expose a retention execute command, delete API, scheduled job, or quota path.
@@ -519,6 +520,26 @@ Required behavior:
 Status:
 
 Implemented as non-destructive DB-backed operator preview command.
+
+---
+
+### FR-034 Analytics Retention Operator Preview Hardening
+
+PulseGate shall harden the operator preview command contract before any destructive retention execution is designed.
+
+Required behavior:
+
+- Preserve explicit non-destructive JSON safety fields across dry-run and execute-preview modes.
+- Validate unsupported or unsafe execution arguments before reading candidate counts from PostgreSQL.
+- Keep usage text clear and test-covered for supported options and non-destructive behavior.
+- Do not call deleteCandidates.
+- Do not wire the Prisma delete repository into the operator preview command.
+- Do not expose a retention execute command, delete API, scheduled job, or quota path.
+- Do not change quota counting, usage recording, rejected event recording, rollup reads, or summary APIs.
+
+Status:
+
+Implemented.
 
 ---
 
@@ -541,7 +562,7 @@ Implemented.
 Current result:
 
 - 95 test files passed
-- 653 tests passed
+- 659 tests passed
 
 Validation:
 
@@ -569,7 +590,7 @@ Implemented.
 
 Latest validation:
 
-- Sprint 30 final automated validation passed with 95 test files and 653 tests.
+- Sprint 31 final automated validation passed with 95 test files and 659 tests.
 - npm run typecheck passed.
 - npm run build passed.
 - Docker/PostgreSQL runtime validation passed for analytics:retention:operator-preview.
@@ -584,7 +605,7 @@ Implemented.
 
 ### NFR-005 Observability
 
-Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, retention dry-run candidate previews, retention execution guard previews, retention repository safety tests, and retention execution service preview tests, and retention operator preview command tests.
+Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, retention dry-run candidate previews, retention execution guard previews, retention repository safety tests, and retention execution service preview tests, retention operator preview command tests, and retention operator preview fail-fast/usage contract tests.
 
 Status:
 
@@ -635,7 +656,7 @@ Implemented.
 
 Recommended next:
 
-- Harden analytics retention operator preview ergonomics and output contract later.
+- Start non-destructive rollup scheduling foundation or explicitly design the next analytics retention execution boundary.
 - Keep retention execution explicit, limited, and blocked from operator-facing delete until approved.
 - Switch selected long-range analytics reads to rollups later after explicit design.
 - Add Grafana panels for quota, usage, rejected traffic, rollups, and retention dry-run candidates later.

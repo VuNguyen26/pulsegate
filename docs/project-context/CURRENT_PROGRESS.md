@@ -24,33 +24,32 @@ Long decision records live in:
 
 ## Current Version
 
-v0.31.0
+v0.32.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 30 - Analytics Retention Execution Operator Preview Command
+Sprint 31 - Analytics Retention Execution Operator Preview Hardening
 
 Status:
 
 Done.
 
-Sprint 30 added a non-destructive operator-facing preview command for analytics retention execution planning:
+Sprint 31 hardened the non-destructive operator-facing analytics retention preview command:
 
-- Added analytics retention operator preview output model.
-- Added analytics retention operator preview command runner with injectable candidate read repository.
-- Exposed npm run analytics:retention:operator-preview.
-- Wired the command to the Prisma candidate read repository for DB-backed count-only candidate reads.
-- Added JSON safety output with commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
+- Added stronger safety contract tests for operator preview output and command JSON.
+- Added usage text safety and formatting contract tests.
+- Added fail-fast validation so invalid execution-only args are rejected before DB-backed candidate reads.
+- Preserved DB-backed count-only candidate reads for valid operator previews.
 - Preserved usage/rejected source separation.
 - Did not call deleteCandidates.
 - Did not wire the Prisma delete repository into the command.
 - Did not add a retention execute command, delete API, scheduled retention job, migration, quota path, recorder change, or rollup summary switch.
 
-Sprint 30 details are archived in:
+Sprint 31 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-30.md
+- docs/sdlc/sprint-history/sprint-31.md
 
 Related runbooks:
 
@@ -62,6 +61,7 @@ Related runbooks:
 
 Related design records:
 
+- docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-hardening.md
 - docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-command.md
 - docs/project-context/decisions/2026-07-06-analytics-retention-execution-service-orchestration-preview.md
 - docs/project-context/decisions/2026-07-06-analytics-retention-delete-repository-safety.md
@@ -69,7 +69,7 @@ Related design records:
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 30:
+Latest stable validation from Sprint 31:
 
 - npm run test -> passed
 - npm run typecheck -> passed
@@ -78,13 +78,14 @@ Latest stable validation from Sprint 30:
 Latest automated test result:
 
 - 95 test files passed
-- 653 tests passed
+- 659 tests passed
 
 Manual DB/runtime command validation:
 
-- docker compose up -d postgres redis -> passed.
+- docker compose up -d postgres -> passed.
 - npm run db:migrate:deploy --workspace api-gateway -> 7 migrations found, no pending migrations.
-- analytics:retention:operator-preview validation passed for disabled, usage, rejected, both dry-run, and both execute-preview modes.
+- analytics:retention:operator-preview validation passed for disabled, usage, rejected, and both execute-preview modes.
+- Invalid dry-run hard-delete-limit validation failed fast with exit code 1 before preview output.
 - Runtime output preserved commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
 ---
 
@@ -161,6 +162,7 @@ PulseGate currently has:
 - Analytics retention operator preview output model.
 - Analytics retention operator preview command runner.
 - Analytics retention operator preview command with DB-backed candidate counts.
+- Analytics retention operator preview fail-fast execution arg validation.
 - Internal/admin route management APIs.
 - Internal/admin consumer APIs.
 - Internal/admin API key lifecycle APIs.
@@ -283,6 +285,7 @@ Analytics retention:
 - Candidate count loader normalizes count-only candidate read repository output for execution planning.
 - Candidate-read execution preview composes existing read-only candidate counts into the service preview.
 - Operator preview command reads DB-backed candidate counts through the Prisma candidate read repository.
+- Operator preview command validates execution args before DB-backed candidate reads, so invalid execute-only flags fail fast before touching the candidate repository.
 - Operator preview output reports commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
 - Service previews and operator previews do not call deleteCandidates.
 - The existing execution preview command remains DB-free and reports deleteImplementationAvailable=false.
@@ -335,15 +338,15 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 31 recommended direction:
+Sprint 32 recommended direction:
 
-- Analytics Retention Execution Operator Preview Hardening or Rollup Scheduling Foundation
+- Rollup Scheduling Foundation or Analytics Retention Execution Design Review
 
 Recommended scope:
 
 - Keep retention execution explicit, guarded, and non-destructive unless destructive execution is separately approved.
-- Option A: harden operator preview output contract, CLI errors, and runbook validation.
-- Option B: start a separate non-destructive scheduled rollup planning foundation.
+- Option A: start a separate non-destructive scheduled rollup planning foundation.
+- Option B: explicitly design the next analytics retention execution boundary before exposing any destructive command/API/job.
 - Keep successful usage and rejected/security events separate.
 - Keep quota counting on gateway.api_usage_events.
 - Do not expose a destructive execute command until explicitly approved.

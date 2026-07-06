@@ -2,9 +2,11 @@
 
 ## Scope
 
-This runbook documents the non-destructive analytics retention operator preview command added in Sprint 30.
+This runbook documents the non-destructive analytics retention operator preview command added in Sprint 30 and hardened in Sprint 31.
 
 The command reads candidate counts from PostgreSQL through the Prisma candidate read repository and prints a JSON preview.
+
+It validates execution arguments before DB-backed candidate reads.
 
 It is not a delete command.
 
@@ -15,6 +17,12 @@ It is not a delete command.
 Implemented command:
 
     npm run analytics:retention:operator-preview --workspace api-gateway -- [options]
+
+Sprint 31 hardening:
+
+- Safety output contract is test-covered.
+- Usage text is test-covered.
+- Invalid execution-only flags fail fast before candidate repository reads.
 
 Still unavailable:
 
@@ -34,7 +42,7 @@ For local PowerShell validation against Docker PostgreSQL:
 
 Start required services:
 
-    docker compose up -d postgres redis
+    docker compose up -d postgres
 
 Deploy migrations:
 
@@ -138,6 +146,7 @@ The operator preview command is read-only.
 Required safety conditions:
 
 - It reads candidate counts only.
+- It validates execution args before DB-backed candidate reads.
 - It uses the Prisma candidate read repository, not the delete repository.
 - It does not call deleteCandidates.
 - It does not delete raw usage events.
@@ -167,7 +176,7 @@ Run DB-backed runtime validation:
 
     $env:DATABASE_URL = "postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
 
-    docker compose up -d postgres redis
+    docker compose up -d postgres
 
     npm run db:migrate:deploy --workspace api-gateway
 
@@ -181,11 +190,23 @@ Run DB-backed runtime validation:
 
     npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100
 
+Run invalid execution argument validation:
+
+    npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90 --mode dry-run --hard-delete-limit 100
+
+Expected invalid result:
+
+- Command exits non-zero.
+- Error includes --hard-delete-limit can only be used with --mode execute.
+- Preview JSON is not printed.
+- Candidate repository reads are not reached.
+
 Expected result:
 
 - All commands complete successfully.
 - Candidate counts are loaded from PostgreSQL for enabled selected sources.
 - Safety fields remain non-destructive.
+- Invalid execute-only flags fail fast before DB-backed candidate reads.
 - No raw events are deleted.
 
 ---
@@ -201,6 +222,8 @@ Fix:
 - Set DATABASE_URL in the current PowerShell session before running DB-backed commands.
 
 If execute preview is missing confirmation or hard delete limit, the execution guard should block delete planning.
+
+If --hard-delete-limit is used with dry-run mode, the command should fail fast before candidate reads.
 
 This is expected and safe.
 

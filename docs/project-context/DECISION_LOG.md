@@ -12,15 +12,41 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.31.0
+v0.32.0
 
 ## Latest Completed Sprint
 
-Sprint 30 - Analytics Retention Execution Operator Preview Command
+Sprint 31 - Analytics Retention Execution Operator Preview Hardening
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-06 - Analytics retention operator preview command fails fast before DB candidate reads
+
+Decision:
+
+- Harden npm run analytics:retention:operator-preview after exposing the DB-backed operator preview command.
+- Preserve non-destructive safety fields in output and tests.
+- Validate execution args before DB-backed candidate reads.
+- Reject invalid execute-only flags such as dry-run hard-delete-limit before reading candidate counts.
+- Lock usage text and safety wording with tests.
+- Do not call deleteCandidates.
+- Do not wire the Prisma delete repository into the operator preview command.
+- Do not expose a retention execute command, delete API, scheduled job, or quota path in Sprint 31.
+- Do not change quota counting, usage recording, rejected event recording, rollup reads, or summary APIs.
+
+Reason:
+
+- The operator preview command is operator-facing and DB-backed, so unsafe CLI input should fail before touching PostgreSQL candidate reads.
+- The Prisma delete repository foundation exists, so the preview command must keep an explicit non-destructive boundary.
+- Locking JSON safety and usage contracts reduces future regression risk before any retention execution design is considered.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-hardening.md
+
+---
 
 ### 2026-07-06 - Analytics retention operator preview command stays read-only and non-destructive
 
