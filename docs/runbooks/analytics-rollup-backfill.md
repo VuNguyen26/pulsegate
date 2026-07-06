@@ -1,10 +1,14 @@
-﻿# Analytics Rollup Backfill Runbook
+# Analytics Rollup Backfill Runbook
 
 ## Scope
 
 This runbook covers the manual/internal analytics rollup backfill command added in Sprint 24.
 
 The command is intended for controlled local/admin operations. It is not a scheduled background job.
+
+For non-destructive schedule planning preview, see:
+
+- docs/runbooks/analytics-rollup-schedule-preview.md
 
 ---
 

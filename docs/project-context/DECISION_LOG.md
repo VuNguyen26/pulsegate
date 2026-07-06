@@ -12,15 +12,40 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.32.0
+v0.33.0
 
 ## Latest Completed Sprint
 
-Sprint 31 - Analytics Retention Execution Operator Preview Hardening
+Sprint 32 - Analytics Rollup Scheduling Foundation
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-06 - Analytics rollup scheduling starts as preview-only foundation
+
+Decision:
+
+- Add rollup schedule planning contracts before any real background scheduler exists.
+- Add a schedule preview summary with explicit safety fields.
+- Add an operator-facing npm run analytics:rollup:schedule-preview command.
+- Keep the command DB-free and preview-only.
+- Do not create scheduled/background jobs.
+- Do not read raw events or persist rollups from the schedule preview command.
+- Do not change quota counting, usage recording, rejected event recording, rollup read APIs, or summary APIs.
+- Do not delete raw events.
+
+Reason:
+
+- Scheduled rollups need a clear operator-visible planning boundary before background execution is introduced.
+- Previewing the intended window and safety flags reduces the risk of accidentally coupling scheduling to persistence or quota behavior.
+- Keeping the command DB-free allows runtime command validation without Docker/PostgreSQL while preserving source separation.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-06-analytics-rollup-scheduling-foundation.md
+
+---
 
 ### 2026-07-06 - Analytics retention operator preview command fails fast before DB candidate reads
 

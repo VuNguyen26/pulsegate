@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.32.0
+v0.33.0
 
 ## Latest Completed Sprint
 
-Sprint 31 - Analytics Retention Execution Operator Preview Hardening
+Sprint 32 - Analytics Rollup Scheduling Foundation
 
 ---
 
@@ -301,7 +301,7 @@ PulseGate shall keep a clear design path for high-volume analytics storage lifec
 
 Status:
 
-Designed. Rollup calculation, persistence, manual backfill, read model, retention dry-run, retention execution guardrail, retention repository safety, and retention execution service preview foundations are implemented.
+Designed. Rollup calculation, persistence, manual backfill, read model, schedule preview, retention dry-run, retention execution guardrail, retention repository safety, and retention execution service preview foundations are implemented.
 
 ---
 
@@ -543,6 +543,33 @@ Implemented.
 
 ---
 
+### FR-035 Analytics Rollup Scheduling Foundation
+
+PulseGate shall provide a non-destructive scheduling foundation for future analytics rollup automation.
+
+Current command:
+
+- npm run analytics:rollup:schedule-preview --workspace api-gateway -- --enabled true --source <usage|rejected|both> --run-at <iso> --granularity <hour|day> --lookback-buckets <n>
+
+Required behavior:
+
+- Provide a schedule plan contract for hourly or daily rollup windows.
+- Support source=usage, source=rejected, and source=both while preserving source separation.
+- Support lookback bucket, safety delay, and max bucket guardrails.
+- Provide a preview summary contract with explicit safety fields.
+- Expose an operator-facing preview command that prints JSON only.
+- Do not create scheduled/background jobs.
+- Do not read raw events.
+- Do not persist rollups.
+- Do not change quota counting, usage recording, rejected event recording, rollup read APIs, or summary APIs.
+- Do not delete raw events.
+
+Status:
+
+Implemented as non-destructive scheduling foundation.
+
+---
+
 ## Current Non-Functional Requirements
 
 ### NFR-001 Type Safety
@@ -561,8 +588,8 @@ Implemented.
 
 Current result:
 
-- 95 test files passed
-- 659 tests passed
+- 99 test files passed
+- 683 tests passed
 
 Validation:
 
@@ -590,12 +617,12 @@ Implemented.
 
 Latest validation:
 
-- Sprint 31 final automated validation passed with 95 test files and 659 tests.
+- Sprint 32 final automated validation passed with 99 test files and 683 tests.
 - npm run typecheck passed.
 - npm run build passed.
-- Docker/PostgreSQL runtime validation passed for analytics:retention:operator-preview.
-- Prisma migration deploy found 7 migrations and no pending migrations.
-- Operator preview validation passed for disabled, usage, rejected, both dry-run, and both execute-preview modes with deleteAllowed=false and destructiveExecutionPerformed=false.
+- Runtime command validation passed for analytics:rollup:schedule-preview.
+- Schedule preview output preserved previewOnly=true, commandCreatesScheduledJob=false, commandExecutesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
+- No Docker/PostgreSQL validation was required for Sprint 32 because the new command is DB-free and preview-only.
 
 Status:
 
@@ -605,7 +632,7 @@ Implemented.
 
 ### NFR-005 Observability
 
-Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, retention dry-run candidate previews, retention execution guard previews, retention repository safety tests, and retention execution service preview tests, retention operator preview command tests, and retention operator preview fail-fast/usage contract tests.
+Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, retention dry-run candidate previews, retention execution guard previews, retention repository safety tests, and retention execution service preview tests, retention operator preview command tests, retention operator preview fail-fast/usage contract tests, and rollup schedule preview command tests.
 
 Status:
 
@@ -631,7 +658,7 @@ Implemented.
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
-- No scheduled/background rollup job yet.
+- Rollup schedule preview command exists, but no scheduled/background rollup job yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
 - No quota usage Grafana dashboard yet.
@@ -656,7 +683,7 @@ Implemented.
 
 Recommended next:
 
-- Start non-destructive rollup scheduling foundation or explicitly design the next analytics retention execution boundary.
+- Design a rollup scheduler runner boundary or explicitly design the next analytics retention execution boundary.
 - Keep retention execution explicit, limited, and blocked from operator-facing delete until approved.
 - Switch selected long-range analytics reads to rollups later after explicit design.
 - Add Grafana panels for quota, usage, rejected traffic, rollups, and retention dry-run candidates later.

@@ -24,52 +24,49 @@ Long decision records live in:
 
 ## Current Version
 
-v0.32.0
+v0.33.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 31 - Analytics Retention Execution Operator Preview Hardening
+Sprint 32 - Analytics Rollup Scheduling Foundation
 
 Status:
 
 Done.
 
-Sprint 31 hardened the non-destructive operator-facing analytics retention preview command:
+Sprint 32 added a non-destructive analytics rollup scheduling foundation:
 
-- Added stronger safety contract tests for operator preview output and command JSON.
-- Added usage text safety and formatting contract tests.
-- Added fail-fast validation so invalid execution-only args are rejected before DB-backed candidate reads.
-- Preserved DB-backed count-only candidate reads for valid operator previews.
+- Added schedule plan contracts for hourly/daily rollup windows.
+- Added schedule preview summary output with explicit safety flags.
+- Added schedule preview args parsing and usage text.
+- Exposed npm run analytics:rollup:schedule-preview as a DB-free operator-facing preview command.
 - Preserved usage/rejected source separation.
-- Did not call deleteCandidates.
-- Did not wire the Prisma delete repository into the command.
-- Did not add a retention execute command, delete API, scheduled retention job, migration, quota path, recorder change, or rollup summary switch.
+- Did not create a scheduled/background rollup job.
+- Did not read raw events or persist rollups from the schedule preview command.
+- Did not change quota counting, usage recording, rejected event recording, rollup read APIs, summary APIs, migrations, or retention/delete paths.
 
-Sprint 31 details are archived in:
+Sprint 32 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-31.md
+- docs/sdlc/sprint-history/sprint-32.md
 
 Related runbooks:
 
-- docs/runbooks/analytics-retention-operator-preview.md
-- docs/runbooks/analytics-retention-execution-service-preview.md
-- docs/runbooks/analytics-retention-delete-repository.md
-- docs/runbooks/analytics-retention-execution-preview.md
-- docs/runbooks/analytics-retention-dry-run.md
+- docs/runbooks/analytics-rollup-schedule-preview.md
+- docs/runbooks/analytics-rollup-backfill.md
+- docs/runbooks/analytics-rollup-read.md
 
 Related design records:
 
-- docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-hardening.md
-- docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-command.md
-- docs/project-context/decisions/2026-07-06-analytics-retention-execution-service-orchestration-preview.md
-- docs/project-context/decisions/2026-07-06-analytics-retention-delete-repository-safety.md
+- docs/project-context/decisions/2026-07-06-analytics-rollup-scheduling-foundation.md
+- docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
+
 ---
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 31:
+Latest stable validation from Sprint 32:
 
 - npm run test -> passed
 - npm run typecheck -> passed
@@ -77,16 +74,16 @@ Latest stable validation from Sprint 31:
 
 Latest automated test result:
 
-- 95 test files passed
-- 659 tests passed
+- 99 test files passed
+- 683 tests passed
 
-Manual DB/runtime command validation:
+Manual command validation:
 
-- docker compose up -d postgres -> passed.
-- npm run db:migrate:deploy --workspace api-gateway -> 7 migrations found, no pending migrations.
-- analytics:retention:operator-preview validation passed for disabled, usage, rejected, and both execute-preview modes.
-- Invalid dry-run hard-delete-limit validation failed fast with exit code 1 before preview output.
-- Runtime output preserved commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
+- analytics:rollup:schedule-preview validation passed for an enabled both-source hourly preview.
+- Runtime output preserved previewOnly=true, commandCreatesScheduledJob=false, commandExecutesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
+- package.json parse validation passed after ensuring UTF-8 without BOM.
+- No Docker/PostgreSQL validation was required for Sprint 32 because the command is DB-free and preview-only.
+
 ---
 
 ## Current Architecture Summary
@@ -141,35 +138,13 @@ PulseGate currently has:
 - Usage rollup read repository.
 - Rejected rollup read repository.
 - Analytics rollup read service.
+- Analytics rollup schedule plan model.
+- Analytics rollup schedule preview summary model.
+- Analytics rollup schedule preview args parser.
+- Analytics rollup schedule preview command.
 - Internal/admin analytics rollup read endpoint.
-- Analytics retention policy parser and plan model.
-- Analytics retention candidate read repository.
-- Analytics retention dry-run service.
-- Analytics retention dry-run args parser.
-- Analytics retention dry-run command.
-- Analytics retention execution guard model.
-- Analytics retention execution args parser.
-- Analytics retention execution preview command.
-- Analytics retention delete batch plan model.
-- Analytics retention delete repository safety contract.
-- Analytics retention delete repository port and executor.
-- Analytics retention delete operation planner.
-- Analytics retention Prisma delete repository implementation behind guardrails.
-- Analytics retention execution service preview.
-- Analytics retention execution service summary model.
-- Analytics retention execution candidate count loader.
-- Analytics retention candidate-read execution preview composition.
-- Analytics retention operator preview output model.
-- Analytics retention operator preview command runner.
-- Analytics retention operator preview command with DB-backed candidate counts.
-- Analytics retention operator preview fail-fast execution arg validation.
-- Internal/admin route management APIs.
-- Internal/admin consumer APIs.
-- Internal/admin API key lifecycle APIs.
-- Internal/admin usage plan APIs.
-- Internal/admin usage analytics APIs.
-- Internal/admin quota observability APIs.
-- Internal/admin rejected events APIs.
+- Analytics retention dry-run, execution preview, repository safety, service preview, and operator preview foundations.
+- Internal/admin route, consumer, API key, usage plan, usage analytics, rejected analytics, quota, and rollup APIs.
 - Structured access logs.
 - Prometheus metrics.
 - Grafana dashboard.
@@ -196,19 +171,13 @@ Dynamic dispatcher:
 - PATCH /api/*
 - DELETE /api/*
 
-Internal/admin usage analytics:
+Internal/admin analytics:
 
 - GET /internal/admin/usage/events
 - GET /internal/admin/usage/consumers/:consumerId/summary
 - GET /internal/admin/usage/api-keys/:apiKeyId/summary
-
-Internal/admin rejected analytics:
-
 - GET /internal/admin/api-rejections/summary
 - GET /internal/admin/api-rejections/events
-
-Internal/admin rollup analytics:
-
 - GET /internal/admin/analytics/rollups
 
 Internal/admin quota observability:
@@ -266,26 +235,20 @@ Analytics rollup read model:
 - Rejected rollup read supports rejectionReason.
 - statusCode maps to statusClass for usage rollups and exact statusCode for rejected rollups.
 
+Analytics rollup schedule preview:
+
+- npm run analytics:rollup:schedule-preview prints a JSON preview for a future scheduled rollup window.
+- source can be usage, rejected, or both.
+- granularity can be hour or day.
+- lookbackBuckets, safetyDelayMs, and maxBuckets provide preview guardrails.
+- The command reports previewOnly=true, commandCreatesScheduledJob=false, commandExecutesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
+- No scheduled/background rollup job exists yet.
+
 Analytics retention:
 
 - npm run analytics:retention:dry-run previews DB-backed candidate raw event retention.
-- source can be usage, rejected, or both.
-- usageRetentionDays and rejectedRetentionDays are separate.
-- Retention candidate reads count rows older than cutoff only.
-- Dry-run command output reports dryRunOnly=true and deleteAllowed=false.
 - npm run analytics:retention:execution-preview previews execution guard decisions without DB access.
-- Execution preview supports explicit execute mode, confirmation phrase, and hard delete limit.
-- Execution preview reports deleteImplementationAvailable=false.
-- Delete batch planning models candidate recheck and a single total hard delete limit.
-- Delete repository safety model blocks unsafe repository operations before any delete.
-- Delete operation planner derives source-specific repository requests from retention and batch plans.
-- Prisma delete repository can count source-specific candidates and delete only bounded selected IDs after safety checks.
-- Execution service preview composes policy, plan, guard, batch plan, operation plan, optional repository preparation, and safe flags.
-- Execution service summary provides a compact non-destructive summary contract.
-- Candidate count loader normalizes count-only candidate read repository output for execution planning.
-- Candidate-read execution preview composes existing read-only candidate counts into the service preview.
-- Operator preview command reads DB-backed candidate counts through the Prisma candidate read repository.
-- Operator preview command validates execution args before DB-backed candidate reads, so invalid execute-only flags fail fast before touching the candidate repository.
+- npm run analytics:retention:operator-preview reads DB-backed candidate counts through the Prisma candidate read repository.
 - Operator preview output reports commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
 - Service previews and operator previews do not call deleteCandidates.
 - The existing execution preview command remains DB-free and reports deleteImplementationAvailable=false.
@@ -301,7 +264,7 @@ Current quota scope:
 - Quota uses gateway.api_usage_events as source of truth.
 - Rejected requests are tracked in gateway.api_rejected_events.
 - Rejected requests are intentionally not stored in gateway.api_usage_events.
-- Rollup tables, retention dry-run, and retention execution preview are not used for quota counting.
+- Rollup tables, rollup schedule preview, retention dry-run, and retention execution preview are not used for quota counting.
 
 ---
 
@@ -310,10 +273,10 @@ Current quota scope:
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
+- Rollup schedule preview command exists, but no scheduled/background rollup job yet.
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
-- No scheduled/background rollup job yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
 - No quota/rejected-events Grafana dashboard yet.
@@ -338,18 +301,19 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 32 recommended direction:
+Sprint 33 recommended direction:
 
-- Rollup Scheduling Foundation or Analytics Retention Execution Design Review
+- Rollup Scheduler Runner Design or Analytics Retention Execution Design Review
 
 Recommended scope:
 
+- If continuing rollups, design an explicit scheduler runner boundary before adding any background execution.
+- Keep schedule preview separate from actual event reads and persistence.
 - Keep retention execution explicit, guarded, and non-destructive unless destructive execution is separately approved.
-- Option A: start a separate non-destructive scheduled rollup planning foundation.
-- Option B: explicitly design the next analytics retention execution boundary before exposing any destructive command/API/job.
 - Keep successful usage and rejected/security events separate.
 - Keep quota counting on gateway.api_usage_events.
 - Do not expose a destructive execute command until explicitly approved.
+
 ---
 
 ## Working Style

@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.32.0
+- v0.33.0
 
 Latest completed sprint:
 
-- Sprint 31 - Analytics Retention Execution Operator Preview Hardening
+- Sprint 32 - Analytics Rollup Scheduling Foundation
 
 Recommended next technical sprint:
 
-- Sprint 32 - Rollup Scheduling Foundation or Analytics Retention Execution Design Review
+- Sprint 33 - Rollup Scheduler Runner Design or Analytics Retention Execution Design Review
 
 ---
 
@@ -109,37 +109,36 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 31:
+Latest stable validation from Sprint 32:
 
-- npm run test -> passed
-- npm run typecheck -> passed
-- npm run build -> passed
+- npm run test -> passed.
+- npm run typecheck -> passed.
+- npm run build -> passed.
 
 Latest automated test result:
 
-- 95 test files passed
-- 659 tests passed
+- 99 test files passed.
+- 683 tests passed.
 
-Manual DB/runtime command validation:
+Manual command validation:
 
-- docker compose up -d postgres -> passed.
-- npm run db:migrate:deploy --workspace api-gateway -> 7 migrations found, no pending migrations.
-- npm run analytics:retention:operator-preview --workspace api-gateway was validated for disabled, usage, rejected, and both execute-preview modes.
-- Invalid dry-run hard-delete-limit validation failed fast with exit code 1 before preview output.
-- Operator preview output preserved commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
+- npm run analytics:rollup:schedule-preview --workspace api-gateway was validated for an enabled both-source hourly preview.
+- Runtime output preserved previewOnly=true, commandCreatesScheduledJob=false, commandExecutesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
+- package.json parse validation passed after ensuring UTF-8 without BOM.
+- No Docker/PostgreSQL validation was required because Sprint 32 added a DB-free preview command.
 
-Sprint 31 preserved:
+Sprint 32 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
 - No quota checker changes.
 - No usage recorder changes.
 - No rejected event recorder changes.
+- No scheduled/background rollup job.
+- No rollup summary API switch.
 - No retention execute command.
 - No operator-facing raw event deletion.
-- No scheduled/background job.
-- No summary API switch to rollup reads.
-- Invalid operator preview execution args now fail fast before DB-backed candidate reads.
+
 ---
 
 ## Current Architecture Summary
@@ -178,7 +177,7 @@ API Gateway currently supports:
 - Rejected events summary endpoint.
 - Filtered rejected events summary endpoint.
 - Rejected events listing endpoint with filters, safe offset pagination, and cursor pagination.
-- Analytics rollup calculation, persistence, manual backfill, and read model foundations.
+- Analytics rollup calculation, persistence, manual backfill, read model, schedule plan, schedule preview, and schedule preview command foundations.
 - Read-only analytics rollup endpoint.
 - Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
 - Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, Prisma delete repository foundation, execution service preview, summary model, candidate count loader, candidate-read preview composition, operator preview output, DB-backed operator preview command, and operator preview fail-fast CLI hardening.
@@ -255,42 +254,16 @@ Admin rollup analytics endpoint:
 
 - GET /internal/admin/analytics/rollups
 
+Rollup commands:
+
+- npm run analytics:rollup:backfill --workspace api-gateway -- --from 2026-07-05T00:00:00.000Z --to 2026-07-06T00:00:00.000Z --granularity hour
+- npm run analytics:rollup:schedule-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
+
 Retention commands:
 
 - npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90
 - npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100
 - npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120
-
-Usage events listing behavior:
-
-- Reads from gateway.api_usage_events only.
-- Returns raw successful usage event rows.
-- Supports offset pagination and cursor pagination.
-- Supports filters by from, to, routePath, routeMethod, statusCode, cacheStatus, apiKeyAuthSource, apiKeyId, and consumerId.
-- Does not expose raw API keys, JWTs, or Authorization headers.
-
-Usage summary behavior:
-
-- Usage summaries still read from gateway.api_usage_events only.
-- Supported filters include from, to, routePath, routeMethod, statusCode, cacheStatus, and apiKeyAuthSource.
-
-Quota behavior:
-
-- Applies to DB-backed API keys with assigned enabled usage plans.
-- Counts usage events from gateway.api_usage_events.
-- Returns 429 QUOTA_EXCEEDED when the current window quota is exhausted.
-- Records quota-denied requests into gateway.api_rejected_events.
-- Does not record rejected requests into gateway.api_usage_events.
-- Does not use rollup tables or retention dry-run for quota counting.
-
-Rejected event behavior:
-
-- Records API_KEY_MISSING, API_KEY_INVALID, JWT_TOKEN_MISSING, JWT_TOKEN_INVALID, RATE_LIMIT_EXCEEDED, and QUOTA_EXCEEDED.
-- Does not store raw API keys, JWTs, or Authorization headers.
-- Supports aggregate summary and raw listing read APIs.
-- Raw listing supports cursor pagination with nextCursor.
-- Supports filters by time range, reason, status code, route, auth source, API key, and consumer.
-- Rejected events summary rejects cursor.
 
 Analytics rollup foundation:
 
@@ -300,8 +273,9 @@ Analytics rollup foundation:
 - Helpers aggregate raw successful usage events and raw rejected events.
 - Dimension hash builder creates stable SHA-256 hashes from rollup dimensions.
 - Usage and rejected rollup repositories upsert by dimensionHash.
-- Persistence service aggregates raw-shaped events and delegates persistence.
+- Persistence service aggregates raw-shaped events and delegates to repositories.
 - Manual backfill command can plan or execute controlled rollup rebuilds.
+- Schedule preview command can plan a future rollup window without creating scheduled jobs, reading events, or persisting rollups.
 - Read model can query usage or rejected rollup rows through an internal/admin endpoint.
 - Rollups are not used by runtime summaries, scheduled background jobs, retention delete, execution preview, or quota counting yet.
 
@@ -312,19 +286,10 @@ Analytics retention foundation:
 - Dry-run service orchestrates policy, plan, and candidate read.
 - Dry-run command prints DB-backed candidate JSON preview.
 - Execution guard models dry-run, execute, confirmation, hard delete limit, and blocked reasons.
-- Execution args parser accepts explicit execute preview flags.
 - Execution preview command prints guard JSON preview without DB access.
-- Delete batch plan model requires candidate recheck and one total hard delete limit.
-- Delete repository safety contract blocks unsafe repository operations.
-- Delete repository port and executor require candidate recheck before prepared delete execution.
-- Delete operation planner derives bounded source-specific repository requests.
 - Prisma delete repository can count candidates and delete only bounded selected IDs after safety checks.
-- Execution service preview composes policy, plan, guard, batch plan, operation plan, optional repository preparation, and safe flags.
-- Execution service summary provides a compact non-destructive summary contract.
-- Candidate count loader normalizes count-only candidate read repository output for execution planning.
-- Candidate-read execution preview composes existing read-only candidate counts into the service preview.
 - Operator preview command reads candidate counts from PostgreSQL through the Prisma candidate read repository.
-- Operator preview command validates execution args before DB-backed candidate reads, so invalid execute-only flags fail fast before touching the candidate repository.
+- Operator preview command validates execution args before DB-backed candidate reads.
 - Operator preview output reports commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
 - Service previews and operator previews do not call deleteCandidates.
 - Execution preview command still reports deleteImplementationAvailable=false.
@@ -336,7 +301,7 @@ Current analytics limitations:
 - Usage and rejected summary APIs are event-based at runtime.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
 - No retention delete job yet.
-- No scheduled/background rollup job yet.
+- Rollup schedule preview command exists, but no scheduled/background rollup job yet.
 
 ---
 
@@ -428,20 +393,18 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-31.md
-- docs/runbooks/api-usage-analytics.md
-- docs/runbooks/api-rejected-events.md
+- docs/sdlc/sprint-history/sprint-32.md
 - docs/runbooks/analytics-rollup-backfill.md
+- docs/runbooks/analytics-rollup-schedule-preview.md
 - docs/runbooks/analytics-rollup-read.md
 - docs/runbooks/analytics-retention-dry-run.md
 - docs/runbooks/analytics-retention-execution-preview.md
 - docs/runbooks/analytics-retention-delete-repository.md
 - docs/runbooks/analytics-retention-execution-service-preview.md
 - docs/runbooks/analytics-retention-operator-preview.md
+- docs/project-context/decisions/2026-07-06-analytics-rollup-scheduling-foundation.md
 - docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-hardening.md
 - docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-command.md
-- docs/project-context/decisions/2026-07-06-analytics-retention-execution-service-orchestration-preview.md
-- docs/project-context/decisions/2026-07-06-analytics-retention-delete-repository-safety.md
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
 
 ---
@@ -498,7 +461,7 @@ Work style:
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any command, API, scheduled job, or quota path yet.
 - No retention delete job yet.
-- No scheduled/background rollup job yet.
+- Rollup schedule preview command exists, but no scheduled/background rollup job yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
 - No quota usage dashboard yet.
@@ -524,11 +487,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 32 after confirming Sprint 31 docs are committed and pushed.
+Start Sprint 33 after confirming Sprint 32 docs are committed and pushed.
 
 Recommended direction:
 
-- Rollup Scheduling Foundation or Analytics Retention Execution Design Review.
+- Rollup Scheduler Runner Design or Analytics Retention Execution Design Review.
 
 Before starting:
 
@@ -537,5 +500,6 @@ Before starting:
 - Keep implementation small and testable.
 - Preserve quota correctness.
 - Keep successful usage and rejected/security event storage separate.
+- Keep schedule preview separate from actual background execution.
 - Keep retention execution explicit and guarded.
 - Do not expose a destructive execute command until explicitly approved.
