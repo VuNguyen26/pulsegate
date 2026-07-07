@@ -16,7 +16,8 @@ export const ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE = [
   "",
   "Safety:",
   "  Preview only. Prints an execution boundary decision. Does not create scheduled jobs, invoke backfill service, execute backfill, read events, persist rollups, affect quota counting, or delete raw events.",
-  "  Command dry-run requests currently remain blocked and expose dryRunDesignReview only.",
+  "  Command dry-run requests currently remain blocked and expose dryRunDesignReview plus dryRunInvocationContract only.",
+  "  The dry-run invocation contract is review-only: command-triggered, dry-run-only, per-source, event-limit and max-bucket guarded before any future wiring.",
   "  Dry-run backfill service invocation requires explicit design, source separation, event limit guardrails, and Docker/PostgreSQL runtime validation before wiring.",
 ].join("\n");
 

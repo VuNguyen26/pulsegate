@@ -474,6 +474,23 @@ describe("analytics rollup scheduler preview command", () => {
           requiresDockerPostgresRuntimeValidation: true,
           quotaCountingMustRemainUnchanged: true,
           rawEventDeletionForbidden: true,
+          dryRunInvocationContract: {
+            status: "contract-required-before-wiring",
+            currentInvocationState: "not-wired",
+            triggerBoundary: "command-only",
+            requiredBackfillMode: "dry-run",
+            backfillRequestSource: "scheduler-runner-plan",
+            perSourceInvocationRequired: true,
+            sourceSeparationRequired: true,
+            eventLimitGuardrailRequired: true,
+            maxBucketGuardrailRequired: true,
+            dockerPostgresRuntimeValidationRequired: true,
+            serviceInvocationCurrentlyAllowed: false,
+            eventReadCurrentlyAllowed: false,
+            rollupPersistenceCurrentlyAllowed: false,
+            quotaCountingChangeAllowed: false,
+            rawEventDeletionAllowed: false,
+          },
         },
         automaticTriggersRemainUnwired: true,
         executeRemainsUnwired: true,
@@ -548,6 +565,15 @@ describe("analytics rollup scheduler preview command", () => {
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "dryRunDesignReview",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "dryRunInvocationContract",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "review-only",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "max-bucket",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "source separation",
