@@ -313,6 +313,53 @@ describe("analytics rollup scheduler execution decision", () => {
     });
   });
 
+  it("should expose not-ready command dry-run invocation readiness for skipped runner plans", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: false,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "usage",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "dry-run" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "scheduler-runner-not-ready",
+      backfillRequestCount: 0,
+      wiringReview: {
+        requestedCapability: "command:dry-run",
+        dryRunDesignReview: {
+          currentlyWired: false,
+          dryRunInvocationReadiness: {
+            status: "not-ready",
+            reason: "scheduler-runner-not-ready",
+            plannedBackfillRequestCount: 0,
+            plannedSources: ["usage"],
+            plannedGranularity: "hour",
+            backfillRequestsDerivedFromRunnerPlan: true,
+            allPlannedRequestsDryRunOnly: true,
+            canInvokeBackfillService: false,
+            canReadEvents: false,
+            canPersistRollups: false,
+          },
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
   it("should expose source-aware command dry-run invocation readiness without wiring invocation", () => {
     const schedulePlan = createAnalyticsRollupSchedulePlan({
       enabled: true,
