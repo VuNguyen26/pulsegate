@@ -236,6 +236,54 @@ describe("analytics rollup scheduler execution decision", () => {
     });
   });
 
+  it("should keep automatic dry-run triggers blocked before command dry-run design review", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "usage",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { trigger: "process-local", mode: "dry-run" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "automatic-trigger-not-wired",
+      boundary: {
+        trigger: "process-local",
+        requestedMode: "dry-run",
+        allowedMode: "preview",
+        processLocalExecutionWired: false,
+        externalSchedulerExecutionWired: false,
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      wiringReview: {
+        currentCapability: "command-preview-only",
+        requestedCapability: "process-local:dry-run",
+        recommendedNextStep: "keep-automatic-triggers-unwired",
+        requiresExplicitDesignBeforeWiring: true,
+        requiresDockerPostgresValidationBeforeWiring: true,
+        dryRunDesignReview: null,
+        automaticTriggersRemainUnwired: true,
+        executeRemainsUnwired: true,
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
   it("should preserve usage and rejected source separation in the execution decision", () => {
     const schedulePlan = createAnalyticsRollupSchedulePlan({
       enabled: true,

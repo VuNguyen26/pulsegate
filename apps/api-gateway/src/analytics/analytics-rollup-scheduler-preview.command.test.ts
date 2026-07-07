@@ -231,6 +231,61 @@ describe("analytics rollup scheduler preview command", () => {
     });
   });
 
+  it("should keep automatic dry-run command requests blocked before command dry-run design review", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+
+    await runAnalyticsRollupSchedulerPreviewCommand([
+      "--enabled",
+      "true",
+      "--source",
+      "usage",
+      "--run-at",
+      "2026-07-06T13:07:00.000Z",
+      "--granularity",
+      "hour",
+      "--execution-trigger",
+      "process-local",
+      "--execution-mode",
+      "dry-run",
+    ]);
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.status).toBe("ready");
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "automatic-trigger-not-wired",
+      boundary: {
+        trigger: "process-local",
+        requestedMode: "dry-run",
+        allowedMode: "preview",
+        commandTriggeredOnly: true,
+        processLocalExecutionWired: false,
+        externalSchedulerExecutionWired: false,
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      wiringReview: {
+        requestedCapability: "process-local:dry-run",
+        recommendedNextStep: "keep-automatic-triggers-unwired",
+        dryRunDesignReview: null,
+        automaticTriggersRemainUnwired: true,
+      },
+      safety: {
+        createsScheduledJob: false,
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
   it("should print a blocked execution decision for unwired backfill service dry-run mode", async () => {
     const consoleLog = vi
       .spyOn(console, "log")
