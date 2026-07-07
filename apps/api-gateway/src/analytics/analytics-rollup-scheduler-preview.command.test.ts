@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { runAnalyticsRollupSchedulerPreviewCommand } from "./analytics-rollup-scheduler-preview.command.js";
+import {
+  ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE,
+  runAnalyticsRollupSchedulerPreviewCommand,
+} from "./analytics-rollup-scheduler-preview.command.js";
 
 describe("analytics rollup scheduler preview command", () => {
   afterEach(() => {
@@ -133,5 +136,71 @@ describe("analytics rollup scheduler preview command", () => {
     ).rejects.toThrow(RangeError);
 
     expect(consoleLog).not.toHaveBeenCalled();
+  });
+
+  it("should document scheduler preview safety boundaries in usage text", () => {
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "analytics:rollup:scheduler-preview",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "Preview only",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "Does not create scheduled jobs",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "invoke backfill service",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "execute backfill",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "read events",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "persist rollups",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "affect quota counting",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "delete raw events",
+    );
+  });
+
+  it("should expose only non-executing dry-run backfill request contracts", async () => {
+    const consoleLog = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    await runAnalyticsRollupSchedulerPreviewCommand([
+      "--enabled",
+      "true",
+      "--source",
+      "usage",
+      "--run-at",
+      "2026-07-06T13:07:00.000Z",
+      "--granularity",
+      "hour",
+    ]);
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.backfillRequests).toHaveLength(1);
+    expect(output.backfillRequests[0]).toMatchObject({
+      source: "usage",
+      mode: "dry-run",
+      willInvokeBackfillService: false,
+      willReadEvents: false,
+      willPersistRollups: false,
+    });
+    expect(output.safety).toEqual({
+      previewOnly: true,
+      createsScheduledJob: false,
+      invokesBackfillService: false,
+      executesBackfill: false,
+      readsEvents: false,
+      persistsRollups: false,
+      affectsQuotaCounting: false,
+      deletesRawEvents: false,
+    });
   });
 });
