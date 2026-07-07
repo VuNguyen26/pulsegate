@@ -4,7 +4,7 @@
 
 This runbook covers the non-destructive analytics rollup scheduler preview command.
 
-The command converts a schedule plan into dry-run backfill request contracts, prints an execution boundary decision, and includes a wiring review for future scheduler execution design.
+The command converts a schedule plan into dry-run backfill request contracts, prints an execution boundary decision, and includes a wiring review, command dry-run invocation contract, and command dry-run readiness model for future scheduler execution design.
 
 It is not a scheduler job and does not execute rollup work.
 
@@ -157,6 +157,23 @@ Expected result:
 - executionDecision.wiringReview.dryRunDesignReview.requiresDockerPostgresRuntimeValidation is true.
 - executionDecision.wiringReview.dryRunDesignReview.quotaCountingMustRemainUnchanged is true.
 - executionDecision.wiringReview.dryRunDesignReview.rawEventDeletionForbidden is true.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.status is not-ready.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.reason is backfill-service-invocation-not-wired.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.plannedBackfillRequestCount matches the scheduler runner backfill request count.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.plannedSources matches the scheduler runner sources.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.allPlannedRequestsDryRunOnly is true.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.canInvokeBackfillService is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.canReadEvents is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.canPersistRollups is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.status is contract-required-before-wiring.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.currentInvocationState is not-wired.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.triggerBoundary is command-only.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.requiredBackfillMode is dry-run.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.serviceInvocationCurrentlyAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.eventReadCurrentlyAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.rollupPersistenceCurrentlyAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.quotaCountingChangeAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.rawEventDeletionAllowed is false.
 - No backfill service is invoked.
 - No events are read.
 - No rollups are persisted.
@@ -273,6 +290,8 @@ Expected result:
 - executionDecision.status is blocked.
 - executionDecision.blockedReason is scheduler-runner-not-ready.
 - createsScheduledJob is false.
+- If execution-mode dry-run is requested while disabled, dryRunInvocationReadiness.reason is scheduler-runner-not-ready.
+- If execution-mode dry-run is requested while disabled, dryRunInvocationReadiness.plannedBackfillRequestCount is 0.
 
 ---
 
@@ -307,7 +326,9 @@ The preview output should be reviewed for:
 9. executionDecision.boundary.
 10. executionDecision.wiringReview.
 11. executionDecision.wiringReview.dryRunDesignReview for command dry-run requests.
-12. safety flags.
+12. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness for command dry-run requests.
+13. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract for command dry-run requests.
+14. safety flags.
 
 Do not treat this command as proof that rollups were rebuilt. It does not invoke the backfill service, read events, or persist rollups.
 

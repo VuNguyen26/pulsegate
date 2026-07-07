@@ -12,16 +12,47 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.37.0
+v0.38.0
 
 ## Latest Completed Sprint
 
-Sprint 36 - Rollup Scheduler Command Dry-Run Design Review
+Sprint 37 - Rollup Scheduler Command Dry-Run Invocation Contract Design
 
 ---
 
 ## Recent Decisions
 
+### 2026-07-07 - Analytics rollup scheduler command dry-run invocation contract stays review-only
+
+Decision:
+
+- Keep npm run analytics:rollup:scheduler-preview as a DB-free, non-destructive preview command.
+- Add dryRunInvocationContract under dryRunDesignReview for command:dry-run requests.
+- Add dryRunInvocationReadiness under dryRunDesignReview for command:dry-run requests.
+- Keep command dry-run blocked with backfill-service-invocation-not-wired.
+- Derive plannedBackfillRequestCount, plannedSources, and plannedGranularity from the scheduler runner plan.
+- Keep command dry-run currently not wired and not allowed to invoke the backfill service, read events, persist rollups, change quota counting, or delete raw events.
+- Report scheduler-runner-not-ready readiness for skipped runner plans.
+- Keep process-local:dry-run blocked with automatic-trigger-not-wired and dryRunDesignReview=null.
+- Keep execute mode blocked.
+- Do not create scheduled/background jobs.
+- Do not invoke the backfill service or execute backfill.
+- Do not read raw events or persist rollups.
+- Do not change quota counting, usage recording, rejected event recording, rollup read APIs, or summary APIs.
+- Do not delete raw events.
+
+Reason:
+
+- Command dry-run invocation is the next risk boundary after design review, so the contract must be visible before wiring.
+- Source-aware readiness lets reviewers see what the scheduler runner would plan without confusing preview output with execution.
+- Keeping all invocation permissions false prevents accidental backfill service calls, event reads, persistence, or quota behavior changes.
+- Keeping automatic trigger dry-run separate prevents background/process-local semantics from being introduced implicitly.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-invocation-contract-design.md
+
+---
 ### 2026-07-07 - Analytics rollup scheduler command dry-run remains blocked while design requirements become explicit
 
 Decision:
