@@ -114,7 +114,7 @@ describe("analytics rollup scheduler execution decision", () => {
     });
   });
 
-  it("should block dry-run and execute modes until backfill execution is explicitly wired", () => {
+  it("should block dry-run mode until backfill service invocation is explicitly wired", () => {
     const schedulePlan = createAnalyticsRollupSchedulePlan({
       enabled: true,
       runAt: new Date("2026-07-06T13:07:00.000Z"),
@@ -127,22 +127,42 @@ describe("analytics rollup scheduler execution decision", () => {
       runnerPlan,
       { mode: "dry-run" },
     );
-    const executeDecision = createAnalyticsRollupSchedulerExecutionDecision(
-      runnerPlan,
-      { mode: "execute" },
-    );
 
     expect(dryRunDecision).toMatchObject({
       status: "blocked",
       allowed: false,
-      blockedReason: "backfill-execution-not-wired",
+      blockedReason: "backfill-service-invocation-not-wired",
       boundary: {
         requestedMode: "dry-run",
         allowedMode: "preview",
         backfillServiceInvocationWired: false,
         backfillExecutionWired: false,
       },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
     });
+  });
+
+  it("should block execute mode until backfill execution is explicitly wired", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "usage",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const executeDecision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "execute" },
+    );
+
     expect(executeDecision).toMatchObject({
       status: "blocked",
       allowed: false,

@@ -20,6 +20,7 @@ export type AnalyticsRollupSchedulerExecutionDecisionStatus =
 export type AnalyticsRollupSchedulerExecutionBlockedReason =
   | "scheduler-runner-not-ready"
   | "automatic-trigger-not-wired"
+  | "backfill-service-invocation-not-wired"
   | "backfill-execution-not-wired";
 
 export type AnalyticsRollupSchedulerExecutionDecisionInput = {
@@ -92,7 +93,11 @@ function resolveBlockedReason(
     return "automatic-trigger-not-wired";
   }
 
-  if (requestedMode !== "preview") {
+  if (requestedMode === "dry-run") {
+    return "backfill-service-invocation-not-wired";
+  }
+
+  if (requestedMode === "execute") {
     return "backfill-execution-not-wired";
   }
 
