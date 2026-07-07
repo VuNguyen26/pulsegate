@@ -283,6 +283,68 @@ describe("analytics rollup scheduler execution decision", () => {
     expect(decision.safety.affectsQuotaCounting).toBe(false);
     expect(decision.safety.deletesRawEvents).toBe(false);
   });
+  it("should expose command dry-run service invocation contract review without wiring service calls", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "dry-run" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-service-invocation-not-wired",
+      boundary: {
+        trigger: "command",
+        requestedMode: "dry-run",
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      wiringReview: {
+        requestedCapability: "command:dry-run",
+        dryRunDesignReview: {
+          currentlyWired: false,
+          dryRunServiceInvocationContractReview: {
+            status: "review-required-before-service-invocation",
+            serviceBoundary: "scheduler-command-to-rollup-backfill-service",
+            currentServiceInvocationState: "not-wired",
+            allowedTrigger: "command",
+            allowedBackfillMode: "dry-run",
+            requestSource: "scheduler-runner-backfill-requests",
+            invocationCardinality: "per-source-backfill-request",
+            requiresReadyRunnerPlan: true,
+            requiresDryRunRequestMode: true,
+            requiresNonInvokingPreviewBeforeWiring: true,
+            requiresEventLimitGuardrail: true,
+            requiresMaxBucketGuardrail: true,
+            requiresSourceSeparation: true,
+            requiresDockerPostgresRuntimeValidation: true,
+            serviceInvocationCurrentlyAllowed: false,
+            dryRunServiceMayReadEvents: false,
+            dryRunServiceMayPersistRollups: false,
+            quotaCountingChangeAllowed: false,
+            rawEventDeletionAllowed: false,
+            failureBehavior: "fail-closed-before-service-invocation",
+          },
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
   it("should block execute mode until backfill execution is explicitly wired", () => {
     const schedulePlan = createAnalyticsRollupSchedulePlan({
       enabled: true,

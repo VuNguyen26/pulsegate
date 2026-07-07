@@ -108,6 +108,28 @@ export type AnalyticsRollupSchedulerCommandDryRunInvocationDesignReview = {
   requiresMaxBucketGuardrail: true;
   requiresDockerPostgresRuntimeValidation: true;
 };
+export type AnalyticsRollupSchedulerCommandDryRunServiceInvocationContractReview = {
+  status: "review-required-before-service-invocation";
+  serviceBoundary: "scheduler-command-to-rollup-backfill-service";
+  currentServiceInvocationState: "not-wired";
+  allowedTrigger: "command";
+  allowedBackfillMode: "dry-run";
+  requestSource: "scheduler-runner-backfill-requests";
+  invocationCardinality: "per-source-backfill-request";
+  requiresReadyRunnerPlan: true;
+  requiresDryRunRequestMode: true;
+  requiresNonInvokingPreviewBeforeWiring: true;
+  requiresEventLimitGuardrail: true;
+  requiresMaxBucketGuardrail: true;
+  requiresSourceSeparation: true;
+  requiresDockerPostgresRuntimeValidation: true;
+  serviceInvocationCurrentlyAllowed: false;
+  dryRunServiceMayReadEvents: false;
+  dryRunServiceMayPersistRollups: false;
+  quotaCountingChangeAllowed: false;
+  rawEventDeletionAllowed: false;
+  failureBehavior: "fail-closed-before-service-invocation";
+};
 export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
   | {
       status: "design-required";
@@ -124,6 +146,7 @@ export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
       rawEventDeletionForbidden: true;
       dryRunInvocationReadiness: AnalyticsRollupSchedulerCommandDryRunInvocationReadiness;
       dryRunInvocationDesignReview: AnalyticsRollupSchedulerCommandDryRunInvocationDesignReview;
+      dryRunServiceInvocationContractReview: AnalyticsRollupSchedulerCommandDryRunServiceInvocationContractReview;
       dryRunInvocationContract: AnalyticsRollupSchedulerCommandDryRunInvocationContract;
     }
   | null;
@@ -209,6 +232,29 @@ const COMMAND_DRY_RUN_INVOCATION_DESIGN_REVIEW: AnalyticsRollupSchedulerCommandD
     requiresMaxBucketGuardrail: true,
     requiresDockerPostgresRuntimeValidation: true,
   };
+const COMMAND_DRY_RUN_SERVICE_INVOCATION_CONTRACT_REVIEW: AnalyticsRollupSchedulerCommandDryRunServiceInvocationContractReview =
+  {
+    status: "review-required-before-service-invocation",
+    serviceBoundary: "scheduler-command-to-rollup-backfill-service",
+    currentServiceInvocationState: "not-wired",
+    allowedTrigger: "command",
+    allowedBackfillMode: "dry-run",
+    requestSource: "scheduler-runner-backfill-requests",
+    invocationCardinality: "per-source-backfill-request",
+    requiresReadyRunnerPlan: true,
+    requiresDryRunRequestMode: true,
+    requiresNonInvokingPreviewBeforeWiring: true,
+    requiresEventLimitGuardrail: true,
+    requiresMaxBucketGuardrail: true,
+    requiresSourceSeparation: true,
+    requiresDockerPostgresRuntimeValidation: true,
+    serviceInvocationCurrentlyAllowed: false,
+    dryRunServiceMayReadEvents: false,
+    dryRunServiceMayPersistRollups: false,
+    quotaCountingChangeAllowed: false,
+    rawEventDeletionAllowed: false,
+    failureBehavior: "fail-closed-before-service-invocation",
+  };
 function createAnalyticsRollupSchedulerCommandDryRunInvocationReadiness(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
 ): AnalyticsRollupSchedulerCommandDryRunInvocationReadiness {
@@ -279,6 +325,8 @@ function createAnalyticsRollupSchedulerCommandDryRunDesignReview(
     dryRunInvocationReadiness:
       createAnalyticsRollupSchedulerCommandDryRunInvocationReadiness(runnerPlan),
     dryRunInvocationDesignReview: COMMAND_DRY_RUN_INVOCATION_DESIGN_REVIEW,
+    dryRunServiceInvocationContractReview:
+      COMMAND_DRY_RUN_SERVICE_INVOCATION_CONTRACT_REVIEW,
     dryRunInvocationContract: COMMAND_DRY_RUN_INVOCATION_CONTRACT,
   };
 }

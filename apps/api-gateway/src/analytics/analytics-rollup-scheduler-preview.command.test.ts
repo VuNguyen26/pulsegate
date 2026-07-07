@@ -573,6 +573,28 @@ describe("analytics rollup scheduler preview command", () => {
             canReadEvents: false,
             canPersistRollups: false,
           },
+          dryRunServiceInvocationContractReview: {
+            status: "review-required-before-service-invocation",
+            serviceBoundary: "scheduler-command-to-rollup-backfill-service",
+            currentServiceInvocationState: "not-wired",
+            allowedTrigger: "command",
+            allowedBackfillMode: "dry-run",
+            requestSource: "scheduler-runner-backfill-requests",
+            invocationCardinality: "per-source-backfill-request",
+            requiresReadyRunnerPlan: true,
+            requiresDryRunRequestMode: true,
+            requiresNonInvokingPreviewBeforeWiring: true,
+            requiresEventLimitGuardrail: true,
+            requiresMaxBucketGuardrail: true,
+            requiresSourceSeparation: true,
+            requiresDockerPostgresRuntimeValidation: true,
+            serviceInvocationCurrentlyAllowed: false,
+            dryRunServiceMayReadEvents: false,
+            dryRunServiceMayPersistRollups: false,
+            quotaCountingChangeAllowed: false,
+            rawEventDeletionAllowed: false,
+            failureBehavior: "fail-closed-before-service-invocation",
+          },
         },
       },
       safety: {
@@ -650,6 +672,9 @@ describe("analytics rollup scheduler preview command", () => {
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "dryRunInvocationDesignReview",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "dryRunServiceInvocationContractReview",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "dryRunInvocationContract",
