@@ -1,0 +1,153 @@
+import { describe, expect, it } from "vitest";
+
+import { parseAnalyticsRollupSchedulerPreviewArgs } from "./analytics-rollup-scheduler-preview-args.js";
+
+describe("analytics rollup scheduler preview args", () => {
+  it("should parse schedule options with command preview execution defaults", () => {
+    const parsed = parseAnalyticsRollupSchedulerPreviewArgs([
+      "--enabled",
+      "true",
+      "--source",
+      "both",
+      "--run-at",
+      "2026-07-06T13:07:00.000Z",
+      "--granularity",
+      "hour",
+      "--lookback-buckets",
+      "1",
+      "--safety-delay-ms",
+      "300000",
+      "--max-buckets",
+      "1",
+    ]);
+
+    expect(parsed.schedule.enabled).toBe(true);
+    expect(parsed.schedule.source).toBe("both");
+    expect(parsed.schedule.runAt.toISOString()).toBe(
+      "2026-07-06T13:07:00.000Z",
+    );
+    expect(parsed.schedule.granularity).toBe("hour");
+    expect(parsed.schedule.lookbackBuckets).toBe(1);
+    expect(parsed.schedule.safetyDelayMs).toBe(300000);
+    expect(parsed.schedule.maxBuckets).toBe(1);
+    expect(parsed.executionDecision).toEqual({});
+  });
+
+  it("should parse process-local dry-run execution preview options", () => {
+    const parsed = parseAnalyticsRollupSchedulerPreviewArgs([
+      "--run-at",
+      "2026-07-06T13:07:00.000Z",
+      "--granularity",
+      "hour",
+      "--execution-trigger",
+      "process-local",
+      "--execution-mode",
+      "dry-run",
+    ]);
+
+    expect(parsed.executionDecision).toEqual({
+      trigger: "process-local",
+      mode: "dry-run",
+    });
+  });
+
+  it("should parse external scheduler execute preview options", () => {
+    const parsed = parseAnalyticsRollupSchedulerPreviewArgs([
+      "--execution-trigger",
+      "external-scheduler",
+      "--execution-mode",
+      "execute",
+      "--run-at",
+      "2026-07-06T13:07:00.000Z",
+      "--granularity",
+      "hour",
+    ]);
+
+    expect(parsed.executionDecision).toEqual({
+      trigger: "external-scheduler",
+      mode: "execute",
+    });
+  });
+
+  it("should reject invalid execution trigger and mode values", () => {
+    expect(() =>
+      parseAnalyticsRollupSchedulerPreviewArgs([
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--execution-trigger",
+        "cron",
+      ]),
+    ).toThrow(RangeError);
+
+    expect(() =>
+      parseAnalyticsRollupSchedulerPreviewArgs([
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--execution-mode",
+        "force",
+      ]),
+    ).toThrow(RangeError);
+  });
+
+  it("should reject duplicate scheduler execution options", () => {
+    expect(() =>
+      parseAnalyticsRollupSchedulerPreviewArgs([
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--execution-mode",
+        "preview",
+        "--execution-mode",
+        "execute",
+      ]),
+    ).toThrow(RangeError);
+  });
+
+  it("should reject unknown options and missing values before creating output", () => {
+    expect(() =>
+      parseAnalyticsRollupSchedulerPreviewArgs([
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--mode",
+        "execute",
+      ]),
+    ).toThrow(RangeError);
+
+    expect(() =>
+      parseAnalyticsRollupSchedulerPreviewArgs([
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--execution-trigger",
+      ]),
+    ).toThrow(RangeError);
+  });
+
+  it("should still require schedule run timestamp and granularity", () => {
+    expect(() =>
+      parseAnalyticsRollupSchedulerPreviewArgs([
+        "--execution-mode",
+        "preview",
+        "--granularity",
+        "hour",
+      ]),
+    ).toThrow(RangeError);
+
+    expect(() =>
+      parseAnalyticsRollupSchedulerPreviewArgs([
+        "--execution-mode",
+        "preview",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+      ]),
+    ).toThrow(RangeError);
+  });
+});
