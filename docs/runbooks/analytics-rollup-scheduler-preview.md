@@ -89,6 +89,7 @@ Expected execution wiring review output for default preview:
       "recommendedNextStep": "keep-command-preview-only",
       "requiresExplicitDesignBeforeWiring": false,
       "requiresDockerPostgresValidationBeforeWiring": false,
+      "dryRunDesignReview": null,
       "automaticTriggersRemainUnwired": true,
       "executeRemainsUnwired": true
     }
@@ -147,6 +148,15 @@ Expected result:
 - executionDecision.wiringReview.recommendedNextStep is design-command-dry-run-backfill-service-invocation.
 - executionDecision.wiringReview.requiresExplicitDesignBeforeWiring is true.
 - executionDecision.wiringReview.requiresDockerPostgresValidationBeforeWiring is true.
+- executionDecision.wiringReview.dryRunDesignReview.status is design-required.
+- executionDecision.wiringReview.dryRunDesignReview.currentlyWired is false.
+- executionDecision.wiringReview.dryRunDesignReview.mustRemainNonDestructive is true.
+- executionDecision.wiringReview.dryRunDesignReview.requiresBackfillServiceDryRunContract is true.
+- executionDecision.wiringReview.dryRunDesignReview.requiresEventLimitGuardrail is true.
+- executionDecision.wiringReview.dryRunDesignReview.requiresSourceSeparation is true.
+- executionDecision.wiringReview.dryRunDesignReview.requiresDockerPostgresRuntimeValidation is true.
+- executionDecision.wiringReview.dryRunDesignReview.quotaCountingMustRemainUnchanged is true.
+- executionDecision.wiringReview.dryRunDesignReview.rawEventDeletionForbidden is true.
 - No backfill service is invoked.
 - No events are read.
 - No rollups are persisted.
@@ -179,6 +189,34 @@ Expected result:
 
 ---
 
+## Blocked Process-Local Dry-Run Trigger Preview Example
+
+    cd E:\pulsegate
+
+    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source usage --run-at 2026-07-06T13:07:00.000Z --granularity hour --execution-trigger process-local --execution-mode dry-run
+
+Expected result:
+
+- Scheduler runner status is ready.
+- executionDecision.status is blocked.
+- executionDecision.allowed is false.
+- executionDecision.blockedReason is automatic-trigger-not-wired.
+- executionDecision.boundary.trigger is process-local.
+- executionDecision.boundary.requestedMode is dry-run.
+- executionDecision.boundary.allowedMode is preview.
+- executionDecision.boundary.processLocalExecutionWired is false.
+- executionDecision.boundary.externalSchedulerExecutionWired is false.
+- executionDecision.boundary.backfillServiceInvocationWired is false.
+- executionDecision.boundary.backfillExecutionWired is false.
+- executionDecision.wiringReview.requestedCapability is process-local:dry-run.
+- executionDecision.wiringReview.recommendedNextStep is keep-automatic-triggers-unwired.
+- executionDecision.wiringReview.dryRunDesignReview is null.
+- No scheduled/background job is created.
+- No backfill service is invoked.
+- No events are read.
+- No rollups are persisted.
+
+---
 ## Blocked Process-Local Trigger Preview Example
 
     cd E:\pulsegate
@@ -268,7 +306,8 @@ The preview output should be reviewed for:
 8. executionDecision.blockedReason.
 9. executionDecision.boundary.
 10. executionDecision.wiringReview.
-11. safety flags.
+11. executionDecision.wiringReview.dryRunDesignReview for command dry-run requests.
+12. safety flags.
 
 Do not treat this command as proof that rollups were rebuilt. It does not invoke the backfill service, read events, or persist rollups.
 

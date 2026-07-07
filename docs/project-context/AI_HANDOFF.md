@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.36.0
+- v0.37.0
 
 Latest completed sprint:
 
-- Sprint 35 - Rollup Scheduler Execution Wiring Design Review
+- Sprint 36 - Rollup Scheduler Command Dry-Run Design Review
 
 Recommended next technical sprint:
 
-- Sprint 36 - Rollup Scheduler Command Dry-Run Design Review or Analytics Retention Execution Design Review
+- Sprint 37 - Rollup Scheduler Command Dry-Run Invocation Contract Design or Analytics Retention Execution Design Review
 
 ---
 
@@ -109,7 +109,7 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 35:
+Latest stable validation from Sprint 36:
 
 - npm run test -> passed.
 - npm run typecheck -> passed.
@@ -118,19 +118,24 @@ Latest stable validation from Sprint 35:
 Latest automated test result:
 
 - 103 test files passed.
-- 710 tests passed.
+- 712 tests passed.
 
 Manual command validation:
 
-- npm run analytics:rollup:scheduler-preview --workspace api-gateway was validated for preview, dry-run, execute, and process-local wiring review cases.
-- Default preview validation passed with executionDecision.status=preview-ready and wiringReview.recommendedNextStep=keep-command-preview-only.
-- Dry-run validation passed with blockedReason=backfill-service-invocation-not-wired and wiringReview.recommendedNextStep=design-command-dry-run-backfill-service-invocation.
-- Execute validation passed with blockedReason=backfill-execution-not-wired and wiringReview.recommendedNextStep=wire-command-dry-run-before-execute.
-- Process-local validation passed with blockedReason=automatic-trigger-not-wired and wiringReview.recommendedNextStep=keep-automatic-triggers-unwired.
+- npm run analytics:rollup:scheduler-preview --workspace api-gateway was validated for command dry-run design review and process-local dry-run blocked boundary cases.
+- Command dry-run validation passed with blockedReason=backfill-service-invocation-not-wired and dryRunDesignReview.status=design-required.
+- Command dry-run validation preserved dryRunDesignReview.currentlyWired=false, mustRemainNonDestructive=true, quotaCountingMustRemainUnchanged=true, and rawEventDeletionForbidden=true.
+- Process-local dry-run validation passed with blockedReason=automatic-trigger-not-wired and dryRunDesignReview=null.
 - Runtime output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
-- No Docker/PostgreSQL validation was required because Sprint 35 stayed DB-free and non-destructive.
+- No Docker/PostgreSQL validation was required because Sprint 36 stayed DB-free and non-destructive.
 
-Sprint 35 preserved:
+Sprint 36 commits:
+
+- bae728b feat(gateway): add rollup scheduler dry-run design review
+- b991051 test(gateway): document rollup scheduler dry-run safety usage
+- 5f10acc test(gateway): harden rollup scheduler automatic dry-run boundary
+
+Sprint 36 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
@@ -181,7 +186,7 @@ API Gateway currently supports:
 - Rejected events summary endpoint.
 - Filtered rejected events summary endpoint.
 - Rejected events listing endpoint with filters, safe offset pagination, and cursor pagination.
-- Analytics rollup calculation, persistence, manual backfill, read model, schedule plan, schedule preview, scheduler runner contract, scheduler execution decision boundary, scheduler execution blocked reason review, scheduler execution wiring review, schedule preview command, scheduler preview args parser, and scheduler preview command foundations.
+- Analytics rollup calculation, persistence, manual backfill, read model, schedule plan, schedule preview, scheduler runner contract, scheduler execution decision boundary, scheduler execution blocked reason review, scheduler execution wiring review, scheduler command dry-run design review, schedule preview command, scheduler preview args parser, and scheduler preview command foundations.
 - Read-only analytics rollup endpoint.
 - Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
 - Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, Prisma delete repository foundation, execution service preview, summary model, candidate count loader, candidate-read preview composition, operator preview output, DB-backed operator preview command, and operator preview fail-fast CLI hardening.
@@ -285,6 +290,8 @@ Analytics rollup foundation:
 - Schedule preview command can plan a future rollup window without creating scheduled jobs, reading events, or persisting rollups.
 - Scheduler preview command can convert a schedule plan into dry-run backfill request contracts without creating scheduled jobs, invoking backfill service, reading events, or persisting rollups.
 - Scheduler preview command exposes executionDecision.wiringReview with currentCapability=command-preview-only and recommended next steps for preview, dry-run, execute, and automatic trigger requests.
+- Scheduler preview command exposes dryRunDesignReview for command:dry-run requests while keeping backfill service invocation unwired and non-destructive.
+- Scheduler preview command keeps process-local:dry-run blocked with automatic-trigger-not-wired and dryRunDesignReview=null.
 - Read model can query usage or rejected rollup rows through an internal/admin endpoint.
 - Rollups are not used by runtime summaries, scheduled background jobs, retention delete, execution preview, or quota counting yet.
 
@@ -402,7 +409,7 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-35.md
+- docs/sdlc/sprint-history/sprint-36.md
 - docs/runbooks/analytics-rollup-backfill.md
 - docs/runbooks/analytics-rollup-schedule-preview.md
 - docs/runbooks/analytics-rollup-scheduler-preview.md
@@ -412,6 +419,7 @@ Docs:
 - docs/runbooks/analytics-retention-delete-repository.md
 - docs/runbooks/analytics-retention-execution-service-preview.md
 - docs/runbooks/analytics-retention-operator-preview.md
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-design-review.md
 - docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-execution-wiring-review.md
 - docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-execution-boundary-design.md
 - docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-runner-design.md
@@ -500,11 +508,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 36 after confirming Sprint 35 docs are committed and pushed.
+Start Sprint 37 after confirming Sprint 36 docs are committed and pushed.
 
 Recommended direction:
 
-- Rollup Scheduler Command Dry-Run Design Review or Analytics Retention Execution Design Review.
+- Rollup Scheduler Command Dry-Run Invocation Contract Design or Analytics Retention Execution Design Review.
 
 Before starting:
 
@@ -515,6 +523,7 @@ Before starting:
 - Keep successful usage and rejected/security event storage separate.
 - Keep scheduler preview separate from actual background execution.
 - Keep command dry-run blocked until backfill service invocation semantics are explicitly designed.
+- If designing command dry-run invocation, define service dry-run contract, source separation, event limit guardrails, operator output, and Docker/PostgreSQL runtime validation before wiring.
 - Keep execute mode blocked until command dry-run has a safe design first.
 - Keep process-local/external-scheduler execution blocked until explicitly designed.
 - Keep retention execution explicit and guarded.

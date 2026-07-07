@@ -12,15 +12,46 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.36.0
+v0.37.0
 
 ## Latest Completed Sprint
 
-Sprint 35 - Rollup Scheduler Execution Wiring Design Review
+Sprint 36 - Rollup Scheduler Command Dry-Run Design Review
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-07 - Analytics rollup scheduler command dry-run remains blocked while design requirements become explicit
+
+Decision:
+
+- Keep npm run analytics:rollup:scheduler-preview as a DB-free, non-destructive preview command.
+- Add dryRunDesignReview under executionDecision.wiringReview for command:dry-run requests.
+- Keep command dry-run blocked with backfill-service-invocation-not-wired.
+- Make command dry-run currentlyWired=false and mustRemainNonDestructive=true explicit.
+- Require explicit command invocation, backfill service dry-run contract, event limit guardrail, source separation, Docker/PostgreSQL runtime validation, quota safety, and raw event deletion prohibition before any future dry-run wiring.
+- Keep process-local:dry-run blocked with automatic-trigger-not-wired and dryRunDesignReview=null.
+- Keep execute mode blocked.
+- Do not create scheduled/background jobs.
+- Do not invoke the backfill service or execute backfill.
+- Do not read raw events or persist rollups.
+- Do not change quota counting, usage recording, rejected event recording, rollup read APIs, or summary APIs.
+- Do not delete raw events.
+
+Reason:
+
+- Command dry-run is the next safe review boundary after scheduler wiring review, but it must not silently start reading events or invoking backfill service.
+- dryRunDesignReview makes pre-wiring requirements visible in operator JSON output.
+- Keeping automatic trigger dry-run separate prevents process-local/background semantics from being confused with command-only dry-run review.
+- The command remains DB-free so validation stays lightweight until real backfill service invocation is explicitly designed.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-design-review.md
+
+---
+
 
 ### 2026-07-07 - Analytics rollup scheduler execution wiring stays command-preview-only until dry-run is explicitly designed
 
