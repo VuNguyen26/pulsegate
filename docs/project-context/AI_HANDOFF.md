@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.33.0
+- v0.34.0
 
 Latest completed sprint:
 
-- Sprint 32 - Analytics Rollup Scheduling Foundation
+- Sprint 33 - Rollup Scheduler Runner Design
 
 Recommended next technical sprint:
 
-- Sprint 33 - Rollup Scheduler Runner Design or Analytics Retention Execution Design Review
+- Sprint 34 - Rollup Scheduler Execution Boundary Design or Analytics Retention Execution Design Review
 
 ---
 
@@ -109,7 +109,7 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 32:
+Latest stable validation from Sprint 33:
 
 - npm run test -> passed.
 - npm run typecheck -> passed.
@@ -117,17 +117,16 @@ Latest stable validation from Sprint 32:
 
 Latest automated test result:
 
-- 99 test files passed.
-- 683 tests passed.
+- 101 test files passed.
+- 692 tests passed.
 
 Manual command validation:
 
-- npm run analytics:rollup:schedule-preview --workspace api-gateway was validated for an enabled both-source hourly preview.
-- Runtime output preserved previewOnly=true, commandCreatesScheduledJob=false, commandExecutesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
-- package.json parse validation passed after ensuring UTF-8 without BOM.
-- No Docker/PostgreSQL validation was required because Sprint 32 added a DB-free preview command.
+- npm run analytics:rollup:scheduler-preview --workspace api-gateway was validated for an enabled both-source hourly preview.
+- Runtime output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
+- No Docker/PostgreSQL validation was required because Sprint 33 added a DB-free preview command.
 
-Sprint 32 preserved:
+Sprint 33 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
@@ -135,6 +134,7 @@ Sprint 32 preserved:
 - No usage recorder changes.
 - No rejected event recorder changes.
 - No scheduled/background rollup job.
+- No backfill service invocation from scheduler preview.
 - No rollup summary API switch.
 - No retention execute command.
 - No operator-facing raw event deletion.
@@ -177,7 +177,7 @@ API Gateway currently supports:
 - Rejected events summary endpoint.
 - Filtered rejected events summary endpoint.
 - Rejected events listing endpoint with filters, safe offset pagination, and cursor pagination.
-- Analytics rollup calculation, persistence, manual backfill, read model, schedule plan, schedule preview, and schedule preview command foundations.
+- Analytics rollup calculation, persistence, manual backfill, read model, schedule plan, schedule preview, scheduler runner contract, schedule preview command, and scheduler preview command foundations.
 - Read-only analytics rollup endpoint.
 - Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
 - Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, Prisma delete repository foundation, execution service preview, summary model, candidate count loader, candidate-read preview composition, operator preview output, DB-backed operator preview command, and operator preview fail-fast CLI hardening.
@@ -258,6 +258,7 @@ Rollup commands:
 
 - npm run analytics:rollup:backfill --workspace api-gateway -- --from 2026-07-05T00:00:00.000Z --to 2026-07-06T00:00:00.000Z --granularity hour
 - npm run analytics:rollup:schedule-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
+- npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
 
 Retention commands:
 
@@ -276,6 +277,7 @@ Analytics rollup foundation:
 - Persistence service aggregates raw-shaped events and delegates to repositories.
 - Manual backfill command can plan or execute controlled rollup rebuilds.
 - Schedule preview command can plan a future rollup window without creating scheduled jobs, reading events, or persisting rollups.
+- Scheduler preview command can convert a schedule plan into dry-run backfill request contracts without creating scheduled jobs, invoking backfill service, reading events, or persisting rollups.
 - Read model can query usage or rejected rollup rows through an internal/admin endpoint.
 - Rollups are not used by runtime summaries, scheduled background jobs, retention delete, execution preview, or quota counting yet.
 
@@ -301,7 +303,7 @@ Current analytics limitations:
 - Usage and rejected summary APIs are event-based at runtime.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
 - No retention delete job yet.
-- Rollup schedule preview command exists, but no scheduled/background rollup job yet.
+- Rollup schedule and scheduler preview commands exist, but no scheduled/background rollup job yet.
 
 ---
 
@@ -393,15 +395,17 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-32.md
+- docs/sdlc/sprint-history/sprint-33.md
 - docs/runbooks/analytics-rollup-backfill.md
 - docs/runbooks/analytics-rollup-schedule-preview.md
+- docs/runbooks/analytics-rollup-scheduler-preview.md
 - docs/runbooks/analytics-rollup-read.md
 - docs/runbooks/analytics-retention-dry-run.md
 - docs/runbooks/analytics-retention-execution-preview.md
 - docs/runbooks/analytics-retention-delete-repository.md
 - docs/runbooks/analytics-retention-execution-service-preview.md
 - docs/runbooks/analytics-retention-operator-preview.md
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-runner-design.md
 - docs/project-context/decisions/2026-07-06-analytics-rollup-scheduling-foundation.md
 - docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-hardening.md
 - docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-command.md
@@ -487,11 +491,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 33 after confirming Sprint 32 docs are committed and pushed.
+Start Sprint 34 after confirming Sprint 33 docs are committed and pushed.
 
 Recommended direction:
 
-- Rollup Scheduler Runner Design or Analytics Retention Execution Design Review.
+- Rollup Scheduler Execution Boundary Design or Analytics Retention Execution Design Review.
 
 Before starting:
 
@@ -500,6 +504,6 @@ Before starting:
 - Keep implementation small and testable.
 - Preserve quota correctness.
 - Keep successful usage and rejected/security event storage separate.
-- Keep schedule preview separate from actual background execution.
+- Keep scheduler preview separate from actual background execution.
 - Keep retention execution explicit and guarded.
 - Do not expose a destructive execute command until explicitly approved.

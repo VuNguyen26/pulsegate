@@ -12,15 +12,41 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.33.0
+v0.34.0
 
 ## Latest Completed Sprint
 
-Sprint 32 - Analytics Rollup Scheduling Foundation
+Sprint 33 - Rollup Scheduler Runner Design
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-07 - Analytics rollup scheduler runner starts as preview-only boundary
+
+Decision:
+
+- Add a scheduler runner contract/model after the schedule preview foundation exists.
+- Convert schedule plans into dry-run backfill request contracts.
+- Expose npm run analytics:rollup:scheduler-preview as a DB-free operator-facing preview command.
+- Keep the command preview-only and non-destructive.
+- Do not create scheduled/background jobs.
+- Do not invoke the backfill service or execute backfill.
+- Do not read raw events or persist rollups from the scheduler preview command.
+- Do not change quota counting, usage recording, rejected event recording, rollup read APIs, or summary APIs.
+- Do not delete raw events.
+
+Reason:
+
+- A scheduler runner boundary should be visible and testable before any real background execution exists.
+- Dry-run request contracts make future backfill wiring explicit without coupling preview to persistence.
+- Keeping the command DB-free allows runtime validation without Docker/PostgreSQL while preserving source separation and quota safety.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-runner-design.md
+
+---
 
 ### 2026-07-06 - Analytics rollup scheduling starts as preview-only foundation
 

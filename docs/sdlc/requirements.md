@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.33.0
+v0.34.0
 
 ## Latest Completed Sprint
 
-Sprint 32 - Analytics Rollup Scheduling Foundation
+Sprint 33 - Rollup Scheduler Runner Design
 
 ---
 
@@ -301,7 +301,7 @@ PulseGate shall keep a clear design path for high-volume analytics storage lifec
 
 Status:
 
-Designed. Rollup calculation, persistence, manual backfill, read model, schedule preview, retention dry-run, retention execution guardrail, retention repository safety, and retention execution service preview foundations are implemented.
+Designed. Rollup calculation, persistence, manual backfill, read model, schedule preview, scheduler runner preview, retention dry-run, retention execution guardrail, retention repository safety, and retention execution service preview foundations are implemented.
 
 ---
 
@@ -570,6 +570,35 @@ Implemented as non-destructive scheduling foundation.
 
 ---
 
+
+### FR-036 Analytics Rollup Scheduler Runner Design
+
+PulseGate shall provide a non-destructive scheduler runner boundary for future analytics rollup automation.
+
+Current command:
+
+- npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source <usage|rejected|both> --run-at <iso> --granularity <hour|day> --lookback-buckets <n>
+
+Required behavior:
+
+- Convert a schedule plan into dry-run backfill request contracts.
+- Preserve usage and rejected source separation.
+- Expose a DB-free operator-facing preview command that prints JSON only.
+- Report explicit safety fields including previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
+- Do not create scheduled/background jobs.
+- Do not invoke the backfill service.
+- Do not execute backfill.
+- Do not read raw events.
+- Do not persist rollups.
+- Do not change quota counting, usage recording, rejected event recording, rollup read APIs, or summary APIs.
+- Do not delete raw events.
+
+Status:
+
+Implemented as non-destructive scheduler runner design foundation.
+
+---
+
 ## Current Non-Functional Requirements
 
 ### NFR-001 Type Safety
@@ -588,8 +617,8 @@ Implemented.
 
 Current result:
 
-- 99 test files passed
-- 683 tests passed
+- 101 test files passed
+- 692 tests passed
 
 Validation:
 
@@ -632,7 +661,7 @@ Implemented.
 
 ### NFR-005 Observability
 
-Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, retention dry-run candidate previews, retention execution guard previews, retention repository safety tests, and retention execution service preview tests, retention operator preview command tests, retention operator preview fail-fast/usage contract tests, and rollup schedule preview command tests.
+Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, retention dry-run candidate previews, retention execution guard previews, retention repository safety tests, and retention execution service preview tests, retention operator preview command tests, retention operator preview fail-fast/usage contract tests, and rollup schedule preview command tests, scheduler runner contract tests, scheduler preview command tests, and scheduler preview safety contract tests.
 
 Status:
 
@@ -658,7 +687,7 @@ Implemented.
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
-- Rollup schedule preview command exists, but no scheduled/background rollup job yet.
+- Rollup schedule and scheduler preview commands exist, but no scheduled/background rollup job yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
 - No quota usage Grafana dashboard yet.
@@ -683,7 +712,7 @@ Implemented.
 
 Recommended next:
 
-- Design a rollup scheduler runner boundary or explicitly design the next analytics retention execution boundary.
+- Design the next rollup scheduler execution boundary or explicitly design the next analytics retention execution boundary.
 - Keep retention execution explicit, limited, and blocked from operator-facing delete until approved.
 - Switch selected long-range analytics reads to rollups later after explicit design.
 - Add Grafana panels for quota, usage, rejected traffic, rollups, and retention dry-run candidates later.

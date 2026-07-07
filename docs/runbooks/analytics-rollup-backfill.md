@@ -9,6 +9,7 @@ The command is intended for controlled local/admin operations. It is not a sched
 For non-destructive schedule planning preview, see:
 
 - docs/runbooks/analytics-rollup-schedule-preview.md
+- docs/runbooks/analytics-rollup-scheduler-preview.md
 
 ---
 

@@ -24,41 +24,43 @@ Long decision records live in:
 
 ## Current Version
 
-v0.33.0
+v0.34.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 32 - Analytics Rollup Scheduling Foundation
+Sprint 33 - Rollup Scheduler Runner Design
 
 Status:
 
 Done.
 
-Sprint 32 added a non-destructive analytics rollup scheduling foundation:
+Sprint 33 added a non-destructive analytics rollup scheduler runner design foundation:
 
-- Added schedule plan contracts for hourly/daily rollup windows.
-- Added schedule preview summary output with explicit safety flags.
-- Added schedule preview args parsing and usage text.
-- Exposed npm run analytics:rollup:schedule-preview as a DB-free operator-facing preview command.
+- Added scheduler runner contract/model that converts schedule plans into dry-run backfill request contracts.
+- Added npm run analytics:rollup:scheduler-preview as a DB-free operator-facing preview command.
+- Hardened scheduler preview command safety usage and output tests.
 - Preserved usage/rejected source separation.
 - Did not create a scheduled/background rollup job.
-- Did not read raw events or persist rollups from the schedule preview command.
+- Did not invoke the backfill service or execute backfill.
+- Did not read raw events or persist rollups.
 - Did not change quota counting, usage recording, rejected event recording, rollup read APIs, summary APIs, migrations, or retention/delete paths.
 
-Sprint 32 details are archived in:
+Sprint 33 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-32.md
+- docs/sdlc/sprint-history/sprint-33.md
 
 Related runbooks:
 
 - docs/runbooks/analytics-rollup-schedule-preview.md
+- docs/runbooks/analytics-rollup-scheduler-preview.md
 - docs/runbooks/analytics-rollup-backfill.md
 - docs/runbooks/analytics-rollup-read.md
 
 Related design records:
 
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-runner-design.md
 - docs/project-context/decisions/2026-07-06-analytics-rollup-scheduling-foundation.md
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
 
@@ -66,7 +68,7 @@ Related design records:
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 32:
+Latest stable validation from Sprint 33:
 
 - npm run test -> passed
 - npm run typecheck -> passed
@@ -74,15 +76,14 @@ Latest stable validation from Sprint 32:
 
 Latest automated test result:
 
-- 99 test files passed
-- 683 tests passed
+- 101 test files passed
+- 692 tests passed
 
 Manual command validation:
 
-- analytics:rollup:schedule-preview validation passed for an enabled both-source hourly preview.
-- Runtime output preserved previewOnly=true, commandCreatesScheduledJob=false, commandExecutesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
-- package.json parse validation passed after ensuring UTF-8 without BOM.
-- No Docker/PostgreSQL validation was required for Sprint 32 because the command is DB-free and preview-only.
+- analytics:rollup:scheduler-preview validation passed for an enabled both-source hourly preview.
+- Runtime output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
+- No Docker/PostgreSQL validation was required for Sprint 33 because the command is DB-free and preview-only.
 
 ---
 
@@ -142,6 +143,8 @@ PulseGate currently has:
 - Analytics rollup schedule preview summary model.
 - Analytics rollup schedule preview args parser.
 - Analytics rollup schedule preview command.
+- Analytics rollup scheduler runner contract.
+- Analytics rollup scheduler preview command.
 - Internal/admin analytics rollup read endpoint.
 - Analytics retention dry-run, execution preview, repository safety, service preview, and operator preview foundations.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected analytics, quota, and rollup APIs.
@@ -242,6 +245,11 @@ Analytics rollup schedule preview:
 - granularity can be hour or day.
 - lookbackBuckets, safetyDelayMs, and maxBuckets provide preview guardrails.
 - The command reports previewOnly=true, commandCreatesScheduledJob=false, commandExecutesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
+
+Analytics rollup scheduler preview:
+
+- npm run analytics:rollup:scheduler-preview converts a schedule plan into dry-run backfill request contracts.
+- The command reports previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
 - No scheduled/background rollup job exists yet.
 
 Analytics retention:
@@ -273,7 +281,7 @@ Current quota scope:
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Rollup schedule preview command exists, but no scheduled/background rollup job yet.
+- Rollup schedule and scheduler preview commands exist, but no scheduled/background rollup job yet.
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
@@ -301,14 +309,14 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 33 recommended direction:
+Sprint 34 recommended direction:
 
-- Rollup Scheduler Runner Design or Analytics Retention Execution Design Review
+- Rollup Scheduler Execution Boundary Design or Analytics Retention Execution Design Review
 
 Recommended scope:
 
-- If continuing rollups, design an explicit scheduler runner boundary before adding any background execution.
-- Keep schedule preview separate from actual event reads and persistence.
+- If continuing rollups, decide whether scheduler execution should be command-triggered, process-local, or external-scheduler driven before adding any background execution.
+- Keep scheduler preview separate from actual event reads and persistence.
 - Keep retention execution explicit, guarded, and non-destructive unless destructive execution is separately approved.
 - Keep successful usage and rejected/security events separate.
 - Keep quota counting on gateway.api_usage_events.

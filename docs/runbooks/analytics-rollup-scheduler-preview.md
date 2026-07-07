@@ -1,22 +1,18 @@
-# Analytics Rollup Schedule Preview Runbook
+# Analytics Rollup Scheduler Preview Runbook
 
 ## Scope
 
-This runbook covers the non-destructive analytics rollup schedule preview command added in Sprint 32.
+This runbook covers the non-destructive analytics rollup scheduler preview command added in Sprint 33.
 
-The command previews what a future scheduled rollup run would plan.
+The command converts a schedule plan into dry-run backfill request contracts.
 
-It is not a scheduler and does not execute rollup work.
-
-For scheduler runner preview, see:
-
-- docs/runbooks/analytics-rollup-scheduler-preview.md
+It is not a scheduler job and does not execute rollup work.
 
 ---
 
 ## Base Command
 
-    npm run analytics:rollup:schedule-preview --workspace api-gateway -- --run-at <iso> --granularity <hour|day>
+    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --run-at <iso> --granularity <hour|day>
 
 Options:
 
@@ -37,6 +33,7 @@ The command is preview-only.
 It does not:
 
 - Create scheduled/background jobs.
+- Invoke the backfill service.
 - Execute backfill.
 - Read raw usage events.
 - Read raw rejected events.
@@ -51,8 +48,9 @@ Expected safety output:
 
     {
       "previewOnly": true,
-      "commandCreatesScheduledJob": false,
-      "commandExecutesBackfill": false,
+      "createsScheduledJob": false,
+      "invokesBackfillService": false,
+      "executesBackfill": false,
       "readsEvents": false,
       "persistsRollups": false,
       "affectsQuotaCounting": false,
@@ -65,17 +63,20 @@ Expected safety output:
 
     cd E:\pulsegate
 
-    npm run analytics:rollup:schedule-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
+    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
 
 Expected result:
 
-- kind is analytics-rollup-schedule-preview.
+- kind is analytics-rollup-scheduler-runner.
 - mode is preview.
 - enabled is true.
-- status is planned.
+- status is ready.
+- scheduleStatus is planned.
 - source is both.
 - sources contains usage and rejected.
 - bucketCount is 1.
+- backfillRequests contains dry-run contracts for usage and rejected.
+- willInvokeBackfillService is false.
 - willReadEvents is false.
 - willPersistRollups is false.
 - safety.previewOnly is true.
@@ -86,22 +87,24 @@ Expected result:
 
     cd E:\pulsegate
 
-    npm run analytics:rollup:schedule-preview --workspace api-gateway -- --run-at 2026-07-06T13:07:00.000Z --granularity hour --source usage
+    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --run-at 2026-07-06T13:07:00.000Z --granularity hour --source usage
 
 Expected result:
 
 - enabled is false.
-- status is disabled.
+- status is skipped.
+- scheduleStatus is disabled.
+- skipReason is schedule-disabled.
 - source is usage.
-- window fields are null.
 - bucketCount is 0.
-- commandCreatesScheduledJob is false.
+- backfillRequests is empty.
+- createsScheduledJob is false.
 
 ---
 
 ## Invalid Command Validation
 
-    npm run analytics:rollup:schedule-preview --workspace api-gateway -- --run-at invalid-date --granularity hour
+    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --run-at invalid-date --granularity hour
 
 Expected result:
 
@@ -109,35 +112,32 @@ Expected result:
 - Error explains that --run-at must be a valid date string.
 - Usage text is printed.
 - npm exits with code 1.
+- No JSON preview is printed.
 
 ---
 
 ## Operational Notes
 
-Use this command before implementing or wiring any real scheduler.
+Use this command before implementing or wiring any real scheduler runner execution.
 
 The preview output should be reviewed for:
 
 1. runAt.
 2. effectiveTo.
-3. requestedFrom.
-4. requestedTo.
-5. rebuildFrom.
-6. rebuildTo.
-7. bucketCount.
-8. sources.
-9. safety flags.
+3. bucketCount.
+4. sources.
+5. backfillRequests.
+6. dry-run mode.
+7. safety flags.
 
-Do not treat this command as proof that rollups were rebuilt. It does not read events or persist rollups.
+Do not treat this command as proof that rollups were rebuilt. It does not invoke the backfill service, read events, or persist rollups.
 
 ---
 
 ## Related Files
 
 - apps/api-gateway/src/analytics/analytics-rollup-schedule-plan.ts
-- apps/api-gateway/src/analytics/analytics-rollup-schedule-preview.ts
 - apps/api-gateway/src/analytics/analytics-rollup-schedule-preview-args.ts
-- apps/api-gateway/src/analytics/analytics-rollup-schedule-preview.command.ts
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-runner.ts
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-preview.command.ts
 - apps/api-gateway/package.json

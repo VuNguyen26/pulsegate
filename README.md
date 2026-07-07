@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.33.0
+- v0.34.0
 
 Latest completed sprint:
 
-- Sprint 32 - Analytics Rollup Scheduling Foundation
+- Sprint 33 - Rollup Scheduler Runner Design
 
 ---
 
@@ -47,6 +47,8 @@ PulseGate currently includes:
 - Analytics rollup read model foundation
 - Analytics rollup scheduling foundation
 - Analytics rollup schedule preview command
+- Analytics rollup scheduler runner contract
+- Analytics rollup scheduler preview command
 - Internal analytics rollup read endpoint
 - Analytics retention dry-run safety foundation
 - Analytics retention dry-run command
@@ -67,13 +69,13 @@ PulseGate currently includes:
 
 Latest validation:
 
-- 99 test files passed
-- 683 tests passed
+- 101 test files passed
+- 692 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Runtime command validation passed for analytics:rollup:schedule-preview
-- Schedule preview output preserved previewOnly=true, commandCreatesScheduledJob=false, commandExecutesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false
-- No Docker/PostgreSQL validation was required for Sprint 32 because the new command is DB-free and preview-only
+- Runtime command validation passed for analytics:rollup:scheduler-preview
+- Scheduler preview output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false
+- No Docker/PostgreSQL validation was required for Sprint 33 because the new command is DB-free and preview-only
 
 ---
 
@@ -130,6 +132,7 @@ Current gateway capabilities:
 - Rejected request analytics
 - Analytics rollup read model
 - Analytics rollup schedule preview planning
+- Analytics rollup scheduler runner preview planning
 - Analytics retention dry-run planning
 - Analytics retention execution guard preview
 - Analytics retention repository safety primitives
@@ -182,7 +185,9 @@ Analytics rollup behavior:
 - Rollup upserts use a dimensionHash to avoid nullable-dimension uniqueness issues.
 - Manual analytics rollup backfill is available through npm run analytics:rollup:backfill.
 - Non-destructive rollup schedule preview is available through npm run analytics:rollup:schedule-preview.
+- Non-destructive rollup scheduler preview is available through npm run analytics:rollup:scheduler-preview.
 - Schedule preview plans a rollup window and returns safety output, but does not create scheduled jobs, read events, persist rollups, affect quota counting, or delete raw events.
+- Scheduler preview converts a schedule plan into dry-run backfill request contracts without invoking backfill service, reading events, or persisting rollups.
 - GET /internal/admin/analytics/rollups exposes read-only usage or rejected rollup rows.
 - Rollup read supports source, from, to, granularity, limit, and safe dimension filters.
 - Current runtime summary and listing APIs still read raw event tables.
@@ -214,7 +219,7 @@ Current analytics limitation:
 
 - Usage and rejected summary APIs are still event-based at runtime.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Rollup schedule preview command exists, but no scheduled/background rollup job is implemented yet.
+- Rollup schedule and scheduler preview commands exist, but no scheduled/background rollup job is implemented yet.
 - Retention operator preview command exists, but destructive retention execution is still unavailable.
 - Retention Prisma delete repository exists but is not wired to any operator-facing execute command, API, or job.
 - No retention execute command is implemented yet.
@@ -251,6 +256,10 @@ Run analytics rollup backfill dry-run:
 Run analytics rollup schedule preview:
 
     npm run analytics:rollup:schedule-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
+
+Run analytics rollup scheduler preview:
+
+    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
 
 Run analytics retention dry-run:
 
@@ -299,12 +308,13 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-32.md
+- docs/sdlc/sprint-history/sprint-33.md
 
 Latest analytics runbooks:
 
 - docs/runbooks/analytics-rollup-backfill.md
 - docs/runbooks/analytics-rollup-schedule-preview.md
+- docs/runbooks/analytics-rollup-scheduler-preview.md
 - docs/runbooks/analytics-rollup-read.md
 - docs/runbooks/analytics-retention-dry-run.md
 - docs/runbooks/analytics-retention-execution-preview.md
@@ -314,18 +324,18 @@ Latest analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-06-analytics-rollup-scheduling-foundation.md
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-runner-design.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 33 recommended direction:
+Sprint 34 recommended direction:
 
-- Rollup Scheduler Runner Design or Analytics Retention Execution Design Review
+- Rollup Scheduler Execution Boundary Design or Analytics Retention Execution Design Review
 
 Reason:
 
-- Sprint 32 added a DB-free, non-destructive rollup schedule preview command and planning contracts.
-- A future sprint can design an actual scheduler runner boundary, but should not silently introduce background execution.
+- Sprint 33 added a DB-free, non-destructive scheduler runner contract and preview command.
+- A future sprint can design whether runner execution should be command-triggered, process-local, or external-scheduler driven, but should not silently introduce background execution.
 - Destructive retention execution should remain unavailable until command semantics, operator controls, rollback expectations, and runtime validation are explicitly designed and approved.
