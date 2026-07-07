@@ -159,6 +159,33 @@ export type AnalyticsRollupSchedulerCommandDryRunServiceInvocationImplementation
   rawEventDeletionAllowed: false;
 };
 
+export type AnalyticsRollupSchedulerCommandDryRunServiceInvocationRequestMapperDesign = {
+  status: "mapper-design-added-before-service-invocation";
+  mapperBoundary: "scheduler-backfill-request-to-backfill-service-run-input";
+  currentMapperState: "implemented-model-only";
+  mapperSource: "analytics-rollup-scheduler-backfill-request-mapper";
+  inputSource: "scheduler-runner-backfill-requests";
+  outputTarget: "analytics-rollup-backfill-run-input";
+  targetTrigger: "command";
+  targetBackfillMode: "dry-run";
+  plannedMappingCardinality: "per-source-backfill-request";
+  requiresReadyRunnerPlan: true;
+  requiresDryRunRequestMode: true;
+  requiresNonInvokingRequestContract: true;
+  requiresSourceSeparation: true;
+  requiresEventLimitGuardrail: true;
+  requiresMaxBucketGuardrail: true;
+  mapsEventLimitFromExplicitOption: true;
+  mapsMaxBucketsFromRequestBucketCount: true;
+  mapperCurrentlyAllowed: true;
+  serviceInvocationCurrentlyAllowed: false;
+  mapperMayInvokeBackfillService: false;
+  mapperMayReadEvents: false;
+  mapperMayPersistRollups: false;
+  quotaCountingChangeAllowed: false;
+  rawEventDeletionAllowed: false;
+  failureBehavior: "fail-closed-before-service-invocation";
+};
 export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
   | {
       status: "design-required";
@@ -177,6 +204,7 @@ export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
       dryRunInvocationDesignReview: AnalyticsRollupSchedulerCommandDryRunInvocationDesignReview;
       dryRunServiceInvocationContractReview: AnalyticsRollupSchedulerCommandDryRunServiceInvocationContractReview;
       dryRunServiceInvocationImplementationDesign: AnalyticsRollupSchedulerCommandDryRunServiceInvocationImplementationDesign;
+      dryRunServiceInvocationRequestMapperDesign: AnalyticsRollupSchedulerCommandDryRunServiceInvocationRequestMapperDesign;
       dryRunInvocationContract: AnalyticsRollupSchedulerCommandDryRunInvocationContract;
     }
   | null;
@@ -317,6 +345,35 @@ const COMMAND_DRY_RUN_SERVICE_INVOCATION_IMPLEMENTATION_DESIGN: AnalyticsRollupS
     rawEventDeletionAllowed: false,
   };
 
+const COMMAND_DRY_RUN_SERVICE_INVOCATION_REQUEST_MAPPER_DESIGN: AnalyticsRollupSchedulerCommandDryRunServiceInvocationRequestMapperDesign =
+  {
+    status: "mapper-design-added-before-service-invocation",
+    mapperBoundary: "scheduler-backfill-request-to-backfill-service-run-input",
+    currentMapperState: "implemented-model-only",
+    mapperSource: "analytics-rollup-scheduler-backfill-request-mapper",
+    inputSource: "scheduler-runner-backfill-requests",
+    outputTarget: "analytics-rollup-backfill-run-input",
+    targetTrigger: "command",
+    targetBackfillMode: "dry-run",
+    plannedMappingCardinality: "per-source-backfill-request",
+    requiresReadyRunnerPlan: true,
+    requiresDryRunRequestMode: true,
+    requiresNonInvokingRequestContract: true,
+    requiresSourceSeparation: true,
+    requiresEventLimitGuardrail: true,
+    requiresMaxBucketGuardrail: true,
+    mapsEventLimitFromExplicitOption: true,
+    mapsMaxBucketsFromRequestBucketCount: true,
+    mapperCurrentlyAllowed: true,
+    serviceInvocationCurrentlyAllowed: false,
+    mapperMayInvokeBackfillService: false,
+    mapperMayReadEvents: false,
+    mapperMayPersistRollups: false,
+    quotaCountingChangeAllowed: false,
+    rawEventDeletionAllowed: false,
+    failureBehavior: "fail-closed-before-service-invocation",
+  };
+
 function createAnalyticsRollupSchedulerCommandDryRunInvocationReadiness(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
 ): AnalyticsRollupSchedulerCommandDryRunInvocationReadiness {
@@ -391,6 +448,8 @@ function createAnalyticsRollupSchedulerCommandDryRunDesignReview(
       COMMAND_DRY_RUN_SERVICE_INVOCATION_CONTRACT_REVIEW,
     dryRunServiceInvocationImplementationDesign:
       COMMAND_DRY_RUN_SERVICE_INVOCATION_IMPLEMENTATION_DESIGN,
+    dryRunServiceInvocationRequestMapperDesign:
+      COMMAND_DRY_RUN_SERVICE_INVOCATION_REQUEST_MAPPER_DESIGN,
     dryRunInvocationContract: COMMAND_DRY_RUN_INVOCATION_CONTRACT,
   };
 }

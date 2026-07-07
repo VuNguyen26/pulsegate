@@ -409,6 +409,68 @@ describe("analytics rollup scheduler execution decision", () => {
     });
   });
 
+  it("should expose command dry-run service invocation request mapper design without wiring service calls", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "dry-run" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-service-invocation-not-wired",
+      wiringReview: {
+        requestedCapability: "command:dry-run",
+        dryRunDesignReview: {
+          currentlyWired: false,
+          dryRunServiceInvocationRequestMapperDesign: {
+            status: "mapper-design-added-before-service-invocation",
+            mapperBoundary:
+              "scheduler-backfill-request-to-backfill-service-run-input",
+            currentMapperState: "implemented-model-only",
+            mapperSource: "analytics-rollup-scheduler-backfill-request-mapper",
+            inputSource: "scheduler-runner-backfill-requests",
+            outputTarget: "analytics-rollup-backfill-run-input",
+            targetTrigger: "command",
+            targetBackfillMode: "dry-run",
+            plannedMappingCardinality: "per-source-backfill-request",
+            requiresReadyRunnerPlan: true,
+            requiresDryRunRequestMode: true,
+            requiresNonInvokingRequestContract: true,
+            requiresSourceSeparation: true,
+            requiresEventLimitGuardrail: true,
+            requiresMaxBucketGuardrail: true,
+            mapsEventLimitFromExplicitOption: true,
+            mapsMaxBucketsFromRequestBucketCount: true,
+            mapperCurrentlyAllowed: true,
+            serviceInvocationCurrentlyAllowed: false,
+            mapperMayInvokeBackfillService: false,
+            mapperMayReadEvents: false,
+            mapperMayPersistRollups: false,
+            quotaCountingChangeAllowed: false,
+            rawEventDeletionAllowed: false,
+            failureBehavior: "fail-closed-before-service-invocation",
+          },
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
   it("should block execute mode until backfill execution is explicitly wired", () => {
     const schedulePlan = createAnalyticsRollupSchedulePlan({
       enabled: true,
