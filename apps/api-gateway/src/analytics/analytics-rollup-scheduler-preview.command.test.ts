@@ -275,6 +275,63 @@ describe("analytics rollup scheduler preview command", () => {
     });
   });
 
+  it("should accept equals-style args while keeping scheduler execution preview-only", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+
+    await runAnalyticsRollupSchedulerPreviewCommand([
+      "--enabled=true",
+      "--source=usage",
+      "--run-at=2026-07-06T13:07:00.000Z",
+      "--granularity=hour",
+      "--execution-mode=execute",
+    ]);
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output).toMatchObject({
+      kind: "analytics-rollup-scheduler-runner",
+      mode: "preview",
+      status: "ready",
+      source: "usage",
+      sources: ["usage"],
+      safety: {
+        previewOnly: true,
+        createsScheduledJob: false,
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+    expect(output.executionDecision).toMatchObject({
+      kind: "analytics-rollup-scheduler-execution-decision",
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      boundary: {
+        trigger: "command",
+        requestedMode: "execute",
+        allowedMode: "preview",
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      safety: {
+        previewOnly: true,
+        createsScheduledJob: false,
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
   it("should reject invalid args before printing output", async () => {
     const consoleLog = vi
       .spyOn(console, "log")

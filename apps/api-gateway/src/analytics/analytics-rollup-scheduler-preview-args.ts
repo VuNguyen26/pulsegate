@@ -102,17 +102,31 @@ export function parseAnalyticsRollupSchedulerPreviewArgs(
   const scheduleArgs: string[] = [];
   const executionDecision: AnalyticsRollupSchedulerExecutionDecisionInput = {};
 
-  for (let index = 0; index < args.length; index += 2) {
-    const option = args[index];
+  for (let index = 0; index < args.length; index += 1) {
+    const token = args[index];
 
-    if (option === undefined) {
+    if (token === undefined) {
       continue;
     }
+
+    if (!token.startsWith("--")) {
+      throw new RangeError(`unexpected argument ${token}`);
+    }
+
+    const equalsIndex = token.indexOf("=");
+    const option = equalsIndex >= 0 ? token.slice(0, equalsIndex) : token;
 
     assertKnownOption(option);
     assertNotDuplicate(seenOptions, option);
 
-    const value = readRequiredValue(args, index, option);
+    const value =
+      equalsIndex >= 0
+        ? token.slice(equalsIndex + 1)
+        : readRequiredValue(args, index, option);
+
+    if (value === "") {
+      throw new RangeError(`${option} requires a value`);
+    }
 
     if (SCHEDULE_PREVIEW_OPTIONS.has(option)) {
       scheduleArgs.push(option, value);
@@ -120,6 +134,10 @@ export function parseAnalyticsRollupSchedulerPreviewArgs(
       executionDecision.trigger = parseExecutionTrigger(value);
     } else {
       executionDecision.mode = parseExecutionMode(value);
+    }
+
+    if (equalsIndex < 0) {
+      index += 1;
     }
   }
 
