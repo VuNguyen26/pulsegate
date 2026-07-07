@@ -16,11 +16,33 @@ v0.39.0
 
 ## Latest Completed Sprint
 
-Sprint 38 - Rollup Scheduler Command Dry-Run Invocation Design Review
+Sprint 40 - Rollup Scheduler Command Dry-Run Service Invocation Implementation Design
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-07 - Rollup scheduler command dry-run service invocation implementation remains design-only
+
+Decision:
+
+- Expose dryRunServiceInvocationImplementationDesign for command:dry-run scheduler preview output.
+- Keep currentImplementationState=not-implemented.
+- Keep implementationCurrentlyAllowed=false and serviceInvocationCurrentlyAllowed=false.
+- Keep dry-run service event reads, rollup persistence, quota counting changes, and raw event deletion disallowed.
+- Keep command dry-run blocked with backfill-service-invocation-not-wired.
+- Keep process-local and external scheduler dry-run blocked with automatic-trigger-not-wired.
+
+Rationale:
+
+- The scheduler command should not jump from contract review to real service invocation without a visible implementation boundary.
+- Future wiring must define the service adapter, request mapper, source separation, event limit guardrails, max bucket guardrails, operator safety output, fail-closed service errors, and Docker/PostgreSQL runtime validation first.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-service-invocation-implementation-design.md
+
+---
 
 ### 2026-07-07 - Analytics rollup scheduler command dry-run invocation design review stays review-only
 

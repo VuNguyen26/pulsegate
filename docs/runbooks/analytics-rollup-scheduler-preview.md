@@ -4,7 +4,7 @@
 
 This runbook covers the non-destructive analytics rollup scheduler preview command.
 
-The command converts a schedule plan into dry-run backfill request contracts, prints an execution boundary decision, and includes a wiring review, command dry-run invocation readiness model, command dry-run invocation design review, and command dry-run invocation contract for future scheduler execution design.
+The command converts a schedule plan into dry-run backfill request contracts, prints an execution boundary decision, and includes a wiring review, command dry-run invocation readiness model, command dry-run invocation design review, command dry-run service invocation contract review, command dry-run service invocation implementation design, and command dry-run invocation contract for future scheduler execution design.
 
 It is not a scheduler job and does not execute rollup work.
 
@@ -182,7 +182,16 @@ Expected result:
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview.dryRunServiceMayPersistRollups is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview.quotaCountingChangeAllowed is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview.rawEventDeletionAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview.failureBehavior is fail-closed-before-service-invocation.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.status is implementation-design-required-before-wiring.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.implementationBoundary is scheduler-command-dry-run-to-rollup-backfill-service.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.currentImplementationState is not-implemented.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.targetDryRunBehavior is service-dry-run-plan-only.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.implementationCurrentlyAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.serviceInvocationCurrentlyAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.dryRunServiceMayReadEvents is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.dryRunServiceMayPersistRollups is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.quotaCountingChangeAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.rawEventDeletionAllowed is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.status is contract-required-before-wiring.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.currentInvocationState is not-wired.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.triggerBoundary is command-only.
@@ -347,8 +356,9 @@ The preview output should be reviewed for:
 12. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness for command dry-run requests.
 13. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationDesignReview for command dry-run requests.
 14. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview for command dry-run requests.
-15. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract for command dry-run requests.
-16. safety flags.
+15. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign for command dry-run requests.
+16. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract for command dry-run requests.
+17. safety flags.
 
 Do not treat this command as proof that rollups were rebuilt. It does not invoke the backfill service, read events, or persist rollups.
 

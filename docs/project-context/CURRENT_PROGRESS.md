@@ -30,32 +30,32 @@ v0.40.0
 
 ## Latest Completed Sprint
 
-Sprint 39 - Rollup Scheduler Command Dry-Run Service Invocation Contract Review
+Sprint 40 - Rollup Scheduler Command Dry-Run Service Invocation Implementation Design
 
 Status:
 
 Done.
 
-Sprint 39 continued the analytics rollup scheduler safety path after Sprint 38.
+Sprint 40 continued the analytics rollup scheduler safety path after Sprint 39.
 
-It made the future command dry-run service invocation contract explicit without wiring real backfill service calls:
+It made the future command dry-run service invocation implementation design explicit without wiring real backfill service calls:
 
-- Added dryRunServiceInvocationContractReview under dryRunDesignReview for command:dry-run requests.
-- Documented the future scheduler-command-to-rollup-backfill-service boundary.
+- Added dryRunServiceInvocationImplementationDesign under dryRunDesignReview for command:dry-run requests.
+- Documented implementationBoundary=scheduler-command-dry-run-to-rollup-backfill-service.
+- Kept currentImplementationState=not-implemented.
+- Kept implementationCurrentlyAllowed=false and serviceInvocationCurrentlyAllowed=false.
+- Kept dryRunServiceMayReadEvents=false, dryRunServiceMayPersistRollups=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
+- Required service adapter, request mapper, operator safety output, fail-closed service errors, source separation, event limit guardrails, max bucket guardrails, and Docker/PostgreSQL runtime validation before future wiring.
 - Kept command dry-run blocked with backfill-service-invocation-not-wired.
-- Kept currentServiceInvocationState=not-wired.
-- Kept serviceInvocationCurrentlyAllowed=false, dryRunServiceMayReadEvents=false, dryRunServiceMayPersistRollups=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
-- Kept failure behavior explicit as fail-closed-before-service-invocation.
-- Kept process-local:dry-run blocked with automatic-trigger-not-wired and dryRunDesignReview=null.
-- Preserved usage/rejected source separation.
-- Did not create a scheduled/background rollup job.
-- Did not invoke the backfill service or execute backfill.
+- Kept process-local dry-run blocked with automatic-trigger-not-wired and dryRunDesignReview=null.
+- Did not create scheduled/background rollup jobs.
+- Did not invoke the backfill service.
 - Did not read raw events or persist rollups.
 - Did not change quota counting, usage recording, rejected event recording, rollup read APIs, summary APIs, migrations, or retention/delete paths.
 
-Sprint 39 details are archived in:
+Sprint 40 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-39.md
+- docs/sdlc/sprint-history/sprint-40.md
 
 Related runbooks:
 
@@ -66,6 +66,7 @@ Related runbooks:
 
 Related design records:
 
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-service-invocation-implementation-design.md
 - docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-service-invocation-contract-review.md
 - docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-invocation-design-review.md
 - docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-invocation-contract-design.md
@@ -79,28 +80,19 @@ Related design records:
 ---
 ## Latest Validation Status
 
-Latest stable validation from Sprint 39:
+Latest stable validation from Sprint 40:
 
-- npm run test -> passed with 103 test files and 717 tests
+- npm run test -> passed with 103 test files and 718 tests
 - npm run typecheck -> passed
 - npm run build -> passed
-
-Latest automated test result:
-
-- 103 test files passed
-- 716 tests passed
 
 Manual command validation:
 
 - analytics:rollup:scheduler-preview command dry-run validation passed with blockedReason=backfill-service-invocation-not-wired.
-- command:dry-run validation exposed dryRunDesignReview.status=design-required.
-- command:dry-run validation exposed dryRunInvocationReadiness with plannedBackfillRequestCount=2, plannedSources=["usage","rejected"], allPlannedRequestsDryRunOnly=true, canInvokeBackfillService=false, canReadEvents=false, and canPersistRollups=false.
-- command:dry-run validation exposed dryRunInvocationDesignReview with proposedInvocationBoundary=command-to-backfill-service-dry-run, commandTriggerRequired=true, automaticTriggerAllowed=false, dryRunMayReadEvents=false, dryRunMayPersistRollups=false, dryRunMayAffectQuotaCounting=false, and dryRunMayDeleteRawEvents=false.
-- command:dry-run validation exposed dryRunServiceInvocationContractReview with serviceBoundary=scheduler-command-to-rollup-backfill-service, currentServiceInvocationState=not-wired, serviceInvocationCurrentlyAllowed=false, dryRunServiceMayReadEvents=false, dryRunServiceMayPersistRollups=false, quotaCountingChangeAllowed=false, rawEventDeletionAllowed=false, and failureBehavior=fail-closed-before-service-invocation.
-- command:dry-run validation exposed dryRunInvocationContract with currentInvocationState=not-wired, triggerBoundary=command-only, requiredBackfillMode=dry-run, and all current invocation permissions false.
+- command:dry-run validation exposed dryRunServiceInvocationImplementationDesign with status=implementation-design-required-before-wiring, currentImplementationState=not-implemented, targetDryRunBehavior=service-dry-run-plan-only, implementationCurrentlyAllowed=false, serviceInvocationCurrentlyAllowed=false, dryRunServiceMayReadEvents=false, dryRunServiceMayPersistRollups=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
 - analytics:rollup:scheduler-preview process-local dry-run validation passed with blockedReason=automatic-trigger-not-wired and dryRunDesignReview=null.
 - Runtime output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
-- No Docker/PostgreSQL validation was required for Sprint 39 because the scheduler command dry-run service invocation contract review is DB-free and non-destructive.
+- No Docker/PostgreSQL validation was required for Sprint 40 because the scheduler command dry-run service invocation implementation design is DB-free, preview-only, and non-destructive.
 
 ---
 ## Current Architecture Summary
@@ -167,7 +159,7 @@ PulseGate currently has:
 - Analytics rollup scheduler command dry-run invocation contract output.
 - Analytics rollup scheduler command dry-run readiness review output.
 - Analytics rollup scheduler command dry-run invocation design review output.
-- Analytics rollup scheduler command dry-run service invocation contract review output.
+- Analytics rollup scheduler command dry-run service invocation implementation design output.
 - Internal/admin analytics rollup read endpoint.
 - Analytics retention dry-run, execution preview, repository safety, service preview, and operator preview foundations.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected analytics, quota, and rollup APIs.
@@ -280,7 +272,7 @@ Analytics rollup scheduler preview:
 - command:dry-run exposes dryRunInvocationContract with command-only, dry-run-only, per-source, source-separated, event-limit guarded, max-bucket guarded, Docker/PostgreSQL validation-required future wiring requirements.
 - command:dry-run exposes dryRunInvocationReadiness with planned request count/source/granularity information while keeping canInvokeBackfillService=false, canReadEvents=false, and canPersistRollups=false.
 - command:dry-run exposes dryRunInvocationDesignReview with future command-to-backfill-service dry-run semantics while keeping event reads, persistence, quota changes, and raw event deletion disallowed.
-- command:dry-run exposes dryRunServiceInvocationContractReview with future scheduler-command-to-rollup-backfill-service semantics while keeping current service invocation, event reads, persistence, quota changes, and raw event deletion disallowed.
+- command:dry-run exposes dryRunServiceInvocationImplementationDesign with future scheduler-command-dry-run-to-rollup-backfill-service implementation semantics while keeping implementation, service invocation, event reads, persistence, quota changes, and raw event deletion disallowed.
 - process-local:dry-run remains blocked with automatic-trigger-not-wired and dryRunDesignReview=null.
 - execute mode remains blocked until command dry-run is safely designed first.
 - process-local and external-scheduler triggers remain blocked.
@@ -343,34 +335,17 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 40 recommended direction:
+Sprint 41 recommended direction:
 
-- Rollup Scheduler Command Dry-Run Service Invocation Implementation Design or Analytics Retention Execution Design Review
+- Rollup Scheduler Command Dry-Run Service Invocation Request Mapper Design
 
 Recommended scope:
 
-- If continuing rollups, decide whether command-triggered dry-run may move from review-only contract output toward a guarded implementation design for invoking the backfill service.
-- Define command dry-run service semantics before wiring: service dry-run contract, source separation, event limit guardrails, max bucket guardrails, operator output, failure behavior, and Docker/PostgreSQL runtime validation.
+- If continuing rollups, define the mapper/adapter boundary from scheduler runner backfill request contracts to the rollup backfill service dry-run API without invoking the service yet.
+- Keep command dry-run blocked until adapter semantics, request mapping, failure behavior, operator safety output, source separation, event limit guardrails, max bucket guardrails, and Docker/PostgreSQL runtime validation are explicit.
 - Do not jump directly from scheduler preview to execute mode.
 - Keep process-local/external-scheduler execution blocked until automatic execution semantics are explicitly designed.
 - Keep scheduler preview separate from actual event reads and persistence until approved.
 - Keep retention execution explicit, guarded, and non-destructive unless destructive execution is separately approved.
 - Keep successful usage and rejected/security events separate.
 - Keep quota counting on gateway.api_usage_events.
-- Do not expose a destructive execute command until explicitly approved.
-
----
-## Working Style
-
-Continue using small stable checkpoints:
-
-1. Implement one small checkpoint.
-2. Explain changed files.
-3. Run focused tests when useful.
-4. Run npm run test.
-5. Run npm run typecheck.
-6. Run npm run build.
-7. Run Docker/runtime validation when runtime behavior changes.
-8. Commit only after stable validation.
-9. Push after each stable commit.
-10. Keep final docs compact.
