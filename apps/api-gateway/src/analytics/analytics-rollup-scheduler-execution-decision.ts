@@ -56,12 +56,30 @@ export type AnalyticsRollupSchedulerExecutionRecommendedNextStep =
   | "wire-command-dry-run-before-execute"
   | "keep-automatic-triggers-unwired";
 
+export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
+  | {
+      status: "design-required";
+      requestedCapability: "command:dry-run";
+      invocationBoundary: "backfill-service-dry-run-invocation";
+      currentlyWired: false;
+      mustRemainNonDestructive: true;
+      requiresExplicitCommandInvocation: true;
+      requiresBackfillServiceDryRunContract: true;
+      requiresEventLimitGuardrail: true;
+      requiresSourceSeparation: true;
+      requiresDockerPostgresRuntimeValidation: true;
+      quotaCountingMustRemainUnchanged: true;
+      rawEventDeletionForbidden: true;
+    }
+  | null;
+
 export type AnalyticsRollupSchedulerExecutionWiringReview = {
   currentCapability: "command-preview-only";
   requestedCapability: `${AnalyticsRollupSchedulerExecutionTrigger}:${AnalyticsRollupSchedulerExecutionMode}`;
   recommendedNextStep: AnalyticsRollupSchedulerExecutionRecommendedNextStep;
   requiresExplicitDesignBeforeWiring: boolean;
   requiresDockerPostgresValidationBeforeWiring: boolean;
+  dryRunDesignReview: AnalyticsRollupSchedulerCommandDryRunDesignReview;
   automaticTriggersRemainUnwired: true;
   executeRemainsUnwired: true;
 };
@@ -116,6 +134,30 @@ function resolveRecommendedNextStep(
   return "keep-command-preview-only";
 }
 
+function createAnalyticsRollupSchedulerCommandDryRunDesignReview(
+  trigger: AnalyticsRollupSchedulerExecutionTrigger,
+  requestedMode: AnalyticsRollupSchedulerExecutionMode,
+): AnalyticsRollupSchedulerCommandDryRunDesignReview {
+  if (trigger !== "command" || requestedMode !== "dry-run") {
+    return null;
+  }
+
+  return {
+    status: "design-required",
+    requestedCapability: "command:dry-run",
+    invocationBoundary: "backfill-service-dry-run-invocation",
+    currentlyWired: false,
+    mustRemainNonDestructive: true,
+    requiresExplicitCommandInvocation: true,
+    requiresBackfillServiceDryRunContract: true,
+    requiresEventLimitGuardrail: true,
+    requiresSourceSeparation: true,
+    requiresDockerPostgresRuntimeValidation: true,
+    quotaCountingMustRemainUnchanged: true,
+    rawEventDeletionForbidden: true,
+  };
+}
+
 function createAnalyticsRollupSchedulerExecutionWiringReview(
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
@@ -127,6 +169,10 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
     requiresExplicitDesignBeforeWiring:
       trigger !== "command" || requestedMode !== "preview",
     requiresDockerPostgresValidationBeforeWiring: requestedMode !== "preview",
+    dryRunDesignReview: createAnalyticsRollupSchedulerCommandDryRunDesignReview(
+      trigger,
+      requestedMode,
+    ),
     automaticTriggersRemainUnwired: true,
     executeRemainsUnwired: true,
   };
