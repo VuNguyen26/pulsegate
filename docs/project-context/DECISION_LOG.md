@@ -12,15 +12,45 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.34.0
+v0.35.0
 
 ## Latest Completed Sprint
 
-Sprint 33 - Rollup Scheduler Runner Design
+Sprint 34 - Rollup Scheduler Execution Boundary Design
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-07 - Analytics rollup scheduler execution stays preview-only and explicitly blocked unless wired
+
+Decision:
+
+- Add a scheduler execution decision model after the scheduler runner preview foundation.
+- Expose executionDecision in npm run analytics:rollup:scheduler-preview output.
+- Add scheduler preview args for --execution-trigger command|process-local|external-scheduler.
+- Add scheduler preview args for --execution-mode preview|dry-run|execute.
+- Allow command-triggered preview only.
+- Block process-local and external-scheduler triggers until automatic execution is explicitly wired.
+- Block dry-run and execute modes until backfill service invocation and execution semantics are explicitly wired.
+- Keep the command DB-free and non-destructive.
+- Do not create scheduled/background jobs.
+- Do not invoke the backfill service or execute backfill.
+- Do not read raw events or persist rollups.
+- Do not change quota counting, usage recording, rejected event recording, rollup read APIs, or summary APIs.
+- Do not delete raw events.
+
+Reason:
+
+- Future scheduler execution needs explicit operator-visible boundaries before any work is wired.
+- Showing blocked decisions for unwired triggers/modes prevents accidental interpretation of preview output as execution.
+- Keeping the decision DB-free preserves the safe validation model from Sprint 32 and Sprint 33.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-execution-boundary-design.md
+
+---
 
 ### 2026-07-07 - Analytics rollup scheduler runner starts as preview-only boundary
 

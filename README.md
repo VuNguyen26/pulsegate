@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.34.0
+- v0.35.0
 
 Latest completed sprint:
 
-- Sprint 33 - Rollup Scheduler Runner Design
+- Sprint 34 - Rollup Scheduler Execution Boundary Design
 
 ---
 
@@ -69,8 +69,8 @@ PulseGate currently includes:
 
 Latest validation:
 
-- 101 test files passed
-- 692 tests passed
+- 103 test files passed
+- 706 tests passed
 - npm run typecheck passed
 - npm run build passed
 - Runtime command validation passed for analytics:rollup:scheduler-preview
@@ -219,7 +219,7 @@ Current analytics limitation:
 
 - Usage and rejected summary APIs are still event-based at runtime.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Rollup schedule and scheduler preview commands exist, but no scheduled/background rollup job is implemented yet.
+- Rollup schedule and scheduler preview commands exist, and scheduler preview exposes execution boundary decisions, but no scheduled/background rollup job is implemented yet.
 - Retention operator preview command exists, but destructive retention execution is still unavailable.
 - Retention Prisma delete repository exists but is not wired to any operator-facing execute command, API, or job.
 - No retention execute command is implemented yet.
@@ -308,7 +308,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-33.md
+- docs/sdlc/sprint-history/sprint-34.md
 
 Latest analytics runbooks:
 
@@ -324,18 +324,18 @@ Latest analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-runner-design.md
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-execution-boundary-design.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 34 recommended direction:
+Sprint 35 recommended direction:
 
-- Rollup Scheduler Execution Boundary Design or Analytics Retention Execution Design Review
+- Rollup Scheduler Execution Wiring Design Review or Analytics Retention Execution Design Review
 
 Reason:
 
-- Sprint 33 added a DB-free, non-destructive scheduler runner contract and preview command.
-- A future sprint can design whether runner execution should be command-triggered, process-local, or external-scheduler driven, but should not silently introduce background execution.
+- Sprint 34 added a DB-free scheduler execution boundary decision and preview args for command, process-local, and external-scheduler triggers.
+- A future sprint can design whether execution should actually be wired to a command-triggered backfill invocation, but should not silently introduce background execution.
 - Destructive retention execution should remain unavailable until command semantics, operator controls, rollback expectations, and runtime validation are explicitly designed and approved.

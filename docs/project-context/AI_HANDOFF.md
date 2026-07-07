@@ -34,15 +34,15 @@ Local path:
 
 Current version:
 
-- v0.34.0
+- v0.35.0
 
 Latest completed sprint:
 
-- Sprint 33 - Rollup Scheduler Runner Design
+- Sprint 34 - Rollup Scheduler Execution Boundary Design
 
 Recommended next technical sprint:
 
-- Sprint 34 - Rollup Scheduler Execution Boundary Design or Analytics Retention Execution Design Review
+- Sprint 35 - Rollup Scheduler Execution Wiring Design Review or Analytics Retention Execution Design Review
 
 ---
 
@@ -109,7 +109,7 @@ Current ports:
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 33:
+Latest stable validation from Sprint 34:
 
 - npm run test -> passed.
 - npm run typecheck -> passed.
@@ -117,16 +117,18 @@ Latest stable validation from Sprint 33:
 
 Latest automated test result:
 
-- 101 test files passed.
-- 692 tests passed.
+- 103 test files passed.
+- 706 tests passed.
 
 Manual command validation:
 
 - npm run analytics:rollup:scheduler-preview --workspace api-gateway was validated for an enabled both-source hourly preview.
+- Blocked execute decision validation passed with blockedReason=backfill-execution-not-wired.
+- Blocked process-local decision validation passed with blockedReason=automatic-trigger-not-wired.
 - Runtime output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
-- No Docker/PostgreSQL validation was required because Sprint 33 added a DB-free preview command.
+- No Docker/PostgreSQL validation was required because Sprint 34 stayed DB-free and non-destructive.
 
-Sprint 33 preserved:
+Sprint 34 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
@@ -177,7 +179,7 @@ API Gateway currently supports:
 - Rejected events summary endpoint.
 - Filtered rejected events summary endpoint.
 - Rejected events listing endpoint with filters, safe offset pagination, and cursor pagination.
-- Analytics rollup calculation, persistence, manual backfill, read model, schedule plan, schedule preview, scheduler runner contract, schedule preview command, and scheduler preview command foundations.
+- Analytics rollup calculation, persistence, manual backfill, read model, schedule plan, schedule preview, scheduler runner contract, scheduler execution decision boundary, schedule preview command, scheduler preview args parser, and scheduler preview command foundations.
 - Read-only analytics rollup endpoint.
 - Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
 - Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, Prisma delete repository foundation, execution service preview, summary model, candidate count loader, candidate-read preview composition, operator preview output, DB-backed operator preview command, and operator preview fail-fast CLI hardening.
@@ -259,6 +261,8 @@ Rollup commands:
 - npm run analytics:rollup:backfill --workspace api-gateway -- --from 2026-07-05T00:00:00.000Z --to 2026-07-06T00:00:00.000Z --granularity hour
 - npm run analytics:rollup:schedule-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
 - npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
+- npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source usage --run-at 2026-07-06T13:07:00.000Z --granularity hour --execution-mode execute
+- npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source usage --run-at 2026-07-06T13:07:00.000Z --granularity hour --execution-trigger process-local
 
 Retention commands:
 
@@ -303,7 +307,7 @@ Current analytics limitations:
 - Usage and rejected summary APIs are event-based at runtime.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
 - No retention delete job yet.
-- Rollup schedule and scheduler preview commands exist, but no scheduled/background rollup job yet.
+- Rollup schedule and scheduler preview commands exist, and scheduler preview exposes execution boundary decisions, but no scheduled/background rollup job yet.
 
 ---
 
@@ -395,7 +399,7 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-33.md
+- docs/sdlc/sprint-history/sprint-34.md
 - docs/runbooks/analytics-rollup-backfill.md
 - docs/runbooks/analytics-rollup-schedule-preview.md
 - docs/runbooks/analytics-rollup-scheduler-preview.md
@@ -405,6 +409,7 @@ Docs:
 - docs/runbooks/analytics-retention-delete-repository.md
 - docs/runbooks/analytics-retention-execution-service-preview.md
 - docs/runbooks/analytics-retention-operator-preview.md
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-execution-boundary-design.md
 - docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-runner-design.md
 - docs/project-context/decisions/2026-07-06-analytics-rollup-scheduling-foundation.md
 - docs/project-context/decisions/2026-07-06-analytics-retention-operator-preview-hardening.md
@@ -491,11 +496,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 34 after confirming Sprint 33 docs are committed and pushed.
+Start Sprint 35 after confirming Sprint 34 docs are committed and pushed.
 
 Recommended direction:
 
-- Rollup Scheduler Execution Boundary Design or Analytics Retention Execution Design Review.
+- Rollup Scheduler Execution Wiring Design Review or Analytics Retention Execution Design Review.
 
 Before starting:
 
@@ -505,5 +510,6 @@ Before starting:
 - Preserve quota correctness.
 - Keep successful usage and rejected/security event storage separate.
 - Keep scheduler preview separate from actual background execution.
+- Keep process-local/external-scheduler execution blocked until explicitly designed.
 - Keep retention execution explicit and guarded.
 - Do not expose a destructive execute command until explicitly approved.

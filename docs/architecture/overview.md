@@ -6,16 +6,16 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.34.0
+v0.35.0
 
 ## Current Status
 
-Sprint 33 - Rollup Scheduler Runner Design Complete
+Sprint 34 - Rollup Scheduler Execution Boundary Design Complete
 
 Current validation:
 
-- 101 test files passed
-- 692 tests passed
+- 103 test files passed
+- 706 tests passed
 - npm run typecheck passed
 - npm run build passed
 - Runtime command validation passed for analytics:rollup:scheduler-preview
@@ -46,7 +46,7 @@ Long decision records live in:
 
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
-PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, DB-backed non-destructive retention operator preview hardening, non-destructive rollup schedule preview planning, non-destructive rollup scheduler runner preview planning, and CI/CD.
+PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, DB-backed non-destructive retention operator preview hardening, non-destructive rollup schedule preview planning, non-destructive rollup scheduler runner preview planning, non-destructive rollup scheduler execution boundary preview planning, and CI/CD.
 
 ---
 
@@ -215,7 +215,7 @@ API Gateway currently handles:
 - Consumer and API key usage summaries with filters.
 - Successful usage event raw listing with filters, offset pagination, and cursor pagination.
 - Rejected events summary and raw listing with filters, offset pagination, and cursor pagination.
-- Analytics rollup calculation, persistence, manual backfill, read model, schedule plan, schedule preview, scheduler runner contract, schedule preview command, and scheduler preview command foundations.
+- Analytics rollup calculation, persistence, manual backfill, read model, schedule plan, schedule preview, scheduler runner contract, scheduler execution decision boundary, schedule preview command, and scheduler preview command foundations.
 - Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
 - Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, Prisma delete repository foundation, execution service preview, summary model, candidate count loader, candidate-read preview composition, operator preview output, DB-backed operator preview command, and operator preview fail-fast CLI hardening.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected event, quota, and rollup APIs.
@@ -334,8 +334,10 @@ Current behavior:
 - Manual backfill command can plan or execute controlled rebuilds.
 - Schedule preview command can plan the next rollup window without executing rollup work.
 - Scheduler preview command can convert a planned schedule window into dry-run backfill request contracts without invoking backfill service.
+- Scheduler preview command exposes executionDecision output for command, process-local, and external-scheduler triggers, with preview as the only allowed mode.
 - Schedule preview output explicitly reports previewOnly=true, commandCreatesScheduledJob=false, commandExecutesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
 - Scheduler preview output explicitly reports previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
+- Scheduler execution decision output blocks unwired process-local/external-scheduler triggers and dry-run/execute modes.
 - Read repositories expose rollup rows without changing existing summary APIs.
 - GET /internal/admin/analytics/rollups reads usage or rejected rollups with admin API key protection.
 
@@ -453,7 +455,7 @@ Core:
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
-- Rollup schedule and scheduler preview commands exist, but no scheduled/background rollup job yet.
+- Rollup schedule and scheduler preview commands exist, and scheduler preview exposes execution boundary decisions, but no scheduled/background rollup job yet.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
 - Admin Dashboard is not implemented yet.
@@ -475,12 +477,13 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 34 recommended direction:
+Sprint 35 recommended direction:
 
-- Rollup Scheduler Execution Boundary Design or Analytics Retention Execution Design Review
+- Rollup Scheduler Execution Wiring Design Review or Analytics Retention Execution Design Review
 
 Rationale:
 
-- Sprint 33 added a non-destructive scheduler runner contract and a DB-free operator-facing scheduler preview command.
-- Future work can decide whether scheduler execution should be command-triggered, process-local, or external-scheduler driven without silently introducing background execution.
+- Sprint 34 made scheduler execution boundaries explicit through a DB-free decision model and preview command args.
+- Future rollup scheduler work should decide whether command-triggered execution can invoke the backfill service under explicit guardrails.
+- Process-local or external scheduler execution should remain blocked until background execution semantics and runtime validation are designed.
 - Delete execution should remain unavailable until command/API semantics, runtime validation, rollback expectations, and operator controls are explicitly designed.
