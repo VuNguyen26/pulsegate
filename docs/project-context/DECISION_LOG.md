@@ -569,6 +569,28 @@ Detailed record:
 
 ---
 
+### 2026-07-07 - Rollup scheduler command dry-run service invocation contract remains review-only
+
+Decision:
+
+- Expose dryRunServiceInvocationContractReview for command:dry-run scheduler preview output.
+- Keep currentServiceInvocationState=not-wired and serviceInvocationCurrentlyAllowed=false.
+- Keep dry-run service event reads, rollup persistence, quota counting changes, and raw event deletion disallowed.
+- Keep command dry-run blocked with backfill-service-invocation-not-wired.
+- Keep process-local and external scheduler dry-run blocked with automatic-trigger-not-wired.
+
+Reason:
+
+- Future command-to-backfill-service dry-run wiring needs a clear service boundary before implementation.
+- The scheduler preview must remain DB-free, preview-only, and non-destructive until explicit wiring and Docker/PostgreSQL validation are approved.
+- Usage and rejected event separation and quota correctness must remain unchanged.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-service-invocation-contract-review.md
+
+---
+
 ## Historical Decisions
 
 See:
