@@ -474,6 +474,18 @@ describe("analytics rollup scheduler preview command", () => {
           requiresDockerPostgresRuntimeValidation: true,
           quotaCountingMustRemainUnchanged: true,
           rawEventDeletionForbidden: true,
+          dryRunInvocationReadiness: {
+            status: "not-ready",
+            reason: "backfill-service-invocation-not-wired",
+            plannedBackfillRequestCount: 1,
+            plannedSources: ["usage"],
+            plannedGranularity: "hour",
+            backfillRequestsDerivedFromRunnerPlan: true,
+            allPlannedRequestsDryRunOnly: true,
+            canInvokeBackfillService: false,
+            canReadEvents: false,
+            canPersistRollups: false,
+          },
           dryRunInvocationContract: {
             status: "contract-required-before-wiring",
             currentInvocationState: "not-wired",

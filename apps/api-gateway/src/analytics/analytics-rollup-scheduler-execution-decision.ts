@@ -74,6 +74,21 @@ export type AnalyticsRollupSchedulerCommandDryRunInvocationContract = {
   rawEventDeletionAllowed: false;
 };
 
+export type AnalyticsRollupSchedulerCommandDryRunInvocationReadiness = {
+  status: "not-ready";
+  reason:
+    | "scheduler-runner-not-ready"
+    | "backfill-service-invocation-not-wired";
+  plannedBackfillRequestCount: number;
+  plannedSources: AnalyticsRollupSchedulerRunnerPlan["sources"];
+  plannedGranularity: AnalyticsRollupSchedulerRunnerPlan["granularity"];
+  backfillRequestsDerivedFromRunnerPlan: true;
+  allPlannedRequestsDryRunOnly: boolean;
+  canInvokeBackfillService: false;
+  canReadEvents: false;
+  canPersistRollups: false;
+};
+
 export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
   | {
       status: "design-required";
@@ -88,6 +103,7 @@ export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
       requiresDockerPostgresRuntimeValidation: true;
       quotaCountingMustRemainUnchanged: true;
       rawEventDeletionForbidden: true;
+      dryRunInvocationReadiness: AnalyticsRollupSchedulerCommandDryRunInvocationReadiness;
       dryRunInvocationContract: AnalyticsRollupSchedulerCommandDryRunInvocationContract;
     }
   | null;
@@ -153,6 +169,32 @@ const COMMAND_DRY_RUN_INVOCATION_CONTRACT: AnalyticsRollupSchedulerCommandDryRun
     rawEventDeletionAllowed: false,
   };
 
+function createAnalyticsRollupSchedulerCommandDryRunInvocationReadiness(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+): AnalyticsRollupSchedulerCommandDryRunInvocationReadiness {
+  return {
+    status: "not-ready",
+    reason:
+      runnerPlan.status === "ready"
+        ? "backfill-service-invocation-not-wired"
+        : "scheduler-runner-not-ready",
+    plannedBackfillRequestCount: runnerPlan.backfillRequests.length,
+    plannedSources: runnerPlan.sources,
+    plannedGranularity: runnerPlan.granularity,
+    backfillRequestsDerivedFromRunnerPlan: true,
+    allPlannedRequestsDryRunOnly: runnerPlan.backfillRequests.every(
+      (request) =>
+        request.mode === "dry-run" &&
+        request.willInvokeBackfillService === false &&
+        request.willReadEvents === false &&
+        request.willPersistRollups === false,
+    ),
+    canInvokeBackfillService: false,
+    canReadEvents: false,
+    canPersistRollups: false,
+  };
+}
+
 function resolveRecommendedNextStep(
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
@@ -173,6 +215,7 @@ function resolveRecommendedNextStep(
 }
 
 function createAnalyticsRollupSchedulerCommandDryRunDesignReview(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
 ): AnalyticsRollupSchedulerCommandDryRunDesignReview {
@@ -193,11 +236,14 @@ function createAnalyticsRollupSchedulerCommandDryRunDesignReview(
     requiresDockerPostgresRuntimeValidation: true,
     quotaCountingMustRemainUnchanged: true,
     rawEventDeletionForbidden: true,
+    dryRunInvocationReadiness:
+      createAnalyticsRollupSchedulerCommandDryRunInvocationReadiness(runnerPlan),
     dryRunInvocationContract: COMMAND_DRY_RUN_INVOCATION_CONTRACT,
   };
 }
 
 function createAnalyticsRollupSchedulerExecutionWiringReview(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
 ): AnalyticsRollupSchedulerExecutionWiringReview {
@@ -209,6 +255,7 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
       trigger !== "command" || requestedMode !== "preview",
     requiresDockerPostgresValidationBeforeWiring: requestedMode !== "preview",
     dryRunDesignReview: createAnalyticsRollupSchedulerCommandDryRunDesignReview(
+      runnerPlan,
       trigger,
       requestedMode,
     ),
@@ -278,6 +325,7 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
       backfillExecutionWired: false,
     },
     wiringReview: createAnalyticsRollupSchedulerExecutionWiringReview(
+      runnerPlan,
       trigger,
       requestedMode,
     ),

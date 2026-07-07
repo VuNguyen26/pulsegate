@@ -177,6 +177,18 @@ describe("analytics rollup scheduler execution decision", () => {
           requiresDockerPostgresRuntimeValidation: true,
           quotaCountingMustRemainUnchanged: true,
           rawEventDeletionForbidden: true,
+          dryRunInvocationReadiness: {
+            status: "not-ready",
+            reason: "backfill-service-invocation-not-wired",
+            plannedBackfillRequestCount: 1,
+            plannedSources: ["usage"],
+            plannedGranularity: "hour",
+            backfillRequestsDerivedFromRunnerPlan: true,
+            allPlannedRequestsDryRunOnly: true,
+            canInvokeBackfillService: false,
+            canReadEvents: false,
+            canPersistRollups: false,
+          },
           dryRunInvocationContract: {
             status: "contract-required-before-wiring",
             currentInvocationState: "not-wired",
@@ -299,6 +311,43 @@ describe("analytics rollup scheduler execution decision", () => {
         deletesRawEvents: false,
       },
     });
+  });
+
+  it("should expose source-aware command dry-run invocation readiness without wiring invocation", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "dry-run" },
+    );
+
+    expect(decision.wiringReview.dryRunDesignReview).toMatchObject({
+      requestedCapability: "command:dry-run",
+      currentlyWired: false,
+      dryRunInvocationReadiness: {
+        status: "not-ready",
+        reason: "backfill-service-invocation-not-wired",
+        plannedBackfillRequestCount: 2,
+        plannedSources: ["usage", "rejected"],
+        plannedGranularity: "hour",
+        backfillRequestsDerivedFromRunnerPlan: true,
+        allPlannedRequestsDryRunOnly: true,
+        canInvokeBackfillService: false,
+        canReadEvents: false,
+        canPersistRollups: false,
+      },
+    });
+    expect(decision.safety.invokesBackfillService).toBe(false);
+    expect(decision.safety.readsEvents).toBe(false);
+    expect(decision.safety.persistsRollups).toBe(false);
+    expect(decision.safety.affectsQuotaCounting).toBe(false);
+    expect(decision.safety.deletesRawEvents).toBe(false);
   });
 
   it("should preserve usage and rejected source separation in the execution decision", () => {
