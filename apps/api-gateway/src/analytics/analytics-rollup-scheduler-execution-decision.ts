@@ -89,6 +89,25 @@ export type AnalyticsRollupSchedulerCommandDryRunInvocationReadiness = {
   canPersistRollups: false;
 };
 
+export type AnalyticsRollupSchedulerCommandDryRunInvocationDesignReview = {
+  status: "review-required-before-wiring";
+  proposedInvocationBoundary: "command-to-backfill-service-dry-run";
+  proposedBackfillMode: "dry-run";
+  invocationSource: "scheduler-runner-backfill-requests";
+  commandTriggerRequired: true;
+  automaticTriggerAllowed: false;
+  executionModeAllowed: false;
+  dryRunMayInvokeBackfillServiceAfterExplicitWiring: true;
+  dryRunMayReadEvents: false;
+  dryRunMayPersistRollups: false;
+  dryRunMayAffectQuotaCounting: false;
+  dryRunMayDeleteRawEvents: false;
+  requiresPerSourceInvocation: true;
+  requiresSourceSeparation: true;
+  requiresEventLimitGuardrail: true;
+  requiresMaxBucketGuardrail: true;
+  requiresDockerPostgresRuntimeValidation: true;
+};
 export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
   | {
       status: "design-required";
@@ -104,6 +123,7 @@ export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
       quotaCountingMustRemainUnchanged: true;
       rawEventDeletionForbidden: true;
       dryRunInvocationReadiness: AnalyticsRollupSchedulerCommandDryRunInvocationReadiness;
+      dryRunInvocationDesignReview: AnalyticsRollupSchedulerCommandDryRunInvocationDesignReview;
       dryRunInvocationContract: AnalyticsRollupSchedulerCommandDryRunInvocationContract;
     }
   | null;
@@ -169,6 +189,26 @@ const COMMAND_DRY_RUN_INVOCATION_CONTRACT: AnalyticsRollupSchedulerCommandDryRun
     rawEventDeletionAllowed: false,
   };
 
+const COMMAND_DRY_RUN_INVOCATION_DESIGN_REVIEW: AnalyticsRollupSchedulerCommandDryRunInvocationDesignReview =
+  {
+    status: "review-required-before-wiring",
+    proposedInvocationBoundary: "command-to-backfill-service-dry-run",
+    proposedBackfillMode: "dry-run",
+    invocationSource: "scheduler-runner-backfill-requests",
+    commandTriggerRequired: true,
+    automaticTriggerAllowed: false,
+    executionModeAllowed: false,
+    dryRunMayInvokeBackfillServiceAfterExplicitWiring: true,
+    dryRunMayReadEvents: false,
+    dryRunMayPersistRollups: false,
+    dryRunMayAffectQuotaCounting: false,
+    dryRunMayDeleteRawEvents: false,
+    requiresPerSourceInvocation: true,
+    requiresSourceSeparation: true,
+    requiresEventLimitGuardrail: true,
+    requiresMaxBucketGuardrail: true,
+    requiresDockerPostgresRuntimeValidation: true,
+  };
 function createAnalyticsRollupSchedulerCommandDryRunInvocationReadiness(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
 ): AnalyticsRollupSchedulerCommandDryRunInvocationReadiness {
@@ -238,6 +278,7 @@ function createAnalyticsRollupSchedulerCommandDryRunDesignReview(
     rawEventDeletionForbidden: true,
     dryRunInvocationReadiness:
       createAnalyticsRollupSchedulerCommandDryRunInvocationReadiness(runnerPlan),
+    dryRunInvocationDesignReview: COMMAND_DRY_RUN_INVOCATION_DESIGN_REVIEW,
     dryRunInvocationContract: COMMAND_DRY_RUN_INVOCATION_CONTRACT,
   };
 }

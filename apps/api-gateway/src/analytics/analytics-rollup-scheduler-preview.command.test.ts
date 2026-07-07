@@ -518,6 +518,73 @@ describe("analytics rollup scheduler preview command", () => {
     });
   });
 
+  it("should expose command dry-run invocation design review in command output", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+
+    await runAnalyticsRollupSchedulerPreviewCommand([
+      "--enabled",
+      "true",
+      "--source",
+      "both",
+      "--run-at",
+      "2026-07-06T13:07:00.000Z",
+      "--granularity",
+      "hour",
+      "--execution-mode",
+      "dry-run",
+    ]);
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-service-invocation-not-wired",
+      wiringReview: {
+        requestedCapability: "command:dry-run",
+        dryRunDesignReview: {
+          currentlyWired: false,
+          dryRunInvocationDesignReview: {
+            status: "review-required-before-wiring",
+            proposedInvocationBoundary: "command-to-backfill-service-dry-run",
+            proposedBackfillMode: "dry-run",
+            invocationSource: "scheduler-runner-backfill-requests",
+            commandTriggerRequired: true,
+            automaticTriggerAllowed: false,
+            executionModeAllowed: false,
+            dryRunMayInvokeBackfillServiceAfterExplicitWiring: true,
+            dryRunMayReadEvents: false,
+            dryRunMayPersistRollups: false,
+            dryRunMayAffectQuotaCounting: false,
+            dryRunMayDeleteRawEvents: false,
+            requiresPerSourceInvocation: true,
+            requiresSourceSeparation: true,
+            requiresEventLimitGuardrail: true,
+            requiresMaxBucketGuardrail: true,
+            requiresDockerPostgresRuntimeValidation: true,
+          },
+          dryRunInvocationReadiness: {
+            plannedBackfillRequestCount: 2,
+            plannedSources: ["usage", "rejected"],
+            allPlannedRequestsDryRunOnly: true,
+            canInvokeBackfillService: false,
+            canReadEvents: false,
+            canPersistRollups: false,
+          },
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
   it("should reject invalid args before printing output", async () => {
     const consoleLog = vi
       .spyOn(console, "log")
