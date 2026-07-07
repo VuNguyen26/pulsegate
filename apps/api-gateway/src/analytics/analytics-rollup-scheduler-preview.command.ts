@@ -2,6 +2,7 @@ import { pathToFileURL } from "node:url";
 
 import { parseAnalyticsRollupSchedulePreviewArgs } from "./analytics-rollup-schedule-preview-args.js";
 import { createAnalyticsRollupSchedulePlan } from "./analytics-rollup-schedule-plan.js";
+import { createAnalyticsRollupSchedulerExecutionDecision } from "./analytics-rollup-scheduler-execution-decision.js";
 import { createAnalyticsRollupSchedulerRunnerPlan } from "./analytics-rollup-scheduler-runner.js";
 
 export const ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE = [
@@ -13,7 +14,7 @@ export const ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE = [
   "  npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1",
   "",
   "Safety:",
-  "  Preview only. Does not create scheduled jobs, invoke backfill service, execute backfill, read events, persist rollups, affect quota counting, or delete raw events.",
+  "  Preview only. Prints an execution boundary decision. Does not create scheduled jobs, invoke backfill service, execute backfill, read events, persist rollups, affect quota counting, or delete raw events.",
 ].join("\n");
 
 export async function runAnalyticsRollupSchedulerPreviewCommand(
@@ -22,8 +23,10 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
   const options = parseAnalyticsRollupSchedulePreviewArgs(argv);
   const schedulePlan = createAnalyticsRollupSchedulePlan(options);
   const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+  const executionDecision =
+    createAnalyticsRollupSchedulerExecutionDecision(runnerPlan);
 
-  console.log(JSON.stringify(runnerPlan, null, 2));
+  console.log(JSON.stringify({ ...runnerPlan, executionDecision }, null, 2));
 }
 
 function isDirectRun(): boolean {
