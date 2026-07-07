@@ -12,16 +12,38 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.39.0
+v0.42.0
 
 ## Latest Completed Sprint
 
-Sprint 40 - Rollup Scheduler Command Dry-Run Service Invocation Implementation Design
+Sprint 41 - Rollup Scheduler Command Dry-Run Service Invocation Request Mapper Design
 
 ---
 
 ## Recent Decisions
 
+### 2026-07-08 - Rollup scheduler command dry-run request mapper remains mapper-only
+
+Decision:
+
+- Add a scheduler dry-run backfill request mapper from scheduler runner backfill request contracts to dry-run AnalyticsRollupBackfillRunInput contracts.
+- Expose dryRunServiceInvocationRequestMapperDesign for command:dry-run scheduler preview output.
+- Keep currentMapperState=implemented-model-only.
+- Keep mapperCurrentlyAllowed=true but serviceInvocationCurrentlyAllowed=false.
+- Keep mapperMayInvokeBackfillService=false, mapperMayReadEvents=false, mapperMayPersistRollups=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
+- Keep command dry-run blocked with backfill-service-invocation-not-wired.
+- Keep process-local and external scheduler dry-run blocked with automatic-trigger-not-wired.
+
+Rationale:
+
+- The scheduler command should not jump from request mapping to real service invocation without a visible service adapter boundary.
+- Future wiring must define service adapter semantics, fail-closed service errors, operator safety output, source separation, event limit guardrails, max bucket guardrails, and Docker/PostgreSQL runtime validation first.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-invocation-request-mapper-design.md
+
+---
 ### 2026-07-07 - Rollup scheduler command dry-run service invocation implementation remains design-only
 
 Decision:

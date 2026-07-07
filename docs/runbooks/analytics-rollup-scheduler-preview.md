@@ -4,7 +4,7 @@
 
 This runbook covers the non-destructive analytics rollup scheduler preview command.
 
-The command converts a schedule plan into dry-run backfill request contracts, prints an execution boundary decision, and includes a wiring review, command dry-run invocation readiness model, command dry-run invocation design review, command dry-run service invocation contract review, command dry-run service invocation implementation design, and command dry-run invocation contract for future scheduler execution design.
+The command converts a schedule plan into dry-run backfill request contracts, prints an execution boundary decision, and includes a wiring review, command dry-run invocation readiness model, command dry-run invocation design review, command dry-run service invocation contract review, command dry-run service invocation implementation design, command dry-run service invocation request mapper design, and command dry-run invocation contract for future scheduler execution design.
 
 It is not a scheduler job and does not execute rollup work.
 
@@ -192,6 +192,15 @@ Expected result:
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.dryRunServiceMayPersistRollups is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.quotaCountingChangeAllowed is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.rawEventDeletionAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.status is mapper-design-added-before-service-invocation.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.currentMapperState is implemented-model-only.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.mapperCurrentlyAllowed is true.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.serviceInvocationCurrentlyAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.mapperMayInvokeBackfillService is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.mapperMayReadEvents is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.mapperMayPersistRollups is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.quotaCountingChangeAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.rawEventDeletionAllowed is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.status is contract-required-before-wiring.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.currentInvocationState is not-wired.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.triggerBoundary is command-only.
@@ -357,8 +366,9 @@ The preview output should be reviewed for:
 13. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationDesignReview for command dry-run requests.
 14. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview for command dry-run requests.
 15. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign for command dry-run requests.
-16. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract for command dry-run requests.
-17. safety flags.
+16. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign for command dry-run requests.
+17. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract for command dry-run requests.
+18. safety flags.
 
 Do not treat this command as proof that rollups were rebuilt. It does not invoke the backfill service, read events, or persist rollups.
 
@@ -377,5 +387,6 @@ Do not wire process-local or external-scheduler execution until automatic execut
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-preview-args.ts
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-runner.ts
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-execution-decision.ts
+- apps/api-gateway/src/analytics/analytics-rollup-scheduler-backfill-request-mapper.ts
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-preview.command.ts
 - apps/api-gateway/package.json
