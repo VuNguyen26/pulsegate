@@ -595,6 +595,35 @@ describe("analytics rollup scheduler preview command", () => {
             rawEventDeletionAllowed: false,
             failureBehavior: "fail-closed-before-service-invocation",
           },
+          dryRunServiceInvocationImplementationDesign: {
+            status: "implementation-design-required-before-wiring",
+            implementationBoundary:
+              "scheduler-command-dry-run-to-rollup-backfill-service",
+            currentImplementationState: "not-implemented",
+            targetTrigger: "command",
+            targetBackfillMode: "dry-run",
+            requestSource: "scheduler-runner-backfill-requests",
+            plannedInvocationCardinality: "per-source-backfill-request",
+            targetDryRunBehavior: "service-dry-run-plan-only",
+            serviceAdapterRequired: true,
+            requestMapperRequired: true,
+            requiresReadyRunnerPlan: true,
+            requiresDryRunRequestMode: true,
+            requiresNonInvokingPreviewBeforeInvocation: true,
+            requiresPerSourceInvocation: true,
+            requiresSourceSeparation: true,
+            requiresEventLimitGuardrail: true,
+            requiresMaxBucketGuardrail: true,
+            requiresOperatorSafetyOutput: true,
+            requiresFailClosedServiceErrors: true,
+            requiresDockerPostgresRuntimeValidation: true,
+            implementationCurrentlyAllowed: false,
+            serviceInvocationCurrentlyAllowed: false,
+            dryRunServiceMayReadEvents: false,
+            dryRunServiceMayPersistRollups: false,
+            quotaCountingChangeAllowed: false,
+            rawEventDeletionAllowed: false,
+          },
         },
       },
       safety: {
@@ -677,6 +706,9 @@ describe("analytics rollup scheduler preview command", () => {
       "dryRunServiceInvocationContractReview",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "dryRunServiceInvocationImplementationDesign",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "dryRunInvocationContract",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
@@ -690,6 +722,15 @@ describe("analytics rollup scheduler preview command", () => {
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "event limit guardrails",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "explicit implementation design",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "fail-closed service errors",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "operator safety output",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "Docker/PostgreSQL runtime validation",

@@ -130,6 +130,35 @@ export type AnalyticsRollupSchedulerCommandDryRunServiceInvocationContractReview
   rawEventDeletionAllowed: false;
   failureBehavior: "fail-closed-before-service-invocation";
 };
+export type AnalyticsRollupSchedulerCommandDryRunServiceInvocationImplementationDesign = {
+  status: "implementation-design-required-before-wiring";
+  implementationBoundary: "scheduler-command-dry-run-to-rollup-backfill-service";
+  currentImplementationState: "not-implemented";
+  targetTrigger: "command";
+  targetBackfillMode: "dry-run";
+  requestSource: "scheduler-runner-backfill-requests";
+  plannedInvocationCardinality: "per-source-backfill-request";
+  targetDryRunBehavior: "service-dry-run-plan-only";
+  serviceAdapterRequired: true;
+  requestMapperRequired: true;
+  requiresReadyRunnerPlan: true;
+  requiresDryRunRequestMode: true;
+  requiresNonInvokingPreviewBeforeInvocation: true;
+  requiresPerSourceInvocation: true;
+  requiresSourceSeparation: true;
+  requiresEventLimitGuardrail: true;
+  requiresMaxBucketGuardrail: true;
+  requiresOperatorSafetyOutput: true;
+  requiresFailClosedServiceErrors: true;
+  requiresDockerPostgresRuntimeValidation: true;
+  implementationCurrentlyAllowed: false;
+  serviceInvocationCurrentlyAllowed: false;
+  dryRunServiceMayReadEvents: false;
+  dryRunServiceMayPersistRollups: false;
+  quotaCountingChangeAllowed: false;
+  rawEventDeletionAllowed: false;
+};
+
 export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
   | {
       status: "design-required";
@@ -147,6 +176,7 @@ export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
       dryRunInvocationReadiness: AnalyticsRollupSchedulerCommandDryRunInvocationReadiness;
       dryRunInvocationDesignReview: AnalyticsRollupSchedulerCommandDryRunInvocationDesignReview;
       dryRunServiceInvocationContractReview: AnalyticsRollupSchedulerCommandDryRunServiceInvocationContractReview;
+      dryRunServiceInvocationImplementationDesign: AnalyticsRollupSchedulerCommandDryRunServiceInvocationImplementationDesign;
       dryRunInvocationContract: AnalyticsRollupSchedulerCommandDryRunInvocationContract;
     }
   | null;
@@ -255,6 +285,38 @@ const COMMAND_DRY_RUN_SERVICE_INVOCATION_CONTRACT_REVIEW: AnalyticsRollupSchedul
     rawEventDeletionAllowed: false,
     failureBehavior: "fail-closed-before-service-invocation",
   };
+
+const COMMAND_DRY_RUN_SERVICE_INVOCATION_IMPLEMENTATION_DESIGN: AnalyticsRollupSchedulerCommandDryRunServiceInvocationImplementationDesign =
+  {
+    status: "implementation-design-required-before-wiring",
+    implementationBoundary:
+      "scheduler-command-dry-run-to-rollup-backfill-service",
+    currentImplementationState: "not-implemented",
+    targetTrigger: "command",
+    targetBackfillMode: "dry-run",
+    requestSource: "scheduler-runner-backfill-requests",
+    plannedInvocationCardinality: "per-source-backfill-request",
+    targetDryRunBehavior: "service-dry-run-plan-only",
+    serviceAdapterRequired: true,
+    requestMapperRequired: true,
+    requiresReadyRunnerPlan: true,
+    requiresDryRunRequestMode: true,
+    requiresNonInvokingPreviewBeforeInvocation: true,
+    requiresPerSourceInvocation: true,
+    requiresSourceSeparation: true,
+    requiresEventLimitGuardrail: true,
+    requiresMaxBucketGuardrail: true,
+    requiresOperatorSafetyOutput: true,
+    requiresFailClosedServiceErrors: true,
+    requiresDockerPostgresRuntimeValidation: true,
+    implementationCurrentlyAllowed: false,
+    serviceInvocationCurrentlyAllowed: false,
+    dryRunServiceMayReadEvents: false,
+    dryRunServiceMayPersistRollups: false,
+    quotaCountingChangeAllowed: false,
+    rawEventDeletionAllowed: false,
+  };
+
 function createAnalyticsRollupSchedulerCommandDryRunInvocationReadiness(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
 ): AnalyticsRollupSchedulerCommandDryRunInvocationReadiness {
@@ -327,6 +389,8 @@ function createAnalyticsRollupSchedulerCommandDryRunDesignReview(
     dryRunInvocationDesignReview: COMMAND_DRY_RUN_INVOCATION_DESIGN_REVIEW,
     dryRunServiceInvocationContractReview:
       COMMAND_DRY_RUN_SERVICE_INVOCATION_CONTRACT_REVIEW,
+    dryRunServiceInvocationImplementationDesign:
+      COMMAND_DRY_RUN_SERVICE_INVOCATION_IMPLEMENTATION_DESIGN,
     dryRunInvocationContract: COMMAND_DRY_RUN_INVOCATION_CONTRACT,
   };
 }
