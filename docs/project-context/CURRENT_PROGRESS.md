@@ -24,36 +24,41 @@ Long decision records live in:
 
 ## Current Version
 
-v0.35.0
+v0.36.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 34 - Rollup Scheduler Execution Boundary Design
+Sprint 35 - Rollup Scheduler Execution Wiring Design Review
 
 Status:
 
 Done.
 
-Sprint 34 added a non-destructive analytics rollup scheduler execution boundary preview foundation:
+Sprint 35 kept analytics rollup scheduler execution preview-only and added a safer review layer before any real execution wiring:
 
-- Added scheduler execution decision model for command, process-local, and external-scheduler trigger visibility.
-- Added execution mode visibility for preview, dry-run, and execute decisions.
-- Exposed executionDecision in npm run analytics:rollup:scheduler-preview output while preserving the existing scheduler runner output shape.
-- Added scheduler preview args for --execution-trigger and --execution-mode.
+- Hardened scheduler preview args so the command supports both --option value and --option=value styles.
+- Preserved DB-free scheduler preview behavior.
+- Split scheduler execution blocked reasons:
+  - dry-run mode is blocked with backfill-service-invocation-not-wired.
+  - execute mode is blocked with backfill-execution-not-wired.
+- Added executionDecision.wiringReview output.
+- Made the current capability explicit as command-preview-only.
+- Made next safe wiring steps explicit:
+  - command preview should stay preview-only.
+  - command dry-run needs explicit design before backfill service invocation.
+  - command execute should not be wired before command dry-run.
+  - process-local and external-scheduler triggers should remain unwired.
 - Preserved usage/rejected source separation.
-- Allowed command-triggered preview only.
-- Blocked process-local/external-scheduler triggers because automatic execution is not wired.
-- Blocked dry-run/execute modes because backfill service invocation and execution are not wired.
 - Did not create a scheduled/background rollup job.
 - Did not invoke the backfill service or execute backfill.
 - Did not read raw events or persist rollups.
 - Did not change quota counting, usage recording, rejected event recording, rollup read APIs, summary APIs, migrations, or retention/delete paths.
 
-Sprint 34 details are archived in:
+Sprint 35 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-34.md
+- docs/sdlc/sprint-history/sprint-35.md
 
 Related runbooks:
 
@@ -64,6 +69,7 @@ Related runbooks:
 
 Related design records:
 
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-execution-wiring-review.md
 - docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-execution-boundary-design.md
 - docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-runner-design.md
 - docs/project-context/decisions/2026-07-06-analytics-rollup-scheduling-foundation.md
@@ -73,7 +79,7 @@ Related design records:
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 34:
+Latest stable validation from Sprint 35:
 
 - npm run test -> passed
 - npm run typecheck -> passed
@@ -82,15 +88,16 @@ Latest stable validation from Sprint 34:
 Latest automated test result:
 
 - 103 test files passed
-- 706 tests passed
+- 710 tests passed
 
 Manual command validation:
 
-- analytics:rollup:scheduler-preview default validation passed for an enabled both-source hourly preview.
-- analytics:rollup:scheduler-preview blocked execute validation passed with blockedReason=backfill-execution-not-wired.
-- analytics:rollup:scheduler-preview blocked process-local validation passed with blockedReason=automatic-trigger-not-wired.
+- analytics:rollup:scheduler-preview default preview validation passed with wiringReview.currentCapability=command-preview-only and recommendedNextStep=keep-command-preview-only.
+- analytics:rollup:scheduler-preview dry-run validation passed with blockedReason=backfill-service-invocation-not-wired and recommendedNextStep=design-command-dry-run-backfill-service-invocation.
+- analytics:rollup:scheduler-preview execute validation passed with blockedReason=backfill-execution-not-wired and recommendedNextStep=wire-command-dry-run-before-execute.
+- analytics:rollup:scheduler-preview process-local validation passed with blockedReason=automatic-trigger-not-wired and recommendedNextStep=keep-automatic-triggers-unwired.
 - Runtime output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
-- No Docker/PostgreSQL validation was required for Sprint 34 because the scheduler execution boundary preview is DB-free and non-destructive.
+- No Docker/PostgreSQL validation was required for Sprint 35 because the scheduler execution wiring review is DB-free and non-destructive.
 
 ---
 
@@ -152,6 +159,8 @@ PulseGate currently has:
 - Analytics rollup schedule preview command.
 - Analytics rollup scheduler runner contract.
 - Analytics rollup scheduler preview command.
+- Analytics rollup scheduler execution blocked reason review.
+- Analytics rollup scheduler execution wiring review output.
 - Internal/admin analytics rollup read endpoint.
 - Analytics retention dry-run, execution preview, repository safety, service preview, and operator preview foundations.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected analytics, quota, and rollup APIs.
@@ -257,6 +266,11 @@ Analytics rollup scheduler preview:
 
 - npm run analytics:rollup:scheduler-preview converts a schedule plan into dry-run backfill request contracts.
 - The command reports previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
+- The command exposes executionDecision.boundary and executionDecision.wiringReview.
+- wiringReview.currentCapability remains command-preview-only.
+- dry-run mode remains blocked until backfill service invocation is explicitly designed.
+- execute mode remains blocked until command dry-run is safely designed first.
+- process-local and external-scheduler triggers remain blocked.
 - No scheduled/background rollup job exists yet.
 
 Analytics retention:
@@ -288,7 +302,7 @@ Current quota scope:
 - Usage summary APIs still read raw events.
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Rollup schedule and scheduler preview commands exist, and scheduler preview exposes execution boundary decisions, but no scheduled/background rollup job yet.
+- Rollup schedule and scheduler preview commands exist, and scheduler preview exposes execution boundary decisions plus wiring review output, but no scheduled/background rollup job yet.
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
@@ -316,13 +330,14 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 35 recommended direction:
+Sprint 36 recommended direction:
 
-- Rollup Scheduler Execution Wiring Design Review or Analytics Retention Execution Design Review
+- Rollup Scheduler Command Dry-Run Design Review or Analytics Retention Execution Design Review
 
 Recommended scope:
 
-- If continuing rollups, decide whether command-triggered scheduler execution can safely invoke the backfill service.
+- If continuing rollups, design whether command-triggered dry-run may invoke the backfill service.
+- Do not jump directly from scheduler preview to execute mode.
 - Keep process-local/external-scheduler execution blocked until automatic execution semantics are explicitly designed.
 - Keep scheduler preview separate from actual event reads and persistence.
 - Keep retention execution explicit, guarded, and non-destructive unless destructive execution is separately approved.

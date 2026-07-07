@@ -12,15 +12,49 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.35.0
+v0.36.0
 
 ## Latest Completed Sprint
 
-Sprint 34 - Rollup Scheduler Execution Boundary Design
+Sprint 35 - Rollup Scheduler Execution Wiring Design Review
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-07 - Analytics rollup scheduler execution wiring stays command-preview-only until dry-run is explicitly designed
+
+Decision:
+
+- Keep npm run analytics:rollup:scheduler-preview as a DB-free, non-destructive preview command.
+- Harden scheduler preview args so both --option value and --option=value forms are accepted.
+- Keep command-triggered preview as the only allowed scheduler execution capability.
+- Split blocked reasons for future command wiring:
+  - dry-run mode is blocked with backfill-service-invocation-not-wired.
+  - execute mode is blocked with backfill-execution-not-wired.
+- Expose executionDecision.wiringReview in scheduler preview output.
+- Set wiringReview.currentCapability to command-preview-only.
+- Recommend command dry-run design before any backfill service invocation.
+- Recommend command dry-run before command execute.
+- Keep process-local and external-scheduler triggers unwired.
+- Do not create scheduled/background jobs.
+- Do not invoke the backfill service or execute backfill.
+- Do not read raw events or persist rollups.
+- Do not change quota counting, usage recording, rejected event recording, rollup read APIs, or summary APIs.
+- Do not delete raw events.
+
+Reason:
+
+- Scheduler execution should not jump directly from preview to backfill execution.
+- Command dry-run and command execute have different risk levels and need separate blocked reasons.
+- wiringReview makes the current capability and next safe wiring step visible in operator JSON output.
+- Keeping the command DB-free preserves the safe validation model from the scheduling and scheduler preview foundations.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-execution-wiring-review.md
+
+---
 
 ### 2026-07-07 - Analytics rollup scheduler execution stays preview-only and explicitly blocked unless wired
 

@@ -4,7 +4,7 @@
 
 This runbook covers the non-destructive analytics rollup scheduler preview command.
 
-The command converts a schedule plan into dry-run backfill request contracts and prints an execution boundary decision.
+The command converts a schedule plan into dry-run backfill request contracts, prints an execution boundary decision, and includes a wiring review for future scheduler execution design.
 
 It is not a scheduler job and does not execute rollup work.
 
@@ -28,6 +28,10 @@ Execution boundary preview options:
 
 - --execution-trigger <command|process-local|external-scheduler>: optional, defaults to command.
 - --execution-mode <preview|dry-run|execute>: optional, defaults to preview.
+
+Argument style:
+
+- The command accepts both --option value and --option=value forms.
 
 These execution options only affect executionDecision output. They do not execute work.
 
@@ -77,6 +81,18 @@ Expected execution decision boundary output for default preview:
       "backfillExecutionWired": false
     }
 
+Expected execution wiring review output for default preview:
+
+    {
+      "currentCapability": "command-preview-only",
+      "requestedCapability": "command:preview",
+      "recommendedNextStep": "keep-command-preview-only",
+      "requiresExplicitDesignBeforeWiring": false,
+      "requiresDockerPostgresValidationBeforeWiring": false,
+      "automaticTriggersRemainUnwired": true,
+      "executeRemainsUnwired": true
+    }
+
 ---
 
 ## Enabled Preview Example
@@ -106,6 +122,34 @@ Expected result:
 - executionDecision.boundary.trigger is command.
 - executionDecision.boundary.requestedMode is preview.
 - executionDecision.boundary.allowedMode is preview.
+- executionDecision.wiringReview.currentCapability is command-preview-only.
+- executionDecision.wiringReview.recommendedNextStep is keep-command-preview-only.
+
+---
+
+## Blocked Dry-Run Preview Example
+
+    cd E:\pulsegate
+
+    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source usage --run-at 2026-07-06T13:07:00.000Z --granularity hour --execution-mode dry-run
+
+Expected result:
+
+- Scheduler runner status is ready.
+- executionDecision.status is blocked.
+- executionDecision.allowed is false.
+- executionDecision.blockedReason is backfill-service-invocation-not-wired.
+- executionDecision.boundary.requestedMode is dry-run.
+- executionDecision.boundary.allowedMode is preview.
+- executionDecision.boundary.backfillServiceInvocationWired is false.
+- executionDecision.boundary.backfillExecutionWired is false.
+- executionDecision.wiringReview.requestedCapability is command:dry-run.
+- executionDecision.wiringReview.recommendedNextStep is design-command-dry-run-backfill-service-invocation.
+- executionDecision.wiringReview.requiresExplicitDesignBeforeWiring is true.
+- executionDecision.wiringReview.requiresDockerPostgresValidationBeforeWiring is true.
+- No backfill service is invoked.
+- No events are read.
+- No rollups are persisted.
 
 ---
 
@@ -125,6 +169,10 @@ Expected result:
 - executionDecision.boundary.allowedMode is preview.
 - executionDecision.boundary.backfillServiceInvocationWired is false.
 - executionDecision.boundary.backfillExecutionWired is false.
+- executionDecision.wiringReview.requestedCapability is command:execute.
+- executionDecision.wiringReview.recommendedNextStep is wire-command-dry-run-before-execute.
+- executionDecision.wiringReview.requiresExplicitDesignBeforeWiring is true.
+- executionDecision.wiringReview.requiresDockerPostgresValidationBeforeWiring is true.
 - No backfill service is invoked.
 - No events are read.
 - No rollups are persisted.
@@ -147,7 +195,25 @@ Expected result:
 - executionDecision.boundary.requestedMode is preview.
 - executionDecision.boundary.processLocalExecutionWired is false.
 - executionDecision.boundary.externalSchedulerExecutionWired is false.
+- executionDecision.wiringReview.requestedCapability is process-local:preview.
+- executionDecision.wiringReview.recommendedNextStep is keep-automatic-triggers-unwired.
+- executionDecision.wiringReview.requiresExplicitDesignBeforeWiring is true.
 - No scheduled/background job is created.
+
+---
+
+## Equals-Style Args Example
+
+    cd E:\pulsegate
+
+    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled=true --source=usage --run-at=2026-07-06T13:07:00.000Z --granularity=hour --execution-mode=execute
+
+Expected result:
+
+- The command accepts equals-style args.
+- executionDecision.status is blocked.
+- executionDecision.blockedReason is backfill-execution-not-wired.
+- Safety output remains non-destructive.
 
 ---
 
@@ -201,11 +267,16 @@ The preview output should be reviewed for:
 7. executionDecision.allowed.
 8. executionDecision.blockedReason.
 9. executionDecision.boundary.
-10. safety flags.
+10. executionDecision.wiringReview.
+11. safety flags.
 
 Do not treat this command as proof that rollups were rebuilt. It does not invoke the backfill service, read events, or persist rollups.
 
-Do not treat blocked execute/process-local/external-scheduler decisions as failures. They are expected until execution wiring is explicitly designed.
+Do not treat blocked dry-run/execute/process-local/external-scheduler decisions as failures. They are expected until execution wiring is explicitly designed.
+
+Do not wire execute mode before command dry-run has a safe design.
+
+Do not wire process-local or external-scheduler execution until automatic execution semantics are explicitly designed.
 
 ---
 
