@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.38.0
+- v0.39.0
 
 Latest completed sprint:
 
-- Sprint 37 - Rollup Scheduler Command Dry-Run Invocation Contract Design
+- Sprint 38 - Rollup Scheduler Command Dry-Run Invocation Design Review
 
 ---
 
@@ -52,6 +52,7 @@ PulseGate currently includes:
 - Analytics rollup scheduler execution wiring review
 - Analytics rollup scheduler command dry-run design review
 - Analytics rollup scheduler command dry-run invocation contract and readiness review
+- Analytics rollup scheduler command dry-run invocation design review
 - Internal analytics rollup read endpoint
 - Analytics retention dry-run safety foundation
 - Analytics retention dry-run command
@@ -73,14 +74,14 @@ PulseGate currently includes:
 Latest validation:
 
 - 103 test files passed
-- 714 tests passed
+- 716 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Runtime command validation passed for analytics:rollup:scheduler-preview command dry-run readiness and process-local dry-run blocked boundary cases
-- Scheduler command dry-run output exposes dryRunDesignReview, dryRunInvocationReadiness, and dryRunInvocationContract while remaining blocked with backfill-service-invocation-not-wired
+- Runtime command validation passed for analytics:rollup:scheduler-preview command dry-run invocation design review and process-local dry-run blocked boundary cases
+- Scheduler command dry-run output exposes dryRunDesignReview, dryRunInvocationReadiness, dryRunInvocationDesignReview, and dryRunInvocationContract while remaining blocked with backfill-service-invocation-not-wired
 - Process-local dry-run remains blocked with automatic-trigger-not-wired and dryRunDesignReview=null
 - Scheduler preview output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false
-- No Docker/PostgreSQL validation was required for Sprint 37 because the scheduler dry-run invocation contract design stayed DB-free and non-destructive
+- No Docker/PostgreSQL validation was required for Sprint 38 because the scheduler dry-run invocation design review stayed DB-free and non-destructive
 
 ---
 
@@ -198,6 +199,7 @@ Analytics rollup behavior:
 - Scheduler preview exposes dryRunDesignReview for command:dry-run requests while keeping the request blocked and currentlyWired=false.
 - Scheduler preview exposes dryRunInvocationContract for command:dry-run requests while keeping serviceInvocationCurrentlyAllowed=false, eventReadCurrentlyAllowed=false, rollupPersistenceCurrentlyAllowed=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
 - Scheduler preview exposes dryRunInvocationReadiness for command:dry-run requests, including plannedBackfillRequestCount, plannedSources, plannedGranularity, allPlannedRequestsDryRunOnly, canInvokeBackfillService=false, canReadEvents=false, and canPersistRollups=false.
+- Scheduler preview exposes dryRunInvocationDesignReview for command:dry-run requests, documenting the future command-to-backfill-service dry-run boundary while keeping event reads, rollup persistence, quota changes, and raw event deletion disallowed.
 - Scheduler execution decision distinguishes dry-run blocking from execute blocking: dry-run is blocked by backfill-service-invocation-not-wired, while execute is blocked by backfill-execution-not-wired.
 - Process-local dry-run remains blocked with automatic-trigger-not-wired and does not expose command dryRunDesignReview.
 - GET /internal/admin/analytics/rollups exposes read-only usage or rejected rollup rows.
@@ -320,7 +322,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-37.md
+- docs/sdlc/sprint-history/sprint-38.md
 
 Latest analytics runbooks:
 
@@ -336,20 +338,20 @@ Latest analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-invocation-contract-design.md
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-invocation-design-review.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 38 recommended direction:
+Sprint 39 recommended direction:
 
-- Rollup Scheduler Command Dry-Run Invocation Design Review or Analytics Retention Execution Design Review
+- Rollup Scheduler Command Dry-Run Service Invocation Contract Review or Analytics Retention Execution Design Review
 
 Reason:
 
-- Sprint 37 made the command dry-run invocation contract and source-aware readiness visible while keeping scheduler execution non-destructive and DB-free.
-- A future sprint may decide whether command-triggered dry-run should invoke the backfill service, but it must define service dry-run semantics, event-limit guardrails, source separation, operator output, and Docker/PostgreSQL validation before wiring.
-- Execute mode should remain blocked until command dry-run invocation is safely designed and validated.
+- Sprint 38 made the command dry-run invocation design review visible while keeping scheduler execution non-destructive and DB-free.
+- A future sprint may decide whether command-triggered dry-run should actually invoke the backfill service, but it must define service dry-run semantics, event-limit guardrails, source separation, operator output, failure behavior, and Docker/PostgreSQL validation before wiring.
+- Execute mode should remain blocked until command dry-run invocation is safely wired and validated first.
 - Process-local and external scheduler execution should remain blocked until automatic execution semantics are explicitly designed.
 - Destructive retention execution should remain unavailable until command semantics, operator controls, rollback expectations, and runtime validation are explicitly designed and approved.

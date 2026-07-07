@@ -12,16 +12,48 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.38.0
+v0.39.0
 
 ## Latest Completed Sprint
 
-Sprint 37 - Rollup Scheduler Command Dry-Run Invocation Contract Design
+Sprint 38 - Rollup Scheduler Command Dry-Run Invocation Design Review
 
 ---
 
 ## Recent Decisions
 
+### 2026-07-07 - Analytics rollup scheduler command dry-run invocation design review stays review-only
+
+Decision:
+
+- Keep npm run analytics:rollup:scheduler-preview as a DB-free, non-destructive preview command.
+- Add dryRunInvocationDesignReview under dryRunDesignReview for command:dry-run requests.
+- Keep command dry-run blocked with backfill-service-invocation-not-wired.
+- Document the future command-to-backfill-service dry-run boundary.
+- Keep commandTriggerRequired=true and automaticTriggerAllowed=false.
+- Keep executionModeAllowed=false so execute remains separate from dry-run design.
+- Keep dryRunMayReadEvents=false, dryRunMayPersistRollups=false, dryRunMayAffectQuotaCounting=false, and dryRunMayDeleteRawEvents=false.
+- Require per-source invocation, source separation, event limit guardrails, max bucket guardrails, and Docker/PostgreSQL runtime validation before future wiring.
+- Keep process-local:dry-run blocked with automatic-trigger-not-wired and dryRunDesignReview=null.
+- Keep execute mode blocked.
+- Do not create scheduled/background jobs.
+- Do not invoke the backfill service or execute backfill.
+- Do not read raw events or persist rollups.
+- Do not change quota counting, usage recording, rejected event recording, rollup read APIs, or summary APIs.
+- Do not delete raw events.
+
+Reason:
+
+- Command dry-run service invocation is the next risk boundary, so its design review must be visible before any service call is wired.
+- The design review clarifies that future dry-run invocation may only be command-triggered and guardrail-bound.
+- Keeping event reads, persistence, quota changes, and raw event deletion explicitly disallowed prevents preview output from becoming execution by accident.
+- Keeping automatic triggers separate prevents background/process-local semantics from being introduced implicitly.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-invocation-design-review.md
+
+---
 ### 2026-07-07 - Analytics rollup scheduler command dry-run invocation contract stays review-only
 
 Decision:

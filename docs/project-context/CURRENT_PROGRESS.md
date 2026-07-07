@@ -24,26 +24,28 @@ Long decision records live in:
 
 ## Current Version
 
-v0.38.0
+v0.39.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 37 - Rollup Scheduler Command Dry-Run Invocation Contract Design
+Sprint 38 - Rollup Scheduler Command Dry-Run Invocation Design Review
 
 Status:
 
 Done.
 
-Sprint 37 kept analytics rollup scheduler execution preview-only while making the future command dry-run invocation boundary more explicit:
+Sprint 38 continued the analytics rollup scheduler safety path after Sprint 37.
 
-- Added dryRunInvocationContract under dryRunDesignReview for command:dry-run requests.
-- Added dryRunInvocationReadiness under dryRunDesignReview for command:dry-run requests.
-- Exposed source-aware readiness fields: plannedBackfillRequestCount, plannedSources, plannedGranularity, backfillRequestsDerivedFromRunnerPlan, and allPlannedRequestsDryRunOnly.
+It made the future command dry-run invocation semantics more explicit without wiring real backfill service invocation:
+
+- Added dryRunInvocationDesignReview under dryRunDesignReview for command:dry-run requests.
+- Documented the future command-to-backfill-service dry-run boundary.
 - Kept command dry-run blocked with backfill-service-invocation-not-wired.
-- Kept command dry-run currentlyWired=false, serviceInvocationCurrentlyAllowed=false, eventReadCurrentlyAllowed=false, rollupPersistenceCurrentlyAllowed=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
-- Hardened skipped runner plan coverage so command:dry-run readiness reports scheduler-runner-not-ready with zero planned backfill requests.
+- Kept command dry-run currentlyWired=false.
+- Kept serviceInvocationCurrentlyAllowed=false, eventReadCurrentlyAllowed=false, rollupPersistenceCurrentlyAllowed=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
+- Kept dryRunMayReadEvents=false, dryRunMayPersistRollups=false, dryRunMayAffectQuotaCounting=false, and dryRunMayDeleteRawEvents=false.
 - Kept process-local:dry-run blocked with automatic-trigger-not-wired and dryRunDesignReview=null.
 - Preserved usage/rejected source separation.
 - Did not create a scheduled/background rollup job.
@@ -51,9 +53,9 @@ Sprint 37 kept analytics rollup scheduler execution preview-only while making th
 - Did not read raw events or persist rollups.
 - Did not change quota counting, usage recording, rejected event recording, rollup read APIs, summary APIs, migrations, or retention/delete paths.
 
-Sprint 37 details are archived in:
+Sprint 38 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-37.md
+- docs/sdlc/sprint-history/sprint-38.md
 
 Related runbooks:
 
@@ -64,6 +66,7 @@ Related runbooks:
 
 Related design records:
 
+- docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-invocation-design-review.md
 - docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-invocation-contract-design.md
 - docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-command-dry-run-design-review.md
 - docs/project-context/decisions/2026-07-07-analytics-rollup-scheduler-execution-wiring-review.md
@@ -73,10 +76,9 @@ Related design records:
 - docs/project-context/decisions/2026-07-04-usage-analytics-retention-rollup-design.md
 
 ---
-
 ## Latest Validation Status
 
-Latest stable validation from Sprint 37:
+Latest stable validation from Sprint 38:
 
 - npm run test -> passed
 - npm run typecheck -> passed
@@ -85,20 +87,20 @@ Latest stable validation from Sprint 37:
 Latest automated test result:
 
 - 103 test files passed
-- 714 tests passed
+- 716 tests passed
 
 Manual command validation:
 
 - analytics:rollup:scheduler-preview command dry-run validation passed with blockedReason=backfill-service-invocation-not-wired.
 - command:dry-run validation exposed dryRunDesignReview.status=design-required.
 - command:dry-run validation exposed dryRunInvocationReadiness with plannedBackfillRequestCount=2, plannedSources=["usage","rejected"], allPlannedRequestsDryRunOnly=true, canInvokeBackfillService=false, canReadEvents=false, and canPersistRollups=false.
+- command:dry-run validation exposed dryRunInvocationDesignReview with proposedInvocationBoundary=command-to-backfill-service-dry-run, commandTriggerRequired=true, automaticTriggerAllowed=false, dryRunMayReadEvents=false, dryRunMayPersistRollups=false, dryRunMayAffectQuotaCounting=false, and dryRunMayDeleteRawEvents=false.
 - command:dry-run validation exposed dryRunInvocationContract with currentInvocationState=not-wired, triggerBoundary=command-only, requiredBackfillMode=dry-run, and all current invocation permissions false.
 - analytics:rollup:scheduler-preview process-local dry-run validation passed with blockedReason=automatic-trigger-not-wired and dryRunDesignReview=null.
 - Runtime output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
-- No Docker/PostgreSQL validation was required for Sprint 37 because the scheduler command dry-run invocation contract design is DB-free and non-destructive.
+- No Docker/PostgreSQL validation was required for Sprint 38 because the scheduler command dry-run invocation design review is DB-free and non-destructive.
 
 ---
-
 ## Current Architecture Summary
 
 PulseGate currently has:
@@ -162,6 +164,7 @@ PulseGate currently has:
 - Analytics rollup scheduler command dry-run design review output.
 - Analytics rollup scheduler command dry-run invocation contract output.
 - Analytics rollup scheduler command dry-run readiness review output.
+- Analytics rollup scheduler command dry-run invocation design review output.
 - Internal/admin analytics rollup read endpoint.
 - Analytics retention dry-run, execution preview, repository safety, service preview, and operator preview foundations.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected analytics, quota, and rollup APIs.
@@ -273,6 +276,7 @@ Analytics rollup scheduler preview:
 - command:dry-run exposes dryRunDesignReview with currentlyWired=false and required pre-wiring guardrails.
 - command:dry-run exposes dryRunInvocationContract with command-only, dry-run-only, per-source, source-separated, event-limit guarded, max-bucket guarded, Docker/PostgreSQL validation-required future wiring requirements.
 - command:dry-run exposes dryRunInvocationReadiness with planned request count/source/granularity information while keeping canInvokeBackfillService=false, canReadEvents=false, and canPersistRollups=false.
+- command:dry-run exposes dryRunInvocationDesignReview with future command-to-backfill-service dry-run semantics while keeping event reads, persistence, quota changes, and raw event deletion disallowed.
 - process-local:dry-run remains blocked with automatic-trigger-not-wired and dryRunDesignReview=null.
 - execute mode remains blocked until command dry-run is safely designed first.
 - process-local and external-scheduler triggers remain blocked.
@@ -335,14 +339,14 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 38 recommended direction:
+Sprint 39 recommended direction:
 
-- Rollup Scheduler Command Dry-Run Invocation Design Review or Analytics Retention Execution Design Review
+- Rollup Scheduler Command Dry-Run Service Invocation Contract Review or Analytics Retention Execution Design Review
 
 Recommended scope:
 
-- If continuing rollups, decide whether command-triggered dry-run may invoke the backfill service.
-- Define command dry-run service semantics before wiring: service dry-run contract, source separation, event limit guardrails, max bucket guardrails, operator output, and Docker/PostgreSQL runtime validation.
+- If continuing rollups, decide whether command-triggered dry-run may invoke the backfill service under an explicit service invocation contract.
+- Define command dry-run service semantics before wiring: service dry-run contract, source separation, event limit guardrails, max bucket guardrails, operator output, failure behavior, and Docker/PostgreSQL runtime validation.
 - Do not jump directly from scheduler preview to execute mode.
 - Keep process-local/external-scheduler execution blocked until automatic execution semantics are explicitly designed.
 - Keep scheduler preview separate from actual event reads and persistence until approved.
@@ -352,7 +356,6 @@ Recommended scope:
 - Do not expose a destructive execute command until explicitly approved.
 
 ---
-
 ## Working Style
 
 Continue using small stable checkpoints:
