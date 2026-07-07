@@ -14,6 +14,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "analytics:rollup:backfill": "tsx src/analytics/analytics-rollup-backfill.command.ts",
     "analytics:rollup:schedule-preview": "tsx src/analytics/analytics-rollup-schedule-preview.command.ts",
+    "analytics:rollup:scheduler-preview": "tsx src/analytics/analytics-rollup-scheduler-preview.command.ts",
     "analytics:retention:dry-run": "tsx src/analytics/analytics-retention-dry-run.command.ts",
     "analytics:retention:execution-preview": "tsx src/analytics/analytics-retention-execution-preview.command.ts",
     "analytics:retention:operator-preview": "tsx src/analytics/analytics-retention-operator-preview.command.ts"
