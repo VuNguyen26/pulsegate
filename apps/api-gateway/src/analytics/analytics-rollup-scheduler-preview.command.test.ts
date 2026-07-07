@@ -376,6 +376,50 @@ describe("analytics rollup scheduler preview command", () => {
     });
   });
 
+  it("should expose scheduler execution wiring review without wiring execution", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+
+    await runAnalyticsRollupSchedulerPreviewCommand([
+      "--enabled",
+      "true",
+      "--source",
+      "usage",
+      "--run-at",
+      "2026-07-06T13:07:00.000Z",
+      "--granularity",
+      "hour",
+      "--execution-mode",
+      "dry-run",
+    ]);
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-service-invocation-not-wired",
+      wiringReview: {
+        currentCapability: "command-preview-only",
+        requestedCapability: "command:dry-run",
+        recommendedNextStep: "design-command-dry-run-backfill-service-invocation",
+        requiresExplicitDesignBeforeWiring: true,
+        requiresDockerPostgresValidationBeforeWiring: true,
+        automaticTriggersRemainUnwired: true,
+        executeRemainsUnwired: true,
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
   it("should reject invalid args before printing output", async () => {
     const consoleLog = vi
       .spyOn(console, "log")

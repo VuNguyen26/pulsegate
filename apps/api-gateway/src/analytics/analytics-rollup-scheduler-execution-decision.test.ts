@@ -40,6 +40,15 @@ describe("analytics rollup scheduler execution decision", () => {
         backfillServiceInvocationWired: false,
         backfillExecutionWired: false,
       },
+      wiringReview: {
+        currentCapability: "command-preview-only",
+        requestedCapability: "command:preview",
+        recommendedNextStep: "keep-command-preview-only",
+        requiresExplicitDesignBeforeWiring: false,
+        requiresDockerPostgresValidationBeforeWiring: false,
+        automaticTriggersRemainUnwired: true,
+        executeRemainsUnwired: true,
+      },
       safety: {
         previewOnly: true,
         createsScheduledJob: false,
@@ -101,6 +110,15 @@ describe("analytics rollup scheduler execution decision", () => {
         processLocalExecutionWired: false,
         externalSchedulerExecutionWired: false,
       },
+      wiringReview: {
+        currentCapability: "command-preview-only",
+        requestedCapability: "process-local:preview",
+        recommendedNextStep: "keep-automatic-triggers-unwired",
+        requiresExplicitDesignBeforeWiring: true,
+        requiresDockerPostgresValidationBeforeWiring: false,
+        automaticTriggersRemainUnwired: true,
+        executeRemainsUnwired: true,
+      },
     });
     expect(externalSchedulerDecision).toMatchObject({
       status: "blocked",
@@ -138,6 +156,15 @@ describe("analytics rollup scheduler execution decision", () => {
         backfillServiceInvocationWired: false,
         backfillExecutionWired: false,
       },
+      wiringReview: {
+        currentCapability: "command-preview-only",
+        requestedCapability: "command:dry-run",
+        recommendedNextStep: "design-command-dry-run-backfill-service-invocation",
+        requiresExplicitDesignBeforeWiring: true,
+        requiresDockerPostgresValidationBeforeWiring: true,
+        automaticTriggersRemainUnwired: true,
+        executeRemainsUnwired: true,
+      },
       safety: {
         invokesBackfillService: false,
         executesBackfill: false,
@@ -172,6 +199,15 @@ describe("analytics rollup scheduler execution decision", () => {
         allowedMode: "preview",
         backfillServiceInvocationWired: false,
         backfillExecutionWired: false,
+      },
+      wiringReview: {
+        currentCapability: "command-preview-only",
+        requestedCapability: "command:execute",
+        recommendedNextStep: "wire-command-dry-run-before-execute",
+        requiresExplicitDesignBeforeWiring: true,
+        requiresDockerPostgresValidationBeforeWiring: true,
+        automaticTriggersRemainUnwired: true,
+        executeRemainsUnwired: true,
       },
       safety: {
         invokesBackfillService: false,

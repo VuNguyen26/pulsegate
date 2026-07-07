@@ -50,6 +50,22 @@ export type AnalyticsRollupSchedulerExecutionDecisionSafety = {
   deletesRawEvents: false;
 };
 
+export type AnalyticsRollupSchedulerExecutionRecommendedNextStep =
+  | "keep-command-preview-only"
+  | "design-command-dry-run-backfill-service-invocation"
+  | "wire-command-dry-run-before-execute"
+  | "keep-automatic-triggers-unwired";
+
+export type AnalyticsRollupSchedulerExecutionWiringReview = {
+  currentCapability: "command-preview-only";
+  requestedCapability: `${AnalyticsRollupSchedulerExecutionTrigger}:${AnalyticsRollupSchedulerExecutionMode}`;
+  recommendedNextStep: AnalyticsRollupSchedulerExecutionRecommendedNextStep;
+  requiresExplicitDesignBeforeWiring: boolean;
+  requiresDockerPostgresValidationBeforeWiring: boolean;
+  automaticTriggersRemainUnwired: true;
+  executeRemainsUnwired: true;
+};
+
 export type AnalyticsRollupSchedulerExecutionDecision = {
   kind: AnalyticsRollupSchedulerExecutionDecisionKind;
   status: AnalyticsRollupSchedulerExecutionDecisionStatus;
@@ -65,6 +81,7 @@ export type AnalyticsRollupSchedulerExecutionDecision = {
   bucketCount: number;
   backfillRequestCount: number;
   boundary: AnalyticsRollupSchedulerExecutionBoundary;
+  wiringReview: AnalyticsRollupSchedulerExecutionWiringReview;
   safety: AnalyticsRollupSchedulerExecutionDecisionSafety;
 };
 
@@ -80,6 +97,40 @@ const EXECUTION_DECISION_SAFETY: AnalyticsRollupSchedulerExecutionDecisionSafety
     deletesRawEvents: false,
   };
 
+function resolveRecommendedNextStep(
+  trigger: AnalyticsRollupSchedulerExecutionTrigger,
+  requestedMode: AnalyticsRollupSchedulerExecutionMode,
+): AnalyticsRollupSchedulerExecutionRecommendedNextStep {
+  if (trigger !== "command") {
+    return "keep-automatic-triggers-unwired";
+  }
+
+  if (requestedMode === "dry-run") {
+    return "design-command-dry-run-backfill-service-invocation";
+  }
+
+  if (requestedMode === "execute") {
+    return "wire-command-dry-run-before-execute";
+  }
+
+  return "keep-command-preview-only";
+}
+
+function createAnalyticsRollupSchedulerExecutionWiringReview(
+  trigger: AnalyticsRollupSchedulerExecutionTrigger,
+  requestedMode: AnalyticsRollupSchedulerExecutionMode,
+): AnalyticsRollupSchedulerExecutionWiringReview {
+  return {
+    currentCapability: "command-preview-only",
+    requestedCapability: `${trigger}:${requestedMode}`,
+    recommendedNextStep: resolveRecommendedNextStep(trigger, requestedMode),
+    requiresExplicitDesignBeforeWiring:
+      trigger !== "command" || requestedMode !== "preview",
+    requiresDockerPostgresValidationBeforeWiring: requestedMode !== "preview",
+    automaticTriggersRemainUnwired: true,
+    executeRemainsUnwired: true,
+  };
+}
 function resolveBlockedReason(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
@@ -141,6 +192,10 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
       backfillServiceInvocationWired: false,
       backfillExecutionWired: false,
     },
+    wiringReview: createAnalyticsRollupSchedulerExecutionWiringReview(
+      trigger,
+      requestedMode,
+    ),
     safety: EXECUTION_DECISION_SAFETY,
   };
 }
