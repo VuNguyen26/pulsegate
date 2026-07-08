@@ -12,17 +12,41 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.47.0
+v0.48.0
 
 ## Latest Completed Sprint
 
-Sprint 46 - Command Dry-Run Service Invocation Wiring Contract
+Sprint 47 - Command Dry-Run Service Invocation Runtime Wiring
 
 ---
 
 ## Recent Decisions
 
+### 2026-07-08 - Rollup scheduler command dry-run runtime service invocation is wired command-only
 
+Decision:
+
+- Wire direct CLI command dry-run to call AnalyticsRollupBackfillService.runBackfill in dry-run mode only.
+- Require explicit --event-limit before runtime service invocation.
+- Use mapped dry-run service inputs and preserve one invocation per planned source.
+- Expose dryRunServiceInvocationResults with source-separated service-dry-run-invoked results.
+- Expose runtimeConsistency with status=runtime-dry-run-service-invocation-wired.
+- Keep dry-run without --event-limit blocked with backfill-service-invocation-not-wired.
+- Keep process-local and external scheduler execution blocked with automatic-trigger-not-wired.
+- Keep execute mode blocked with backfill-execution-not-wired.
+- Do not create scheduled/background jobs.
+- Do not execute backfill, read events through service dry-run, persist rollups through service dry-run, affect quota counting, or delete raw events.
+
+Rationale:
+
+- Sprint 46 defined the wiring contract, so Sprint 47 could safely introduce the direct command dry-run service invocation boundary.
+- The runtime path remains command-only and dry-run-only to avoid introducing background scheduler semantics or execute-mode risk.
+- Docker/PostgreSQL validation is required because the direct CLI path now resolves a Prisma-backed runtime service factory.
+- Keeping service dry-run plan-only protects quota correctness, usage/rejected source separation, and raw event safety.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-invocation-runtime-wiring.md
 
 ### 2026-07-08 - Rollup scheduler command dry-run service invocation wiring contract remains non-invoking
 

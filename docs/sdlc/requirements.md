@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.47.0
+v0.48.0
 
 ## Latest Completed Sprint
 
-Sprint 46 - Command Dry-Run Service Invocation Wiring Contract
+Sprint 47 - Command Dry-Run Service Invocation Runtime Wiring
 
 ---
 
@@ -301,7 +301,7 @@ PulseGate shall keep a clear design path for high-volume analytics storage lifec
 
 Status:
 
-Designed. Rollup calculation, persistence, manual backfill, read model, schedule preview, scheduler runner preview, retention dry-run, retention execution guardrail, retention repository safety, and retention execution service preview foundations and scheduler command dry-run design review, scheduler command dry-run invocation contract review, scheduler command dry-run readiness review, scheduler command dry-run invocation design review, and scheduler command dry-run service invocation contract review, and scheduler command dry-run service invocation implementation design, scheduler command dry-run service invocation wiring readiness review, scheduler command dry-run service invocation fail-closed error model, scheduler command dry-run service invocation wiring contract, scheduler command dry-run service invocation request mapper design, scheduler command dry-run service adapter boundary design, and scheduler command dry-run service adapter preview output integration are implemented.
+Designed. Rollup calculation, persistence, manual backfill, read model, schedule preview, scheduler runner preview, retention dry-run, retention execution guardrail, retention repository safety, and retention execution service preview foundations and scheduler command dry-run design review, scheduler command dry-run invocation contract review, scheduler command dry-run readiness review, scheduler command dry-run invocation design review, and scheduler command dry-run service invocation contract review, and scheduler command dry-run service invocation implementation design, scheduler command dry-run service invocation wiring readiness review, scheduler command dry-run service invocation fail-closed error model, scheduler command dry-run service invocation wiring contract, scheduler command dry-run service invocation request mapper design, scheduler command dry-run service adapter boundary design, scheduler command dry-run service adapter preview output integration, and scheduler command dry-run runtime service invocation are implemented.
 
 ---
 
@@ -1008,6 +1008,40 @@ Required behavior:
 Status:
 
 Implemented as non-destructive scheduler command dry-run service invocation wiring contract output.
+
+---
+### FR-049 Analytics Rollup Scheduler Command Dry-Run Runtime Service Invocation
+
+PulseGate shall wire direct CLI command dry-run to call AnalyticsRollupBackfillService.runBackfill in dry-run mode only.
+
+Current command:
+
+- npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source <usage|rejected|both> --run-at <iso> --granularity <hour|day> --lookback-buckets <n> --max-buckets <n> --execution-mode dry-run --event-limit <n>
+
+Required behavior:
+
+- Invoke the rollup backfill service only for direct command-triggered dry-run requests.
+- Require explicit positive --event-limit.
+- Preserve one mapped dry-run service invocation per planned source.
+- Preserve usage and rejected source separation.
+- Use AnalyticsRollupBackfillService.runBackfill with plan.mode=dry-run only.
+- Expose dryRunServiceInvocationResults with source-scoped service-dry-run-invoked results.
+- Expose runtimeConsistency with status=runtime-dry-run-service-invocation-wired.
+- Keep process-local and external-scheduler dry-run blocked with automatic-trigger-not-wired.
+- Keep execute mode blocked with backfill-execution-not-wired.
+- Keep dry-run without --event-limit blocked with backfill-service-invocation-not-wired.
+- Do not create scheduled/background jobs.
+- Do not execute backfill.
+- Do not read events through service dry-run.
+- Do not persist rollups through service dry-run.
+- Do not affect quota counting.
+- Do not delete raw events.
+- Require Docker/PostgreSQL runtime validation.
+
+Status:
+
+Implemented as command-only, dry-run-only runtime service invocation.
+
 ## Current Non-Functional Requirements
 
 ### NFR-001 Type Safety
@@ -1027,7 +1061,7 @@ Implemented.
 Current result:
 
 - 105 test files passed
-- 744 tests passed
+- 756 tests passed
 
 Validation:
 
@@ -1055,12 +1089,13 @@ Implemented.
 
 Latest validation:
 
-- Sprint 46 final automated validation passed with 105 test files and 744 tests.
+- Sprint 47 final automated validation passed with 105 test files and 756 tests.
 - npm run typecheck passed.
 - npm run build passed.
-- Runtime command validation passed for analytics:rollup:scheduler-preview command dry-run service invocation wiring contract output.
-- Scheduler preview output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
-- No Docker/PostgreSQL validation was required for Sprint 46 because the scheduler command dry-run service invocation wiring contract is DB-free, model/test/command-output-only, and non-destructive.
+- Docker/PostgreSQL runtime validation passed for scheduler command dry-run runtime service invocation.
+- Runtime command dry-run reached dry-run-ready and emitted source-separated dryRunServiceInvocationResults.
+- Runtime blocked-path validation passed for dry-run without event-limit, process-local dry-run, and execute mode.
+- Scheduler runtime output preserved no scheduled jobs, no execute backfill, no event reads, no rollup persistence, no quota mutation, and no raw event deletion.
 
 Status:
 
@@ -1069,7 +1104,7 @@ Implemented.
 ---
 ### NFR-005 Observability
 
-Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, retention dry-run candidate previews, retention execution guard previews, retention repository safety tests, and retention execution service preview tests, retention operator preview command tests, retention operator preview fail-fast/usage contract tests, and rollup schedule preview command tests, scheduler runner contract tests, scheduler execution decision tests, scheduler preview args tests, scheduler preview command tests, and scheduler preview safety contract tests, scheduler preview args contract tests, scheduler execution blocked reason tests, and scheduler execution wiring review tests, scheduler command dry-run design review tests, scheduler command dry-run invocation contract tests, scheduler command dry-run readiness tests, scheduler command dry-run invocation design review tests, scheduler command dry-run service invocation contract review tests, scheduler command dry-run service invocation implementation design tests, scheduler command dry-run service invocation wiring readiness review tests, scheduler command dry-run service invocation fail-closed error model tests, scheduler command dry-run service invocation wiring contract tests, scheduler command dry-run wiring contract command output tests, scheduler command dry-run backfill request mapper tests, scheduler command dry-run request mapper design tests, scheduler command dry-run service adapter boundary design tests, scheduler command dry-run service adapter contract tests, scheduler command dry-run adapter preview output tests, and automatic dry-run boundary tests.
+Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, retention dry-run candidate previews, retention execution guard previews, retention repository safety tests, and retention execution service preview tests, retention operator preview command tests, retention operator preview fail-fast/usage contract tests, and rollup schedule preview command tests, scheduler runner contract tests, scheduler execution decision tests, scheduler preview args tests, scheduler preview command tests, and scheduler preview safety contract tests, scheduler preview args contract tests, scheduler execution blocked reason tests, and scheduler execution wiring review tests, scheduler command dry-run design review tests, scheduler command dry-run invocation contract tests, scheduler command dry-run readiness tests, scheduler command dry-run invocation design review tests, scheduler command dry-run service invocation contract review tests, scheduler command dry-run service invocation implementation design tests, scheduler command dry-run service invocation wiring readiness review tests, scheduler command dry-run service invocation fail-closed error model tests, scheduler command dry-run service invocation wiring contract tests, scheduler command dry-run wiring contract command output tests, scheduler command dry-run backfill request mapper tests, scheduler command dry-run request mapper design tests, scheduler command dry-run service adapter boundary design tests, scheduler command dry-run service adapter contract tests, scheduler command dry-run adapter preview output tests, scheduler command dry-run runtime service invocation tests, runtime consistency output tests, blocked runtime path tests, and automatic dry-run boundary tests.
 
 Status:
 
@@ -1095,7 +1130,7 @@ Implemented.
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
-- Rollup schedule and scheduler preview commands exist, and scheduler preview exposes execution boundary decisions plus wiring review output, including command dry-run service invocation contract review, implementation design, wiring readiness review, fail-closed error model, wiring contract, request mapper design, service adapter boundary design, and service adapter preview output integration, but no scheduled/background rollup job yet.
+- Rollup schedule and scheduler preview commands exist, and direct command dry-run runtime service invocation is wired and validated, but no scheduled/background rollup job, process-local scheduler, external scheduler, or execute mode exists yet.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
 - No quota usage Grafana dashboard yet.
@@ -1120,7 +1155,7 @@ Implemented.
 
 Recommended next:
 
-- Wire command dry-run to call AnalyticsRollupBackfillService.runBackfill in dry-run mode only, with Docker/PostgreSQL runtime validation and no execute-mode behavior.
+- Harden command dry-run runtime output, fail-closed service error handling, source separation, event-limit guardrails, and max-bucket guardrails before any execute-mode behavior.
 - Keep retention execution explicit, limited, and blocked from operator-facing delete until approved.
 - Switch selected long-range analytics reads to rollups later after explicit design.
 - Add Grafana panels for quota, usage, rejected traffic, rollups, and retention dry-run candidates later.

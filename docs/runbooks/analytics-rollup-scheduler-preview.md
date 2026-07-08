@@ -2,9 +2,13 @@
 
 ## Scope
 
-This runbook covers the non-destructive analytics rollup scheduler preview command.
+This runbook covers the analytics rollup scheduler preview command.
 
-The command converts a schedule plan into dry-run backfill request contracts, prints an execution boundary decision, and includes a wiring review, command dry-run invocation readiness model, command dry-run invocation design review, command dry-run service invocation contract review, command dry-run service invocation implementation design, command dry-run service invocation wiring readiness review, command dry-run service invocation fail-closed error model, command dry-run service invocation wiring contract, command dry-run service invocation request mapper design, command dry-run service adapter boundary design, and command dry-run invocation contract for future scheduler execution design.
+The command can run in three safe operator-visible modes:
+
+- Default preview: plans scheduler dry-run backfill request contracts without invoking the backfill service.
+- Direct command dry-run with --event-limit: invokes AnalyticsRollupBackfillService.runBackfill in dry-run mode only and prints source-separated dryRunServiceInvocationResults.
+- Blocked review paths: dry-run without event-limit, process-local dry-run, external scheduler dry-run, and execute mode remain blocked.
 
 It is not a scheduler job and does not execute rollup work.
 
@@ -24,25 +28,21 @@ Schedule options:
 - --safety-delay-ms <n>: optional non-negative integer, defaults to 300000.
 - --max-buckets <n>: optional positive integer guardrail.
 
-Execution boundary preview options:
+Execution boundary options:
 
 - --execution-trigger <command|process-local|external-scheduler>: optional, defaults to command.
 - --execution-mode <preview|dry-run|execute>: optional, defaults to preview.
-- --event-limit <n>: optional positive integer used only to expose command dry-run service adapter previews and related command dry-run service invocation review output.
+- --event-limit <n>: positive integer required for direct command dry-run runtime service invocation.
 
 Argument style:
 
 - The command accepts both --option value and --option=value forms.
 
-These execution options only affect executionDecision output. They do not execute work. --event-limit enables DB-free adapter preview output only for command:dry-run.
-
 ---
 
 ## Safety Model
 
-The command is preview-only.
-
-It does not:
+Default preview and blocked paths do not:
 
 - Create scheduled/background jobs.
 - Invoke the backfill service.
@@ -56,44 +56,37 @@ It does not:
 - Connect to PostgreSQL.
 - Use Prisma.
 
-Expected runner safety output:
+Direct command dry-run with --event-limit does:
 
-    {
-      "previewOnly": true,
-      "createsScheduledJob": false,
-      "invokesBackfillService": false,
-      "executesBackfill": false,
-      "readsEvents": false,
-      "persistsRollups": false,
-      "affectsQuotaCounting": false,
-      "deletesRawEvents": false
-    }
+- Resolve a Prisma-backed runtime AnalyticsRollupBackfillService factory.
+- Invoke AnalyticsRollupBackfillService.runBackfill in dry-run mode only.
+- Emit dryRunServiceInvocationResults.
 
-Expected execution decision boundary output for default preview:
+Direct command dry-run still does not:
 
-    {
-      "trigger": "command",
-      "requestedMode": "preview",
-      "allowedMode": "preview",
-      "commandTriggeredOnly": true,
-      "processLocalExecutionWired": false,
-      "externalSchedulerExecutionWired": false,
-      "backfillServiceInvocationWired": false,
-      "backfillExecutionWired": false
-    }
+- Create scheduled/background jobs.
+- Execute backfill.
+- Read raw events through service dry-run.
+- Persist rollups through service dry-run.
+- Affect quota counting.
+- Delete raw events.
 
-Expected execution wiring review output for default preview:
+---
 
-    {
-      "currentCapability": "command-preview-only",
-      "requestedCapability": "command:preview",
-      "recommendedNextStep": "keep-command-preview-only",
-      "requiresExplicitDesignBeforeWiring": false,
-      "requiresDockerPostgresValidationBeforeWiring": false,
-      "dryRunDesignReview": null,
-      "automaticTriggersRemainUnwired": true,
-      "executeRemainsUnwired": true
-    }
+## Docker/PostgreSQL Setup for Runtime Dry-Run
+
+From the host:
+
+    cd E:\pulsegate
+
+    $env:DATABASE_URL = "postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
+
+    docker compose up -d postgres
+    docker compose ps postgres
+
+    npm run db:migrate:deploy --workspace api-gateway
+
+The database migration step should report no pending migrations after the local schema is current.
 
 ---
 
@@ -107,206 +100,121 @@ Expected result:
 
 - kind is analytics-rollup-scheduler-runner.
 - mode is preview.
-- enabled is true.
 - status is ready.
 - scheduleStatus is planned.
-- source is both.
 - sources contains usage and rejected.
-- bucketCount is 1.
 - backfillRequests contains dry-run contracts for usage and rejected.
 - willInvokeBackfillService is false.
 - willReadEvents is false.
 - willPersistRollups is false.
-- safety.previewOnly is true.
-- executionDecision.kind is analytics-rollup-scheduler-execution-decision.
 - executionDecision.status is preview-ready.
 - executionDecision.allowed is true.
-- executionDecision.boundary.trigger is command.
-- executionDecision.boundary.requestedMode is preview.
-- executionDecision.boundary.allowedMode is preview.
-- executionDecision.wiringReview.currentCapability is command-preview-only.
-- executionDecision.wiringReview.recommendedNextStep is keep-command-preview-only.
-
----
-
-## Blocked Dry-Run Preview Example
-
-    cd E:\pulsegate
-
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source usage --run-at 2026-07-06T13:07:00.000Z --granularity hour --execution-mode dry-run
-
-Expected result:
-
-- Scheduler runner status is ready.
-- executionDecision.status is blocked.
-- executionDecision.allowed is false.
-- executionDecision.blockedReason is backfill-service-invocation-not-wired.
-- executionDecision.boundary.requestedMode is dry-run.
 - executionDecision.boundary.allowedMode is preview.
 - executionDecision.boundary.backfillServiceInvocationWired is false.
-- executionDecision.boundary.backfillExecutionWired is false.
-- executionDecision.wiringReview.requestedCapability is command:dry-run.
-- executionDecision.wiringReview.recommendedNextStep is design-command-dry-run-backfill-service-invocation.
-- executionDecision.wiringReview.requiresExplicitDesignBeforeWiring is true.
-- executionDecision.wiringReview.requiresDockerPostgresValidationBeforeWiring is true.
-- executionDecision.wiringReview.dryRunDesignReview.status is design-required.
-- executionDecision.wiringReview.dryRunDesignReview.currentlyWired is false.
-- executionDecision.wiringReview.dryRunDesignReview.mustRemainNonDestructive is true.
-- executionDecision.wiringReview.dryRunDesignReview.requiresBackfillServiceDryRunContract is true.
-- executionDecision.wiringReview.dryRunDesignReview.requiresEventLimitGuardrail is true.
-- executionDecision.wiringReview.dryRunDesignReview.requiresSourceSeparation is true.
-- executionDecision.wiringReview.dryRunDesignReview.requiresDockerPostgresRuntimeValidation is true.
-- executionDecision.wiringReview.dryRunDesignReview.quotaCountingMustRemainUnchanged is true.
-- executionDecision.wiringReview.dryRunDesignReview.rawEventDeletionForbidden is true.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.status is not-ready.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.reason is backfill-service-invocation-not-wired.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.plannedBackfillRequestCount matches the scheduler runner backfill request count.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.plannedSources matches the scheduler runner sources.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.allPlannedRequestsDryRunOnly is true.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.canInvokeBackfillService is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.canReadEvents is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness.canPersistRollups is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationDesignReview.status is review-required-before-wiring.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationDesignReview.proposedInvocationBoundary is command-to-backfill-service-dry-run.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationDesignReview.commandTriggerRequired is true.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationDesignReview.automaticTriggerAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationDesignReview.executionModeAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationDesignReview.dryRunMayReadEvents is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationDesignReview.dryRunMayPersistRollups is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationDesignReview.dryRunMayAffectQuotaCounting is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationDesignReview.dryRunMayDeleteRawEvents is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview.status is review-required-before-service-invocation.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview.serviceBoundary is scheduler-command-to-rollup-backfill-service.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview.currentServiceInvocationState is not-wired.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview.serviceInvocationCurrentlyAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview.dryRunServiceMayReadEvents is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview.dryRunServiceMayPersistRollups is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview.quotaCountingChangeAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview.rawEventDeletionAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.status is implementation-design-required-before-wiring.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.implementationBoundary is scheduler-command-dry-run-to-rollup-backfill-service.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.currentImplementationState is not-implemented.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.targetDryRunBehavior is service-dry-run-plan-only.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.implementationCurrentlyAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.serviceInvocationCurrentlyAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.dryRunServiceMayReadEvents is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.dryRunServiceMayPersistRollups is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.quotaCountingChangeAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign.rawEventDeletionAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview.status is wiring-readiness-review-required-before-service-invocation.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview.currentWiringState is not-wired.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview.targetTrigger is command.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview.targetBackfillMode is dry-run.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview.targetServiceMethod is runBackfill.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview.requiresAdapterPreviewsBeforeWiring is true.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview.readyForServiceInvocationWiring is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview.serviceInvocationCurrentlyAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview.mayReadEventsThroughServiceDryRun is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview.mayPersistRollupsThroughServiceDryRun is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview.quotaCountingChangeAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview.rawEventDeletionAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel.status is fail-closed-error-model-required-before-service-invocation.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel.failureState is blocked.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel.blockedReason is backfill-service-invocation-not-wired.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel.serviceInvocationCurrentlyAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel.partialPersistenceAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel.quotaCountingChangeAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel.rawEventDeletionAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.status is wiring-contract-required-before-service-invocation.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.currentWiringState is not-wired.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.targetTrigger is command.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.targetBackfillMode is dry-run.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.targetServiceMethod is runBackfill.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.requestContract.inputSource is mapped-dry-run-service-inputs.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.requestContract.requiresExplicitEventLimit is true.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.requestContract.requiresMaxBucketBound is true.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.responseContract.sourceScopedResultsRequired is true.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.operatorOutputContract.includeNoQuotaMutationStatement is true.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.operatorOutputContract.includeNoRawEventDeletionStatement is true.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.backfillServiceInvocationWired is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.serviceInvocationCurrentlyAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.quotaCountingChangeAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.rawEventDeletionAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.status is mapper-design-added-before-service-invocation.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.currentMapperState is implemented-model-only.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.mapperCurrentlyAllowed is true.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.serviceInvocationCurrentlyAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.mapperMayInvokeBackfillService is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.mapperMayReadEvents is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.mapperMayPersistRollups is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.quotaCountingChangeAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.rawEventDeletionAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.status is adapter-boundary-design-required-before-service-invocation.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.currentAdapterState is not-implemented.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.targetDryRunBehavior is service-dry-run-plan-only.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.adapterCurrentlyAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.serviceInvocationCurrentlyAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.adapterMayInvokeBackfillService is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.adapterMayReadEvents is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.adapterMayPersistRollups is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.quotaCountingChangeAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.rawEventDeletionAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterPreviews is null when --event-limit is not provided.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.status is contract-required-before-wiring.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.currentInvocationState is not-wired.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.triggerBoundary is command-only.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.requiredBackfillMode is dry-run.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.serviceInvocationCurrentlyAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.eventReadCurrentlyAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.rollupPersistenceCurrentlyAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.quotaCountingChangeAllowed is false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.rawEventDeletionAllowed is false.
-- No backfill service is invoked.
-- No events are read.
-- No rollups are persisted.
-
+- executionDecision.wiringReview.runtimeConsistency.status is preview-only.
+- dryRunServiceInvocationResults is not present.
 
 ---
 
-## Blocked Command Dry-Run Adapter Preview Example
+## Command Dry-Run Runtime Service Invocation Example
 
     cd E:\pulsegate
+
+    $env:DATABASE_URL = "postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
 
     npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-mode dry-run --event-limit 500
 
 Expected result:
 
+- executionDecision.status is dry-run-ready.
+- executionDecision.allowed is true.
+- executionDecision.blockedReason is null.
+- executionDecision.boundary.trigger is command.
+- executionDecision.boundary.requestedMode is dry-run.
+- executionDecision.boundary.allowedMode is dry-run.
+- executionDecision.boundary.backfillServiceInvocationWired is true.
+- executionDecision.boundary.backfillExecutionWired is false.
+- executionDecision.wiringReview.runtimeConsistency.status is runtime-dry-run-service-invocation-wired.
+- executionDecision.wiringReview.runtimeConsistency.serviceInvocationCurrentlyAllowed is true.
+- executionDecision.wiringReview.runtimeConsistency.invokesBackfillService is true.
+- executionDecision.wiringReview.runtimeConsistency.executesBackfill is false.
+- executionDecision.wiringReview.runtimeConsistency.readsEvents is false.
+- executionDecision.wiringReview.runtimeConsistency.persistsRollups is false.
+- executionDecision.wiringReview.runtimeConsistency.affectsQuotaCounting is false.
+- executionDecision.wiringReview.runtimeConsistency.deletesRawEvents is false.
+- dryRunServiceInvocationResults contains one usage result and one rejected result for source=both.
+- Each dryRunServiceInvocationResults item has status=service-dry-run-invoked.
+- Each serviceResult has mode=dry-run.
+- Each serviceResult is source-scoped.
+- Each serviceResult sourceResults item has status=planned.
+- totalInputEventCount is 0.
+- totalAggregateCount is 0.
+- totalUpsertedCount is 0.
+
+Safety expectations:
+
+- No scheduled/background job is created.
+- Execute mode is not wired.
+- No raw events are read through service dry-run.
+- No rollups are persisted through service dry-run.
+- No quota counting changes.
+- No raw events are deleted.
+
+---
+
+## Blocked Dry-Run Without Event Limit Example
+
+    cd E:\pulsegate
+
+    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-mode dry-run
+
+Expected result:
+
 - executionDecision.status is blocked.
 - executionDecision.allowed is false.
 - executionDecision.blockedReason is backfill-service-invocation-not-wired.
-- executionDecision.wiringReview.requestedCapability is command:dry-run.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterPreviews contains one preview for usage and one preview for rejected.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview exists and reports currentWiringState=not-wired, readyForServiceInvocationWiring=false, and serviceInvocationCurrentlyAllowed=false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel exists and reports failureState=blocked, serviceInvocationCurrentlyAllowed=false, partialPersistenceAllowed=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
-- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract exists and reports currentWiringState=not-wired, targetServiceMethod=runBackfill, serviceInvocationCurrentlyAllowed=false, sourceScopedResultsRequired=true, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
-- Each adapter preview has kind=analytics-rollup-scheduler-backfill-service-dry-run-adapter-preview.
-- Each adapter preview has status=blocked-before-service-invocation.
-- Each adapter preview has currentAdapterState=contract-model-only.
-- Each adapter preview has serviceMethod=runBackfill.
-- Each adapter preview has inputMode=dry-run and outputMode=dry-run.
-- Each adapter preview has eventLimit=500.
-- Each adapter preview contains plannedServiceResult with mode=dry-run and source-separated sourceResults.
-- Each adapter preview safety reports adapterOnly=true, adapterCurrentlyAllowed=false, invokesBackfillService=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, deletesRawEvents=false, and serviceInvocationCurrentlyAllowed=false.
-- executionDecision.safety.invokesBackfillService is false.
-- executionDecision.safety.readsEvents is false.
-- executionDecision.safety.persistsRollups is false.
-- executionDecision.safety.affectsQuotaCounting is false.
-- executionDecision.safety.deletesRawEvents is false.
+- executionDecision.boundary.allowedMode is preview.
+- executionDecision.boundary.backfillServiceInvocationWired is false.
+- executionDecision.wiringReview.runtimeConsistency.status is blocked-or-review-only.
+- dryRunServiceInvocationResults is not present.
 - No backfill service is invoked.
 - No events are read.
 - No rollups are persisted.
 
 ---
 
-## Blocked Execute Preview Example
+## Blocked Process-Local Dry-Run Trigger Example
 
     cd E:\pulsegate
 
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source usage --run-at 2026-07-06T13:07:00.000Z --granularity hour --execution-mode execute
+    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-trigger process-local --execution-mode dry-run --event-limit 500
 
 Expected result:
 
-- Scheduler runner status is ready.
+- executionDecision.status is blocked.
+- executionDecision.allowed is false.
+- executionDecision.blockedReason is automatic-trigger-not-wired.
+- executionDecision.boundary.trigger is process-local.
+- executionDecision.boundary.allowedMode is preview.
+- executionDecision.boundary.processLocalExecutionWired is false.
+- executionDecision.boundary.externalSchedulerExecutionWired is false.
+- executionDecision.boundary.backfillServiceInvocationWired is false.
+- executionDecision.wiringReview.runtimeConsistency.status is blocked-or-review-only.
+- executionDecision.wiringReview.dryRunDesignReview is null.
+- dryRunServiceInvocationResults is not present.
+- No scheduled/background job is created.
+- No backfill service is invoked.
+
+---
+
+## Blocked Execute Example
+
+    cd E:\pulsegate
+
+    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-mode execute --event-limit 500
+
+Expected result:
+
 - executionDecision.status is blocked.
 - executionDecision.allowed is false.
 - executionDecision.blockedReason is backfill-execution-not-wired.
@@ -314,81 +222,12 @@ Expected result:
 - executionDecision.boundary.allowedMode is preview.
 - executionDecision.boundary.backfillServiceInvocationWired is false.
 - executionDecision.boundary.backfillExecutionWired is false.
-- executionDecision.wiringReview.requestedCapability is command:execute.
-- executionDecision.wiringReview.recommendedNextStep is wire-command-dry-run-before-execute.
-- executionDecision.wiringReview.requiresExplicitDesignBeforeWiring is true.
-- executionDecision.wiringReview.requiresDockerPostgresValidationBeforeWiring is true.
+- executionDecision.wiringReview.runtimeConsistency.status is blocked-or-review-only.
+- dryRunServiceInvocationResults is not present.
 - No backfill service is invoked.
+- No execute backfill occurs.
 - No events are read.
 - No rollups are persisted.
-
----
-
-## Blocked Process-Local Dry-Run Trigger Preview Example
-
-    cd E:\pulsegate
-
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source usage --run-at 2026-07-06T13:07:00.000Z --granularity hour --execution-trigger process-local --execution-mode dry-run
-
-Expected result:
-
-- Scheduler runner status is ready.
-- executionDecision.status is blocked.
-- executionDecision.allowed is false.
-- executionDecision.blockedReason is automatic-trigger-not-wired.
-- executionDecision.boundary.trigger is process-local.
-- executionDecision.boundary.requestedMode is dry-run.
-- executionDecision.boundary.allowedMode is preview.
-- executionDecision.boundary.processLocalExecutionWired is false.
-- executionDecision.boundary.externalSchedulerExecutionWired is false.
-- executionDecision.boundary.backfillServiceInvocationWired is false.
-- executionDecision.boundary.backfillExecutionWired is false.
-- executionDecision.wiringReview.requestedCapability is process-local:dry-run.
-- executionDecision.wiringReview.recommendedNextStep is keep-automatic-triggers-unwired.
-- executionDecision.wiringReview.dryRunDesignReview is null.
-- No scheduled/background job is created.
-- No backfill service is invoked.
-- No events are read.
-- No rollups are persisted.
-
----
-## Blocked Process-Local Trigger Preview Example
-
-    cd E:\pulsegate
-
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source usage --run-at 2026-07-06T13:07:00.000Z --granularity hour --execution-trigger process-local
-
-Expected result:
-
-- Scheduler runner status is ready.
-- executionDecision.status is blocked.
-- executionDecision.allowed is false.
-- executionDecision.blockedReason is automatic-trigger-not-wired.
-- executionDecision.boundary.trigger is process-local.
-- executionDecision.boundary.requestedMode is preview.
-- executionDecision.boundary.processLocalExecutionWired is false.
-- executionDecision.boundary.externalSchedulerExecutionWired is false.
-- executionDecision.wiringReview.requestedCapability is process-local:preview.
-- executionDecision.wiringReview.recommendedNextStep is keep-automatic-triggers-unwired.
-- executionDecision.wiringReview.requiresExplicitDesignBeforeWiring is true.
-- No scheduled/background job is created.
-
----
-
-## Equals-Style Args Example
-
-    cd E:\pulsegate
-
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled=true --source=usage --run-at=2026-07-06T13:07:00.000Z --granularity=hour --execution-mode=execute
-
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled=true --source=usage --run-at=2026-07-06T13:07:00.000Z --granularity=hour --execution-mode=dry-run --event-limit=500
-
-Expected result:
-
-- The command accepts equals-style args.
-- executionDecision.status is blocked.
-- executionDecision.blockedReason is backfill-execution-not-wired.
-- Safety output remains non-destructive.
 
 ---
 
@@ -404,14 +243,11 @@ Expected result:
 - status is skipped.
 - scheduleStatus is disabled.
 - skipReason is schedule-disabled.
-- source is usage.
 - bucketCount is 0.
 - backfillRequests is empty.
 - executionDecision.status is blocked.
 - executionDecision.blockedReason is scheduler-runner-not-ready.
 - createsScheduledJob is false.
-- If execution-mode dry-run is requested while disabled, dryRunInvocationReadiness.reason is scheduler-runner-not-ready.
-- If execution-mode dry-run is requested while disabled, dryRunInvocationReadiness.plannedBackfillRequestCount is 0.
 
 ---
 
@@ -431,39 +267,27 @@ Expected result:
 
 ## Operational Notes
 
-Use this command before implementing or wiring any real scheduler runner execution.
-
-The preview output should be reviewed for:
+Review these fields before trusting command dry-run output:
 
 1. runAt.
 2. effectiveTo.
 3. bucketCount.
 4. sources.
 5. backfillRequests.
-6. dry-run request contracts.
-7. executionDecision.allowed.
-8. executionDecision.blockedReason.
-9. executionDecision.boundary.
-10. executionDecision.wiringReview.
-11. executionDecision.wiringReview.dryRunDesignReview for command dry-run requests.
-12. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationReadiness for command dry-run requests.
-13. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationDesignReview for command dry-run requests.
-14. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview for command dry-run requests.
-15. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign for command dry-run requests.
-16. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview for command dry-run requests.
-17. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel for command dry-run requests.
-18. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract for command dry-run requests.
-19. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign for command dry-run requests.
-20. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign for command dry-run requests.
-21. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterPreviews for command dry-run requests with --event-limit.
-22. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract for command dry-run requests.
-23. safety flags.
+6. executionDecision.allowed.
+7. executionDecision.blockedReason.
+8. executionDecision.boundary.
+9. executionDecision.wiringReview.runtimeConsistency.
+10. dryRunServiceInvocationResults for command dry-run with --event-limit.
+11. Per-source serviceResult.mode.
+12. Per-source serviceResult.sourceResults.
+13. Safety flags.
 
-Do not treat this command as proof that rollups were rebuilt. It does not invoke the backfill service, read events, or persist rollups.
+Do not treat this command as proof that rollups were rebuilt. Command dry-run invokes the backfill service only in dry-run mode and does not execute backfill.
 
-Do not treat blocked dry-run/execute/process-local/external-scheduler decisions as failures. They are expected until execution wiring is explicitly designed.
+Do not treat blocked dry-run/execute/process-local/external-scheduler decisions as failures. They are expected unless their exact runtime wiring has been explicitly designed.
 
-Do not wire execute mode before command dry-run has a safe design.
+Do not wire execute mode before command dry-run runtime output and failure cases are hardened.
 
 Do not wire process-local or external-scheduler execution until automatic execution semantics are explicitly designed.
 
