@@ -482,6 +482,75 @@ describe("analytics rollup scheduler execution decision", () => {
     });
   });
 
+  it("should expose command dry-run service invocation fail-closed error model without wiring service calls", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "dry-run" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-service-invocation-not-wired",
+      boundary: {
+        trigger: "command",
+        requestedMode: "dry-run",
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      wiringReview: {
+        requestedCapability: "command:dry-run",
+        dryRunDesignReview: {
+          currentlyWired: false,
+          dryRunServiceInvocationFailClosedErrorModel: {
+            status:
+              "fail-closed-error-model-required-before-service-invocation",
+            errorBoundary: "scheduler-command-dry-run-service-invocation",
+            currentServiceInvocationState: "not-wired",
+            targetTrigger: "command",
+            targetBackfillMode: "dry-run",
+            targetServiceMethod: "runBackfill",
+            expectedFailureSource:
+              "future-backfill-service-dry-run-invocation",
+            expectedOperatorOutput:
+              "operator-visible-fail-closed-service-error-review",
+            operatorReviewRequired: true,
+            sourceScopedErrorOutputRequired: true,
+            safetyFlagsRequiredOnFailure: true,
+            noPartialPersistenceRequired: true,
+            noPartialQuotaMutationRequired: true,
+            noRawEventDeletionRequired: true,
+            failureState: "blocked",
+            blockedReason: "backfill-service-invocation-not-wired",
+            serviceInvocationCurrentlyAllowed: false,
+            mayInvokeBackfillServiceAfterExplicitWiring: true,
+            mayReadEventsThroughFailedServiceDryRun: false,
+            mayPersistRollupsThroughFailedServiceDryRun: false,
+            partialPersistenceAllowed: false,
+            quotaCountingChangeAllowed: false,
+            rawEventDeletionAllowed: false,
+            failureBehavior: "fail-closed-without-partial-persistence",
+          },
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
   it("should expose command dry-run service invocation request mapper design without wiring service calls", () => {
     const schedulePlan = createAnalyticsRollupSchedulePlan({
       enabled: true,
