@@ -28,12 +28,13 @@ Execution boundary preview options:
 
 - --execution-trigger <command|process-local|external-scheduler>: optional, defaults to command.
 - --execution-mode <preview|dry-run|execute>: optional, defaults to preview.
+- --event-limit <n>: optional positive integer used only to expose command dry-run service adapter previews.
 
 Argument style:
 
 - The command accepts both --option value and --option=value forms.
 
-These execution options only affect executionDecision output. They do not execute work.
+These execution options only affect executionDecision output. They do not execute work. --event-limit enables DB-free adapter preview output only for command:dry-run.
 
 ---
 
@@ -211,6 +212,7 @@ Expected result:
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.adapterMayPersistRollups is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.quotaCountingChangeAllowed is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.rawEventDeletionAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterPreviews is null when --event-limit is not provided.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.status is contract-required-before-wiring.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.currentInvocationState is not-wired.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.triggerBoundary is command-only.
@@ -220,6 +222,39 @@ Expected result:
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.rollupPersistenceCurrentlyAllowed is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.quotaCountingChangeAllowed is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.rawEventDeletionAllowed is false.
+- No backfill service is invoked.
+- No events are read.
+- No rollups are persisted.
+
+
+---
+
+## Blocked Command Dry-Run Adapter Preview Example
+
+    cd E:\pulsegate
+
+    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-mode dry-run --event-limit 500
+
+Expected result:
+
+- executionDecision.status is blocked.
+- executionDecision.allowed is false.
+- executionDecision.blockedReason is backfill-service-invocation-not-wired.
+- executionDecision.wiringReview.requestedCapability is command:dry-run.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterPreviews contains one preview for usage and one preview for rejected.
+- Each adapter preview has kind=analytics-rollup-scheduler-backfill-service-dry-run-adapter-preview.
+- Each adapter preview has status=blocked-before-service-invocation.
+- Each adapter preview has currentAdapterState=contract-model-only.
+- Each adapter preview has serviceMethod=runBackfill.
+- Each adapter preview has inputMode=dry-run and outputMode=dry-run.
+- Each adapter preview has eventLimit=500.
+- Each adapter preview contains plannedServiceResult with mode=dry-run and source-separated sourceResults.
+- Each adapter preview safety reports adapterOnly=true, adapterCurrentlyAllowed=false, invokesBackfillService=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, deletesRawEvents=false, and serviceInvocationCurrentlyAllowed=false.
+- executionDecision.safety.invokesBackfillService is false.
+- executionDecision.safety.readsEvents is false.
+- executionDecision.safety.persistsRollups is false.
+- executionDecision.safety.affectsQuotaCounting is false.
+- executionDecision.safety.deletesRawEvents is false.
 - No backfill service is invoked.
 - No events are read.
 - No rollups are persisted.
@@ -309,6 +344,8 @@ Expected result:
 
     npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled=true --source=usage --run-at=2026-07-06T13:07:00.000Z --granularity=hour --execution-mode=execute
 
+    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled=true --source=usage --run-at=2026-07-06T13:07:00.000Z --granularity=hour --execution-mode=dry-run --event-limit=500
+
 Expected result:
 
 - The command accepts equals-style args.
@@ -378,8 +415,9 @@ The preview output should be reviewed for:
 15. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign for command dry-run requests.
 16. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign for command dry-run requests.
 17. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign for command dry-run requests.
-18. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract for command dry-run requests.
-19. safety flags.
+18. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterPreviews for command dry-run requests with --event-limit.
+19. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract for command dry-run requests.
+20. safety flags.
 
 Do not treat this command as proof that rollups were rebuilt. It does not invoke the backfill service, read events, or persist rollups.
 

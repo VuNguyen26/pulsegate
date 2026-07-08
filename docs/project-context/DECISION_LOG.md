@@ -12,15 +12,40 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.43.0
+v0.44.0
 
 ## Latest Completed Sprint
 
-Sprint 42 - Rollup Scheduler Command Dry-Run Service Adapter Boundary Design
+Sprint 43 - Rollup Scheduler Command Dry-Run Service Adapter Preview Output Integration
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-08 - Rollup scheduler command dry-run adapter previews remain command-output-only
+
+Decision:
+
+- Expose dryRunServiceAdapterPreviews under dryRunDesignReview for command:dry-run scheduler preview requests when --event-limit is provided.
+- Add --event-limit parsing for scheduler preview command args in both --option value and --option=value forms.
+- Keep command dry-run blocked with backfill-service-invocation-not-wired.
+- Keep adapter previews source-separated for usage and rejected mapped dry-run service inputs.
+- Keep dryRunServiceAdapterPreviews=null when command dry-run is requested without --event-limit.
+- Keep process-local and external scheduler dry-run blocked with automatic-trigger-not-wired and dryRunDesignReview=null, even when --event-limit is provided.
+- Reject invalid --event-limit values before printing output.
+- Do not call AnalyticsRollupBackfillService.runBackfill from scheduler preview.
+- Do not read raw events, persist rollups, affect quota counting, or delete raw events.
+
+Rationale:
+
+- Adapter preview output is useful for operator review, but it must not be confused with real service invocation.
+- Requiring an explicit eventLimit keeps the future service boundary guardrail visible before wiring.
+- Keeping automatic triggers without dryRunDesignReview avoids leaking command-only dry-run semantics into process-local or external scheduler execution.
+- Future service invocation wiring still requires explicit approval, fail-closed service errors, operator safety output, source separation, max bucket guardrails, and Docker/PostgreSQL runtime validation.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-adapter-preview-output-integration.md
 
 ### 2026-07-08 - Rollup scheduler command dry-run service adapter boundary remains contract-model-only
 

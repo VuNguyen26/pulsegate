@@ -24,64 +24,61 @@ Long decision records live in:
 
 ## Current Version
 
-v0.43.0
+v0.44.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 42 - Rollup Scheduler Command Dry-Run Service Adapter Boundary Design
+Sprint 43 - Rollup Scheduler Command Dry-Run Service Adapter Preview Output Integration
 
 Status:
 
 Done.
 
-Sprint 42 continued the analytics rollup scheduler safety path after Sprint 41.
+Sprint 43 continued the analytics rollup scheduler safety path after Sprint 42.
 
-It added the service adapter boundary before wiring any real backfill service call:
+It integrated command dry-run service adapter preview output before wiring any real backfill service call:
 
-- Added dryRunServiceAdapterBoundaryDesign under dryRunDesignReview for command:dry-run requests.
-- Added a scheduler dry-run backfill service adapter contract model.
-- Validated mapped dry-run AnalyticsRollupBackfillRunInput contracts before any future service invocation.
-- Required dry-run plan mode, source separation, positive eventLimit guardrail, positive bucket count, and duplicate source rejection.
-- Produced planned dry-run service result previews without calling AnalyticsRollupBackfillService.runBackfill.
-- Kept adapterCurrentlyAllowed=false.
-- Kept serviceInvocationCurrentlyAllowed=false.
-- Kept adapterMayInvokeBackfillService=false.
-- Kept adapterMayReadEvents=false.
-- Kept adapterMayPersistRollups=false.
-- Kept quotaCountingChangeAllowed=false and rawEventDeletionAllowed=false.
+- Added --event-limit parsing to scheduler preview command options.
+- Added dryRunServiceAdapterPreviews under dryRunDesignReview for command:dry-run requests when --event-limit is provided.
+- Mapped ready runner backfill request contracts into dry-run AnalyticsRollupBackfillRunInput contracts before previewing adapter output.
+- Produced source-separated planned service-result previews for usage and rejected sources.
 - Kept command dry-run blocked with backfill-service-invocation-not-wired.
+- Kept command dry-run without --event-limit explicit with dryRunServiceAdapterPreviews=null.
 - Kept process-local dry-run blocked with automatic-trigger-not-wired and dryRunDesignReview=null.
+- Rejected invalid --event-limit values before printing command output.
 - Did not invoke the backfill service.
+- Did not call AnalyticsRollupBackfillService.runBackfill from scheduler preview.
 - Did not read raw events or persist rollups.
 - Did not change quota counting, usage recording, rejected event recording, rollup read APIs, summary APIs, migrations, or retention/delete paths.
 
-Sprint 42 details are archived in:
+Sprint 43 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-42.md
+- docs/sdlc/sprint-history/sprint-43.md
 
 Related design record:
 
-- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-adapter-boundary-design.md
+- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-adapter-preview-output-integration.md
 
 ---
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 42:
+Latest stable validation from Sprint 43:
 
-- npm run test -> passed with 105 test files and 732 tests
+- npm run test -> passed with 105 test files and 738 tests
 - npm run typecheck -> passed
 - npm run build -> passed
 
 Manual command validation:
 
-- analytics:rollup:scheduler-preview command dry-run validation passed with blockedReason=backfill-service-invocation-not-wired.
-- command:dry-run validation exposed dryRunServiceAdapterBoundaryDesign with status=adapter-boundary-design-required-before-service-invocation, currentAdapterState=not-implemented, adapterCurrentlyAllowed=false, serviceInvocationCurrentlyAllowed=false, adapterMayInvokeBackfillService=false, adapterMayReadEvents=false, adapterMayPersistRollups=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
-- analytics:rollup:scheduler-preview process-local dry-run validation passed with blockedReason=automatic-trigger-not-wired and dryRunDesignReview=null.
+- analytics:rollup:scheduler-preview command dry-run adapter preview validation passed with blockedReason=backfill-service-invocation-not-wired.
+- command:dry-run validation exposed dryRunServiceAdapterPreviews with two source-separated previews for usage and rejected when --event-limit=500 was provided.
+- command:dry-run adapter previews preserved eventLimit=500, currentAdapterState=contract-model-only, serviceInvocationCurrentlyAllowed=false, invokesBackfillService=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
+- analytics:rollup:scheduler-preview process-local dry-run validation passed with blockedReason=automatic-trigger-not-wired and dryRunDesignReview=null even when --event-limit was provided.
 - Runtime output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
-- No Docker/PostgreSQL validation was required for Sprint 42 because the scheduler command dry-run service adapter boundary design is DB-free, adapter-boundary-only, preview-only, and non-destructive.
+- No Docker/PostgreSQL validation was required for Sprint 43 because the scheduler command dry-run adapter preview output integration is DB-free, preview-only, command-output-only, and non-destructive.
 
 ---
 
@@ -98,7 +95,7 @@ PulseGate currently has:
 - PostgreSQL-backed API consumers, API keys, usage plans, usage events, rejected events, usage rollups, and rejected rollups.
 - Event-based quota checker and runtime quota enforcement.
 - Usage and rejected event summary/listing APIs with filters and pagination.
-- Analytics rollup calculation, persistence, manual backfill, read model, schedule preview, scheduler runner, execution decision, wiring review, command dry-run design review, invocation contract, readiness review, invocation design review, service invocation contract review, implementation design, request mapper, service adapter boundary design, and scheduler preview command foundations.
+- Analytics rollup calculation, persistence, manual backfill, read model, schedule preview, scheduler runner, execution decision, wiring review, command dry-run design review, invocation contract, readiness review, invocation design review, service invocation contract review, implementation design, request mapper, service adapter boundary design, adapter preview output integration, and scheduler preview command foundations.
 - Analytics retention dry-run, execution preview, repository safety, service preview, and operator preview foundations.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected analytics, quota, and rollup APIs.
 - Structured access logs, Prometheus metrics, and Grafana dashboard.
@@ -161,7 +158,7 @@ Analytics rollup scheduler preview:
 - npm run analytics:rollup:scheduler-preview converts a schedule plan into dry-run backfill request contracts.
 - The command reports previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
 - The command exposes executionDecision.boundary and executionDecision.wiringReview.
-- command:dry-run exposes dryRunDesignReview, dryRunInvocationContract, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationRequestMapperDesign, and dryRunServiceAdapterBoundaryDesign.
+- command:dry-run exposes dryRunDesignReview, dryRunInvocationContract, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationRequestMapperDesign, dryRunServiceAdapterBoundaryDesign, and dryRunServiceAdapterPreviews when --event-limit is provided.
 - command:dry-run remains blocked with backfill-service-invocation-not-wired.
 - process-local:dry-run remains blocked with automatic-trigger-not-wired and dryRunDesignReview=null.
 - execute mode remains blocked until command dry-run is safely designed, mapped, adapted, wired, and runtime-validated first.
@@ -192,7 +189,7 @@ Current quota scope:
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
 - Rollup schedule and scheduler preview commands exist, and scheduler preview exposes execution boundary decisions plus dry-run design outputs, but no scheduled/background rollup job yet.
-- Command dry-run service adapter boundary exists as contract model and design output only; no scheduler preview service invocation is wired yet.
+- Command dry-run service adapter previews are exposed as command output only; no scheduler preview service invocation is wired yet.
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
@@ -205,17 +202,14 @@ Current quota scope:
 
 ## Recommended Next Sprint
 
-Sprint 43 recommended direction:
-
-- Rollup Scheduler Command Dry-Run Service Adapter Preview Output Integration
+Sprint 44 - Rollup Scheduler Command Dry-Run Service Invocation Wiring Readiness Review
 
 Recommended scope:
 
-- Expose adapter preview output from mapped dry-run service inputs through command dry-run review output.
+- Review the future command dry-run service invocation wiring boundary without invoking the service yet.
 - Keep command dry-run blocked until actual service invocation wiring is explicitly approved.
-- Do not invoke the backfill service yet unless explicitly approved and runtime-validated.
+- Do not invoke the backfill service unless explicitly approved and Docker/PostgreSQL runtime-validated.
 - Do not jump directly from scheduler preview to execute mode.
 - Keep process-local/external-scheduler execution blocked until automatic execution semantics are explicitly designed.
-- Keep scheduler preview separate from actual event reads and persistence until approved.
 - Keep successful usage and rejected/security events separate.
 - Keep quota counting on gateway.api_usage_events.
