@@ -2189,6 +2189,91 @@ describe("analytics rollup scheduler preview command", () => {
     expect(persistRejectedEvents).not.toHaveBeenCalled();
   });
 
+  it("should expose runtime factory failure without invoking dry-run service", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const factoryFailure = Object.assign(
+      new Error("simulated runtime factory failure"),
+      { name: "RuntimeFactoryError" },
+    );
+    const createRuntimeBackfillService = vi.fn(async () => {
+      throw factoryFailure;
+    });
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "usage",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "dry-run",
+        "--event-limit",
+        "500",
+      ],
+      {
+        allowDryRunServiceInvocation: true,
+        createRuntimeBackfillService,
+      },
+    );
+
+    expect(consoleLog).toHaveBeenCalledOnce();
+    expect(createRuntimeBackfillService).toHaveBeenCalledOnce();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunRuntimeFactoryError).toEqual({
+      name: "RuntimeFactoryError",
+      message: "simulated runtime factory failure",
+    });
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.dryRunRuntimeCleanupError).toBeUndefined();
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-service-invocation-not-wired",
+      boundary: {
+        trigger: "command",
+        requestedMode: "dry-run",
+        allowedMode: "preview",
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+    expect(output.executionDecision.wiringReview.runtimeConsistency).toMatchObject({
+      status: "blocked-or-review-only",
+      requestedCapability: "command:dry-run",
+      backfillServiceInvocationWired: false,
+      serviceInvocationCurrentlyAllowed: false,
+      createsScheduledJob: false,
+      invokesBackfillService: false,
+      executesBackfill: false,
+      readsEvents: false,
+      persistsRollups: false,
+      affectsQuotaCounting: false,
+      deletesRawEvents: false,
+    });
+  });
+
   it("should not resolve runtime dry-run backfill service factory for preview mode", async () => {
     const consoleLog = vi
       .spyOn(console, "log")

@@ -60,9 +60,17 @@ export type AnalyticsRollupSchedulerPreviewCommandRuntimeCleanupError = {
   message: string;
 };
 
+export type AnalyticsRollupSchedulerPreviewCommandRuntimeFactoryError = {
+  name: string;
+  message: string;
+};
+
 type AnalyticsRollupSchedulerPreviewCommandDryRunInvocationOutput = {
-  dryRunServiceInvocationResults: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult[];
+  dryRunServiceInvocationResults:
+    | AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult[]
+    | null;
   dryRunRuntimeCleanupError: AnalyticsRollupSchedulerPreviewCommandRuntimeCleanupError | null;
+  dryRunRuntimeFactoryError: AnalyticsRollupSchedulerPreviewCommandRuntimeFactoryError | null;
 };
 
 function createRuntimeCleanupError(
@@ -78,6 +86,17 @@ function createRuntimeCleanupError(
   return {
     name: "Error",
     message: String(error),
+  };
+}
+
+function createRuntimeFactoryError(
+  error: unknown,
+): AnalyticsRollupSchedulerPreviewCommandRuntimeFactoryError {
+  const runtimeError = createRuntimeCleanupError(error);
+
+  return {
+    name: runtimeError.name,
+    message: runtimeError.message,
   };
 }
 
@@ -154,10 +173,23 @@ async function invokeDryRunServiceAdaptersForCommandDryRun(
     return null;
   }
 
-  const runtimeBackfillService =
-    dependencies.backfillService === undefined
-      ? await dependencies.createRuntimeBackfillService?.()
-      : undefined;
+  let runtimeBackfillService:
+    | AnalyticsRollupSchedulerPreviewCommandRuntimeBackfillService
+    | undefined;
+
+  if (dependencies.backfillService === undefined) {
+    try {
+      runtimeBackfillService =
+        await dependencies.createRuntimeBackfillService?.();
+    } catch (error: unknown) {
+      return {
+        dryRunServiceInvocationResults: null,
+        dryRunRuntimeCleanupError: null,
+        dryRunRuntimeFactoryError: createRuntimeFactoryError(error),
+      };
+    }
+  }
+
   const backfillService =
     dependencies.backfillService ?? runtimeBackfillService?.backfillService;
 
@@ -195,6 +227,7 @@ async function invokeDryRunServiceAdaptersForCommandDryRun(
   return {
     dryRunServiceInvocationResults,
     dryRunRuntimeCleanupError,
+    dryRunRuntimeFactoryError: null,
   };
 }
 
@@ -262,6 +295,8 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
     dryRunServiceInvocationOutput?.dryRunServiceInvocationResults ?? null;
   const dryRunRuntimeCleanupError =
     dryRunServiceInvocationOutput?.dryRunRuntimeCleanupError ?? null;
+  const dryRunRuntimeFactoryError =
+    dryRunServiceInvocationOutput?.dryRunRuntimeFactoryError ?? null;
   const executionDecision = createAnalyticsRollupSchedulerExecutionDecision(
     runnerPlan,
     {
@@ -273,7 +308,9 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
 
   const commandOutput =
     dryRunServiceInvocationResults === null
-      ? { ...runnerPlan, executionDecision }
+      ? dryRunRuntimeFactoryError === null
+        ? { ...runnerPlan, executionDecision }
+        : { ...runnerPlan, executionDecision, dryRunRuntimeFactoryError }
       : dryRunRuntimeCleanupError === null
         ? { ...runnerPlan, executionDecision, dryRunServiceInvocationResults }
         : {
