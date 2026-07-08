@@ -54,6 +54,22 @@ describe("analytics rollup scheduler preview args", () => {
     });
   });
 
+  it("should parse equals-style command dry-run adapter preview event limit", () => {
+    const parsed = parseAnalyticsRollupSchedulerPreviewArgs([
+      "--run-at=2026-07-06T13:07:00.000Z",
+      "--granularity=hour",
+      "--execution-mode=dry-run",
+      "--event-limit=500",
+    ]);
+
+    expect(parsed.executionDecision).toEqual({
+      mode: "dry-run",
+    });
+    expect(parsed.dryRunServiceAdapterPreview).toEqual({
+      eventLimit: 500,
+    });
+  });
+
   it("should parse process-local dry-run execution preview options", () => {
     const parsed = parseAnalyticsRollupSchedulerPreviewArgs([
       "--run-at",
