@@ -1,10 +1,16 @@
 import { pathToFileURL } from "node:url";
 
+import type { AnalyticsRollupBackfillService } from "./analytics-rollup-backfill-service.js";
 import {
   createAnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreviews,
+  invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapters,
+  type AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult,
   type AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview,
 } from "./analytics-rollup-scheduler-backfill-service-adapter.js";
-import { mapAnalyticsRollupSchedulerRunnerPlanToDryRunServiceInputs } from "./analytics-rollup-scheduler-backfill-request-mapper.js";
+import {
+  mapAnalyticsRollupSchedulerRunnerPlanToDryRunServiceInputs,
+  type AnalyticsRollupSchedulerBackfillServiceDryRunMapping,
+} from "./analytics-rollup-scheduler-backfill-request-mapper.js";
 import { createAnalyticsRollupSchedulePlan } from "./analytics-rollup-schedule-plan.js";
 import {
   parseAnalyticsRollupSchedulerPreviewArgs,
@@ -36,10 +42,15 @@ export const ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE = [
   "  --event-limit enables a DB-free command dry-run service adapter preview from mapped dry-run service inputs; it still does not invoke the backfill service.",
 ].join("\n");
 
-function createDryRunServiceAdapterPreviewsForCommandDryRun(
+export type AnalyticsRollupSchedulerPreviewCommandDependencies = {
+  backfillService?: AnalyticsRollupBackfillService;
+  allowDryRunServiceInvocation?: boolean;
+};
+
+function createDryRunServiceMappingsForCommandDryRun(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   options: AnalyticsRollupSchedulerPreviewCommandOptions,
-): AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview[] | null {
+): AnalyticsRollupSchedulerBackfillServiceDryRunMapping[] | null {
   const trigger = options.executionDecision.trigger ?? "command";
   const requestedMode = options.executionDecision.mode ?? "preview";
   const eventLimit = options.dryRunServiceAdapterPreview.eventLimit;
@@ -53,24 +64,72 @@ function createDryRunServiceAdapterPreviewsForCommandDryRun(
     return null;
   }
 
-  const mappings = mapAnalyticsRollupSchedulerRunnerPlanToDryRunServiceInputs(
+  return mapAnalyticsRollupSchedulerRunnerPlanToDryRunServiceInputs(
     runnerPlan,
     { eventLimit },
   );
+}
+
+function createDryRunServiceAdapterPreviewsForCommandDryRun(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+  options: AnalyticsRollupSchedulerPreviewCommandOptions,
+): AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview[] | null {
+  const mappings = createDryRunServiceMappingsForCommandDryRun(
+    runnerPlan,
+    options,
+  );
+
+  if (mappings === null) {
+    return null;
+  }
 
   return createAnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreviews(
     mappings,
   );
 }
 
+async function invokeDryRunServiceAdaptersForCommandDryRun(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+  options: AnalyticsRollupSchedulerPreviewCommandOptions,
+  dependencies: AnalyticsRollupSchedulerPreviewCommandDependencies,
+): Promise<AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult[] | null> {
+  if (
+    dependencies.allowDryRunServiceInvocation !== true ||
+    dependencies.backfillService === undefined
+  ) {
+    return null;
+  }
+
+  const mappings = createDryRunServiceMappingsForCommandDryRun(
+    runnerPlan,
+    options,
+  );
+
+  if (mappings === null) {
+    return null;
+  }
+
+  return invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapters(
+    mappings,
+    dependencies.backfillService,
+  );
+}
+
 export async function runAnalyticsRollupSchedulerPreviewCommand(
   argv = process.argv.slice(2),
+  dependencies: AnalyticsRollupSchedulerPreviewCommandDependencies = {},
 ): Promise<void> {
   const options = parseAnalyticsRollupSchedulerPreviewArgs(argv);
   const schedulePlan = createAnalyticsRollupSchedulePlan(options.schedule);
   const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
   const dryRunServiceAdapterPreviews =
     createDryRunServiceAdapterPreviewsForCommandDryRun(runnerPlan, options);
+  const dryRunServiceInvocationResults =
+    await invokeDryRunServiceAdaptersForCommandDryRun(
+      runnerPlan,
+      options,
+      dependencies,
+    );
   const executionDecision = createAnalyticsRollupSchedulerExecutionDecision(
     runnerPlan,
     {
@@ -79,7 +138,12 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
     },
   );
 
-  console.log(JSON.stringify({ ...runnerPlan, executionDecision }, null, 2));
+  const commandOutput =
+    dryRunServiceInvocationResults === null
+      ? { ...runnerPlan, executionDecision }
+      : { ...runnerPlan, executionDecision, dryRunServiceInvocationResults };
+
+  console.log(JSON.stringify(commandOutput, null, 2));
 }
 
 function isDirectRun(): boolean {

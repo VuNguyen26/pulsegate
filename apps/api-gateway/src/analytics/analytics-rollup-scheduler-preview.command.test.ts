@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { AnalyticsRollupBackfillEventReader } from "./analytics-rollup-backfill-event-reader.js";
+import { createAnalyticsRollupBackfillService } from "./analytics-rollup-backfill-service.js";
+import type { AnalyticsRollupPersistenceService } from "./analytics-rollup-persistence-service.js";
 import {
   ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE,
   runAnalyticsRollupSchedulerPreviewCommand,
@@ -1444,5 +1447,195 @@ describe("analytics rollup scheduler preview command", () => {
       affectsQuotaCounting: false,
       deletesRawEvents: false,
     });
+  });
+
+  it("should expose command dry-run service invocation results when an injected service is explicitly enabled", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const listUsageEvents = vi.fn(async () => []);
+    const listRejectedEvents = vi.fn(async () => []);
+    const persistUsageEvents = vi.fn(async () => ({
+      inputEventCount: 0,
+      aggregateCount: 0,
+      upsertedCount: 0,
+    }));
+    const persistRejectedEvents = vi.fn(async () => ({
+      inputEventCount: 0,
+      aggregateCount: 0,
+      upsertedCount: 0,
+    }));
+
+    const backfillService = createAnalyticsRollupBackfillService({
+      eventReader: {
+        listUsageEvents,
+        listRejectedEvents,
+      } satisfies AnalyticsRollupBackfillEventReader,
+      persistenceService: {
+        persistUsageEvents,
+        persistRejectedEvents,
+      } satisfies AnalyticsRollupPersistenceService,
+    });
+    const runBackfill = vi.spyOn(backfillService, "runBackfill");
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "both",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "dry-run",
+        "--event-limit",
+        "500",
+      ],
+      {
+        backfillService,
+        allowDryRunServiceInvocation: true,
+      },
+    );
+
+    expect(consoleLog).toHaveBeenCalledOnce();
+    expect(runBackfill).toHaveBeenCalledTimes(2);
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunServiceInvocationResults).toHaveLength(2);
+    expect(output.dryRunServiceInvocationResults).toEqual([
+      expect.objectContaining({
+        kind: "analytics-rollup-scheduler-backfill-service-dry-run-adapter-invocation",
+        status: "service-dry-run-invoked",
+        currentAdapterState: "runtime-dry-run-invocation",
+        source: "usage",
+        serviceMethod: "runBackfill",
+        inputMode: "dry-run",
+        outputMode: "dry-run",
+        invocationCardinality: "single-mapped-run-input",
+        eventLimit: 500,
+        serviceResult: expect.objectContaining({
+          mode: "dry-run",
+          source: "usage",
+          sources: ["usage"],
+          sourceResults: [
+            {
+              source: "usage",
+              status: "planned",
+              inputEventCount: 0,
+              aggregateCount: 0,
+              upsertedCount: 0,
+            },
+          ],
+          totalInputEventCount: 0,
+          totalAggregateCount: 0,
+          totalUpsertedCount: 0,
+        }),
+        error: null,
+        safety: expect.objectContaining({
+          invokesBackfillService: true,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+          sourceSeparationPreserved: true,
+          eventLimitGuardrailApplied: true,
+          maxBucketGuardrailApplied: true,
+          failClosedServiceErrorsApplied: true,
+          serviceInvocationCurrentlyAllowed: true,
+          dockerPostgresRuntimeValidationRequired: true,
+        }),
+      }),
+      expect.objectContaining({
+        status: "service-dry-run-invoked",
+        source: "rejected",
+        serviceResult: expect.objectContaining({
+          mode: "dry-run",
+          source: "rejected",
+          sources: ["rejected"],
+          sourceResults: [
+            {
+              source: "rejected",
+              status: "planned",
+              inputEventCount: 0,
+              aggregateCount: 0,
+              upsertedCount: 0,
+            },
+          ],
+          totalInputEventCount: 0,
+          totalAggregateCount: 0,
+          totalUpsertedCount: 0,
+        }),
+        error: null,
+        safety: expect.objectContaining({
+          invokesBackfillService: true,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+        }),
+      }),
+    ]);
+    expect(
+      output.executionDecision.wiringReview.dryRunDesignReview
+        .dryRunServiceAdapterPreviews,
+    ).toHaveLength(2);
+    expect(listUsageEvents).not.toHaveBeenCalled();
+    expect(listRejectedEvents).not.toHaveBeenCalled();
+    expect(persistUsageEvents).not.toHaveBeenCalled();
+    expect(persistRejectedEvents).not.toHaveBeenCalled();
+  });
+
+  it("should not invoke an injected dry-run backfill service unless invocation is explicitly enabled", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const backfillService = {
+      runBackfill: vi.fn(),
+    };
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "usage",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "dry-run",
+        "--event-limit",
+        "500",
+      ],
+      {
+        backfillService,
+      },
+    );
+
+    expect(backfillService.runBackfill).not.toHaveBeenCalled();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(
+      output.executionDecision.wiringReview.dryRunDesignReview
+        .dryRunServiceAdapterPreviews,
+    ).toHaveLength(1);
   });
 });
