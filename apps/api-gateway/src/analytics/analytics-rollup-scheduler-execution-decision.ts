@@ -163,6 +163,55 @@ export type AnalyticsRollupSchedulerCommandDryRunServiceInvocationImplementation
   rawEventDeletionAllowed: false;
 };
 
+export type AnalyticsRollupSchedulerCommandDryRunServiceInvocationWiringContract = {
+  status: "wiring-contract-required-before-service-invocation";
+  contractBoundary: "scheduler-command-dry-run-to-rollup-backfill-service-run-backfill";
+  currentWiringState: "not-wired";
+  targetTrigger: "command";
+  targetBackfillMode: "dry-run";
+  targetServiceMethod: "runBackfill";
+  requestContract: {
+    inputSource: "mapped-dry-run-service-inputs";
+    requestMode: "dry-run";
+    cardinality: "per-source-mapped-run-input";
+    requiresReadyRunnerPlan: true;
+    requiresSourceSeparatedInputs: true;
+    requiresExplicitEventLimit: true;
+    requiresMaxBucketBound: true;
+  };
+  responseContract: {
+    outputTarget: "operator-visible-command-dry-run-output";
+    requiredResultMode: "dry-run";
+    sourceScopedResultsRequired: true;
+    perSourceSafetyFlagsRequired: true;
+    serviceDryRunPlanRequired: true;
+    partialFailureOutputRequired: true;
+  };
+  validationContract: {
+    rejectMissingEventLimit: true;
+    rejectUnboundedBucketCount: true;
+    rejectNonCommandTrigger: true;
+    rejectExecuteMode: true;
+    requiresDockerPostgresRuntimeValidationBeforeWiring: true;
+  };
+  operatorOutputContract: {
+    includeServiceInvocationState: true;
+    includeBlockedReason: true;
+    includeSourceScopedResultSummary: true;
+    includeSafetyFlags: true;
+    includeNoQuotaMutationStatement: true;
+    includeNoRawEventDeletionStatement: true;
+  };
+  backfillServiceInvocationWired: false;
+  serviceInvocationCurrentlyAllowed: false;
+  mayInvokeBackfillServiceAfterExplicitWiring: true;
+  mayReadEventsThroughServiceDryRun: false;
+  mayPersistRollupsThroughServiceDryRun: false;
+  partialPersistenceAllowed: false;
+  quotaCountingChangeAllowed: false;
+  rawEventDeletionAllowed: false;
+  failureBehavior: "fail-closed-before-service-invocation";
+};
 export type AnalyticsRollupSchedulerCommandDryRunServiceInvocationWiringReadinessReview = {
   status: "wiring-readiness-review-required-before-service-invocation";
   readinessBoundary: "scheduler-command-dry-run-service-invocation-wiring";
@@ -298,6 +347,7 @@ export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
       dryRunServiceInvocationImplementationDesign: AnalyticsRollupSchedulerCommandDryRunServiceInvocationImplementationDesign;
       dryRunServiceInvocationWiringReadinessReview: AnalyticsRollupSchedulerCommandDryRunServiceInvocationWiringReadinessReview;
       dryRunServiceInvocationFailClosedErrorModel: AnalyticsRollupSchedulerCommandDryRunServiceInvocationFailClosedErrorModel;
+      dryRunServiceInvocationWiringContract: AnalyticsRollupSchedulerCommandDryRunServiceInvocationWiringContract;
     dryRunServiceInvocationRequestMapperDesign: AnalyticsRollupSchedulerCommandDryRunServiceInvocationRequestMapperDesign;
       dryRunServiceAdapterBoundaryDesign: AnalyticsRollupSchedulerCommandDryRunServiceAdapterBoundaryDesign;
       dryRunServiceAdapterPreviews:
@@ -443,6 +493,57 @@ const COMMAND_DRY_RUN_SERVICE_INVOCATION_IMPLEMENTATION_DESIGN: AnalyticsRollupS
     rawEventDeletionAllowed: false,
   };
 
+const COMMAND_DRY_RUN_SERVICE_INVOCATION_WIRING_CONTRACT: AnalyticsRollupSchedulerCommandDryRunServiceInvocationWiringContract =
+  {
+    status: "wiring-contract-required-before-service-invocation",
+    contractBoundary:
+      "scheduler-command-dry-run-to-rollup-backfill-service-run-backfill",
+    currentWiringState: "not-wired",
+    targetTrigger: "command",
+    targetBackfillMode: "dry-run",
+    targetServiceMethod: "runBackfill",
+    requestContract: {
+      inputSource: "mapped-dry-run-service-inputs",
+      requestMode: "dry-run",
+      cardinality: "per-source-mapped-run-input",
+      requiresReadyRunnerPlan: true,
+      requiresSourceSeparatedInputs: true,
+      requiresExplicitEventLimit: true,
+      requiresMaxBucketBound: true,
+    },
+    responseContract: {
+      outputTarget: "operator-visible-command-dry-run-output",
+      requiredResultMode: "dry-run",
+      sourceScopedResultsRequired: true,
+      perSourceSafetyFlagsRequired: true,
+      serviceDryRunPlanRequired: true,
+      partialFailureOutputRequired: true,
+    },
+    validationContract: {
+      rejectMissingEventLimit: true,
+      rejectUnboundedBucketCount: true,
+      rejectNonCommandTrigger: true,
+      rejectExecuteMode: true,
+      requiresDockerPostgresRuntimeValidationBeforeWiring: true,
+    },
+    operatorOutputContract: {
+      includeServiceInvocationState: true,
+      includeBlockedReason: true,
+      includeSourceScopedResultSummary: true,
+      includeSafetyFlags: true,
+      includeNoQuotaMutationStatement: true,
+      includeNoRawEventDeletionStatement: true,
+    },
+    backfillServiceInvocationWired: false,
+    serviceInvocationCurrentlyAllowed: false,
+    mayInvokeBackfillServiceAfterExplicitWiring: true,
+    mayReadEventsThroughServiceDryRun: false,
+    mayPersistRollupsThroughServiceDryRun: false,
+    partialPersistenceAllowed: false,
+    quotaCountingChangeAllowed: false,
+    rawEventDeletionAllowed: false,
+    failureBehavior: "fail-closed-before-service-invocation",
+  };
 const COMMAND_DRY_RUN_SERVICE_INVOCATION_WIRING_READINESS_REVIEW: AnalyticsRollupSchedulerCommandDryRunServiceInvocationWiringReadinessReview =
   {
     status: "wiring-readiness-review-required-before-service-invocation",
@@ -647,6 +748,8 @@ function createAnalyticsRollupSchedulerCommandDryRunDesignReview(
       COMMAND_DRY_RUN_SERVICE_INVOCATION_WIRING_READINESS_REVIEW,
     dryRunServiceInvocationFailClosedErrorModel:
       COMMAND_DRY_RUN_SERVICE_INVOCATION_FAIL_CLOSED_ERROR_MODEL,
+    dryRunServiceInvocationWiringContract:
+      COMMAND_DRY_RUN_SERVICE_INVOCATION_WIRING_CONTRACT,
     dryRunServiceInvocationRequestMapperDesign:
       COMMAND_DRY_RUN_SERVICE_INVOCATION_REQUEST_MAPPER_DESIGN,
     dryRunServiceAdapterBoundaryDesign:
