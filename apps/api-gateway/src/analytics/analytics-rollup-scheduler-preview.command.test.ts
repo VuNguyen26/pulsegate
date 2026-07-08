@@ -1594,6 +1594,121 @@ describe("analytics rollup scheduler preview command", () => {
     expect(persistRejectedEvents).not.toHaveBeenCalled();
   });
 
+  it("should expose failed-closed service error output when injected dry-run backfill service fails", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const serviceFailure = Object.assign(
+      new Error("simulated scheduler dry-run service failure"),
+      { name: "SchedulerDryRunServiceError" },
+    );
+    const backfillService = {
+      runBackfill: vi.fn(async () => {
+        throw serviceFailure;
+      }),
+    };
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "usage",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "dry-run",
+        "--event-limit",
+        "500",
+      ],
+      {
+        backfillService,
+        allowDryRunServiceInvocation: true,
+      },
+    );
+
+    expect(consoleLog).toHaveBeenCalledOnce();
+    expect(backfillService.runBackfill).toHaveBeenCalledOnce();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.executionDecision).toMatchObject({
+      status: "dry-run-ready",
+      allowed: true,
+      blockedReason: null,
+      boundary: {
+        trigger: "command",
+        requestedMode: "dry-run",
+        allowedMode: "dry-run",
+        backfillServiceInvocationWired: true,
+        backfillExecutionWired: false,
+      },
+      safety: {
+        previewOnly: false,
+        invokesBackfillService: true,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+    expect(output.dryRunServiceInvocationResults).toEqual([
+      expect.objectContaining({
+        kind: "analytics-rollup-scheduler-backfill-service-dry-run-adapter-invocation",
+        status: "failed-closed-service-error",
+        currentAdapterState: "runtime-dry-run-invocation",
+        source: "usage",
+        serviceMethod: "runBackfill",
+        inputMode: "dry-run",
+        outputMode: "dry-run",
+        invocationCardinality: "single-mapped-run-input",
+        eventLimit: 500,
+        serviceResult: null,
+        error: {
+          name: "SchedulerDryRunServiceError",
+          message: "simulated scheduler dry-run service failure",
+        },
+        safety: expect.objectContaining({
+          invokesBackfillService: true,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+          sourceSeparationPreserved: true,
+          eventLimitGuardrailApplied: true,
+          maxBucketGuardrailApplied: true,
+          failClosedServiceErrorsApplied: true,
+          serviceInvocationCurrentlyAllowed: true,
+          dockerPostgresRuntimeValidationRequired: true,
+        }),
+      }),
+    ]);
+    expect(output.executionDecision.wiringReview.runtimeConsistency).toMatchObject({
+      status: "runtime-dry-run-service-invocation-wired",
+      requestedCapability: "command:dry-run",
+      backfillServiceInvocationWired: true,
+      serviceInvocationCurrentlyAllowed: true,
+      automaticTriggersRemainUnwired: true,
+      executeRemainsUnwired: true,
+      createsScheduledJob: false,
+      invokesBackfillService: true,
+      executesBackfill: false,
+      readsEvents: false,
+      persistsRollups: false,
+      affectsQuotaCounting: false,
+      deletesRawEvents: false,
+    });
+  });
+
   it("should not invoke an injected dry-run backfill service unless invocation is explicitly enabled", async () => {
     const consoleLog = vi
       .spyOn(console, "log")
