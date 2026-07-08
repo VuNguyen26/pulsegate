@@ -34,21 +34,21 @@ Local path:
 
 Current version:
 
-- v0.44.0
+- v0.45.0
 
 Latest completed sprint:
 
-- Sprint 43 - Rollup Scheduler Command Dry-Run Service Adapter Preview Output Integration
+- Sprint 44 - Rollup Scheduler Command Dry-Run Service Invocation Wiring Readiness Review
 
 Recommended next technical sprint:
 
-- Sprint 44 - Rollup Scheduler Command Dry-Run Service Invocation Wiring Readiness Review
+- Sprint 45 - Rollup Scheduler Command Dry-Run Service Invocation Fail-Closed Error Model
 
 ---
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 43:
+Latest stable validation from Sprint 44:
 
 - npm run test -> passed.
 - npm run typecheck -> passed.
@@ -57,24 +57,23 @@ Latest stable validation from Sprint 43:
 Latest automated test result:
 
 - 105 test files passed.
-- 738 tests passed.
+- 740 tests passed.
 
 Manual command validation:
 
-- npm run analytics:rollup:scheduler-preview --workspace api-gateway was validated for command dry-run adapter previews and process-local dry-run blocked boundary cases.
+- npm run analytics:rollup:scheduler-preview --workspace api-gateway was validated for command dry-run service invocation wiring readiness output with --event-limit=500.
 - Command dry-run validation passed with blockedReason=backfill-service-invocation-not-wired.
-- Command dry-run validation exposed dryRunServiceAdapterPreviews with usage and rejected planned service-result previews when --event-limit=500 was provided.
-- Adapter previews preserved currentAdapterState=contract-model-only, eventLimit=500, serviceInvocationCurrentlyAllowed=false, invokesBackfillService=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
-- Process-local dry-run validation passed with blockedReason=automatic-trigger-not-wired and dryRunDesignReview=null even when --event-limit was provided.
+- Command dry-run validation exposed dryRunServiceInvocationWiringReadinessReview with currentWiringState=not-wired, targetTrigger=command, targetBackfillMode=dry-run, targetServiceMethod=runBackfill, readyForServiceInvocationWiring=false, serviceInvocationCurrentlyAllowed=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
+- Command dry-run validation still exposed dryRunServiceAdapterPreviews with usage and rejected planned service-result previews when --event-limit=500 was provided.
 - Runtime output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
-- No Docker/PostgreSQL validation was required because Sprint 43 stayed DB-free, preview-only, command-output-only, and non-destructive.
+- No Docker/PostgreSQL validation was required because Sprint 44 stayed DB-free, preview-only, command-output-only, and non-destructive.
 
-Sprint 43 commits:
+Sprint 44 commits:
 
-- 5e87175 feat(gateway): expose rollup scheduler dry-run adapter previews
-- 1acf4ea test(gateway): harden rollup scheduler dry-run adapter preview output
+- 707d24b feat(gateway): add rollup scheduler dry-run wiring readiness review
+- a852812 test(gateway): harden rollup scheduler dry-run wiring readiness output
 
-Sprint 43 preserved:
+Sprint 44 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
@@ -87,7 +86,6 @@ Sprint 43 preserved:
 - No rollup summary API switch.
 - No retention execute command.
 - No operator-facing raw event deletion.
-
 ---
 
 ## Current Architecture Summary
@@ -99,7 +97,7 @@ API Gateway currently supports:
 - API usage event recording and API rejected event recording.
 - Event-based quota checker and runtime quota enforcement.
 - Usage and rejected event summary/listing APIs with filters and pagination.
-- Analytics rollup calculation, persistence, manual backfill, read model, schedule preview, scheduler runner contract, scheduler execution decision boundary, scheduler execution wiring review, scheduler command dry-run design review, invocation contract, readiness review, invocation design review, service invocation contract review, implementation design, request mapper, service adapter boundary design, adapter preview output integration, schedule preview command, scheduler preview args parser, and scheduler preview command foundations.
+- Analytics rollup calculation, persistence, manual backfill, read model, schedule preview, scheduler runner contract, scheduler execution decision boundary, scheduler execution wiring review, scheduler command dry-run design review, invocation contract, readiness review, invocation design review, service invocation contract review, implementation design, wiring readiness review, request mapper, service adapter boundary design, adapter preview output integration, schedule preview command, scheduler preview args parser, and scheduler preview command foundations.
 - Read-only analytics rollup endpoint.
 - Analytics retention dry-run, execution preview, repository safety, service preview, and operator preview foundations.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected analytics, quota, and rollup APIs.
@@ -155,7 +153,7 @@ Analytics rollup scheduler foundation:
 - Scheduler preview command can convert a schedule plan into dry-run backfill request contracts without creating scheduled jobs, invoking backfill service, reading events, or persisting rollups.
 - Scheduler preview command exposes executionDecision.wiringReview with currentCapability=command-preview-only.
 - Scheduler preview command exposes dryRunDesignReview for command:dry-run requests while keeping backfill service invocation unwired and non-destructive.
-- Scheduler preview command exposes dryRunInvocationContract, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationRequestMapperDesign, and dryRunServiceAdapterBoundaryDesign for command:dry-run requests.
+- Scheduler preview command exposes dryRunInvocationContract, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationWiringReadinessReview, dryRunServiceInvocationRequestMapperDesign, and dryRunServiceAdapterBoundaryDesign for command:dry-run requests.
 - Scheduler preview command exposes dryRunServiceAdapterPreviews for command:dry-run requests when --event-limit is provided.
 - Scheduler dry-run backfill request mapper maps ready runner backfill requests to dry-run AnalyticsRollupBackfillRunInput contracts without invoking the backfill service.
 - Scheduler dry-run service adapter boundary validates mapped dry-run service input contracts and produces planned dry-run service result previews without calling AnalyticsRollupBackfillService.runBackfill.
@@ -200,9 +198,9 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-43.md
+- docs/sdlc/sprint-history/sprint-44.md
 - docs/runbooks/analytics-rollup-scheduler-preview.md
-- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-adapter-preview-output-integration.md
+- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-invocation-wiring-readiness-review.md
 
 ---
 
@@ -231,11 +229,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 44 after confirming Sprint 43 docs are committed and pushed.
+Start Sprint 45 after confirming Sprint 44 docs are committed and pushed.
 
 Recommended direction:
 
-- Rollup Scheduler Command Dry-Run Service Invocation Wiring Readiness Review.
+- Rollup Scheduler Command Dry-Run Service Invocation Fail-Closed Error Model.
 
 Before starting:
 
@@ -246,8 +244,8 @@ Before starting:
 - Keep successful usage and rejected/security event storage separate.
 - Keep scheduler preview separate from actual background execution.
 - Keep command dry-run blocked until backfill service invocation is explicitly wired and approved.
-- Keep adapter preview output non-invoking and fail-closed.
-- Keep execute mode blocked until command dry-run has safe design, mapper, adapter boundary, preview output, wiring, and validation first.
+- Keep wiring readiness review and adapter preview output non-invoking and fail-closed.
+- Keep execute mode blocked until command dry-run has safe design, mapper, adapter boundary, preview output, wiring, error handling, and validation first.
 - Keep process-local/external-scheduler execution blocked until explicitly designed.
 - Keep retention execution explicit and guarded.
 - Do not expose a destructive execute command until explicitly approved.

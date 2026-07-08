@@ -12,15 +12,39 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.44.0
+v0.45.0
 
 ## Latest Completed Sprint
 
-Sprint 43 - Rollup Scheduler Command Dry-Run Service Adapter Preview Output Integration
+Sprint 44 - Rollup Scheduler Command Dry-Run Service Invocation Wiring Readiness Review
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-08 - Rollup scheduler command dry-run service invocation wiring readiness remains review-only
+
+Decision:
+
+- Expose dryRunServiceInvocationWiringReadinessReview under dryRunDesignReview for command:dry-run scheduler preview requests.
+- Keep currentWiringState=not-wired.
+- Keep readyForServiceInvocationWiring=false.
+- Keep serviceInvocationCurrentlyAllowed=false.
+- Keep command dry-run blocked with backfill-service-invocation-not-wired.
+- Keep the readiness review command-only and dry-run-only for future service invocation wiring.
+- Require mapped dry-run service inputs, adapter previews before wiring, source separation, event limit guardrails, max bucket guardrails, operator safety output, fail-closed service errors, and Docker/PostgreSQL runtime validation before future service invocation wiring.
+- Do not call AnalyticsRollupBackfillService.runBackfill from scheduler preview.
+- Do not read raw events, persist rollups, affect quota counting, or delete raw events.
+
+Rationale:
+
+- The scheduler command should not jump from adapter previews to real service invocation without an explicit wiring readiness boundary.
+- The readiness review makes future wiring prerequisites visible in operator JSON output while preserving the blocked state.
+- Keeping service invocation disallowed protects quota correctness, usage/rejected source separation, and raw event safety.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-invocation-wiring-readiness-review.md
 
 ### 2026-07-08 - Rollup scheduler command dry-run adapter previews remain command-output-only
 
