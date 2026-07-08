@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.48.0
+- v0.49.0
 
 Latest completed sprint:
 
-- Sprint 47 - Command Dry-Run Service Invocation Runtime Wiring
+- Sprint 48 - Command Dry-Run Runtime Output Hardening
 
 ---
 
@@ -368,17 +368,17 @@ Latest analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-invocation-runtime-wiring.md
+- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-runtime-output-hardening.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 48 - Command Dry-Run Runtime Output Hardening
+Sprint 49 - Command Execute Contract Review
 
 Reason:
 
-- Sprint 47 wired direct command dry-run to call AnalyticsRollupBackfillService.runBackfill in dry-run mode only and validated it with Docker/PostgreSQL.
-- The next safe step is to harden runtime output and failure handling before any execute-mode work.
-- Sprint 48 should focus on fail-closed runtime service error output, source separation edge cases, event-limit and max-bucket guardrail hardening, and operator-facing output clarity.
-- Execute mode, process-local execution, external scheduler execution, quota counting changes, rollup summary API switching, and raw event deletion should remain blocked.
+- Sprint 48 hardened command dry-run runtime output, factory failures, cleanup failures, source-separated partial failures, event-limit and max-bucket fail-fast behavior, and runtime output field visibility.
+- Docker/PostgreSQL runtime smoke validation passed for analytics:rollup:scheduler-preview command dry-run with source-separated usage and rejected service invocation results.
+- The next safe step is contract review for command execute only.
+- Execute wiring, process-local execution, external scheduler execution, scheduled/background jobs, quota counting changes, rollup summary API switching, retention delete execution, and raw event deletion should remain blocked until explicitly designed and validated.

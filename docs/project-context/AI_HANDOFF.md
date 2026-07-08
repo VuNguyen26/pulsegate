@@ -34,21 +34,21 @@ Local path:
 
 Current version:
 
-- v0.48.0
+- v0.49.0
 
 Latest completed sprint:
 
-- Sprint 47 - Command Dry-Run Service Invocation Runtime Wiring
+- Sprint 48 - Command Dry-Run Runtime Output Hardening
 
 Recommended next technical sprint:
 
-- Sprint 48 - Command Dry-Run Runtime Output Hardening
+- Sprint 49 - Command Execute Contract Review
 
 ---
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 47:
+Latest stable validation from Sprint 48:
 
 - npm run test -> passed.
 - npm run typecheck -> passed.
@@ -57,12 +57,13 @@ Latest stable validation from Sprint 47:
 Latest automated test result:
 
 - 105 test files passed.
-- 756 tests passed.
+- 763 tests passed.
 
 Docker/PostgreSQL runtime validation:
 
 - PostgreSQL container was healthy.
-- npm run db:migrate:deploy --workspace api-gateway passed.
+- DATABASE_URL was set for host-local PostgreSQL validation.
+- npm run db:migrate:deploy --workspace api-gateway passed with 7 migrations and no pending migrations.
 - analytics:rollup:scheduler-preview command dry-run runtime validation passed with --event-limit=500.
 - executionDecision.status=dry-run-ready.
 - executionDecision.boundary.backfillServiceInvocationWired=true.
@@ -70,25 +71,21 @@ Docker/PostgreSQL runtime validation:
 - dryRunServiceInvocationResults contained usage and rejected service-dry-run-invoked results.
 - serviceResult.mode=dry-run for both sources.
 - service dry-run output kept inputEventCount=0, aggregateCount=0, and upsertedCount=0.
+- happy-path runtime output did not include dryRunRuntimeCleanupError or dryRunRuntimeFactoryError.
 - executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
 
-Blocked runtime validation:
+Sprint 48 commits:
 
-- Dry-run without --event-limit remained blocked with backfill-service-invocation-not-wired.
-- process-local dry-run with --event-limit remained blocked with automatic-trigger-not-wired.
-- command execute with --event-limit remained blocked with backfill-execution-not-wired.
+- 294d74f test(gateway): lock external scheduler dry-run blocked path
+- 8e39ba9 test(gateway): lock scheduler dry-run fail-closed service output
+- 9fb359a test(gateway): lock scheduler dry-run source-separated failures
+- caac474 feat(gateway): preserve scheduler dry-run output on cleanup failure
+- 5615ce8 test(gateway): lock scheduler dry-run guardrail fail-fast
+- 8742af8 test(gateway): lock scheduler dry-run cleanup output contract
+- e59ea85 feat(gateway): expose scheduler dry-run factory failures
+- 4b91070 test(gateway): lock scheduler dry-run runtime output field visibility
 
-Sprint 47 commits:
-
-- 4dfa993 test(gateway): lock scheduler dry-run backfill service invocation safety
-- 940aed3 feat(gateway): add scheduler dry-run backfill service adapter seam
-- d5eac1a feat(gateway): expose injected scheduler dry-run service invocation output
-- 9860de4 feat(gateway): add scheduler dry-run service invocation decision switch
-- 732ed7e feat(gateway): wire scheduler command dry-run backfill runtime service
-- fcc1d30 feat(gateway): add scheduler dry-run runtime consistency output
-- 715ec6f test(gateway): lock scheduler dry-run runtime blocked paths
-
-Sprint 47 preserved:
+Sprint 48 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
@@ -102,9 +99,6 @@ Sprint 47 preserved:
 - No retention execute command.
 - No operator-facing raw event deletion.
 - No raw event reads or rollup persistence through scheduler service dry-run.
-
----
-
 ## Current Architecture Summary
 
 API Gateway currently supports:
@@ -226,11 +220,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 48 after confirming Sprint 47 docs are committed and pushed.
+Start Sprint 49 after confirming Sprint 48 docs are committed and pushed.
 
 Recommended direction:
 
-- Command Dry-Run Runtime Output Hardening.
+- Command Execute Contract Review.
 
 Before starting:
 
@@ -240,9 +234,9 @@ Before starting:
 - Preserve quota correctness.
 - Keep successful usage and rejected/security event storage separate.
 - Keep scheduler dry-run separate from actual background execution.
-- Harden only command-triggered dry-run service invocation.
-- Keep AnalyticsRollupBackfillService.runBackfill in dry-run mode only.
-- Keep execute mode blocked until command dry-run runtime behavior is hardened and reviewed.
+- Keep command dry-run behavior unchanged.
+- Keep AnalyticsRollupBackfillService.runBackfill dry-run path non-destructive.
+- Keep execute mode blocked until command execute contracts, guardrails, rollback expectations, and operator output are reviewed.
 - Keep process-local/external-scheduler execution blocked until explicitly designed.
 - Keep retention execution explicit and guarded.
 - Do not expose a destructive execute command until explicitly approved.

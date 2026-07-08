@@ -12,16 +12,41 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.48.0
+v0.49.0
 
 ## Latest Completed Sprint
 
-Sprint 47 - Command Dry-Run Service Invocation Runtime Wiring
+Sprint 48 - Command Dry-Run Runtime Output Hardening
 
 ---
 
 ## Recent Decisions
 
+### 2026-07-08 - Rollup scheduler command dry-run runtime output is hardened
+
+Decision:
+
+- Harden command dry-run runtime output after direct command-only dry-run service invocation was wired.
+- Keep external-scheduler dry-run blocked before runtime factory resolution.
+- Expose source-scoped failed-closed-service-error output for dry-run service failures.
+- Preserve source separation when one planned source fails and the other succeeds.
+- Preserve dryRunServiceInvocationResults when runtime cleanup fails and expose dryRunRuntimeCleanupError only for cleanup failures.
+- Reject invalid event-limit and invalid max-bucket inputs before runtime factory resolution.
+- Expose dryRunRuntimeFactoryError when runtime service factory creation fails.
+- Lock runtime output field visibility for success, cleanup failure, factory failure, preview, and blocked paths.
+- Validate Docker/PostgreSQL runtime smoke behavior for command dry-run with usage and rejected sources.
+- Do not create scheduled/background jobs, wire execute mode, wire process-local/external scheduler execution, change quota counting, persist rollups, read raw events, or delete raw events.
+
+Rationale:
+
+- Command dry-run now has a real runtime service invocation path, so operator output must remain explicit, source-scoped, and fail-closed across runtime failures.
+- Factory and cleanup failures are different operator concerns and should not be conflated with service invocation results.
+- Guardrails must fail before runtime factory resolution to avoid accidental DB-backed service construction for invalid commands.
+- Runtime validation remains required because the command path resolves a Prisma-backed service factory.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-runtime-output-hardening.md
 ### 2026-07-08 - Rollup scheduler command dry-run runtime service invocation is wired command-only
 
 Decision:

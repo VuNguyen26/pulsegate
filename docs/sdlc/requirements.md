@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.48.0
+v0.49.0
 
 ## Latest Completed Sprint
 
-Sprint 47 - Command Dry-Run Service Invocation Runtime Wiring
+Sprint 48 - Command Dry-Run Runtime Output Hardening
 
 ---
 
@@ -1089,12 +1089,13 @@ Implemented.
 
 Latest validation:
 
-- Sprint 47 final automated validation passed with 105 test files and 756 tests.
+- Sprint 48 final automated validation passed with 105 test files and 763 tests.
 - npm run typecheck passed.
 - npm run build passed.
-- Docker/PostgreSQL runtime validation passed for scheduler command dry-run runtime service invocation.
+- Docker/PostgreSQL runtime validation passed for scheduler command dry-run runtime smoke.
 - Runtime command dry-run reached dry-run-ready and emitted source-separated dryRunServiceInvocationResults.
-- Runtime blocked-path validation passed for dry-run without event-limit, process-local dry-run, and execute mode.
+- Runtime output field visibility was locked for success, cleanup failure, factory failure, preview, and blocked paths.
+- Runtime blocked-path validation passed for external-scheduler dry-run, dry-run without event-limit, process-local dry-run, and execute mode.
 - Scheduler runtime output preserved no scheduled jobs, no execute backfill, no event reads, no rollup persistence, no quota mutation, and no raw event deletion.
 
 Status:
@@ -1104,7 +1105,7 @@ Implemented.
 ---
 ### NFR-005 Observability
 
-Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, retention dry-run candidate previews, retention execution guard previews, retention repository safety tests, and retention execution service preview tests, retention operator preview command tests, retention operator preview fail-fast/usage contract tests, and rollup schedule preview command tests, scheduler runner contract tests, scheduler execution decision tests, scheduler preview args tests, scheduler preview command tests, and scheduler preview safety contract tests, scheduler preview args contract tests, scheduler execution blocked reason tests, and scheduler execution wiring review tests, scheduler command dry-run design review tests, scheduler command dry-run invocation contract tests, scheduler command dry-run readiness tests, scheduler command dry-run invocation design review tests, scheduler command dry-run service invocation contract review tests, scheduler command dry-run service invocation implementation design tests, scheduler command dry-run service invocation wiring readiness review tests, scheduler command dry-run service invocation fail-closed error model tests, scheduler command dry-run service invocation wiring contract tests, scheduler command dry-run wiring contract command output tests, scheduler command dry-run backfill request mapper tests, scheduler command dry-run request mapper design tests, scheduler command dry-run service adapter boundary design tests, scheduler command dry-run service adapter contract tests, scheduler command dry-run adapter preview output tests, scheduler command dry-run runtime service invocation tests, runtime consistency output tests, blocked runtime path tests, and automatic dry-run boundary tests.
+Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, retention dry-run candidate previews, retention execution guard previews, retention repository safety tests, and retention execution service preview tests, retention operator preview command tests, retention operator preview fail-fast/usage contract tests, and rollup schedule preview command tests, scheduler runner contract tests, scheduler execution decision tests, scheduler preview args tests, scheduler preview command tests, and scheduler preview safety contract tests, scheduler preview args contract tests, scheduler execution blocked reason tests, and scheduler execution wiring review tests, scheduler command dry-run design review tests, scheduler command dry-run invocation contract tests, scheduler command dry-run readiness tests, scheduler command dry-run invocation design review tests, scheduler command dry-run service invocation contract review tests, scheduler command dry-run service invocation implementation design tests, scheduler command dry-run service invocation wiring readiness review tests, scheduler command dry-run service invocation fail-closed error model tests, scheduler command dry-run service invocation wiring contract tests, scheduler command dry-run wiring contract command output tests, scheduler command dry-run backfill request mapper tests, scheduler command dry-run request mapper design tests, scheduler command dry-run service adapter boundary design tests, scheduler command dry-run service adapter contract tests, scheduler command dry-run adapter preview output tests, scheduler command dry-run runtime service invocation tests, runtime consistency output tests, blocked runtime path tests, automatic dry-run boundary tests, scheduler dry-run runtime failure output tests, runtime factory failure output tests, and runtime output field visibility tests.
 
 Status:
 

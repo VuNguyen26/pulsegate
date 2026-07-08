@@ -6,26 +6,27 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.48.0
+v0.49.0
 
 ## Current Status
 
-Sprint 47 - Command Dry-Run Service Invocation Runtime Wiring Complete
+Sprint 48 - Command Dry-Run Runtime Output Hardening Complete
 
 Current validation:
 
 - 105 test files passed
-- 756 tests passed
+- 763 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker/PostgreSQL runtime validation passed for analytics:rollup:scheduler-preview command dry-run runtime service invocation
+- Docker/PostgreSQL runtime validation passed for analytics:rollup:scheduler-preview command dry-run runtime smoke
 - Runtime command dry-run with --event-limit=500 reached dry-run-ready and invoked AnalyticsRollupBackfillService.runBackfill in dry-run mode only
 - Runtime output exposed dryRunServiceInvocationResults for usage and rejected sources with service-dry-run-invoked results
+- Runtime output preserved dryRunRuntimeCleanupError only for cleanup failures and dryRunRuntimeFactoryError only for runtime factory failures
+- Runtime output field visibility was locked for success, cleanup failure, factory failure, preview, and blocked paths
 - Runtime consistency output exposed runtime-dry-run-service-invocation-wired while keeping automatic/process-local/external execution and execute mode unwired
-- Blocked runtime paths remained blocked for missing event-limit dry-run, process-local dry-run, and execute mode
+- Guardrail validation kept invalid event-limit and invalid max-bucket inputs fail-fast before resolving the runtime service factory
 - No scheduled/background job, execute backfill, quota counting change, summary API switch, retention delete, or raw event deletion was introduced
 ---
-
 ## Architecture Scope
 
 This document describes the current architecture only.
@@ -505,12 +506,12 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 48 - Command Dry-Run Runtime Output Hardening
+Sprint 49 - Command Execute Contract Review
 
 Rationale:
 
-- Sprint 47 safely introduced direct command dry-run runtime service invocation through AnalyticsRollupBackfillService.runBackfill in dry-run mode only.
-- The next architecture step should harden runtime dry-run output, source separation edge cases, event-limit and max-bucket guardrail behavior, and fail-closed service error output.
-- Execute mode should remain blocked until command dry-run runtime behavior is hardened and reviewed.
+- Sprint 48 completed command dry-run runtime output hardening after Sprint 47 introduced command-only dry-run service invocation.
+- The next architecture step should review command execute contracts without wiring execute behavior yet.
+- Execute mode should remain blocked until request, response, guardrail, rollback, operator output, and runtime validation expectations are explicitly reviewed.
 - Process-local or external scheduler execution should remain blocked until background execution semantics and runtime validation are designed.
 - Delete execution should remain unavailable until command/API semantics, runtime validation, rollback expectations, and operator controls are explicitly designed.
