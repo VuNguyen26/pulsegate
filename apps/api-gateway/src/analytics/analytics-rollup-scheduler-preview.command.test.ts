@@ -2016,6 +2016,7 @@ describe("analytics rollup scheduler preview command", () => {
     });
     expect(output.dryRunServiceInvocationResults).toHaveLength(2);
     expect(output.dryRunRuntimeCleanupError).toBeUndefined();
+    expect(output.dryRunRuntimeFactoryError).toBeUndefined();
     expect(output.executionDecision.wiringReview.runtimeConsistency).toMatchObject({
       status: "runtime-dry-run-service-invocation-wired",
       requestedCapability: "command:dry-run",
@@ -2115,6 +2116,7 @@ describe("analytics rollup scheduler preview command", () => {
       name: "RuntimeDisposeError",
       message: "simulated runtime dispose failure",
     });
+    expect(output.dryRunRuntimeFactoryError).toBeUndefined();
     expect(output.dryRunServiceInvocationResults).toEqual([
       expect.objectContaining({
         status: "service-dry-run-invoked",
@@ -2308,6 +2310,8 @@ describe("analytics rollup scheduler preview command", () => {
     const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
 
     expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.dryRunRuntimeCleanupError).toBeUndefined();
+    expect(output.dryRunRuntimeFactoryError).toBeUndefined();
     expect(output.executionDecision).toMatchObject({
       status: "preview-ready",
       allowed: true,
@@ -2438,6 +2442,8 @@ describe("analytics rollup scheduler preview command", () => {
     const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
 
     expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.dryRunRuntimeCleanupError).toBeUndefined();
+    expect(output.dryRunRuntimeFactoryError).toBeUndefined();
     expect(output.executionDecision).toMatchObject({
       status: "blocked",
       allowed: false,
