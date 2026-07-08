@@ -55,6 +55,46 @@ export type AnalyticsRollupSchedulerPreviewCommandDependencies = {
   allowDryRunServiceInvocation?: boolean;
 };
 
+export type AnalyticsRollupSchedulerPreviewCommandRuntimeCleanupError = {
+  name: string;
+  message: string;
+};
+
+type AnalyticsRollupSchedulerPreviewCommandDryRunInvocationOutput = {
+  dryRunServiceInvocationResults: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult[];
+  dryRunRuntimeCleanupError: AnalyticsRollupSchedulerPreviewCommandRuntimeCleanupError | null;
+};
+
+function createRuntimeCleanupError(
+  error: unknown,
+): AnalyticsRollupSchedulerPreviewCommandRuntimeCleanupError {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+    };
+  }
+
+  return {
+    name: "Error",
+    message: String(error),
+  };
+}
+
+async function disposeRuntimeBackfillService(
+  runtimeBackfillService:
+    | AnalyticsRollupSchedulerPreviewCommandRuntimeBackfillService
+    | undefined,
+): Promise<AnalyticsRollupSchedulerPreviewCommandRuntimeCleanupError | null> {
+  try {
+    await runtimeBackfillService?.dispose?.();
+
+    return null;
+  } catch (error: unknown) {
+    return createRuntimeCleanupError(error);
+  }
+}
+
 function createDryRunServiceMappingsForCommandDryRun(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   options: AnalyticsRollupSchedulerPreviewCommandOptions,
@@ -100,7 +140,7 @@ async function invokeDryRunServiceAdaptersForCommandDryRun(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   options: AnalyticsRollupSchedulerPreviewCommandOptions,
   dependencies: AnalyticsRollupSchedulerPreviewCommandDependencies,
-): Promise<AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult[] | null> {
+): Promise<AnalyticsRollupSchedulerPreviewCommandDryRunInvocationOutput | null> {
   if (dependencies.allowDryRunServiceInvocation !== true) {
     return null;
   }
@@ -125,14 +165,37 @@ async function invokeDryRunServiceAdaptersForCommandDryRun(
     return null;
   }
 
+  let dryRunServiceInvocationResults:
+    | AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult[]
+    | null = null;
+  let invocationError: unknown = null;
+
   try {
-    return await invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapters(
-      mappings,
-      backfillService,
-    );
-  } finally {
-    await runtimeBackfillService?.dispose?.();
+    dryRunServiceInvocationResults =
+      await invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapters(
+        mappings,
+        backfillService,
+      );
+  } catch (error: unknown) {
+    invocationError = error;
   }
+
+  const dryRunRuntimeCleanupError = await disposeRuntimeBackfillService(
+    runtimeBackfillService,
+  );
+
+  if (invocationError !== null) {
+    throw invocationError;
+  }
+
+  if (dryRunServiceInvocationResults === null) {
+    throw new Error("scheduler dry-run service invocation did not produce results");
+  }
+
+  return {
+    dryRunServiceInvocationResults,
+    dryRunRuntimeCleanupError,
+  };
 }
 
 async function createRuntimeAnalyticsRollupSchedulerDryRunBackfillService(): Promise<AnalyticsRollupSchedulerPreviewCommandRuntimeBackfillService> {
@@ -189,12 +252,16 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
   const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
   const dryRunServiceAdapterPreviews =
     createDryRunServiceAdapterPreviewsForCommandDryRun(runnerPlan, options);
-  const dryRunServiceInvocationResults =
+  const dryRunServiceInvocationOutput =
     await invokeDryRunServiceAdaptersForCommandDryRun(
       runnerPlan,
       options,
       dependencies,
     );
+  const dryRunServiceInvocationResults =
+    dryRunServiceInvocationOutput?.dryRunServiceInvocationResults ?? null;
+  const dryRunRuntimeCleanupError =
+    dryRunServiceInvocationOutput?.dryRunRuntimeCleanupError ?? null;
   const executionDecision = createAnalyticsRollupSchedulerExecutionDecision(
     runnerPlan,
     {
@@ -207,7 +274,14 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
   const commandOutput =
     dryRunServiceInvocationResults === null
       ? { ...runnerPlan, executionDecision }
-      : { ...runnerPlan, executionDecision, dryRunServiceInvocationResults };
+      : dryRunRuntimeCleanupError === null
+        ? { ...runnerPlan, executionDecision, dryRunServiceInvocationResults }
+        : {
+            ...runnerPlan,
+            executionDecision,
+            dryRunServiceInvocationResults,
+            dryRunRuntimeCleanupError,
+          };
 
   console.log(JSON.stringify(commandOutput, null, 2));
 }

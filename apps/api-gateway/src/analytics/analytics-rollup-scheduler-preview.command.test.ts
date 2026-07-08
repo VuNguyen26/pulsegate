@@ -2037,6 +2037,157 @@ describe("analytics rollup scheduler preview command", () => {
     expect(persistRejectedEvents).not.toHaveBeenCalled();
   });
 
+  it("should expose runtime cleanup failure without dropping dry-run service invocation output", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const listUsageEvents = vi.fn(async () => []);
+    const listRejectedEvents = vi.fn(async () => []);
+    const persistUsageEvents = vi.fn(async () => ({
+      inputEventCount: 0,
+      aggregateCount: 0,
+      upsertedCount: 0,
+    }));
+    const persistRejectedEvents = vi.fn(async () => ({
+      inputEventCount: 0,
+      aggregateCount: 0,
+      upsertedCount: 0,
+    }));
+    const backfillService = createAnalyticsRollupBackfillService({
+      eventReader: {
+        listUsageEvents,
+        listRejectedEvents,
+      } satisfies AnalyticsRollupBackfillEventReader,
+      persistenceService: {
+        persistUsageEvents,
+        persistRejectedEvents,
+      } satisfies AnalyticsRollupPersistenceService,
+    });
+    const runBackfill = vi.spyOn(backfillService, "runBackfill");
+    const cleanupFailure = Object.assign(
+      new Error("simulated runtime dispose failure"),
+      { name: "RuntimeDisposeError" },
+    );
+    const dispose = vi.fn(async () => {
+      throw cleanupFailure;
+    });
+    const createRuntimeBackfillService = vi.fn(async () => ({
+      backfillService,
+      dispose,
+    }));
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "usage",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "dry-run",
+        "--event-limit",
+        "500",
+      ],
+      {
+        allowDryRunServiceInvocation: true,
+        createRuntimeBackfillService,
+      },
+    );
+
+    expect(consoleLog).toHaveBeenCalledOnce();
+    expect(createRuntimeBackfillService).toHaveBeenCalledOnce();
+    expect(runBackfill).toHaveBeenCalledOnce();
+    expect(dispose).toHaveBeenCalledOnce();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunRuntimeCleanupError).toEqual({
+      name: "RuntimeDisposeError",
+      message: "simulated runtime dispose failure",
+    });
+    expect(output.dryRunServiceInvocationResults).toEqual([
+      expect.objectContaining({
+        status: "service-dry-run-invoked",
+        source: "usage",
+        serviceResult: expect.objectContaining({
+          mode: "dry-run",
+          source: "usage",
+          sources: ["usage"],
+          sourceResults: [
+            {
+              source: "usage",
+              status: "planned",
+              inputEventCount: 0,
+              aggregateCount: 0,
+              upsertedCount: 0,
+            },
+          ],
+          totalInputEventCount: 0,
+          totalAggregateCount: 0,
+          totalUpsertedCount: 0,
+        }),
+        error: null,
+        safety: expect.objectContaining({
+          invokesBackfillService: true,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+          sourceSeparationPreserved: true,
+          failClosedServiceErrorsApplied: true,
+        }),
+      }),
+    ]);
+    expect(output.executionDecision).toMatchObject({
+      status: "dry-run-ready",
+      allowed: true,
+      blockedReason: null,
+      boundary: {
+        trigger: "command",
+        requestedMode: "dry-run",
+        allowedMode: "dry-run",
+        backfillServiceInvocationWired: true,
+        backfillExecutionWired: false,
+      },
+      safety: {
+        previewOnly: false,
+        invokesBackfillService: true,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+    expect(output.executionDecision.wiringReview.runtimeConsistency).toMatchObject({
+      status: "runtime-dry-run-service-invocation-wired",
+      requestedCapability: "command:dry-run",
+      serviceInvocationCurrentlyAllowed: true,
+      automaticTriggersRemainUnwired: true,
+      executeRemainsUnwired: true,
+      createsScheduledJob: false,
+      invokesBackfillService: true,
+      executesBackfill: false,
+      readsEvents: false,
+      persistsRollups: false,
+      affectsQuotaCounting: false,
+      deletesRawEvents: false,
+    });
+    expect(listUsageEvents).not.toHaveBeenCalled();
+    expect(listRejectedEvents).not.toHaveBeenCalled();
+    expect(persistUsageEvents).not.toHaveBeenCalled();
+    expect(persistRejectedEvents).not.toHaveBeenCalled();
+  });
+
   it("should not resolve runtime dry-run backfill service factory for preview mode", async () => {
     const consoleLog = vi
       .spyOn(console, "log")
