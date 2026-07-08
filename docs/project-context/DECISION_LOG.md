@@ -12,16 +12,42 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.45.0
+v0.46.0
 
 ## Latest Completed Sprint
 
-Sprint 44 - Rollup Scheduler Command Dry-Run Service Invocation Wiring Readiness Review
+Sprint 45 - Rollup Scheduler Command Dry-Run Service Invocation Fail-Closed Error Model
 
 ---
 
 ## Recent Decisions
 
+
+### 2026-07-08 - Rollup scheduler command dry-run service invocation fail-closed errors remain model-only
+
+Decision:
+
+- Expose dryRunServiceInvocationFailClosedErrorModel under dryRunDesignReview for command:dry-run scheduler preview requests.
+- Keep currentServiceInvocationState=not-wired.
+- Keep failureState=blocked.
+- Keep blockedReason=backfill-service-invocation-not-wired.
+- Keep serviceInvocationCurrentlyAllowed=false.
+- Keep partialPersistenceAllowed=false.
+- Keep quotaCountingChangeAllowed=false.
+- Keep rawEventDeletionAllowed=false.
+- Require operator-visible fail-closed service error review output, source-scoped error output, safety flags on failure, no partial persistence, no quota mutation, and no raw event deletion before future service invocation wiring.
+- Do not call AnalyticsRollupBackfillService.runBackfill from scheduler preview.
+- Do not read raw events, persist rollups, affect quota counting, or delete raw events.
+
+Rationale:
+
+- The scheduler command should not wire real service invocation before fail-closed error output is explicit and test-covered.
+- The fail-closed model makes future service invocation failure behavior visible to operators while preserving the blocked state.
+- Keeping partial persistence, quota mutation, and raw deletion disallowed protects quota correctness, usage/rejected source separation, and raw event safety.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-invocation-fail-closed-error-model.md
 ### 2026-07-08 - Rollup scheduler command dry-run service invocation wiring readiness remains review-only
 
 Decision:
