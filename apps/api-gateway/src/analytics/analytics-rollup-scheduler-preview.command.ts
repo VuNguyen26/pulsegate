@@ -33,17 +33,25 @@ export const ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE = [
   "  npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --execution-mode dry-run --event-limit 500",
   "",
   "Safety:",
-  "  Preview only. Prints an execution boundary decision. Does not create scheduled jobs, invoke backfill service, execute backfill, read events, persist rollups, affect quota counting, or delete raw events.",
-  "  Command dry-run requests currently remain blocked and expose dryRunDesignReview, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationWiringReadinessReview, dryRunServiceInvocationFailClosedErrorModel, dryRunServiceInvocationWiringContract, dryRunServiceInvocationRequestMapperDesign, dryRunServiceAdapterBoundaryDesign, dryRunServiceAdapterPreviews, and dryRunInvocationContract only.",
-  "  The dry-run invocation contract is review-only: command-triggered, dry-run-only, per-source, event-limit and max-bucket guarded before any future wiring.",
+  "  Preview only mode is non-invoking, prints an execution boundary decision, and does not invoke backfill service. Direct CLI command dry-run with --event-limit may invoke the backfill service in dry-run mode only; Does not create scheduled jobs, execute backfill, read events, persist rollups, affect quota counting, or delete raw events.",
+  "  Command dry-run requests currently remain blocked unless runtime dry-run service invocation is explicitly wired; blocked review output exposes dryRunDesignReview, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationWiringReadinessReview, dryRunServiceInvocationFailClosedErrorModel, dryRunServiceInvocationWiringContract, dryRunServiceInvocationRequestMapperDesign, dryRunServiceAdapterBoundaryDesign, dryRunServiceAdapterPreviews, and dryRunInvocationContract only. Runtime dry-run output also exposes dryRunServiceInvocationResults.",
+  "  The dry-run invocation contract remains review-only for automatic triggers and execute mode; direct CLI command dry-run is command-triggered, dry-run-only, per-source, event-limit and max-bucket guarded.",
   "  Dry-run backfill service invocation requires explicit implementation design, wiring readiness review, request mapper design, service adapter boundary design, source separation, event limit guardrails, fail-closed service errors, operator safety output, and Docker/PostgreSQL runtime validation before wiring.",
   "  Fail-closed dry-run service error modeling remains operator-review-only and requires blocked output, safety flags, source-scoped error output, no partial persistence, no quota mutation, and no raw event deletion before future wiring.",
   "  The dry-run service invocation wiring contract is non-invoking: command-only, dry-run request/response contract, source-scoped result summary, event-limit guardrail, max-bucket bound, no quota mutation, and no raw event deletion until explicit wiring.",
-  "  --event-limit enables a DB-free command dry-run service adapter preview from mapped dry-run service inputs; it still does not invoke the backfill service.",
+  "  --event-limit enables a DB-free command dry-run service adapter preview and, for direct CLI runtime dry-run, gates the backfill service dry-run invocation.",
 ].join("\n");
+
+export type AnalyticsRollupSchedulerPreviewCommandRuntimeBackfillService = {
+  backfillService: AnalyticsRollupBackfillService;
+  dispose?: () => Promise<void>;
+};
 
 export type AnalyticsRollupSchedulerPreviewCommandDependencies = {
   backfillService?: AnalyticsRollupBackfillService;
+  createRuntimeBackfillService?: () =>
+    | AnalyticsRollupSchedulerPreviewCommandRuntimeBackfillService
+    | Promise<AnalyticsRollupSchedulerPreviewCommandRuntimeBackfillService>;
   allowDryRunServiceInvocation?: boolean;
 };
 
@@ -93,10 +101,7 @@ async function invokeDryRunServiceAdaptersForCommandDryRun(
   options: AnalyticsRollupSchedulerPreviewCommandOptions,
   dependencies: AnalyticsRollupSchedulerPreviewCommandDependencies,
 ): Promise<AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult[] | null> {
-  if (
-    dependencies.allowDryRunServiceInvocation !== true ||
-    dependencies.backfillService === undefined
-  ) {
+  if (dependencies.allowDryRunServiceInvocation !== true) {
     return null;
   }
 
@@ -109,10 +114,70 @@ async function invokeDryRunServiceAdaptersForCommandDryRun(
     return null;
   }
 
-  return invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapters(
-    mappings,
-    dependencies.backfillService,
-  );
+  const runtimeBackfillService =
+    dependencies.backfillService === undefined
+      ? await dependencies.createRuntimeBackfillService?.()
+      : undefined;
+  const backfillService =
+    dependencies.backfillService ?? runtimeBackfillService?.backfillService;
+
+  if (backfillService === undefined) {
+    return null;
+  }
+
+  try {
+    return await invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapters(
+      mappings,
+      backfillService,
+    );
+  } finally {
+    await runtimeBackfillService?.dispose?.();
+  }
+}
+
+async function createRuntimeAnalyticsRollupSchedulerDryRunBackfillService(): Promise<AnalyticsRollupSchedulerPreviewCommandRuntimeBackfillService> {
+  const [
+    databaseModule,
+    rejectedRollupRepositoryModule,
+    eventReaderModule,
+    persistenceServiceModule,
+    backfillServiceModule,
+    usageRollupRepositoryModule,
+  ] = await Promise.all([
+    import("../database/gateway-prisma.js"),
+    import("./analytics-rejected-rollup.repository.js"),
+    import("./analytics-rollup-backfill-event-reader.js"),
+    import("./analytics-rollup-persistence-service.js"),
+    import("./analytics-rollup-backfill-service.js"),
+    import("./analytics-usage-rollup.repository.js"),
+  ]);
+
+  const usageRollupRepository =
+    usageRollupRepositoryModule.createPrismaAnalyticsUsageRollupRepository(
+      databaseModule.gatewayPrisma,
+    );
+  const rejectedRollupRepository =
+    rejectedRollupRepositoryModule.createPrismaAnalyticsRejectedRollupRepository(
+      databaseModule.gatewayPrisma,
+    );
+  const persistenceService =
+    persistenceServiceModule.createAnalyticsRollupPersistenceService({
+      usageRollupRepository,
+      rejectedRollupRepository,
+    });
+  const eventReader =
+    eventReaderModule.createPrismaAnalyticsRollupBackfillEventReader(
+      databaseModule.gatewayPrisma,
+    );
+  const backfillService = backfillServiceModule.createAnalyticsRollupBackfillService({
+    eventReader,
+    persistenceService,
+  });
+
+  return {
+    backfillService,
+    dispose: databaseModule.disconnectGatewayPrisma,
+  };
 }
 
 export async function runAnalyticsRollupSchedulerPreviewCommand(
@@ -135,6 +200,7 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
     {
       ...options.executionDecision,
       dryRunServiceAdapterPreviews,
+      backfillServiceInvocationWired: dryRunServiceInvocationResults !== null,
     },
   );
 
@@ -156,7 +222,11 @@ function isDirectRun(): boolean {
 }
 
 if (isDirectRun()) {
-  runAnalyticsRollupSchedulerPreviewCommand().catch((error: unknown) => {
+  runAnalyticsRollupSchedulerPreviewCommand(process.argv.slice(2), {
+    allowDryRunServiceInvocation: true,
+    createRuntimeBackfillService:
+      createRuntimeAnalyticsRollupSchedulerDryRunBackfillService,
+  }).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
 
     console.error(message);

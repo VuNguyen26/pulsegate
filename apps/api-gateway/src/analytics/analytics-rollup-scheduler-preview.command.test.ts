@@ -1638,4 +1638,148 @@ describe("analytics rollup scheduler preview command", () => {
         .dryRunServiceAdapterPreviews,
     ).toHaveLength(1);
   });
+
+  it("should resolve runtime dry-run backfill service factory for explicitly enabled command dry-run", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const listUsageEvents = vi.fn(async () => []);
+    const listRejectedEvents = vi.fn(async () => []);
+    const persistUsageEvents = vi.fn(async () => ({
+      inputEventCount: 0,
+      aggregateCount: 0,
+      upsertedCount: 0,
+    }));
+    const persistRejectedEvents = vi.fn(async () => ({
+      inputEventCount: 0,
+      aggregateCount: 0,
+      upsertedCount: 0,
+    }));
+    const backfillService = createAnalyticsRollupBackfillService({
+      eventReader: {
+        listUsageEvents,
+        listRejectedEvents,
+      } satisfies AnalyticsRollupBackfillEventReader,
+      persistenceService: {
+        persistUsageEvents,
+        persistRejectedEvents,
+      } satisfies AnalyticsRollupPersistenceService,
+    });
+    const runBackfill = vi.spyOn(backfillService, "runBackfill");
+    const dispose = vi.fn(async () => undefined);
+    const createRuntimeBackfillService = vi.fn(async () => ({
+      backfillService,
+      dispose,
+    }));
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "both",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "dry-run",
+        "--event-limit",
+        "500",
+      ],
+      {
+        allowDryRunServiceInvocation: true,
+        createRuntimeBackfillService,
+      },
+    );
+
+    expect(createRuntimeBackfillService).toHaveBeenCalledOnce();
+    expect(runBackfill).toHaveBeenCalledTimes(2);
+    expect(dispose).toHaveBeenCalledOnce();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.executionDecision).toMatchObject({
+      status: "dry-run-ready",
+      allowed: true,
+      blockedReason: null,
+      boundary: {
+        trigger: "command",
+        requestedMode: "dry-run",
+        allowedMode: "dry-run",
+        backfillServiceInvocationWired: true,
+        backfillExecutionWired: false,
+      },
+      safety: {
+        previewOnly: false,
+        invokesBackfillService: true,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+    expect(output.dryRunServiceInvocationResults).toHaveLength(2);
+    expect(listUsageEvents).not.toHaveBeenCalled();
+    expect(listRejectedEvents).not.toHaveBeenCalled();
+    expect(persistUsageEvents).not.toHaveBeenCalled();
+    expect(persistRejectedEvents).not.toHaveBeenCalled();
+  });
+
+  it("should not resolve runtime dry-run backfill service factory for preview mode", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const createRuntimeBackfillService = vi.fn();
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "usage",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+      ],
+      {
+        allowDryRunServiceInvocation: true,
+        createRuntimeBackfillService,
+      },
+    );
+
+    expect(createRuntimeBackfillService).not.toHaveBeenCalled();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.executionDecision).toMatchObject({
+      status: "preview-ready",
+      allowed: true,
+      blockedReason: null,
+      boundary: {
+        requestedMode: "preview",
+        allowedMode: "preview",
+        backfillServiceInvocationWired: false,
+      },
+      safety: {
+        previewOnly: true,
+        invokesBackfillService: false,
+      },
+    });
+  });
 });
