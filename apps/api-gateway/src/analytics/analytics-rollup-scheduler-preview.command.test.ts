@@ -2238,6 +2238,84 @@ describe("analytics rollup scheduler preview command", () => {
     });
   });
 
+  it("should reject invalid event limit before resolving runtime dry-run backfill service factory", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const createRuntimeBackfillService = vi.fn();
+
+    await expect(
+      runAnalyticsRollupSchedulerPreviewCommand(
+        [
+          "--enabled",
+          "true",
+          "--source",
+          "usage",
+          "--run-at",
+          "2026-07-06T13:07:00.000Z",
+          "--granularity",
+          "hour",
+          "--lookback-buckets",
+          "1",
+          "--safety-delay-ms",
+          "300000",
+          "--max-buckets",
+          "1",
+          "--execution-mode",
+          "dry-run",
+          "--event-limit",
+          "0",
+        ],
+        {
+          allowDryRunServiceInvocation: true,
+          createRuntimeBackfillService,
+        },
+      ),
+    ).rejects.toThrow(RangeError);
+
+    expect(consoleLog).not.toHaveBeenCalled();
+    expect(createRuntimeBackfillService).not.toHaveBeenCalled();
+  });
+
+  it("should reject invalid max buckets before resolving runtime dry-run backfill service factory", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const createRuntimeBackfillService = vi.fn();
+
+    await expect(
+      runAnalyticsRollupSchedulerPreviewCommand(
+        [
+          "--enabled",
+          "true",
+          "--source",
+          "usage",
+          "--run-at",
+          "2026-07-06T13:07:00.000Z",
+          "--granularity",
+          "hour",
+          "--lookback-buckets",
+          "1",
+          "--safety-delay-ms",
+          "300000",
+          "--max-buckets",
+          "0",
+          "--execution-mode",
+          "dry-run",
+          "--event-limit",
+          "500",
+        ],
+        {
+          allowDryRunServiceInvocation: true,
+          createRuntimeBackfillService,
+        },
+      ),
+    ).rejects.toThrow(RangeError);
+
+    expect(consoleLog).not.toHaveBeenCalled();
+    expect(createRuntimeBackfillService).not.toHaveBeenCalled();
+  });
+
   it("should not resolve runtime dry-run backfill service factory for dry-run without event limit", async () => {
     const consoleLog = vi
       .spyOn(console, "log")
