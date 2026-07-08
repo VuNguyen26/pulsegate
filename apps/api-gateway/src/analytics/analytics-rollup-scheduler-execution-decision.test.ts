@@ -967,4 +967,97 @@ describe("analytics rollup scheduler execution decision", () => {
     expect(decision.safety.affectsQuotaCounting).toBe(false);
     expect(decision.safety.deletesRawEvents).toBe(false);
   });
+
+  it("should allow command dry-run when backfill service invocation is explicitly wired", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      {
+        mode: "dry-run",
+        backfillServiceInvocationWired: true,
+      },
+    );
+
+    expect(decision).toMatchObject({
+      status: "dry-run-ready",
+      allowed: true,
+      blockedReason: null,
+      boundary: {
+        trigger: "command",
+        requestedMode: "dry-run",
+        allowedMode: "dry-run",
+        commandTriggeredOnly: true,
+        processLocalExecutionWired: false,
+        externalSchedulerExecutionWired: false,
+        backfillServiceInvocationWired: true,
+        backfillExecutionWired: false,
+      },
+      safety: {
+        previewOnly: false,
+        createsScheduledJob: false,
+        invokesBackfillService: true,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should keep non-command dry-run blocked even when backfill service invocation is requested as wired", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "usage",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      {
+        trigger: "process-local",
+        mode: "dry-run",
+        backfillServiceInvocationWired: true,
+      },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "automatic-trigger-not-wired",
+      boundary: {
+        trigger: "process-local",
+        requestedMode: "dry-run",
+        allowedMode: "preview",
+        processLocalExecutionWired: false,
+        externalSchedulerExecutionWired: false,
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      safety: {
+        previewOnly: true,
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
 });

@@ -16,7 +16,8 @@ export type AnalyticsRollupSchedulerExecutionMode =
 
 export type AnalyticsRollupSchedulerExecutionDecisionStatus =
   | "blocked"
-  | "preview-ready";
+  | "preview-ready"
+  | "dry-run-ready";
 
 export type AnalyticsRollupSchedulerExecutionBlockedReason =
   | "scheduler-runner-not-ready"
@@ -30,23 +31,24 @@ export type AnalyticsRollupSchedulerExecutionDecisionInput = {
   dryRunServiceAdapterPreviews?:
     | AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview[]
     | null;
+  backfillServiceInvocationWired?: boolean;
 };
 
 export type AnalyticsRollupSchedulerExecutionBoundary = {
   trigger: AnalyticsRollupSchedulerExecutionTrigger;
   requestedMode: AnalyticsRollupSchedulerExecutionMode;
-  allowedMode: Extract<AnalyticsRollupSchedulerExecutionMode, "preview">;
+  allowedMode: Extract<AnalyticsRollupSchedulerExecutionMode, "preview" | "dry-run">;
   commandTriggeredOnly: true;
   processLocalExecutionWired: false;
   externalSchedulerExecutionWired: false;
-  backfillServiceInvocationWired: false;
+  backfillServiceInvocationWired: boolean;
   backfillExecutionWired: false;
 };
 
 export type AnalyticsRollupSchedulerExecutionDecisionSafety = {
-  previewOnly: true;
+  previewOnly: boolean;
   createsScheduledJob: false;
-  invokesBackfillService: false;
+  invokesBackfillService: boolean;
   executesBackfill: false;
   readsEvents: false;
   persistsRollups: false;
@@ -788,6 +790,7 @@ function resolveBlockedReason(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
+  backfillServiceInvocationWired: boolean,
 ): AnalyticsRollupSchedulerExecutionBlockedReason | null {
   if (runnerPlan.status !== "ready") {
     return "scheduler-runner-not-ready";
@@ -797,7 +800,7 @@ function resolveBlockedReason(
     return "automatic-trigger-not-wired";
   }
 
-  if (requestedMode === "dry-run") {
+  if (requestedMode === "dry-run" && !backfillServiceInvocationWired) {
     return "backfill-service-invocation-not-wired";
   }
 
@@ -814,18 +817,35 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
 ): AnalyticsRollupSchedulerExecutionDecision {
   const trigger = input.trigger ?? "command";
   const requestedMode = input.mode ?? "preview";
+  const backfillServiceInvocationWired =
+    input.backfillServiceInvocationWired === true &&
+    runnerPlan.status === "ready" &&
+    trigger === "command" &&
+    requestedMode === "dry-run";
   const blockedReason = resolveBlockedReason(
     runnerPlan,
     trigger,
     requestedMode,
+    backfillServiceInvocationWired,
   );
   const allowed = blockedReason === null;
+  const allowedMode =
+    allowed && requestedMode === "dry-run" ? "dry-run" : "preview";
   const dryRunServiceAdapterPreviews =
     input.dryRunServiceAdapterPreviews ?? null;
+  const safety: AnalyticsRollupSchedulerExecutionDecisionSafety =
+    backfillServiceInvocationWired
+      ? {
+          ...EXECUTION_DECISION_SAFETY,
+          previewOnly: false,
+          invokesBackfillService: true,
+        }
+      : EXECUTION_DECISION_SAFETY;
 
   return {
     kind: "analytics-rollup-scheduler-execution-decision",
-    status: allowed ? "preview-ready" : "blocked",
+    status:
+      allowedMode === "dry-run" && allowed ? "dry-run-ready" : allowed ? "preview-ready" : "blocked",
     allowed,
     blockedReason,
     runnerStatus: runnerPlan.status,
@@ -840,11 +860,11 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
     boundary: {
       trigger,
       requestedMode,
-      allowedMode: "preview",
+      allowedMode,
       commandTriggeredOnly: true,
       processLocalExecutionWired: false,
       externalSchedulerExecutionWired: false,
-      backfillServiceInvocationWired: false,
+      backfillServiceInvocationWired,
       backfillExecutionWired: false,
     },
     wiringReview: createAnalyticsRollupSchedulerExecutionWiringReview(
@@ -853,6 +873,6 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
       requestedMode,
       dryRunServiceAdapterPreviews,
     ),
-    safety: EXECUTION_DECISION_SAFETY,
+    safety,
   };
 }
