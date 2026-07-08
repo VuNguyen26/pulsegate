@@ -6,22 +6,22 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.42.0
+v0.43.0
 
 ## Current Status
 
-Sprint 41 - Rollup Scheduler Command Dry-Run Service Invocation Request Mapper Design Complete
+Sprint 42 - Rollup Scheduler Command Dry-Run Service Adapter Boundary Design Complete
 
 Current validation:
 
-- 104 test files passed
-- 725 tests passed
+- 105 test files passed
+- 732 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Runtime command validation passed for analytics:rollup:scheduler-preview command dry-run request mapper design and process-local dry-run blocked boundary cases
-- Scheduler command dry-run output exposes dryRunDesignReview, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationRequestMapperDesign, and dryRunInvocationContract while remaining blocked
+- Runtime command validation passed for analytics:rollup:scheduler-preview command dry-run service adapter boundary design and process-local dry-run blocked boundary cases
+- Scheduler command dry-run output exposes dryRunDesignReview, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationRequestMapperDesign, dryRunServiceAdapterBoundaryDesign, and dryRunInvocationContract while remaining blocked
 - Scheduler preview output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false
-- No Docker/PostgreSQL validation was required for Sprint 41 because the scheduler command dry-run request mapper design is DB-free, mapper-only, preview-only, and non-destructive
+- No Docker/PostgreSQL validation was required for Sprint 42 because the scheduler command dry-run service adapter boundary design is DB-free, adapter-boundary-only, preview-only, and non-destructive
 
 ---
 
@@ -47,7 +47,7 @@ Long decision records live in:
 
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
-PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, DB-backed non-destructive retention operator preview hardening, non-destructive rollup schedule preview planning, non-destructive rollup scheduler runner preview planning, non-destructive rollup scheduler execution boundary preview planning, non-destructive rollup scheduler execution wiring review, non-destructive rollup scheduler command dry-run design review, non-destructive rollup scheduler command dry-run invocation contract and readiness review, non-destructive rollup scheduler command dry-run invocation design review, non-destructive rollup scheduler command dry-run service invocation contract review, non-destructive rollup scheduler command dry-run service invocation implementation design, non-destructive rollup scheduler command dry-run service invocation request mapper design, and CI/CD.
+PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, DB-backed non-destructive retention operator preview hardening, non-destructive rollup schedule preview planning, non-destructive rollup scheduler runner preview planning, non-destructive rollup scheduler execution boundary preview planning, non-destructive rollup scheduler execution wiring review, non-destructive rollup scheduler command dry-run design review, non-destructive rollup scheduler command dry-run invocation contract and readiness review, non-destructive rollup scheduler command dry-run invocation design review, non-destructive rollup scheduler command dry-run service invocation contract review, non-destructive rollup scheduler command dry-run service invocation implementation design, non-destructive rollup scheduler command dry-run service invocation request mapper design, non-destructive rollup scheduler command dry-run service adapter boundary design, and CI/CD.
 
 ---
 
@@ -106,7 +106,7 @@ Analytics rollup scheduler preview flow:
       -> execution wiring review
       -> JSON safety output
 
-The schedule and scheduler preview flows are DB-free and do not create scheduled jobs, invoke backfill service, execute backfill, read events, persist rollups, affect quota counting, or delete raw events. The scheduler preview also exposes wiringReview, command dryRunDesignReview, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationRequestMapperDesign, and dryRunInvocationContract so future wiring steps stay explicit.
+The schedule and scheduler preview flows are DB-free and do not create scheduled jobs, invoke backfill service, execute backfill, read events, persist rollups, affect quota counting, or delete raw events. The scheduler preview also exposes wiringReview, command dryRunDesignReview, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationRequestMapperDesign, dryRunServiceAdapterBoundaryDesign, and dryRunInvocationContract so future wiring steps stay explicit.
 
 Analytics retention dry-run flow:
 
@@ -347,6 +347,8 @@ Current behavior:
 - Scheduler command dry-run review exposes dryRunServiceInvocationImplementationDesign for the future scheduler-command-dry-run-to-rollup-backfill-service implementation boundary while keeping implementation, service invocation, event reads, persistence, quota changes, and raw event deletion disallowed.
 - Scheduler dry-run backfill request mapper maps ready runner backfill requests into dry-run AnalyticsRollupBackfillRunInput contracts with explicit eventLimit and maxBuckets guardrails, without invoking the backfill service.
 - Scheduler command dry-run review exposes dryRunServiceInvocationRequestMapperDesign for the mapper-only scheduler-backfill-request-to-backfill-service-run-input boundary while keeping service invocation, event reads, persistence, quota changes, and raw event deletion disallowed.
+- Scheduler command dry-run review exposes dryRunServiceAdapterBoundaryDesign for the mapped-backfill-run-input-to-rollup-backfill-service-dry-run boundary while keeping adapter invocation, service invocation, event reads, persistence, quota changes, and raw event deletion disallowed.
+- Scheduler dry-run service adapter boundary validates mapped dry-run service inputs and produces planned dry-run service result previews without calling AnalyticsRollupBackfillService.runBackfill.
 - Scheduler execution decision keeps process-local:dry-run blocked with automatic-trigger-not-wired and dryRunDesignReview=null.
 - Schedule preview output explicitly reports previewOnly=true, commandCreatesScheduledJob=false, commandExecutesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
 - Scheduler preview output explicitly reports previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
@@ -469,7 +471,7 @@ Core:
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
-- Rollup schedule and scheduler preview commands exist, and scheduler preview exposes execution boundary decisions, wiring review output, command dry-run design review output, command dry-run invocation contract output, command dry-run readiness output, and command dry-run invocation design review output, and command dry-run service invocation contract review output, and command dry-run service invocation implementation design output, and command dry-run service invocation request mapper design output, but no scheduled/background rollup job yet.
+- Rollup schedule and scheduler preview commands exist, and scheduler preview exposes execution boundary decisions, wiring review output, command dry-run design review output, command dry-run invocation contract output, command dry-run readiness output, and command dry-run invocation design review output, and command dry-run service invocation contract review output, and command dry-run service invocation implementation design output, command dry-run service invocation request mapper design output, and command dry-run service adapter boundary design output, but no scheduled/background rollup job yet.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
 - Admin Dashboard is not implemented yet.
@@ -491,15 +493,15 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 42 recommended direction:
+Sprint 43 recommended direction:
 
-- Rollup Scheduler Command Dry-Run Service Adapter Boundary Design
+- Rollup Scheduler Command Dry-Run Service Adapter Preview Output Integration
 
 Rationale:
 
-- Sprint 41 kept scheduler execution DB-free, preview-only, and non-destructive while adding a mapper-only boundary from scheduler runner backfill request contracts to dry-run backfill service run input contracts.
-- Future rollup scheduler work should define the service adapter boundary before any command-triggered dry-run invokes the backfill service.
+- Sprint 42 kept scheduler execution DB-free, preview-only, and non-destructive while adding a contract-model-only service adapter boundary from mapped dry-run service inputs to planned dry-run service result previews.
+- Future rollup scheduler work should expose adapter preview output through command dry-run review before any command-triggered dry-run invokes the backfill service.
 - Command dry-run service invocation must keep source separation, event limit guardrails, max bucket guardrails, operator output, fail-closed behavior, and Docker/PostgreSQL validation explicit before wiring.
-- Execute mode should not be wired before command dry-run has a safe design, implementation boundary, request mapper, adapter boundary, and runtime validation plan.
+- Execute mode should not be wired before command dry-run has a safe design, implementation boundary, request mapper, adapter boundary, adapter preview output, and runtime validation plan.
 - Process-local or external scheduler execution should remain blocked until background execution semantics and runtime validation are designed.
 - Delete execution should remain unavailable until command/API semantics, runtime validation, rollback expectations, and operator controls are explicitly designed.

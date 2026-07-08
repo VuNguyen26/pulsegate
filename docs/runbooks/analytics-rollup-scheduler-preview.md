@@ -4,7 +4,7 @@
 
 This runbook covers the non-destructive analytics rollup scheduler preview command.
 
-The command converts a schedule plan into dry-run backfill request contracts, prints an execution boundary decision, and includes a wiring review, command dry-run invocation readiness model, command dry-run invocation design review, command dry-run service invocation contract review, command dry-run service invocation implementation design, command dry-run service invocation request mapper design, and command dry-run invocation contract for future scheduler execution design.
+The command converts a schedule plan into dry-run backfill request contracts, prints an execution boundary decision, and includes a wiring review, command dry-run invocation readiness model, command dry-run invocation design review, command dry-run service invocation contract review, command dry-run service invocation implementation design, command dry-run service invocation request mapper design, command dry-run service adapter boundary design, and command dry-run invocation contract for future scheduler execution design.
 
 It is not a scheduler job and does not execute rollup work.
 
@@ -201,6 +201,16 @@ Expected result:
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.mapperMayPersistRollups is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.quotaCountingChangeAllowed is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.rawEventDeletionAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.status is adapter-boundary-design-required-before-service-invocation.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.currentAdapterState is not-implemented.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.targetDryRunBehavior is service-dry-run-plan-only.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.adapterCurrentlyAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.serviceInvocationCurrentlyAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.adapterMayInvokeBackfillService is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.adapterMayReadEvents is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.adapterMayPersistRollups is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.quotaCountingChangeAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign.rawEventDeletionAllowed is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.status is contract-required-before-wiring.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.currentInvocationState is not-wired.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract.triggerBoundary is command-only.
@@ -367,8 +377,9 @@ The preview output should be reviewed for:
 14. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationContractReview for command dry-run requests.
 15. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign for command dry-run requests.
 16. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign for command dry-run requests.
-17. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract for command dry-run requests.
-18. safety flags.
+17. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign for command dry-run requests.
+18. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract for command dry-run requests.
+19. safety flags.
 
 Do not treat this command as proof that rollups were rebuilt. It does not invoke the backfill service, read events, or persist rollups.
 
@@ -388,5 +399,6 @@ Do not wire process-local or external-scheduler execution until automatic execut
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-runner.ts
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-execution-decision.ts
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-backfill-request-mapper.ts
+- apps/api-gateway/src/analytics/analytics-rollup-scheduler-backfill-service-adapter.ts
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-preview.command.ts
 - apps/api-gateway/package.json

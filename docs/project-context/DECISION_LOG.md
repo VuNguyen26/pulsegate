@@ -12,16 +12,39 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.42.0
+v0.43.0
 
 ## Latest Completed Sprint
 
-Sprint 41 - Rollup Scheduler Command Dry-Run Service Invocation Request Mapper Design
+Sprint 42 - Rollup Scheduler Command Dry-Run Service Adapter Boundary Design
 
 ---
 
 ## Recent Decisions
 
+### 2026-07-08 - Rollup scheduler command dry-run service adapter boundary remains contract-model-only
+
+Decision:
+
+- Add a contract-model-only service adapter boundary from mapped dry-run AnalyticsRollupBackfillRunInput contracts to planned rollup backfill service dry-run result previews.
+- Expose dryRunServiceAdapterBoundaryDesign for command:dry-run scheduler preview output.
+- Keep currentAdapterState=not-implemented.
+- Keep adapterCurrentlyAllowed=false and serviceInvocationCurrentlyAllowed=false.
+- Keep adapterMayInvokeBackfillService=false, adapterMayReadEvents=false, adapterMayPersistRollups=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
+- Keep command dry-run blocked with backfill-service-invocation-not-wired.
+- Keep process-local and external scheduler dry-run blocked with automatic-trigger-not-wired.
+- Do not call AnalyticsRollupBackfillService.runBackfill from scheduler preview.
+
+Rationale:
+
+- The scheduler command should not jump from mapped request inputs to real service invocation without a visible adapter boundary.
+- Future wiring must define adapter preview output, service invocation wiring, fail-closed service errors, operator safety output, source separation, event limit guardrails, max bucket guardrails, and Docker/PostgreSQL runtime validation first.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-adapter-boundary-design.md
+
+---
 ### 2026-07-08 - Rollup scheduler command dry-run request mapper remains mapper-only
 
 Decision:
