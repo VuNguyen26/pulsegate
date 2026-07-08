@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AnalyticsRollupBackfillEventReader } from "./analytics-rollup-backfill-event-reader.js";
-import { createAnalyticsRollupBackfillService } from "./analytics-rollup-backfill-service.js";
+import {
+  createAnalyticsRollupBackfillService,
+  type AnalyticsRollupBackfillService,
+} from "./analytics-rollup-backfill-service.js";
 import type { AnalyticsRollupPersistenceService } from "./analytics-rollup-persistence-service.js";
 import {
   ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE,
@@ -1696,6 +1699,176 @@ describe("analytics rollup scheduler preview command", () => {
       status: "runtime-dry-run-service-invocation-wired",
       requestedCapability: "command:dry-run",
       backfillServiceInvocationWired: true,
+      serviceInvocationCurrentlyAllowed: true,
+      automaticTriggersRemainUnwired: true,
+      executeRemainsUnwired: true,
+      createsScheduledJob: false,
+      invokesBackfillService: true,
+      executesBackfill: false,
+      readsEvents: false,
+      persistsRollups: false,
+      affectsQuotaCounting: false,
+      deletesRawEvents: false,
+    });
+  });
+
+  it("should keep source-separated dry-run service results when one source fails", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const usageFailure = Object.assign(
+      new Error("simulated usage dry-run service failure"),
+      { name: "UsageDryRunServiceError" },
+    );
+    const runBackfill = vi.fn<AnalyticsRollupBackfillService["runBackfill"]>(
+      async (runInput) => {
+        const { plan } = runInput;
+
+        if (plan.source === "usage") {
+          throw usageFailure;
+        }
+
+        return {
+          mode: "dry-run",
+          source: "rejected",
+          sources: ["rejected"],
+          granularity: plan.windowPlan.granularity,
+          requestedFrom: plan.windowPlan.requestedFrom,
+          requestedTo: plan.windowPlan.requestedTo,
+          rebuildFrom: plan.windowPlan.rebuildFrom,
+          rebuildTo: plan.windowPlan.rebuildTo,
+          bucketCount: plan.windowPlan.bucketCount,
+          sourceResults: [
+            {
+              source: "rejected",
+              status: "planned",
+              inputEventCount: 0,
+              aggregateCount: 0,
+              upsertedCount: 0,
+            },
+          ],
+          totalInputEventCount: 0,
+          totalAggregateCount: 0,
+          totalUpsertedCount: 0,
+        };
+      },
+    );
+    const backfillService: AnalyticsRollupBackfillService = {
+      runBackfill,
+    };
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "both",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "dry-run",
+        "--event-limit",
+        "500",
+      ],
+      {
+        backfillService,
+        allowDryRunServiceInvocation: true,
+      },
+    );
+
+    expect(consoleLog).toHaveBeenCalledOnce();
+    expect(runBackfill).toHaveBeenCalledTimes(2);
+    expect(runBackfill.mock.calls.map(([runInput]) => runInput.plan.source)).toEqual([
+      "usage",
+      "rejected",
+    ]);
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunServiceInvocationResults).toHaveLength(2);
+    expect(output.dryRunServiceInvocationResults).toEqual([
+      expect.objectContaining({
+        status: "failed-closed-service-error",
+        source: "usage",
+        serviceResult: null,
+        error: {
+          name: "UsageDryRunServiceError",
+          message: "simulated usage dry-run service failure",
+        },
+        safety: expect.objectContaining({
+          invokesBackfillService: true,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+          sourceSeparationPreserved: true,
+          failClosedServiceErrorsApplied: true,
+        }),
+      }),
+      expect.objectContaining({
+        status: "service-dry-run-invoked",
+        source: "rejected",
+        serviceResult: expect.objectContaining({
+          mode: "dry-run",
+          source: "rejected",
+          sources: ["rejected"],
+          sourceResults: [
+            {
+              source: "rejected",
+              status: "planned",
+              inputEventCount: 0,
+              aggregateCount: 0,
+              upsertedCount: 0,
+            },
+          ],
+          totalInputEventCount: 0,
+          totalAggregateCount: 0,
+          totalUpsertedCount: 0,
+        }),
+        error: null,
+        safety: expect.objectContaining({
+          invokesBackfillService: true,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+          sourceSeparationPreserved: true,
+          failClosedServiceErrorsApplied: true,
+        }),
+      }),
+    ]);
+    expect(output.executionDecision).toMatchObject({
+      status: "dry-run-ready",
+      allowed: true,
+      blockedReason: null,
+      boundary: {
+        trigger: "command",
+        requestedMode: "dry-run",
+        allowedMode: "dry-run",
+        backfillServiceInvocationWired: true,
+        backfillExecutionWired: false,
+      },
+      safety: {
+        previewOnly: false,
+        invokesBackfillService: true,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+    expect(output.executionDecision.wiringReview.runtimeConsistency).toMatchObject({
+      status: "runtime-dry-run-service-invocation-wired",
+      requestedCapability: "command:dry-run",
       serviceInvocationCurrentlyAllowed: true,
       automaticTriggersRemainUnwired: true,
       executeRemainsUnwired: true,
