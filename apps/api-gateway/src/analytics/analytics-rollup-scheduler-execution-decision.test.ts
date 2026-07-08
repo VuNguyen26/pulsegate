@@ -471,6 +471,74 @@ describe("analytics rollup scheduler execution decision", () => {
       },
     });
   });
+  it("should expose command dry-run service adapter boundary design without wiring service calls", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "dry-run" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-service-invocation-not-wired",
+      wiringReview: {
+        requestedCapability: "command:dry-run",
+        dryRunDesignReview: {
+          currentlyWired: false,
+          dryRunServiceAdapterBoundaryDesign: {
+            status:
+              "adapter-boundary-design-required-before-service-invocation",
+            adapterBoundary:
+              "mapped-backfill-run-input-to-rollup-backfill-service-dry-run",
+            currentAdapterState: "not-implemented",
+            adapterSource:
+              "future-scheduler-rollup-backfill-service-dry-run-adapter",
+            inputSource: "analytics-rollup-backfill-run-input",
+            outputTarget: "rollup-backfill-service-dry-run-result",
+            targetTrigger: "command",
+            targetBackfillMode: "dry-run",
+            targetDryRunBehavior: "service-dry-run-plan-only",
+            plannedInvocationCardinality: "per-source-mapped-run-input",
+            requiresReadyRunnerPlan: true,
+            requiresMappedDryRunServiceInput: true,
+            requiresDryRunBackfillPlan: true,
+            requiresPerSourceInvocation: true,
+            requiresSourceSeparation: true,
+            requiresEventLimitGuardrail: true,
+            requiresMaxBucketGuardrail: true,
+            requiresOperatorSafetyOutput: true,
+            requiresFailClosedServiceErrors: true,
+            requiresDockerPostgresRuntimeValidation: true,
+            adapterCurrentlyAllowed: false,
+            serviceInvocationCurrentlyAllowed: false,
+            adapterMayInvokeBackfillService: false,
+            adapterMayReadEvents: false,
+            adapterMayPersistRollups: false,
+            quotaCountingChangeAllowed: false,
+            rawEventDeletionAllowed: false,
+            failureBehavior: "fail-closed-before-service-invocation",
+          },
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
   it("should block execute mode until backfill execution is explicitly wired", () => {
     const schedulePlan = createAnalyticsRollupSchedulePlan({
       enabled: true,

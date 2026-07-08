@@ -186,6 +186,37 @@ export type AnalyticsRollupSchedulerCommandDryRunServiceInvocationRequestMapperD
   rawEventDeletionAllowed: false;
   failureBehavior: "fail-closed-before-service-invocation";
 };
+export type AnalyticsRollupSchedulerCommandDryRunServiceAdapterBoundaryDesign = {
+  status: "adapter-boundary-design-required-before-service-invocation";
+  adapterBoundary: "mapped-backfill-run-input-to-rollup-backfill-service-dry-run";
+  currentAdapterState: "not-implemented";
+  adapterSource: "future-scheduler-rollup-backfill-service-dry-run-adapter";
+  inputSource: "analytics-rollup-backfill-run-input";
+  outputTarget: "rollup-backfill-service-dry-run-result";
+  targetTrigger: "command";
+  targetBackfillMode: "dry-run";
+  targetDryRunBehavior: "service-dry-run-plan-only";
+  plannedInvocationCardinality: "per-source-mapped-run-input";
+  requiresReadyRunnerPlan: true;
+  requiresMappedDryRunServiceInput: true;
+  requiresDryRunBackfillPlan: true;
+  requiresPerSourceInvocation: true;
+  requiresSourceSeparation: true;
+  requiresEventLimitGuardrail: true;
+  requiresMaxBucketGuardrail: true;
+  requiresOperatorSafetyOutput: true;
+  requiresFailClosedServiceErrors: true;
+  requiresDockerPostgresRuntimeValidation: true;
+  adapterCurrentlyAllowed: false;
+  serviceInvocationCurrentlyAllowed: false;
+  adapterMayInvokeBackfillService: false;
+  adapterMayReadEvents: false;
+  adapterMayPersistRollups: false;
+  quotaCountingChangeAllowed: false;
+  rawEventDeletionAllowed: false;
+  failureBehavior: "fail-closed-before-service-invocation";
+};
+
 export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
   | {
       status: "design-required";
@@ -205,6 +236,7 @@ export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
       dryRunServiceInvocationContractReview: AnalyticsRollupSchedulerCommandDryRunServiceInvocationContractReview;
       dryRunServiceInvocationImplementationDesign: AnalyticsRollupSchedulerCommandDryRunServiceInvocationImplementationDesign;
       dryRunServiceInvocationRequestMapperDesign: AnalyticsRollupSchedulerCommandDryRunServiceInvocationRequestMapperDesign;
+      dryRunServiceAdapterBoundaryDesign: AnalyticsRollupSchedulerCommandDryRunServiceAdapterBoundaryDesign;
       dryRunInvocationContract: AnalyticsRollupSchedulerCommandDryRunInvocationContract;
     }
   | null;
@@ -374,6 +406,40 @@ const COMMAND_DRY_RUN_SERVICE_INVOCATION_REQUEST_MAPPER_DESIGN: AnalyticsRollupS
     failureBehavior: "fail-closed-before-service-invocation",
   };
 
+const COMMAND_DRY_RUN_SERVICE_ADAPTER_BOUNDARY_DESIGN: AnalyticsRollupSchedulerCommandDryRunServiceAdapterBoundaryDesign =
+  {
+    status: "adapter-boundary-design-required-before-service-invocation",
+    adapterBoundary:
+      "mapped-backfill-run-input-to-rollup-backfill-service-dry-run",
+    currentAdapterState: "not-implemented",
+    adapterSource:
+      "future-scheduler-rollup-backfill-service-dry-run-adapter",
+    inputSource: "analytics-rollup-backfill-run-input",
+    outputTarget: "rollup-backfill-service-dry-run-result",
+    targetTrigger: "command",
+    targetBackfillMode: "dry-run",
+    targetDryRunBehavior: "service-dry-run-plan-only",
+    plannedInvocationCardinality: "per-source-mapped-run-input",
+    requiresReadyRunnerPlan: true,
+    requiresMappedDryRunServiceInput: true,
+    requiresDryRunBackfillPlan: true,
+    requiresPerSourceInvocation: true,
+    requiresSourceSeparation: true,
+    requiresEventLimitGuardrail: true,
+    requiresMaxBucketGuardrail: true,
+    requiresOperatorSafetyOutput: true,
+    requiresFailClosedServiceErrors: true,
+    requiresDockerPostgresRuntimeValidation: true,
+    adapterCurrentlyAllowed: false,
+    serviceInvocationCurrentlyAllowed: false,
+    adapterMayInvokeBackfillService: false,
+    adapterMayReadEvents: false,
+    adapterMayPersistRollups: false,
+    quotaCountingChangeAllowed: false,
+    rawEventDeletionAllowed: false,
+    failureBehavior: "fail-closed-before-service-invocation",
+  };
+
 function createAnalyticsRollupSchedulerCommandDryRunInvocationReadiness(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
 ): AnalyticsRollupSchedulerCommandDryRunInvocationReadiness {
@@ -450,6 +516,8 @@ function createAnalyticsRollupSchedulerCommandDryRunDesignReview(
       COMMAND_DRY_RUN_SERVICE_INVOCATION_IMPLEMENTATION_DESIGN,
     dryRunServiceInvocationRequestMapperDesign:
       COMMAND_DRY_RUN_SERVICE_INVOCATION_REQUEST_MAPPER_DESIGN,
+    dryRunServiceAdapterBoundaryDesign:
+      COMMAND_DRY_RUN_SERVICE_ADAPTER_BOUNDARY_DESIGN,
     dryRunInvocationContract: COMMAND_DRY_RUN_INVOCATION_CONTRACT,
   };
 }
