@@ -788,6 +788,104 @@ describe("analytics rollup scheduler preview command", () => {
       },
     });
   });
+  it("should expose command dry-run service invocation wiring contract in command output", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+
+    await runAnalyticsRollupSchedulerPreviewCommand([
+      "--enabled",
+      "true",
+      "--source",
+      "both",
+      "--run-at",
+      "2026-07-06T13:07:00.000Z",
+      "--granularity",
+      "hour",
+      "--execution-mode",
+      "dry-run",
+      "--event-limit",
+      "500",
+    ]);
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-service-invocation-not-wired",
+      boundary: {
+        trigger: "command",
+        requestedMode: "dry-run",
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      wiringReview: {
+        requestedCapability: "command:dry-run",
+        dryRunDesignReview: {
+          currentlyWired: false,
+          dryRunServiceInvocationWiringContract: {
+            status: "wiring-contract-required-before-service-invocation",
+            contractBoundary:
+              "scheduler-command-dry-run-to-rollup-backfill-service-run-backfill",
+            currentWiringState: "not-wired",
+            targetTrigger: "command",
+            targetBackfillMode: "dry-run",
+            targetServiceMethod: "runBackfill",
+            requestContract: {
+              inputSource: "mapped-dry-run-service-inputs",
+              requestMode: "dry-run",
+              cardinality: "per-source-mapped-run-input",
+              requiresReadyRunnerPlan: true,
+              requiresSourceSeparatedInputs: true,
+              requiresExplicitEventLimit: true,
+              requiresMaxBucketBound: true,
+            },
+            responseContract: {
+              outputTarget: "operator-visible-command-dry-run-output",
+              requiredResultMode: "dry-run",
+              sourceScopedResultsRequired: true,
+              perSourceSafetyFlagsRequired: true,
+              serviceDryRunPlanRequired: true,
+              partialFailureOutputRequired: true,
+            },
+            validationContract: {
+              rejectMissingEventLimit: true,
+              rejectUnboundedBucketCount: true,
+              rejectNonCommandTrigger: true,
+              rejectExecuteMode: true,
+              requiresDockerPostgresRuntimeValidationBeforeWiring: true,
+            },
+            operatorOutputContract: {
+              includeServiceInvocationState: true,
+              includeBlockedReason: true,
+              includeSourceScopedResultSummary: true,
+              includeSafetyFlags: true,
+              includeNoQuotaMutationStatement: true,
+              includeNoRawEventDeletionStatement: true,
+            },
+            backfillServiceInvocationWired: false,
+            serviceInvocationCurrentlyAllowed: false,
+            mayInvokeBackfillServiceAfterExplicitWiring: true,
+            mayReadEventsThroughServiceDryRun: false,
+            mayPersistRollupsThroughServiceDryRun: false,
+            partialPersistenceAllowed: false,
+            quotaCountingChangeAllowed: false,
+            rawEventDeletionAllowed: false,
+            failureBehavior: "fail-closed-before-service-invocation",
+          },
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
   it("should expose command dry-run request mapper design in command output", async () => {
     const consoleLog = vi
       .spyOn(console, "log")
@@ -1214,6 +1312,9 @@ describe("analytics rollup scheduler preview command", () => {
       "dryRunServiceInvocationFailClosedErrorModel",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "dryRunServiceInvocationWiringContract",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "dryRunServiceInvocationRequestMapperDesign",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
@@ -1265,6 +1366,24 @@ describe("analytics rollup scheduler preview command", () => {
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "DB-free command dry-run service adapter preview",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "dry-run request/response contract",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "source-scoped result summary",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "event-limit guardrail",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "max-bucket bound",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "no quota mutation",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "no raw event deletion",
     );
   });
 

@@ -28,10 +28,11 @@ export const ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE = [
   "",
   "Safety:",
   "  Preview only. Prints an execution boundary decision. Does not create scheduled jobs, invoke backfill service, execute backfill, read events, persist rollups, affect quota counting, or delete raw events.",
-  "  Command dry-run requests currently remain blocked and expose dryRunDesignReview, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationWiringReadinessReview, dryRunServiceInvocationFailClosedErrorModel, dryRunServiceInvocationRequestMapperDesign, dryRunServiceAdapterBoundaryDesign, dryRunServiceAdapterPreviews, and dryRunInvocationContract only.",
+  "  Command dry-run requests currently remain blocked and expose dryRunDesignReview, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationWiringReadinessReview, dryRunServiceInvocationFailClosedErrorModel, dryRunServiceInvocationWiringContract, dryRunServiceInvocationRequestMapperDesign, dryRunServiceAdapterBoundaryDesign, dryRunServiceAdapterPreviews, and dryRunInvocationContract only.",
   "  The dry-run invocation contract is review-only: command-triggered, dry-run-only, per-source, event-limit and max-bucket guarded before any future wiring.",
   "  Dry-run backfill service invocation requires explicit implementation design, wiring readiness review, request mapper design, service adapter boundary design, source separation, event limit guardrails, fail-closed service errors, operator safety output, and Docker/PostgreSQL runtime validation before wiring.",
   "  Fail-closed dry-run service error modeling remains operator-review-only and requires blocked output, safety flags, source-scoped error output, no partial persistence, no quota mutation, and no raw event deletion before future wiring.",
+  "  The dry-run service invocation wiring contract is non-invoking: command-only, dry-run request/response contract, source-scoped result summary, event-limit guardrail, max-bucket bound, no quota mutation, and no raw event deletion until explicit wiring.",
   "  --event-limit enables a DB-free command dry-run service adapter preview from mapped dry-run service inputs; it still does not invoke the backfill service.",
 ].join("\n");
 
