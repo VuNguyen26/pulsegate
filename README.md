@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.46.0
+- v0.47.0
 
 Latest completed sprint:
 
-- Sprint 45 - Rollup Scheduler Command Dry-Run Service Invocation Fail-Closed Error Model
+- Sprint 46 - Command Dry-Run Service Invocation Wiring Contract
 
 ---
 
@@ -56,6 +56,7 @@ PulseGate currently includes:
 - Analytics rollup scheduler command dry-run service invocation implementation design
 - Analytics rollup scheduler command dry-run service invocation wiring readiness review
 - Analytics rollup scheduler command dry-run service invocation fail-closed error model
+- Analytics rollup scheduler command dry-run service invocation wiring contract
 - Analytics rollup scheduler dry-run backfill request mapper
 - Analytics rollup scheduler command dry-run service invocation request mapper design
 - Analytics rollup scheduler dry-run service adapter boundary
@@ -82,14 +83,14 @@ PulseGate currently includes:
 Latest validation:
 
 - 105 test files passed
-- 742 tests passed
+- 744 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Runtime command validation passed for analytics:rollup:scheduler-preview command dry-run service invocation fail-closed error model output with --event-limit=500
-- Scheduler command dry-run output exposes dryRunServiceInvocationFailClosedErrorModel with failureState=blocked, blockedReason=backfill-service-invocation-not-wired, serviceInvocationCurrentlyAllowed=false, partialPersistenceAllowed=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false
+- Runtime command validation passed for analytics:rollup:scheduler-preview command dry-run service invocation wiring contract output with --event-limit=500
+- Scheduler command dry-run output exposes dryRunServiceInvocationWiringContract with currentWiringState=not-wired, targetTrigger=command, targetBackfillMode=dry-run, targetServiceMethod=runBackfill, serviceInvocationCurrentlyAllowed=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false
 - Scheduler command dry-run remains blocked with backfill-service-invocation-not-wired
 - Scheduler preview output preserved previewOnly=true, createsScheduledJob=false, invokesBackfillService=false, executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false
-- No Docker/PostgreSQL validation was required for Sprint 45 because the fail-closed error model stayed DB-free, model/test/command-output-only, and non-destructive
+- No Docker/PostgreSQL validation was required for Sprint 46 because the wiring contract stayed DB-free, model/test/command-output-only, and non-destructive
 ---
 
 ## Tech Stack
@@ -210,6 +211,7 @@ Analytics rollup behavior:
 - Scheduler preview exposes dryRunServiceInvocationImplementationDesign for command:dry-run requests, documenting the future scheduler-command-dry-run-to-rollup-backfill-service implementation boundary while keeping implementation and service invocation disallowed.
 - Scheduler preview exposes dryRunServiceInvocationWiringReadinessReview for command:dry-run requests, documenting that future service invocation wiring is still not ready, not wired, and not currently allowed.
 - Scheduler preview exposes dryRunServiceInvocationFailClosedErrorModel for command:dry-run requests, documenting operator-visible fail-closed behavior for future service invocation errors while keeping service invocation, partial persistence, quota mutation, and raw event deletion disallowed.
+- Scheduler preview exposes dryRunServiceInvocationWiringContract for command:dry-run requests, documenting the future command-only dry-run request/response contract, source-scoped result summary, event-limit guardrail, max-bucket bound, and operator safety output while keeping service invocation disallowed.
 - Scheduler preview exposes dryRunServiceInvocationRequestMapperDesign for command:dry-run requests, documenting the mapper-only boundary from scheduler backfill request contracts to backfill service run input while keeping service invocation, event reads, rollup persistence, quota changes, and raw event deletion disallowed.
 - Scheduler preview exposes dryRunServiceAdapterBoundaryDesign for command:dry-run requests, documenting the future mapped-input-to-rollup-backfill-service dry-run adapter boundary while keeping adapter invocation and service invocation disallowed.
 - Scheduler preview accepts --event-limit <n> for command:dry-run adapter preview output.
@@ -342,7 +344,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-45.md
+- docs/sdlc/sprint-history/sprint-46.md
 
 Latest analytics runbooks:
 
@@ -358,17 +360,18 @@ Latest analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-invocation-fail-closed-error-model.md
+- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-invocation-wiring-contract.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 46 - Command Dry-Run Service Invocation Wiring Contract
+Sprint 47 - Command Dry-Run Service Invocation Runtime Wiring
 
 Reason:
 
-- Sprint 45 modeled fail-closed service invocation errors while keeping command dry-run blocked and non-destructive.
-- The next safe step is a wiring contract for command dry-run service invocation before any real service call is enabled.
-- Future wiring must remain command-only, dry-run-only, source-separated, event-limit guarded, max-bucket guarded, fail-closed, operator-visible, and Docker/PostgreSQL validated before any real backfill service call.
-- Execute mode, process-local execution, external scheduler execution, and destructive retention execution should remain blocked until explicitly designed and approved.
+- Sprint 46 defined the command dry-run service invocation wiring contract while keeping scheduler preview blocked and non-destructive.
+- The next safe step is to wire command dry-run to call AnalyticsRollupBackfillService.runBackfill in dry-run mode only.
+- Sprint 47 must use Docker/PostgreSQL runtime validation because it will introduce a real service invocation path.
+- The runtime dry-run path must remain command-only, dry-run-only, source-separated, event-limit guarded, max-bucket guarded, fail-closed, operator-visible, and non-destructive.
+- Execute mode, process-local execution, external scheduler execution, quota counting changes, rollup summary API switching, and raw event deletion should remain blocked.

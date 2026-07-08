@@ -12,18 +12,44 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.46.0
+v0.47.0
 
 ## Latest Completed Sprint
 
-Sprint 45 - Rollup Scheduler Command Dry-Run Service Invocation Fail-Closed Error Model
+Sprint 46 - Command Dry-Run Service Invocation Wiring Contract
 
 ---
 
 ## Recent Decisions
 
 
-### 2026-07-08 - Rollup scheduler command dry-run service invocation fail-closed errors remain model-only
+
+### 2026-07-08 - Rollup scheduler command dry-run service invocation wiring contract remains non-invoking
+
+Decision:
+
+- Expose dryRunServiceInvocationWiringContract under dryRunDesignReview for command:dry-run scheduler preview requests.
+- Keep currentWiringState=not-wired.
+- Keep backfillServiceInvocationWired=false.
+- Keep serviceInvocationCurrentlyAllowed=false.
+- Keep command dry-run blocked with backfill-service-invocation-not-wired.
+- Define the future command-only, dry-run-only request contract from mapped dry-run service inputs.
+- Require source-separated inputs, explicit eventLimit, and max bucket bound before future wiring.
+- Define the future operator-visible dry-run response contract with source-scoped result summaries, per-source safety flags, dry-run service plan output, and partial failure output.
+- Require validation of missing event limit, unbounded bucket count, non-command triggers, execute mode, and Docker/PostgreSQL runtime validation before future service invocation wiring.
+- Require operator output for service invocation state, blocked reason, source-scoped result summary, safety flags, no quota mutation, and no raw event deletion.
+- Do not call AnalyticsRollupBackfillService.runBackfill from scheduler preview.
+- Do not read raw events, persist rollups, affect quota counting, or delete raw events.
+
+Rationale:
+
+- The scheduler command should not jump from readiness/fail-closed modeling to real service invocation without a precise wiring contract.
+- The wiring contract makes future request, response, validation, and operator output expectations visible before runtime wiring.
+- Keeping service invocation disallowed protects quota correctness, usage/rejected source separation, and raw event safety before Sprint 47 runtime validation.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-invocation-wiring-contract.md### 2026-07-08 - Rollup scheduler command dry-run service invocation fail-closed errors remain model-only
 
 Decision:
 

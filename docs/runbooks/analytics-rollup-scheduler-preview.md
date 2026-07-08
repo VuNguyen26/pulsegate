@@ -4,7 +4,7 @@
 
 This runbook covers the non-destructive analytics rollup scheduler preview command.
 
-The command converts a schedule plan into dry-run backfill request contracts, prints an execution boundary decision, and includes a wiring review, command dry-run invocation readiness model, command dry-run invocation design review, command dry-run service invocation contract review, command dry-run service invocation implementation design, command dry-run service invocation wiring readiness review, command dry-run service invocation fail-closed error model, command dry-run service invocation request mapper design, command dry-run service adapter boundary design, and command dry-run invocation contract for future scheduler execution design.
+The command converts a schedule plan into dry-run backfill request contracts, prints an execution boundary decision, and includes a wiring review, command dry-run invocation readiness model, command dry-run invocation design review, command dry-run service invocation contract review, command dry-run service invocation implementation design, command dry-run service invocation wiring readiness review, command dry-run service invocation fail-closed error model, command dry-run service invocation wiring contract, command dry-run service invocation request mapper design, command dry-run service adapter boundary design, and command dry-run invocation contract for future scheduler execution design.
 
 It is not a scheduler job and does not execute rollup work.
 
@@ -212,6 +212,21 @@ Expected result:
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel.partialPersistenceAllowed is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel.quotaCountingChangeAllowed is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel.rawEventDeletionAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.status is wiring-contract-required-before-service-invocation.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.currentWiringState is not-wired.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.targetTrigger is command.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.targetBackfillMode is dry-run.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.targetServiceMethod is runBackfill.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.requestContract.inputSource is mapped-dry-run-service-inputs.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.requestContract.requiresExplicitEventLimit is true.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.requestContract.requiresMaxBucketBound is true.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.responseContract.sourceScopedResultsRequired is true.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.operatorOutputContract.includeNoQuotaMutationStatement is true.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.operatorOutputContract.includeNoRawEventDeletionStatement is true.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.backfillServiceInvocationWired is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.serviceInvocationCurrentlyAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.quotaCountingChangeAllowed is false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract.rawEventDeletionAllowed is false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.status is mapper-design-added-before-service-invocation.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.currentMapperState is implemented-model-only.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign.mapperCurrentlyAllowed is true.
@@ -263,6 +278,7 @@ Expected result:
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterPreviews contains one preview for usage and one preview for rejected.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview exists and reports currentWiringState=not-wired, readyForServiceInvocationWiring=false, and serviceInvocationCurrentlyAllowed=false.
 - executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel exists and reports failureState=blocked, serviceInvocationCurrentlyAllowed=false, partialPersistenceAllowed=false, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
+- executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract exists and reports currentWiringState=not-wired, targetServiceMethod=runBackfill, serviceInvocationCurrentlyAllowed=false, sourceScopedResultsRequired=true, quotaCountingChangeAllowed=false, and rawEventDeletionAllowed=false.
 - Each adapter preview has kind=analytics-rollup-scheduler-backfill-service-dry-run-adapter-preview.
 - Each adapter preview has status=blocked-before-service-invocation.
 - Each adapter preview has currentAdapterState=contract-model-only.
@@ -436,11 +452,12 @@ The preview output should be reviewed for:
 15. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationImplementationDesign for command dry-run requests.
 16. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringReadinessReview for command dry-run requests.
 17. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationFailClosedErrorModel for command dry-run requests.
-18. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign for command dry-run requests.
-19. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign for command dry-run requests.
-20. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterPreviews for command dry-run requests with --event-limit.
-21. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract for command dry-run requests.
-22. safety flags.
+18. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationWiringContract for command dry-run requests.
+19. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceInvocationRequestMapperDesign for command dry-run requests.
+20. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterBoundaryDesign for command dry-run requests.
+21. executionDecision.wiringReview.dryRunDesignReview.dryRunServiceAdapterPreviews for command dry-run requests with --event-limit.
+22. executionDecision.wiringReview.dryRunDesignReview.dryRunInvocationContract for command dry-run requests.
+23. safety flags.
 
 Do not treat this command as proof that rollups were rebuilt. It does not invoke the backfill service, read events, or persist rollups.
 
