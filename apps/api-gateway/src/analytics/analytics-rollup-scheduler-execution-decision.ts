@@ -359,12 +359,33 @@ export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
     }
   | null;
 
+export type AnalyticsRollupSchedulerExecutionRuntimeConsistency = {
+  status:
+    | "preview-only"
+    | "blocked-or-review-only"
+    | "runtime-dry-run-service-invocation-wired";
+  requestedCapability: `${AnalyticsRollupSchedulerExecutionTrigger}:${AnalyticsRollupSchedulerExecutionMode}`;
+  backfillServiceInvocationWired: boolean;
+  serviceInvocationCurrentlyAllowed: boolean;
+  automaticTriggersRemainUnwired: true;
+  executeRemainsUnwired: true;
+  createsScheduledJob: false;
+  invokesBackfillService: boolean;
+  executesBackfill: false;
+  readsEvents: false;
+  persistsRollups: false;
+  affectsQuotaCounting: false;
+  deletesRawEvents: false;
+  historicalReviewArtifactsMayRemainBlocked: true;
+};
+
 export type AnalyticsRollupSchedulerExecutionWiringReview = {
   currentCapability: "command-preview-only";
   requestedCapability: `${AnalyticsRollupSchedulerExecutionTrigger}:${AnalyticsRollupSchedulerExecutionMode}`;
   recommendedNextStep: AnalyticsRollupSchedulerExecutionRecommendedNextStep;
   requiresExplicitDesignBeforeWiring: boolean;
   requiresDockerPostgresValidationBeforeWiring: boolean;
+  runtimeConsistency: AnalyticsRollupSchedulerExecutionRuntimeConsistency;
   dryRunDesignReview: AnalyticsRollupSchedulerCommandDryRunDesignReview;
   automaticTriggersRemainUnwired: true;
   executeRemainsUnwired: true;
@@ -761,6 +782,40 @@ function createAnalyticsRollupSchedulerCommandDryRunDesignReview(
   };
 }
 
+function createAnalyticsRollupSchedulerExecutionRuntimeConsistency(
+  trigger: AnalyticsRollupSchedulerExecutionTrigger,
+  requestedMode: AnalyticsRollupSchedulerExecutionMode,
+  backfillServiceInvocationWired: boolean,
+): AnalyticsRollupSchedulerExecutionRuntimeConsistency {
+  const serviceInvocationCurrentlyAllowed =
+    backfillServiceInvocationWired &&
+    trigger === "command" &&
+    requestedMode === "dry-run";
+  const status: AnalyticsRollupSchedulerExecutionRuntimeConsistency["status"] =
+    serviceInvocationCurrentlyAllowed
+      ? "runtime-dry-run-service-invocation-wired"
+      : requestedMode === "preview"
+        ? "preview-only"
+        : "blocked-or-review-only";
+
+  return {
+    status,
+    requestedCapability: `${trigger}:${requestedMode}`,
+    backfillServiceInvocationWired: serviceInvocationCurrentlyAllowed,
+    serviceInvocationCurrentlyAllowed,
+    automaticTriggersRemainUnwired: true,
+    executeRemainsUnwired: true,
+    createsScheduledJob: false,
+    invokesBackfillService: serviceInvocationCurrentlyAllowed,
+    executesBackfill: false,
+    readsEvents: false,
+    persistsRollups: false,
+    affectsQuotaCounting: false,
+    deletesRawEvents: false,
+    historicalReviewArtifactsMayRemainBlocked: true,
+  };
+}
+
 function createAnalyticsRollupSchedulerExecutionWiringReview(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
@@ -768,6 +823,7 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
   dryRunServiceAdapterPreviews:
     | AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview[]
     | null = null,
+  backfillServiceInvocationWired = false,
 ): AnalyticsRollupSchedulerExecutionWiringReview {
   return {
     currentCapability: "command-preview-only",
@@ -776,6 +832,11 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
     requiresExplicitDesignBeforeWiring:
       trigger !== "command" || requestedMode !== "preview",
     requiresDockerPostgresValidationBeforeWiring: requestedMode !== "preview",
+    runtimeConsistency: createAnalyticsRollupSchedulerExecutionRuntimeConsistency(
+      trigger,
+      requestedMode,
+      backfillServiceInvocationWired,
+    ),
     dryRunDesignReview: createAnalyticsRollupSchedulerCommandDryRunDesignReview(
       runnerPlan,
       trigger,
@@ -872,6 +933,7 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
       trigger,
       requestedMode,
       dryRunServiceAdapterPreviews,
+      backfillServiceInvocationWired,
     ),
     safety,
   };

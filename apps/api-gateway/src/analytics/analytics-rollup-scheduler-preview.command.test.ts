@@ -1727,6 +1727,22 @@ describe("analytics rollup scheduler preview command", () => {
       },
     });
     expect(output.dryRunServiceInvocationResults).toHaveLength(2);
+    expect(output.executionDecision.wiringReview.runtimeConsistency).toMatchObject({
+      status: "runtime-dry-run-service-invocation-wired",
+      requestedCapability: "command:dry-run",
+      backfillServiceInvocationWired: true,
+      serviceInvocationCurrentlyAllowed: true,
+      automaticTriggersRemainUnwired: true,
+      executeRemainsUnwired: true,
+      createsScheduledJob: false,
+      invokesBackfillService: true,
+      executesBackfill: false,
+      readsEvents: false,
+      persistsRollups: false,
+      affectsQuotaCounting: false,
+      deletesRawEvents: false,
+      historicalReviewArtifactsMayRemainBlocked: true,
+    });
     expect(listUsageEvents).not.toHaveBeenCalled();
     expect(listRejectedEvents).not.toHaveBeenCalled();
     expect(persistUsageEvents).not.toHaveBeenCalled();
