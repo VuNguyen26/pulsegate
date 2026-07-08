@@ -7,6 +7,7 @@ import type { AnalyticsRollupPersistenceService } from "./analytics-rollup-persi
 import {
   createAnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview,
   createAnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreviews,
+  invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapters,
 } from "./analytics-rollup-scheduler-backfill-service-adapter.js";
 import {
   mapAnalyticsRollupSchedulerBackfillRequestToDryRunServiceInput,
@@ -341,5 +342,176 @@ describe("analytics rollup scheduler backfill service adapter", () => {
     expect(listRejectedEvents).not.toHaveBeenCalled();
     expect(persistUsageEvents).not.toHaveBeenCalled();
     expect(persistRejectedEvents).not.toHaveBeenCalled();
+  });
+
+  it("should invoke the injected backfill service for mapped scheduler dry-run inputs without event reads or persistence", async () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+    const mappings = mapAnalyticsRollupSchedulerRunnerPlanToDryRunServiceInputs(
+      runnerPlan,
+      { eventLimit: 500 },
+    );
+
+    const listUsageEvents = vi.fn(async () => []);
+    const listRejectedEvents = vi.fn(async () => []);
+    const persistUsageEvents = vi.fn(async () => ({
+      inputEventCount: 0,
+      aggregateCount: 0,
+      upsertedCount: 0,
+    }));
+    const persistRejectedEvents = vi.fn(async () => ({
+      inputEventCount: 0,
+      aggregateCount: 0,
+      upsertedCount: 0,
+    }));
+
+    const backfillService = createAnalyticsRollupBackfillService({
+      eventReader: {
+        listUsageEvents,
+        listRejectedEvents,
+      } satisfies AnalyticsRollupBackfillEventReader,
+      persistenceService: {
+        persistUsageEvents,
+        persistRejectedEvents,
+      } satisfies AnalyticsRollupPersistenceService,
+    });
+    const runBackfill = vi.spyOn(backfillService, "runBackfill");
+
+    const results =
+      await invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapters(
+        mappings,
+        backfillService,
+      );
+
+    expect(runBackfill).toHaveBeenCalledTimes(2);
+    expect(runBackfill).toHaveBeenNthCalledWith(1, mappings[0]?.runInput);
+    expect(runBackfill).toHaveBeenNthCalledWith(2, mappings[1]?.runInput);
+    expect(results).toEqual([
+      expect.objectContaining({
+        kind: "analytics-rollup-scheduler-backfill-service-dry-run-adapter-invocation",
+        status: "service-dry-run-invoked",
+        adapterBoundary:
+          "mapped-backfill-run-input-to-rollup-backfill-service-dry-run",
+        currentAdapterState: "runtime-dry-run-invocation",
+        source: "usage",
+        serviceMethod: "runBackfill",
+        inputMode: "dry-run",
+        outputMode: "dry-run",
+        invocationCardinality: "single-mapped-run-input",
+        eventLimit: 500,
+        granularity: "hour",
+        requestedFrom: new Date("2026-07-06T12:00:00.000Z"),
+        requestedTo: new Date("2026-07-06T13:00:00.000Z"),
+        rebuildFrom: new Date("2026-07-06T12:00:00.000Z"),
+        rebuildTo: new Date("2026-07-06T13:00:00.000Z"),
+        bucketCount: 1,
+        serviceResult: expect.objectContaining({
+          mode: "dry-run",
+          source: "usage",
+          sources: ["usage"],
+          totalInputEventCount: 0,
+          totalAggregateCount: 0,
+          totalUpsertedCount: 0,
+        }),
+        error: null,
+        safety: {
+          adapterOnly: false,
+          adapterCurrentlyAllowed: true,
+          invokesBackfillService: true,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+          sourceSeparationPreserved: true,
+          eventLimitGuardrailApplied: true,
+          maxBucketGuardrailApplied: true,
+          failClosedServiceErrorsApplied: true,
+          serviceInvocationCurrentlyAllowed: true,
+          dockerPostgresRuntimeValidationRequired: true,
+        },
+      }),
+      expect.objectContaining({
+        status: "service-dry-run-invoked",
+        source: "rejected",
+        serviceResult: expect.objectContaining({
+          mode: "dry-run",
+          source: "rejected",
+          sources: ["rejected"],
+          totalInputEventCount: 0,
+          totalAggregateCount: 0,
+          totalUpsertedCount: 0,
+        }),
+        error: null,
+        safety: expect.objectContaining({
+          invokesBackfillService: true,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+        }),
+      }),
+    ]);
+
+    expect(listUsageEvents).not.toHaveBeenCalled();
+    expect(listRejectedEvents).not.toHaveBeenCalled();
+    expect(persistUsageEvents).not.toHaveBeenCalled();
+    expect(persistRejectedEvents).not.toHaveBeenCalled();
+  });
+
+  it("should fail closed when the injected dry-run backfill service throws", async () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "usage",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+    const mappings = mapAnalyticsRollupSchedulerRunnerPlanToDryRunServiceInputs(
+      runnerPlan,
+      { eventLimit: 500 },
+    );
+    const backfillService = {
+      runBackfill: vi.fn(async () => {
+        throw new Error("simulated dry-run service failure");
+      }),
+    };
+
+    const results =
+      await invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapters(
+        mappings,
+        backfillService,
+      );
+
+    expect(backfillService.runBackfill).toHaveBeenCalledTimes(1);
+    expect(results).toEqual([
+      expect.objectContaining({
+        status: "failed-closed-service-error",
+        source: "usage",
+        serviceResult: null,
+        error: {
+          name: "Error",
+          message: "simulated dry-run service failure",
+        },
+        safety: expect.objectContaining({
+          invokesBackfillService: true,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+          failClosedServiceErrorsApplied: true,
+        }),
+      }),
+    ]);
   });
 });

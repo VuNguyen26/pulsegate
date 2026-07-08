@@ -1,5 +1,6 @@
 import type {
   AnalyticsRollupBackfillRunSummary,
+  AnalyticsRollupBackfillService,
   AnalyticsRollupBackfillSourceRunSummary,
 } from "./analytics-rollup-backfill-service.js";
 import type { AnalyticsRollupSchedulerBackfillServiceDryRunMapping } from "./analytics-rollup-scheduler-backfill-request-mapper.js";
@@ -47,6 +48,53 @@ export type AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview = {
   safety: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterSafety;
 };
 
+export type AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationStatus =
+  | "service-dry-run-invoked"
+  | "failed-closed-service-error";
+
+export type AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationSafety = {
+  adapterOnly: false;
+  adapterCurrentlyAllowed: true;
+  invokesBackfillService: true;
+  readsEvents: false;
+  persistsRollups: false;
+  affectsQuotaCounting: false;
+  deletesRawEvents: false;
+  sourceSeparationPreserved: true;
+  eventLimitGuardrailApplied: true;
+  maxBucketGuardrailApplied: true;
+  failClosedServiceErrorsApplied: true;
+  serviceInvocationCurrentlyAllowed: true;
+  dockerPostgresRuntimeValidationRequired: true;
+};
+
+export type AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationError = {
+  name: string;
+  message: string;
+};
+
+export type AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult = {
+  kind: "analytics-rollup-scheduler-backfill-service-dry-run-adapter-invocation";
+  status: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationStatus;
+  adapterBoundary: "mapped-backfill-run-input-to-rollup-backfill-service-dry-run";
+  currentAdapterState: "runtime-dry-run-invocation";
+  source: AnalyticsRollupSchedulerBackfillServiceDryRunMapping["source"];
+  serviceMethod: "runBackfill";
+  inputMode: "dry-run";
+  outputMode: "dry-run";
+  invocationCardinality: "single-mapped-run-input";
+  eventLimit: number;
+  granularity: AnalyticsRollupBackfillRunSummary["granularity"];
+  requestedFrom: Date;
+  requestedTo: Date;
+  rebuildFrom: Date | null;
+  rebuildTo: Date | null;
+  bucketCount: number;
+  serviceResult: AnalyticsRollupBackfillRunSummary | null;
+  error: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationError | null;
+  safety: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationSafety;
+};
+
 const ADAPTER_SAFETY: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterSafety =
   {
     adapterOnly: true,
@@ -61,6 +109,23 @@ const ADAPTER_SAFETY: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterSafety
     maxBucketGuardrailApplied: true,
     failClosedServiceErrorsRequired: true,
     serviceInvocationCurrentlyAllowed: false,
+    dockerPostgresRuntimeValidationRequired: true,
+  };
+
+const INVOCATION_SAFETY: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationSafety =
+  {
+    adapterOnly: false,
+    adapterCurrentlyAllowed: true,
+    invokesBackfillService: true,
+    readsEvents: false,
+    persistsRollups: false,
+    affectsQuotaCounting: false,
+    deletesRawEvents: false,
+    sourceSeparationPreserved: true,
+    eventLimitGuardrailApplied: true,
+    maxBucketGuardrailApplied: true,
+    failClosedServiceErrorsApplied: true,
+    serviceInvocationCurrentlyAllowed: true,
     dockerPostgresRuntimeValidationRequired: true,
   };
 
@@ -171,19 +236,157 @@ export function createAnalyticsRollupSchedulerBackfillServiceDryRunAdapterPrevie
 export function createAnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreviews(
   mappings: AnalyticsRollupSchedulerBackfillServiceDryRunMapping[],
 ): AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview[] {
-  const seenSources = new Set<string>();
-
-  for (const mapping of mappings) {
-    if (seenSources.has(mapping.source)) {
-      throw new RangeError(
-        "scheduler service adapter preview requires unique mapped sources",
-      );
-    }
-
-    seenSources.add(mapping.source);
-  }
+  assertUniqueMappedSources(mappings, "scheduler service adapter preview");
 
   return mappings.map((mapping) =>
     createAnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview(mapping),
   );
+}
+
+function assertUniqueMappedSources(
+  mappings: AnalyticsRollupSchedulerBackfillServiceDryRunMapping[],
+  boundaryName: string,
+): void {
+  const seenSources = new Set<string>();
+
+  for (const mapping of mappings) {
+    if (seenSources.has(mapping.source)) {
+      throw new RangeError(`${boundaryName} requires unique mapped sources`);
+    }
+
+    seenSources.add(mapping.source);
+  }
+}
+
+function createInvocationError(
+  error: unknown,
+): AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationError {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+    };
+  }
+
+  return {
+    name: "Error",
+    message: String(error),
+  };
+}
+
+function assertDryRunServiceResult(
+  mapping: AnalyticsRollupSchedulerBackfillServiceDryRunMapping,
+  serviceResult: AnalyticsRollupBackfillRunSummary,
+): void {
+  if (
+    serviceResult.mode !== "dry-run" ||
+    serviceResult.source !== mapping.source ||
+    serviceResult.sources.length !== 1 ||
+    serviceResult.sources[0] !== mapping.source
+  ) {
+    throw new RangeError(
+      "scheduler service adapter invocation requires a source-scoped dry-run service result",
+    );
+  }
+
+  const [sourceResult] = serviceResult.sourceResults;
+
+  if (
+    serviceResult.sourceResults.length !== 1 ||
+    sourceResult === undefined ||
+    sourceResult.source !== mapping.source ||
+    sourceResult.status !== "planned" ||
+    sourceResult.inputEventCount !== 0 ||
+    sourceResult.aggregateCount !== 0 ||
+    sourceResult.upsertedCount !== 0 ||
+    serviceResult.totalInputEventCount !== 0 ||
+    serviceResult.totalAggregateCount !== 0 ||
+    serviceResult.totalUpsertedCount !== 0
+  ) {
+    throw new RangeError(
+      "scheduler service adapter invocation requires a non-persisting dry-run service result",
+    );
+  }
+}
+
+function createBaseInvocationResult(
+  mapping: AnalyticsRollupSchedulerBackfillServiceDryRunMapping,
+): Omit<
+  AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult,
+  "status" | "serviceResult" | "error"
+> {
+  const { eventLimit, plan } = mapping.runInput;
+  assertPositiveInteger(eventLimit, "eventLimit");
+
+  return {
+    kind: "analytics-rollup-scheduler-backfill-service-dry-run-adapter-invocation",
+    adapterBoundary:
+      "mapped-backfill-run-input-to-rollup-backfill-service-dry-run",
+    currentAdapterState: "runtime-dry-run-invocation",
+    source: mapping.source,
+    serviceMethod: "runBackfill",
+    inputMode: "dry-run",
+    outputMode: "dry-run",
+    invocationCardinality: "single-mapped-run-input",
+    eventLimit,
+    granularity: plan.windowPlan.granularity,
+    requestedFrom: plan.windowPlan.requestedFrom,
+    requestedTo: plan.windowPlan.requestedTo,
+    rebuildFrom: plan.windowPlan.rebuildFrom,
+    rebuildTo: plan.windowPlan.rebuildTo,
+    bucketCount: plan.windowPlan.bucketCount,
+    safety: INVOCATION_SAFETY,
+  };
+}
+
+export async function invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapter(
+  mapping: AnalyticsRollupSchedulerBackfillServiceDryRunMapping,
+  backfillService: AnalyticsRollupBackfillService,
+): Promise<AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult> {
+  assertMappedDryRunServiceInput(mapping);
+
+  const baseResult = createBaseInvocationResult(mapping);
+
+  try {
+    const serviceResult = await backfillService.runBackfill(mapping.runInput);
+    assertDryRunServiceResult(mapping, serviceResult);
+
+    return {
+      ...baseResult,
+      status: "service-dry-run-invoked",
+      serviceResult,
+      error: null,
+    };
+  } catch (error: unknown) {
+    return {
+      ...baseResult,
+      status: "failed-closed-service-error",
+      serviceResult: null,
+      error: createInvocationError(error),
+    };
+  }
+}
+
+export async function invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapters(
+  mappings: AnalyticsRollupSchedulerBackfillServiceDryRunMapping[],
+  backfillService: AnalyticsRollupBackfillService,
+): Promise<AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult[]> {
+  assertUniqueMappedSources(
+    mappings,
+    "scheduler service adapter dry-run invocation",
+  );
+
+  const results: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult[] =
+    [];
+
+  for (const mapping of mappings) {
+    results.push(
+      await invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapter(
+        mapping,
+        backfillService,
+      ),
+    );
+  }
+
+  return results;
 }
