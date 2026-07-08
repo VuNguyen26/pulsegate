@@ -9,6 +9,9 @@ import type {
 export type AnalyticsRollupSchedulerPreviewCommandOptions = {
   schedule: AnalyticsRollupSchedulePlanInput;
   executionDecision: AnalyticsRollupSchedulerExecutionDecisionInput;
+  dryRunServiceAdapterPreview: {
+    eventLimit?: number;
+  };
 };
 
 type SchedulerPreviewOption =
@@ -20,7 +23,8 @@ type SchedulerPreviewOption =
   | "--safety-delay-ms"
   | "--max-buckets"
   | "--execution-trigger"
-  | "--execution-mode";
+  | "--execution-mode"
+  | "--event-limit";
 
 const SCHEDULE_PREVIEW_OPTIONS = new Set<string>([
   "--enabled",
@@ -36,6 +40,7 @@ const KNOWN_OPTIONS = new Set<string>([
   ...SCHEDULE_PREVIEW_OPTIONS,
   "--execution-trigger",
   "--execution-mode",
+  "--event-limit",
 ]);
 
 function assertKnownOption(option: string): asserts option is SchedulerPreviewOption {
@@ -95,12 +100,24 @@ function parseExecutionMode(
   throw new RangeError("--execution-mode must be preview, dry-run, or execute");
 }
 
+function parsePositiveIntegerOption(value: string, option: string): number {
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new RangeError(`${option} must be a positive integer`);
+  }
+
+  return parsed;
+}
+
 export function parseAnalyticsRollupSchedulerPreviewArgs(
   args: string[],
 ): AnalyticsRollupSchedulerPreviewCommandOptions {
   const seenOptions = new Set<string>();
   const scheduleArgs: string[] = [];
   const executionDecision: AnalyticsRollupSchedulerExecutionDecisionInput = {};
+  const dryRunServiceAdapterPreview: AnalyticsRollupSchedulerPreviewCommandOptions["dryRunServiceAdapterPreview"] =
+    {};
 
   for (let index = 0; index < args.length; index += 1) {
     const token = args[index];
@@ -132,8 +149,13 @@ export function parseAnalyticsRollupSchedulerPreviewArgs(
       scheduleArgs.push(option, value);
     } else if (option === "--execution-trigger") {
       executionDecision.trigger = parseExecutionTrigger(value);
-    } else {
+    } else if (option === "--execution-mode") {
       executionDecision.mode = parseExecutionMode(value);
+    } else {
+      dryRunServiceAdapterPreview.eventLimit = parsePositiveIntegerOption(
+        value,
+        option,
+      );
     }
 
     if (equalsIndex < 0) {
@@ -144,5 +166,6 @@ export function parseAnalyticsRollupSchedulerPreviewArgs(
   return {
     schedule: parseAnalyticsRollupSchedulePreviewArgs(scheduleArgs),
     executionDecision,
+    dryRunServiceAdapterPreview,
   };
 }

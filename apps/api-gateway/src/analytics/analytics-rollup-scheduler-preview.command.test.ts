@@ -778,6 +778,143 @@ describe("analytics rollup scheduler preview command", () => {
     });
   });
 
+  it("should expose command dry-run service adapter previews in command output without wiring service calls", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+
+    await runAnalyticsRollupSchedulerPreviewCommand([
+      "--enabled",
+      "true",
+      "--source",
+      "both",
+      "--run-at",
+      "2026-07-06T13:07:00.000Z",
+      "--granularity",
+      "hour",
+      "--lookback-buckets",
+      "1",
+      "--safety-delay-ms",
+      "300000",
+      "--max-buckets",
+      "1",
+      "--execution-mode",
+      "dry-run",
+      "--event-limit",
+      "500",
+    ]);
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+    const adapterPreviews =
+      output.executionDecision.wiringReview.dryRunDesignReview
+        .dryRunServiceAdapterPreviews;
+
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-service-invocation-not-wired",
+      boundary: {
+        trigger: "command",
+        requestedMode: "dry-run",
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+    expect(adapterPreviews).toHaveLength(2);
+    expect(adapterPreviews).toEqual([
+      expect.objectContaining({
+        kind: "analytics-rollup-scheduler-backfill-service-dry-run-adapter-preview",
+        status: "blocked-before-service-invocation",
+        adapterBoundary:
+          "mapped-backfill-run-input-to-rollup-backfill-service-dry-run",
+        currentAdapterState: "contract-model-only",
+        source: "usage",
+        serviceMethod: "runBackfill",
+        inputMode: "dry-run",
+        outputMode: "dry-run",
+        plannedInvocationCardinality: "single-mapped-run-input",
+        eventLimit: 500,
+        granularity: "hour",
+        requestedFrom: "2026-07-06T12:00:00.000Z",
+        requestedTo: "2026-07-06T13:00:00.000Z",
+        rebuildFrom: "2026-07-06T12:00:00.000Z",
+        rebuildTo: "2026-07-06T13:00:00.000Z",
+        bucketCount: 1,
+        plannedServiceResult: {
+          mode: "dry-run",
+          source: "usage",
+          sources: ["usage"],
+          granularity: "hour",
+          requestedFrom: "2026-07-06T12:00:00.000Z",
+          requestedTo: "2026-07-06T13:00:00.000Z",
+          rebuildFrom: "2026-07-06T12:00:00.000Z",
+          rebuildTo: "2026-07-06T13:00:00.000Z",
+          bucketCount: 1,
+          sourceResults: [
+            {
+              source: "usage",
+              status: "planned",
+              inputEventCount: 0,
+              aggregateCount: 0,
+              upsertedCount: 0,
+            },
+          ],
+          totalInputEventCount: 0,
+          totalAggregateCount: 0,
+          totalUpsertedCount: 0,
+        },
+        safety: {
+          adapterOnly: true,
+          adapterCurrentlyAllowed: false,
+          invokesBackfillService: false,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+          sourceSeparationPreserved: true,
+          eventLimitGuardrailApplied: true,
+          maxBucketGuardrailApplied: true,
+          failClosedServiceErrorsRequired: true,
+          serviceInvocationCurrentlyAllowed: false,
+          dockerPostgresRuntimeValidationRequired: true,
+        },
+      }),
+      expect.objectContaining({
+        source: "rejected",
+        eventLimit: 500,
+        plannedServiceResult: expect.objectContaining({
+          source: "rejected",
+          sources: ["rejected"],
+          sourceResults: [
+            {
+              source: "rejected",
+              status: "planned",
+              inputEventCount: 0,
+              aggregateCount: 0,
+              upsertedCount: 0,
+            },
+          ],
+        }),
+        safety: expect.objectContaining({
+          invokesBackfillService: false,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+          serviceInvocationCurrentlyAllowed: false,
+        }),
+      }),
+    ]);
+  });
+
   it("should reject invalid args before printing output", async () => {
     const consoleLog = vi
       .spyOn(console, "log")
@@ -804,6 +941,9 @@ describe("analytics rollup scheduler preview command", () => {
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "--execution-mode <preview|dry-run|execute>",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "--event-limit <n>",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "Preview only",
@@ -857,6 +997,9 @@ describe("analytics rollup scheduler preview command", () => {
       "dryRunServiceAdapterBoundaryDesign",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "dryRunServiceAdapterPreviews",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "dryRunInvocationContract only",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
@@ -888,6 +1031,9 @@ describe("analytics rollup scheduler preview command", () => {
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "Docker/PostgreSQL runtime validation",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "DB-free command dry-run service adapter preview",
     );
   });
 

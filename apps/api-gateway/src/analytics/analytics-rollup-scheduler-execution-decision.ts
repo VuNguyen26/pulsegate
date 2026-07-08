@@ -1,3 +1,4 @@
+import type { AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview } from "./analytics-rollup-scheduler-backfill-service-adapter.js";
 import type { AnalyticsRollupSchedulerRunnerPlan } from "./analytics-rollup-scheduler-runner.js";
 
 export type AnalyticsRollupSchedulerExecutionDecisionKind =
@@ -26,6 +27,9 @@ export type AnalyticsRollupSchedulerExecutionBlockedReason =
 export type AnalyticsRollupSchedulerExecutionDecisionInput = {
   trigger?: AnalyticsRollupSchedulerExecutionTrigger;
   mode?: AnalyticsRollupSchedulerExecutionMode;
+  dryRunServiceAdapterPreviews?:
+    | AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview[]
+    | null;
 };
 
 export type AnalyticsRollupSchedulerExecutionBoundary = {
@@ -237,6 +241,9 @@ export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
       dryRunServiceInvocationImplementationDesign: AnalyticsRollupSchedulerCommandDryRunServiceInvocationImplementationDesign;
       dryRunServiceInvocationRequestMapperDesign: AnalyticsRollupSchedulerCommandDryRunServiceInvocationRequestMapperDesign;
       dryRunServiceAdapterBoundaryDesign: AnalyticsRollupSchedulerCommandDryRunServiceAdapterBoundaryDesign;
+      dryRunServiceAdapterPreviews:
+        | AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview[]
+        | null;
       dryRunInvocationContract: AnalyticsRollupSchedulerCommandDryRunInvocationContract;
     }
   | null;
@@ -489,6 +496,9 @@ function createAnalyticsRollupSchedulerCommandDryRunDesignReview(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
+  dryRunServiceAdapterPreviews:
+    | AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview[]
+    | null = null,
 ): AnalyticsRollupSchedulerCommandDryRunDesignReview {
   if (trigger !== "command" || requestedMode !== "dry-run") {
     return null;
@@ -518,6 +528,7 @@ function createAnalyticsRollupSchedulerCommandDryRunDesignReview(
       COMMAND_DRY_RUN_SERVICE_INVOCATION_REQUEST_MAPPER_DESIGN,
     dryRunServiceAdapterBoundaryDesign:
       COMMAND_DRY_RUN_SERVICE_ADAPTER_BOUNDARY_DESIGN,
+    dryRunServiceAdapterPreviews,
     dryRunInvocationContract: COMMAND_DRY_RUN_INVOCATION_CONTRACT,
   };
 }
@@ -526,6 +537,9 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
+  dryRunServiceAdapterPreviews:
+    | AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview[]
+    | null = null,
 ): AnalyticsRollupSchedulerExecutionWiringReview {
   return {
     currentCapability: "command-preview-only",
@@ -538,6 +552,7 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
       runnerPlan,
       trigger,
       requestedMode,
+      dryRunServiceAdapterPreviews,
     ),
     automaticTriggersRemainUnwired: true,
     executeRemainsUnwired: true,
@@ -579,6 +594,8 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
     requestedMode,
   );
   const allowed = blockedReason === null;
+  const dryRunServiceAdapterPreviews =
+    input.dryRunServiceAdapterPreviews ?? null;
 
   return {
     kind: "analytics-rollup-scheduler-execution-decision",
@@ -608,6 +625,7 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
       runnerPlan,
       trigger,
       requestedMode,
+      dryRunServiceAdapterPreviews,
     ),
     safety: EXECUTION_DECISION_SAFETY,
   };
