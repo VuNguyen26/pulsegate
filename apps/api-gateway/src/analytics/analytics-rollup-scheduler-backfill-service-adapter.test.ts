@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createAnalyticsRollupBackfillPlan } from "./analytics-rollup-backfill-plan.js";
+import type { AnalyticsRollupBackfillEventReader } from "./analytics-rollup-backfill-event-reader.js";
+import { createAnalyticsRollupBackfillService } from "./analytics-rollup-backfill-service.js";
+import type { AnalyticsRollupPersistenceService } from "./analytics-rollup-persistence-service.js";
 import {
   createAnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview,
   createAnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreviews,
@@ -238,5 +241,105 @@ describe("analytics rollup scheduler backfill service adapter", () => {
         mapping,
       ]),
     ).toThrow("requires unique mapped sources");
+  });
+  it("should allow mapped scheduler dry-run inputs to invoke the backfill service without event reads or persistence", async () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+    const mappings = mapAnalyticsRollupSchedulerRunnerPlanToDryRunServiceInputs(
+      runnerPlan,
+      { eventLimit: 500 },
+    );
+
+    const listUsageEvents = vi.fn(async () => []);
+    const listRejectedEvents = vi.fn(async () => []);
+    const persistUsageEvents = vi.fn(async () => ({
+      inputEventCount: 0,
+      aggregateCount: 0,
+      upsertedCount: 0,
+    }));
+    const persistRejectedEvents = vi.fn(async () => ({
+      inputEventCount: 0,
+      aggregateCount: 0,
+      upsertedCount: 0,
+    }));
+
+    const backfillService = createAnalyticsRollupBackfillService({
+      eventReader: {
+        listUsageEvents,
+        listRejectedEvents,
+      } satisfies AnalyticsRollupBackfillEventReader,
+      persistenceService: {
+        persistUsageEvents,
+        persistRejectedEvents,
+      } satisfies AnalyticsRollupPersistenceService,
+    });
+
+    const summaries = [];
+
+    for (const mapping of mappings) {
+      summaries.push(await backfillService.runBackfill(mapping.runInput));
+    }
+
+    expect(summaries).toEqual([
+      {
+        mode: "dry-run",
+        source: "usage",
+        sources: ["usage"],
+        granularity: "hour",
+        requestedFrom: new Date("2026-07-06T12:00:00.000Z"),
+        requestedTo: new Date("2026-07-06T13:00:00.000Z"),
+        rebuildFrom: new Date("2026-07-06T12:00:00.000Z"),
+        rebuildTo: new Date("2026-07-06T13:00:00.000Z"),
+        bucketCount: 1,
+        sourceResults: [
+          {
+            source: "usage",
+            status: "planned",
+            inputEventCount: 0,
+            aggregateCount: 0,
+            upsertedCount: 0,
+          },
+        ],
+        totalInputEventCount: 0,
+        totalAggregateCount: 0,
+        totalUpsertedCount: 0,
+      },
+      {
+        mode: "dry-run",
+        source: "rejected",
+        sources: ["rejected"],
+        granularity: "hour",
+        requestedFrom: new Date("2026-07-06T12:00:00.000Z"),
+        requestedTo: new Date("2026-07-06T13:00:00.000Z"),
+        rebuildFrom: new Date("2026-07-06T12:00:00.000Z"),
+        rebuildTo: new Date("2026-07-06T13:00:00.000Z"),
+        bucketCount: 1,
+        sourceResults: [
+          {
+            source: "rejected",
+            status: "planned",
+            inputEventCount: 0,
+            aggregateCount: 0,
+            upsertedCount: 0,
+          },
+        ],
+        totalInputEventCount: 0,
+        totalAggregateCount: 0,
+        totalUpsertedCount: 0,
+      },
+    ]);
+
+    expect(listUsageEvents).not.toHaveBeenCalled();
+    expect(listRejectedEvents).not.toHaveBeenCalled();
+    expect(persistUsageEvents).not.toHaveBeenCalled();
+    expect(persistRejectedEvents).not.toHaveBeenCalled();
   });
 });
