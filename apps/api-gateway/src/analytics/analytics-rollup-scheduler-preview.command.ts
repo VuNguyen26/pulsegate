@@ -28,9 +28,9 @@ export const ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE = [
   "",
   "Safety:",
   "  Preview only. Prints an execution boundary decision. Does not create scheduled jobs, invoke backfill service, execute backfill, read events, persist rollups, affect quota counting, or delete raw events.",
-  "  Command dry-run requests currently remain blocked and expose dryRunDesignReview, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationRequestMapperDesign, dryRunServiceAdapterBoundaryDesign, dryRunServiceAdapterPreviews, and dryRunInvocationContract only.",
+  "  Command dry-run requests currently remain blocked and expose dryRunDesignReview, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationWiringReadinessReview, dryRunServiceInvocationRequestMapperDesign, dryRunServiceAdapterBoundaryDesign, dryRunServiceAdapterPreviews, and dryRunInvocationContract only.",
   "  The dry-run invocation contract is review-only: command-triggered, dry-run-only, per-source, event-limit and max-bucket guarded before any future wiring.",
-  "  Dry-run backfill service invocation requires explicit implementation design, request mapper design, service adapter boundary design, source separation, event limit guardrails, fail-closed service errors, operator safety output, and Docker/PostgreSQL runtime validation before wiring.",
+  "  Dry-run backfill service invocation requires explicit implementation design, wiring readiness review, request mapper design, service adapter boundary design, source separation, event limit guardrails, fail-closed service errors, operator safety output, and Docker/PostgreSQL runtime validation before wiring.",
   "  --event-limit enables a DB-free command dry-run service adapter preview from mapped dry-run service inputs; it still does not invoke the backfill service.",
 ].join("\n");
 
