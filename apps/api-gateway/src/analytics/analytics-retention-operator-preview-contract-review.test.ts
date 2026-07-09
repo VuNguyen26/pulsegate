@@ -76,6 +76,29 @@ describe('buildAnalyticsRetentionOperatorPreviewOutput execute contract review',
       rollbackExpectationStatus: 'missing',
       auditOutputStatus: 'missing',
     });
+    expect(output.executeContractReview.expectations).toMatchObject({
+      candidateRecheckExpectation: {
+        planned: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'candidate-recheck-not-planned',
+      },
+      rollbackExpectation: {
+        documented: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'rollback-expectation-not-documented',
+      },
+      auditOutputExpectation: {
+        planned: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'audit-output-not-planned',
+      },
+    });
     expect(output.executeContractReview.safety).toMatchObject({
       deleteCandidatesWired: false,
       prismaDeleteRepositoryWiredToOperatorFlow: false,
@@ -121,6 +144,26 @@ describe('buildAnalyticsRetentionOperatorPreviewOutput execute contract review',
       candidateRecheckStatus: 'missing',
       rollbackExpectationStatus: 'missing',
       auditOutputStatus: 'missing',
+    });
+    expect(output.executeContractReview.expectations).toMatchObject({
+      candidateRecheckExpectation: {
+        planned: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+      },
+      rollbackExpectation: {
+        documented: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+      },
+      auditOutputExpectation: {
+        planned: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+      },
     });
     expect(output.executeContractReview.safety.deletesRawEvents).toBe(false);
     expect(output.executeContractReview.safety.affectsQuotaCounting).toBe(false);

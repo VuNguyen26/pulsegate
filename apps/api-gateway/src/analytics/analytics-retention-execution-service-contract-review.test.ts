@@ -44,6 +44,29 @@ describe('analytics retention execution service execute contract review', () => 
       rollbackExpectationStatus: 'missing',
       auditOutputStatus: 'missing',
     });
+    expect(preview.executeContractReview.expectations).toMatchObject({
+      candidateRecheckExpectation: {
+        planned: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'candidate-recheck-not-planned',
+      },
+      rollbackExpectation: {
+        documented: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'rollback-expectation-not-documented',
+      },
+      auditOutputExpectation: {
+        planned: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'audit-output-not-planned',
+      },
+    });
     expect(preview.executeContractReview.safety).toMatchObject({
       deleteCandidatesWired: false,
       prismaDeleteRepositoryWiredToOperatorFlow: false,
@@ -91,6 +114,30 @@ describe('analytics retention execution service execute contract review', () => 
       candidateRecheckStatus: 'ready',
       rollbackExpectationStatus: 'missing',
       auditOutputStatus: 'missing',
+    });
+    expect(preview.executeContractReview.expectations).toMatchObject({
+      candidateRecheckExpectation: {
+        planned: true,
+        status: 'ready',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        readyEvidence: 'candidate-recheck-preview-planned',
+        missingReason: null,
+      },
+      rollbackExpectation: {
+        documented: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'rollback-expectation-not-documented',
+      },
+      auditOutputExpectation: {
+        planned: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'audit-output-not-planned',
+      },
     });
     expect(preview.executeContractReview.summary.allowed).toBe(false);
     expect(preview.executeContractReview.summary.destructiveExecutionAllowed).toBe(
