@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
+import { mapRejectedSummaryPreviewRequest } from "../analytics/analytics-rollup-summary-preview-request-mapper.js";
 import { createPrismaApiRejectedEventsListingRepository } from "../api-rejections/api-rejected-events-listing.repository.js";
 import {
   parseRejectedEventsListingQuery,
@@ -33,6 +34,12 @@ function sendBadQueryResponse(
       requestId: request.id,
     },
   });
+}
+
+function shouldIncludeRollupSummaryPreview(
+  query: AdminApiRejectedEventsQuerystring,
+): boolean {
+  return query.rollupSummaryPreview?.trim().toLowerCase() === "true";
 }
 
 export async function adminApiRejectionRoute(
@@ -70,9 +77,21 @@ export async function adminApiRejectionRoute(
         parsedQuery.value.filters,
       );
 
-      return {
+      const response = {
         data: mapApiRejectedEventsSummaryReadModelToResponse(summary),
       };
+
+      if (shouldIncludeRollupSummaryPreview(request.query)) {
+        return {
+          ...response,
+          rollupSummaryPreview: mapRejectedSummaryPreviewRequest({
+            filters: parsedQuery.value.filters,
+            rollupPreviewEnabled: true,
+          }).output,
+        };
+      }
+
+      return response;
     },
   );
 

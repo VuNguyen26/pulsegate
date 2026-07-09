@@ -243,6 +243,70 @@ describe("adminApiRejectionRoute", () => {
     });
   });
 
+  it("should expose rejected rollup summary preview only when requested", async () => {
+    const rejectedEventsSummaryRepository =
+      createRejectedEventsSummaryRepository();
+
+    app = await buildTestApp({
+      rejectedEventsSummaryRepository,
+    });
+
+    const query = new URLSearchParams({
+      rollupSummaryPreview: "true",
+      from: "2026-07-04T00:00:00.000Z",
+      to: "2026-07-05T00:00:00.000Z",
+      rejectionReason: "rate_limit_exceeded",
+      statusCode: "429",
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/internal/admin/api-rejections/summary?${query.toString()}`,
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      data: {
+        totalRejectedRequests: 6,
+      },
+      rollupSummaryPreview: {
+        target: "rejected-summary",
+        status: "summary-api-rollup-preview-fallback-required",
+        fallbackPlan: {
+          selectedPath: "raw-event-summary",
+          effectiveReason: "rollup-data-unknown",
+          queryFallbackReason: null,
+          rollupFallbackReason: "rollup-data-unknown",
+        },
+        operatorDecision: {
+          currentRuntimePath: "raw-event-summary",
+          runtimeSwitchApplied: false,
+          rawSummaryRuntimeRetained: true,
+        },
+        safety: {
+          endpointRuntimeChanged: false,
+          readsDatabaseInPreviewModel: false,
+          invokesRepositoryInPreviewModel: false,
+          persistsRollups: false,
+          mutatesQuotaCounting: false,
+          deletesRawEvents: false,
+          wiresSchedulerOrBackgroundJob: false,
+          wiresRetentionExecution: false,
+        },
+      },
+    });
+
+    expect(rejectedEventsSummaryRepository.getSummary).toHaveBeenCalledWith({
+      from: new Date("2026-07-04T00:00:00.000Z"),
+      to: new Date("2026-07-05T00:00:00.000Z"),
+      rejectionReason: "RATE_LIMIT_EXCEEDED",
+      statusCode: 429,
+    });
+  });
+
   it("should reject invalid rejected events summary query", async () => {
     const rejectedEventsSummaryRepository =
       createRejectedEventsSummaryRepository();

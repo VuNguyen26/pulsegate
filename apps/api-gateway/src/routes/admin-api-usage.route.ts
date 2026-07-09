@@ -4,6 +4,10 @@ import type {
   FastifyRequest,
 } from "fastify";
 
+import {
+  mapApiKeyUsageSummaryPreviewRequest,
+  mapConsumerUsageSummaryPreviewRequest,
+} from "../analytics/analytics-rollup-summary-preview-request-mapper.js";
 import { createPrismaApiConsumerManagementRepository } from "../api-consumers/api-consumer-management.repository.js";
 import type { ApiConsumerManagementRepository } from "../api-consumers/api-consumer-management.types.js";
 import { createPrismaApiKeyManagementRepository } from "../api-keys/api-key-management.repository.js";
@@ -72,6 +76,12 @@ function mapApiUsageSummaryFiltersToResponse(
       ? { apiKeyAuthSource: filters.apiKeyAuthSource }
       : {}),
   };
+}
+
+function shouldIncludeRollupSummaryPreview(
+  query: AdminApiUsageSummaryQuerystring,
+): boolean {
+  return query.rollupSummaryPreview?.trim().toLowerCase() === "true";
 }
 
 function sendInvalidQueryParameter(
@@ -170,10 +180,22 @@ export async function adminApiUsageRoute(
         filters,
       );
 
-      return {
+      const response = {
         data: mapApiUsageSummaryReadModelToResponse(summary),
         filters: mapApiUsageSummaryFiltersToResponse(filters),
       };
+
+      if (shouldIncludeRollupSummaryPreview(request.query)) {
+        return {
+          ...response,
+          rollupSummaryPreview: mapConsumerUsageSummaryPreviewRequest({
+            filters,
+            rollupPreviewEnabled: true,
+          }).output,
+        };
+      }
+
+      return response;
     },
   );
 
@@ -212,10 +234,22 @@ export async function adminApiUsageRoute(
         filters,
       );
 
-      return {
+      const response = {
         data: mapApiUsageSummaryReadModelToResponse(summary),
         filters: mapApiUsageSummaryFiltersToResponse(filters),
       };
+
+      if (shouldIncludeRollupSummaryPreview(request.query)) {
+        return {
+          ...response,
+          rollupSummaryPreview: mapApiKeyUsageSummaryPreviewRequest({
+            filters,
+            rollupPreviewEnabled: true,
+          }).output,
+        };
+      }
+
+      return response;
     },
   );
 }

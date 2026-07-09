@@ -519,6 +519,75 @@ describe("adminApiUsageRoute", () => {
     });
   });
 
+  it("should expose consumer usage rollup summary preview only when requested", async () => {
+    const usageSummaryRepository = createUsageSummaryRepository();
+
+    app = await buildTestApp({
+      usageSummaryRepository,
+    });
+
+    const query = new URLSearchParams({
+      rollupSummaryPreview: "true",
+      from: "2026-07-04T00:00:00.000Z",
+      to: "2026-07-05T00:00:00.000Z",
+      routeMethod: "get",
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/internal/admin/usage/consumers/consumer_1/summary?${query.toString()}`,
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      data: {
+        subjectType: "consumer",
+        subjectId: "consumer_1",
+      },
+      filters: {
+        from: "2026-07-04T00:00:00.000Z",
+        to: "2026-07-05T00:00:00.000Z",
+        routeMethod: "GET",
+      },
+      rollupSummaryPreview: {
+        target: "usage-consumer-summary",
+        status: "summary-api-rollup-preview-fallback-required",
+        fallbackPlan: {
+          selectedPath: "raw-event-summary",
+          effectiveReason: "rollup-data-unknown",
+          queryFallbackReason: null,
+          rollupFallbackReason: "rollup-data-unknown",
+        },
+        operatorDecision: {
+          currentRuntimePath: "raw-event-summary",
+          runtimeSwitchApplied: false,
+          rawSummaryRuntimeRetained: true,
+        },
+        safety: {
+          endpointRuntimeChanged: false,
+          readsDatabaseInPreviewModel: false,
+          invokesRepositoryInPreviewModel: false,
+          persistsRollups: false,
+          mutatesQuotaCounting: false,
+          deletesRawEvents: false,
+          wiresSchedulerOrBackgroundJob: false,
+          wiresRetentionExecution: false,
+        },
+      },
+    });
+
+    expect(
+      usageSummaryRepository.getConsumerUsageSummary,
+    ).toHaveBeenCalledWith("consumer_1", {
+      from: new Date("2026-07-04T00:00:00.000Z"),
+      to: new Date("2026-07-05T00:00:00.000Z"),
+      routeMethod: "GET",
+    });
+  });
+
   it("should return 404 when API key does not exist", async () => {
     app = await buildTestApp({
       apiKeyRepository: createApiKeyRepository(null),
@@ -627,6 +696,56 @@ describe("adminApiUsageRoute", () => {
       routeMethod: "POST",
       statusCode: 500,
       cacheStatus: "BYPASS",
+    });
+  });
+
+  it("should expose API key usage rollup summary preview only when requested", async () => {
+    const usageSummaryRepository = createUsageSummaryRepository();
+
+    app = await buildTestApp({
+      usageSummaryRepository,
+    });
+
+    const query = new URLSearchParams({
+      rollupSummaryPreview: "true",
+      from: "2026-07-04T00:00:00.000Z",
+      to: "2026-07-05T00:00:00.000Z",
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/internal/admin/usage/api-keys/key_1/summary?${query.toString()}`,
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      data: {
+        subjectType: "apiKey",
+        subjectId: "key_1",
+      },
+      rollupSummaryPreview: {
+        target: "usage-api-key-summary",
+        status: "summary-api-rollup-preview-fallback-required",
+        operatorDecision: {
+          currentRuntimePath: "raw-event-summary",
+          runtimeSwitchApplied: false,
+          rawSummaryRuntimeRetained: true,
+        },
+        fallbackPlan: {
+          selectedPath: "raw-event-summary",
+          effectiveReason: "rollup-data-unknown",
+        },
+      },
+    });
+
+    expect(
+      usageSummaryRepository.getApiKeyUsageSummary,
+    ).toHaveBeenCalledWith("key_1", {
+      from: new Date("2026-07-04T00:00:00.000Z"),
+      to: new Date("2026-07-05T00:00:00.000Z"),
     });
   });
 });
