@@ -66,6 +66,7 @@ describe("analytics rollup scheduler execution decision", () => {
         commandExecuteContractReview: null,
         commandExecuteOperatorOutputReview: null,
         commandExecutePreflightGuardrailReview: null,
+        commandExecuteRuntimeInvocationBlockerReview: null,
         dryRunDesignReview: null,
         automaticTriggersRemainUnwired: true,
         executeRemainsUnwired: true,
@@ -1130,6 +1131,152 @@ describe("analytics rollup scheduler execution decision", () => {
           rollupPersistenceCurrentlyAllowed: false,
           quotaCountingChangeAllowed: false,
           rawEventDeletionAllowed: false,
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should expose command execute runtime invocation blocker review without wiring execution", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      {
+        mode: "execute",
+        commandExecuteOperatorConfirmed: true,
+        commandExecuteEventLimit: 500,
+      },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecuteRuntimeInvocationBlockerReview: {
+          status: "runtime-invocation-blocked",
+          reviewBoundary: "scheduler-command-execute-runtime-invocation-blockers",
+          requestedCapability: "command:execute",
+          blockedReason: "backfill-execution-not-wired",
+          blockers: {
+            backfillExecutionWired: {
+              required: true,
+              satisfied: false,
+              status: "missing",
+            },
+            executeRuntimeCurrentlyAllowed: {
+              required: true,
+              satisfied: false,
+              status: "blocked",
+            },
+            priorDryRunRuntimeValidation: {
+              required: true,
+              satisfied: false,
+              status: "missing",
+            },
+            rollupPersistenceScope: {
+              required: "rollup-tables-only",
+              satisfied: false,
+              status: "not-wired",
+            },
+            dockerPostgresRuntimeValidation: {
+              required: true,
+              satisfied: false,
+              status: "pending",
+            },
+          },
+          plannedInvocation: {
+            service: "AnalyticsRollupBackfillService.runBackfill",
+            requestedMode: "execute",
+            willInvokeBackfillService: false,
+            willExecuteBackfill: false,
+            willReadEvents: false,
+            willPersistRollups: false,
+            willAffectQuotaCounting: false,
+            willDeleteRawEvents: false,
+            eventLimit: 500,
+            plannedBackfillRequestCount: 2,
+            plannedSources: ["usage", "rejected"],
+          },
+          nextRequiredAction:
+            "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation",
+        },
+        commandExecutePreflightGuardrailReview: {
+          status: "preflight-blocked",
+          eventLimitState: "provided",
+          executeRuntimeCurrentlyAllowed: false,
+        },
+        commandExecuteWiringPreview: {
+          confirmationState: "confirmed",
+          executeRuntimeCurrentlyAllowed: false,
+          backfillExecutionWired: false,
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should expose not-ready command execute runtime invocation blocker review without wiring execution", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: false,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "usage",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "execute" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "scheduler-runner-not-ready",
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecuteRuntimeInvocationBlockerReview: {
+          status: "runtime-invocation-blocked",
+          blockedReason: "scheduler-runner-not-ready",
+          plannedInvocation: {
+            service: "AnalyticsRollupBackfillService.runBackfill",
+            requestedMode: "execute",
+            willInvokeBackfillService: false,
+            willExecuteBackfill: false,
+            willReadEvents: false,
+            willPersistRollups: false,
+            willAffectQuotaCounting: false,
+            willDeleteRawEvents: false,
+            eventLimit: null,
+            plannedBackfillRequestCount: 0,
+            plannedSources: ["usage"],
+          },
         },
       },
       safety: {

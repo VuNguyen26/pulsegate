@@ -521,6 +521,56 @@ export type AnalyticsRollupSchedulerCommandExecutePreflightGuardrailReview = {
   rawEventDeletionAllowed: false;
 };
 
+export type AnalyticsRollupSchedulerCommandExecuteRuntimeInvocationBlockerReview = {
+  status: "runtime-invocation-blocked";
+  reviewBoundary: "scheduler-command-execute-runtime-invocation-blockers";
+  requestedCapability: "command:execute";
+  blockedReason:
+    | "scheduler-runner-not-ready"
+    | "backfill-execution-not-wired";
+  blockers: {
+    backfillExecutionWired: {
+      required: true;
+      satisfied: false;
+      status: "missing";
+    };
+    executeRuntimeCurrentlyAllowed: {
+      required: true;
+      satisfied: false;
+      status: "blocked";
+    };
+    priorDryRunRuntimeValidation: {
+      required: true;
+      satisfied: false;
+      status: "missing";
+    };
+    rollupPersistenceScope: {
+      required: "rollup-tables-only";
+      satisfied: false;
+      status: "not-wired";
+    };
+    dockerPostgresRuntimeValidation: {
+      required: true;
+      satisfied: false;
+      status: "pending";
+    };
+  };
+  plannedInvocation: {
+    service: "AnalyticsRollupBackfillService.runBackfill";
+    requestedMode: "execute";
+    willInvokeBackfillService: false;
+    willExecuteBackfill: false;
+    willReadEvents: false;
+    willPersistRollups: false;
+    willAffectQuotaCounting: false;
+    willDeleteRawEvents: false;
+    eventLimit: number | null;
+    plannedBackfillRequestCount: number;
+    plannedSources: AnalyticsRollupSchedulerRunnerPlan["sources"];
+  };
+  nextRequiredAction: "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation";
+};
+
 export type AnalyticsRollupSchedulerCommandExecuteWiringPreview = {
   status: "execute-wiring-preview-blocked";
   previewBoundary: "scheduler-command-execute-wiring-preview";
@@ -606,6 +656,7 @@ export type AnalyticsRollupSchedulerExecutionWiringReview = {
   commandExecuteContractReview: AnalyticsRollupSchedulerCommandExecuteContractReview | null;
   commandExecuteOperatorOutputReview: AnalyticsRollupSchedulerCommandExecuteOperatorOutputReview | null;
   commandExecutePreflightGuardrailReview: AnalyticsRollupSchedulerCommandExecutePreflightGuardrailReview | null;
+  commandExecuteRuntimeInvocationBlockerReview: AnalyticsRollupSchedulerCommandExecuteRuntimeInvocationBlockerReview | null;
   commandExecuteWiringPreview?: AnalyticsRollupSchedulerCommandExecuteWiringPreview | null;  dryRunDesignReview: AnalyticsRollupSchedulerCommandDryRunDesignReview;
   automaticTriggersRemainUnwired: true;
   executeRemainsUnwired: true;
@@ -1174,6 +1225,69 @@ function createAnalyticsRollupSchedulerCommandExecutePreflightGuardrailReview(
   };
 }
 
+function createAnalyticsRollupSchedulerCommandExecuteRuntimeInvocationBlockerReview(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+  trigger: AnalyticsRollupSchedulerExecutionTrigger,
+  requestedMode: AnalyticsRollupSchedulerExecutionMode,
+  commandExecuteEventLimit: number | null,
+): AnalyticsRollupSchedulerCommandExecuteRuntimeInvocationBlockerReview | null {
+  if (trigger !== "command" || requestedMode !== "execute") {
+    return null;
+  }
+
+  return {
+    status: "runtime-invocation-blocked",
+    reviewBoundary: "scheduler-command-execute-runtime-invocation-blockers",
+    requestedCapability: "command:execute",
+    blockedReason:
+      runnerPlan.status === "ready"
+        ? "backfill-execution-not-wired"
+        : "scheduler-runner-not-ready",
+    blockers: {
+      backfillExecutionWired: {
+        required: true,
+        satisfied: false,
+        status: "missing",
+      },
+      executeRuntimeCurrentlyAllowed: {
+        required: true,
+        satisfied: false,
+        status: "blocked",
+      },
+      priorDryRunRuntimeValidation: {
+        required: true,
+        satisfied: false,
+        status: "missing",
+      },
+      rollupPersistenceScope: {
+        required: "rollup-tables-only",
+        satisfied: false,
+        status: "not-wired",
+      },
+      dockerPostgresRuntimeValidation: {
+        required: true,
+        satisfied: false,
+        status: "pending",
+      },
+    },
+    plannedInvocation: {
+      service: "AnalyticsRollupBackfillService.runBackfill",
+      requestedMode: "execute",
+      willInvokeBackfillService: false,
+      willExecuteBackfill: false,
+      willReadEvents: false,
+      willPersistRollups: false,
+      willAffectQuotaCounting: false,
+      willDeleteRawEvents: false,
+      eventLimit: commandExecuteEventLimit,
+      plannedBackfillRequestCount: runnerPlan.backfillRequests.length,
+      plannedSources: runnerPlan.sources,
+    },
+    nextRequiredAction:
+      "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation",
+  };
+}
+
 function createAnalyticsRollupSchedulerCommandExecuteWiringPreview(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
@@ -1372,6 +1486,13 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
         trigger,
         requestedMode,
         commandExecuteOperatorConfirmed,
+        commandExecuteEventLimit,
+      ),
+    commandExecuteRuntimeInvocationBlockerReview:
+      createAnalyticsRollupSchedulerCommandExecuteRuntimeInvocationBlockerReview(
+        runnerPlan,
+        trigger,
+        requestedMode,
         commandExecuteEventLimit,
       ),
     ...(trigger === "command" && requestedMode === "execute"
