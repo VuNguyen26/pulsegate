@@ -16,6 +16,7 @@ import {
   buildAnalyticsRetentionDeleteBatchPlan,
   type AnalyticsRetentionDeleteBatchPlan,
   type AnalyticsRetentionDeleteBatchPlanInput,
+  type AnalyticsRetentionDeletePlanSource,
 } from './analytics-retention-delete-batch-plan.js';
 import {
   buildAnalyticsRetentionDeleteOperationPlan,
@@ -48,6 +49,14 @@ export interface AnalyticsRetentionExecutionServicePreviewInput {
   readonly deleteRepositoryExecutor?: AnalyticsRetentionDeleteRepositoryPreparationExecutor;
 }
 
+export interface AnalyticsRetentionPreparedOperationError {
+  readonly source: AnalyticsRetentionDeletePlanSource;
+  readonly requestedLimit: number;
+  readonly message: string;
+  readonly failClosedReason: 'CANDIDATE_RECHECK_PREPARATION_FAILED';
+  readonly deleteAllowed: false;
+}
+
 export interface AnalyticsRetentionExecutionServicePreview {
   readonly policy: AnalyticsRetentionPolicy;
   readonly plan: AnalyticsRetentionPlan;
@@ -57,11 +66,17 @@ export interface AnalyticsRetentionExecutionServicePreview {
   readonly deleteBatchPlan: AnalyticsRetentionDeleteBatchPlan;
   readonly deleteOperationPlan: AnalyticsRetentionDeleteOperationPlan;
   readonly preparedOperations: readonly AnalyticsRetentionDeleteRepositoryPreparedOperation[];
+  readonly preparedOperationErrors: readonly AnalyticsRetentionPreparedOperationError[];
   readonly executionResults: readonly AnalyticsRetentionDeleteRepositoryExecutionResult[];
   readonly deleteImplementationAvailable: boolean;
   readonly dryRunOnly: boolean;
   readonly deleteAllowed: boolean;
   readonly destructiveExecutionPerformed: false;
+}
+
+interface AnalyticsRetentionPreparedOperationPreparationResult {
+  readonly preparedOperations: readonly AnalyticsRetentionDeleteRepositoryPreparedOperation[];
+  readonly preparedOperationErrors: readonly AnalyticsRetentionPreparedOperationError[];
 }
 
 export async function buildAnalyticsRetentionExecutionServicePreview(
@@ -92,7 +107,7 @@ export async function buildAnalyticsRetentionExecutionServicePreview(
     retentionPlan: plan,
     deleteBatchPlan,
   });
-  const preparedOperations = await prepareRepositoryOperations(
+  const preparationResult = await prepareRepositoryOperations(
     deleteOperationPlan,
     input.deleteRepositoryExecutor,
   );
@@ -102,7 +117,8 @@ export async function buildAnalyticsRetentionExecutionServicePreview(
     deleteImplementationAvailable,
     deleteBatchPlan,
     deleteOperationPlan,
-    preparedOperations,
+    preparedOperations: preparationResult.preparedOperations,
+    preparedOperationErrors: preparationResult.preparedOperationErrors,
   });
 
   return {
@@ -113,7 +129,8 @@ export async function buildAnalyticsRetentionExecutionServicePreview(
     executeContractReview,
     deleteBatchPlan,
     deleteOperationPlan,
-    preparedOperations,
+    preparedOperations: preparationResult.preparedOperations,
+    preparedOperationErrors: preparationResult.preparedOperationErrors,
     executionResults: [],
     deleteImplementationAvailable,
     dryRunOnly: executionGuard.dryRunOnly,
@@ -142,20 +159,38 @@ async function prepareRepositoryOperations(
   deleteRepositoryExecutor:
     | AnalyticsRetentionDeleteRepositoryPreparationExecutor
     | undefined,
-): Promise<AnalyticsRetentionDeleteRepositoryPreparedOperation[]> {
+): Promise<AnalyticsRetentionPreparedOperationPreparationResult> {
   if (!deleteOperationPlan.deleteAllowed || deleteRepositoryExecutor === undefined) {
-    return [];
+    return {
+      preparedOperations: [],
+      preparedOperationErrors: [],
+    };
   }
 
   const preparedOperations: AnalyticsRetentionDeleteRepositoryPreparedOperation[] = [];
+  const preparedOperationErrors: AnalyticsRetentionPreparedOperationError[] = [];
 
   for (const request of deleteOperationPlan.repositoryOperationRequests) {
-    preparedOperations.push(
-      await deleteRepositoryExecutor.prepareDeleteOperation(request),
-    );
+    try {
+      preparedOperations.push(
+        await deleteRepositoryExecutor.prepareDeleteOperation(request),
+      );
+    } catch (error: unknown) {
+      preparedOperationErrors.push({
+        source: request.source,
+        requestedLimit: request.requestedLimit,
+        message: error instanceof Error ? error.message : String(error),
+        failClosedReason: 'CANDIDATE_RECHECK_PREPARATION_FAILED',
+        deleteAllowed: false,
+      });
+      break;
+    }
   }
 
-  return preparedOperations;
+  return {
+    preparedOperations,
+    preparedOperationErrors,
+  };
 }
 
 function isPreviewDeleteAllowed(input: {
@@ -163,12 +198,17 @@ function isPreviewDeleteAllowed(input: {
   readonly deleteBatchPlan: AnalyticsRetentionDeleteBatchPlan;
   readonly deleteOperationPlan: AnalyticsRetentionDeleteOperationPlan;
   readonly preparedOperations: readonly AnalyticsRetentionDeleteRepositoryPreparedOperation[];
+  readonly preparedOperationErrors: readonly AnalyticsRetentionPreparedOperationError[];
 }): boolean {
   if (!input.deleteImplementationAvailable) {
     return false;
   }
 
   if (!input.deleteBatchPlan.deleteAllowed || !input.deleteOperationPlan.deleteAllowed) {
+    return false;
+  }
+
+  if (input.preparedOperationErrors.length > 0) {
     return false;
   }
 

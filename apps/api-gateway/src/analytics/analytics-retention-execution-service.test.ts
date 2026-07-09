@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { AnalyticsRetentionDeletePlanSource } from './analytics-retention-delete-batch-plan.js';
 import { ANALYTICS_RETENTION_EXECUTE_CONFIRMATION_VALUE } from './analytics-retention-execution-command-args.js';
 import {
@@ -228,6 +228,51 @@ describe('analytics retention execution service preview', () => {
     expect(fakeRepository.getDeleteCallCount()).toBe(0);
   });
 
+  it('fails closed with preparation error output when candidate recheck preparation throws', async () => {
+    const failingExecutor: AnalyticsRetentionDeleteRepositoryPreparationExecutor = {
+      async prepareDeleteOperation() {
+        throw new Error('candidate recheck repository unavailable');
+      },
+    };
+
+    const preview = await buildAnalyticsRetentionExecutionServicePreview({
+      policy: {
+        enabled: true,
+        source: 'usage',
+        usageRetentionDays: 90,
+      },
+      executionArgs: executeArgs(5),
+      now: NOW,
+      usageCandidateCount: 5,
+      deleteRepositoryExecutor: failingExecutor,
+    });
+
+    expect(preview.deleteBatchPlan.deleteAllowed).toBe(true);
+    expect(preview.deleteOperationPlan.deleteAllowed).toBe(true);
+    expect(preview.preparedOperations).toEqual([]);
+    expect(preview.preparedOperationErrors).toEqual([
+      {
+        source: 'usage',
+        requestedLimit: 5,
+        message: 'candidate recheck repository unavailable',
+        failClosedReason: 'CANDIDATE_RECHECK_PREPARATION_FAILED',
+        deleteAllowed: false,
+      },
+    ]);
+    expect(preview.executionResults).toEqual([]);
+    expect(preview.deleteAllowed).toBe(false);
+    expect(preview.destructiveExecutionPerformed).toBe(false);
+    expect(preview.executeContractReview.summary.allowed).toBe(false);
+    expect(preview.executeContractReview.safety.deleteCandidatesWired).toBe(
+      false,
+    );
+    expect(preview.executeContractReview.safety.runsDestructiveExecution).toBe(
+      false,
+    );
+    expect(preview.executeContractReview.safety.runsRetentionExecution).toBe(
+      false,
+    );
+  });
   it('skips a selected source when its max delete count is zero', async () => {
     const fakeRepository = createFakeDeleteRepository({
       rejected: 5,
