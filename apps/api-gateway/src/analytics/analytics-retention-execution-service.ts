@@ -1,4 +1,4 @@
-﻿import {
+import {
   createAnalyticsRetentionPlan,
   parseAnalyticsRetentionPolicy,
   type AnalyticsRetentionPlan,
@@ -26,6 +26,10 @@ import type {
   AnalyticsRetentionDeleteRepositoryExecutor,
   AnalyticsRetentionDeleteRepositoryPreparedOperation,
 } from './analytics-retention-delete.repository.js';
+import {
+  buildAnalyticsRetentionExecuteContractReview,
+  type AnalyticsRetentionExecuteContractReview,
+} from './analytics-retention-execute-contract-review.js';
 
 export type AnalyticsRetentionExecutionServicePolicyInput =
   Parameters<typeof parseAnalyticsRetentionPolicy>[0];
@@ -49,6 +53,7 @@ export interface AnalyticsRetentionExecutionServicePreview {
   readonly plan: AnalyticsRetentionPlan;
   readonly executionArgs: AnalyticsRetentionExecutionCommandArgs;
   readonly executionGuard: AnalyticsRetentionExecutionGuardDecision;
+  readonly executeContractReview: AnalyticsRetentionExecuteContractReview;
   readonly deleteBatchPlan: AnalyticsRetentionDeleteBatchPlan;
   readonly deleteOperationPlan: AnalyticsRetentionDeleteOperationPlan;
   readonly preparedOperations: readonly AnalyticsRetentionDeleteRepositoryPreparedOperation[];
@@ -72,6 +77,13 @@ export async function buildAnalyticsRetentionExecutionServicePreview(
     mode: executionArgs.mode,
     confirmExecute: executionArgs.confirmExecute,
     hardDeleteLimit: executionArgs.hardDeleteLimit,
+  });
+  const executeContractReview = buildAnalyticsRetentionExecuteContractReview({
+    confirmationProvided: executionArgs.confirmExecute === true,
+    hardDeleteLimit: executionArgs.hardDeleteLimit ?? null,
+    candidateRecheckPlanned: input.deleteRepositoryExecutor !== undefined,
+    rollbackExpectationDocumented: false,
+    auditOutputPlanned: false,
   });
   const deleteBatchPlan = buildAnalyticsRetentionDeleteBatchPlan(
     buildDeleteBatchPlanInput(input, executionGuard),
@@ -98,6 +110,7 @@ export async function buildAnalyticsRetentionExecutionServicePreview(
     plan,
     executionArgs,
     executionGuard,
+    executeContractReview,
     deleteBatchPlan,
     deleteOperationPlan,
     preparedOperations,

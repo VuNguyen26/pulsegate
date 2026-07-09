@@ -11,9 +11,8 @@ import {
   buildAnalyticsRetentionExecutionServiceSummary,
   type AnalyticsRetentionExecutionServiceSummary,
 } from './analytics-retention-execution-service-summary.js';
-import {
-  buildAnalyticsRetentionExecuteContractReview,
-  type AnalyticsRetentionExecuteContractReview,
+import type {
+  AnalyticsRetentionExecuteContractReview,
 } from './analytics-retention-execute-contract-review.js';
 import type {
   AnalyticsRetentionConcreteSource,
@@ -68,7 +67,6 @@ export function buildAnalyticsRetentionOperatorPreviewOutput(
   input: AnalyticsRetentionExecutionServiceCandidateReadPreview,
 ): AnalyticsRetentionOperatorPreviewOutput {
   const summary = buildAnalyticsRetentionExecutionServiceSummary(input.preview);
-  const executeContractReview = resolveExecuteContractReview(input.preview);
 
   return {
     kind: 'analytics-retention-operator-preview',
@@ -93,7 +91,7 @@ export function buildAnalyticsRetentionOperatorPreviewOutput(
       dryRunOnly: true,
       deleteAllowed: false,
     },
-    executeContractReview,
+    executeContractReview: input.preview.executeContractReview,
     safety: {
       commandDeletesEvents: false,
       candidateReadOnly: true,
@@ -106,31 +104,6 @@ export function buildAnalyticsRetentionOperatorPreviewOutput(
     deleteAllowed: false,
     destructiveExecutionPerformed: false,
   };
-}
-
-function resolveExecuteContractReview(
-  preview: AnalyticsRetentionExecutionServiceCandidateReadPreview['preview'],
-): AnalyticsRetentionExecuteContractReview {
-  const maybePreviewWithContract = preview as {
-    readonly executeContractReview?: AnalyticsRetentionExecuteContractReview;
-    readonly executionArgs?: {
-      readonly confirmExecute?: boolean;
-      readonly hardDeleteLimit?: number;
-    };
-  };
-
-  if (maybePreviewWithContract.executeContractReview !== undefined) {
-    return maybePreviewWithContract.executeContractReview;
-  }
-
-  return buildAnalyticsRetentionExecuteContractReview({
-    confirmationProvided:
-      maybePreviewWithContract.executionArgs?.confirmExecute === true,
-    hardDeleteLimit: maybePreviewWithContract.executionArgs?.hardDeleteLimit ?? null,
-    candidateRecheckPlanned: false,
-    rollbackExpectationDocumented: false,
-    auditOutputPlanned: false,
-  });
 }
 
 function summarizeCandidateSource(
