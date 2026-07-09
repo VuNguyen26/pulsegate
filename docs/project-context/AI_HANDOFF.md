@@ -12,15 +12,15 @@ Long decision records live in:
 
 ## Current Version
 
-- v0.55.0
+- v0.56.0
 
 ## Latest Completed Sprint
 
-- Sprint 54 - Background Scheduler Contract/Runner
+- Sprint 55 - Background Scheduler Runtime Wiring with guardrails
 
 ## Next Recommended Sprint
 
-- Sprint 55 - Background Scheduler Runtime Wiring with guardrails
+- Sprint 56 - Retention Execute Contract Review
 
 ## Current Validation Status
 
@@ -74,3 +74,39 @@ Do not regress these boundaries:
 ## Startup Instruction
 
 Start Sprint 55 only after confirming Sprint 54 docs are committed and pushed.
+
+## Sprint 55 Completion Summary
+
+Sprint 55 completed Background Scheduler Runtime Wiring with guardrails.
+
+Implemented:
+
+- Background scheduler runtime gate.
+- `backgroundScheduler.runtimeGate` command output.
+- Process-local dry-run runtime gate opt-in.
+- Process-local dry-run invocation seam.
+- Direct CLI process-local dry-run runtime invocation through the existing dry-run backfill service adapter.
+- Runtime output consistency for safety and operator notes.
+- Docker/PostgreSQL runtime validation for guarded process-local dry-run invocation.
+
+Final Sprint 55 validation:
+
+- 129 test files / 940 tests passed.
+- Typecheck passed.
+- Build passed.
+- Docker/PostgreSQL runtime validation passed.
+- `usage` and `rejected` each returned `service-dry-run-invoked`.
+
+Safety boundaries preserved:
+
+- No scheduled/background rollup job.
+- No external scheduler runtime execution.
+- No background execute.
+- No quota mutation.
+- No raw event deletion.
+- No retention execution.
+- No Admin UI or Product/Platform Expansion v2 work.
+
+Next sprint:
+
+Sprint 56 - Retention Execute Contract Review.

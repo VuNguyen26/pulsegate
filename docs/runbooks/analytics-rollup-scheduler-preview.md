@@ -406,3 +406,44 @@ Operator expectations:
 - The output must keep scheduled job creation, backfill service invocation, backfill execution, event reads, rollup persistence, quota mutation, raw event deletion, and retention execution disabled.
 
 Do not treat ackgroundScheduler.summary.ready=true as proof that a background job ran. It only means the preview contract is ready.
+
+## Sprint 55 Process-local Dry-run Runtime Invocation
+
+Sprint 55 adds a guarded direct CLI process-local dry-run runtime path.
+
+Example:
+
+```powershell
+$env:DATABASE_URL = "postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=public"
+
+npm run analytics:rollup:scheduler-preview --workspace api-gateway -- `
+  --enabled true `
+  --source both `
+  --run-at 2026-07-09T10:00:00.000Z `
+  --granularity hour `
+  --lookback-buckets 1 `
+  --max-buckets 1 `
+  --safety-delay-ms 300000 `
+  --execution-trigger process-local `
+  --execution-mode dry-run `
+  --event-limit 500
+```
+
+Expected runtime output:
+
+- `backgroundScheduler.summary.status = background-runtime-ready`
+- `backgroundScheduler.runtimeGate.summary.status = process-local-dry-run-runtime-ready`
+- `processLocalDryRunServiceInvocationResults` contains source-separated dry-run invocation results.
+- `usage` and `rejected` return `service-dry-run-invoked`.
+
+Safety expectations:
+
+- `createsScheduledJob = false`
+- `executesBackfill = false`
+- `readsEvents = false`
+- `persistsRollups = false`
+- `affectsQuotaCounting = false`
+- `deletesRawEvents = false`
+- `runsRetentionExecution = false`
+- external scheduler runtime execution remains closed
+- background execute remains closed

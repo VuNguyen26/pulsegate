@@ -282,3 +282,9 @@ Safety:
 Sprint 54 does not change successful usage analytics, quota counting, or usage event storage.
 
 Background scheduler contract/output remains DB-free and does not read usage events, persist usage rollups, or affect quota counting.
+
+## Sprint 55 Scheduler Runtime Boundary Note
+
+Sprint 55 does not change this feature path.
+
+The sprint only opens a guarded direct CLI `process-local` + `dry-run` scheduler runtime path for analytics rollup service invocation. It does not add scheduled/background jobs, external scheduler execution, execute mode expansion, quota mutation, raw event deletion, or retention execution.

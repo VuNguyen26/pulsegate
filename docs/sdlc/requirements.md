@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.55.0
+v0.56.0
 
 ## Latest Completed Sprint
 
-Sprint 54 - Background Scheduler Contract/Runner
+Sprint 55 - Background Scheduler Runtime Wiring with guardrails
 
 ---
 
@@ -1320,3 +1320,22 @@ Validation:
 - Build passed.
 - git diff --check passed.
 - Docker/PostgreSQL runtime validation was not required because Sprint 54 only changed DB-free contract/model/output/command-output/usage text and tests.
+
+## Sprint 55 - Background Scheduler Runtime Wiring with guardrails
+
+Sprint 55 adds guarded analytics rollup process-local dry-run runtime invocation.
+
+Acceptance criteria:
+
+- `backgroundScheduler.runtimeGate` is exposed in scheduler preview command output.
+- Direct CLI `process-local` + `dry-run` can become `background-runtime-ready` only when explicit guardrails pass.
+- Runtime dry-run invocation remains source-separated.
+- Event-limit and max-bucket guardrails are applied.
+- Runtime output includes `processLocalDryRunServiceInvocationResults`.
+- External scheduler runtime execution remains blocked.
+- Background execute remains blocked.
+- Scheduled/background job creation remains blocked.
+- Quota mutation remains blocked.
+- Raw event deletion remains blocked.
+- Retention execution remains blocked.
+- Docker/PostgreSQL runtime validation is required and must pass before finalization.

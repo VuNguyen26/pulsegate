@@ -12,11 +12,11 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.55.0
+v0.56.0
 
 ## Latest Completed Sprint
 
-Sprint 54 - Background Scheduler Contract/Runner
+Sprint 55 - Background Scheduler Runtime Wiring with guardrails
 
 ---
 
@@ -956,3 +956,21 @@ See:
 
 - docs/sdlc/sprint-history/
 - docs/project-context/decisions/
+
+## Sprint 55 Decision - Background Scheduler Runtime Wiring with guardrails
+
+Sprint 55 accepts a narrow runtime wiring step for analytics rollup scheduling:
+
+- Direct CLI `process-local` + `dry-run` may invoke the existing dry-run backfill service adapter when explicit guardrails are satisfied.
+- `backgroundScheduler.runtimeGate` exposes operator-visible readiness and safety data.
+- External scheduler runtime execution remains closed.
+- Background execute remains closed.
+- Scheduled/background job creation remains closed.
+- Quota mutation, raw event deletion, and retention execution remain blocked.
+
+Validation:
+
+- 129 test files / 940 tests passed.
+- Typecheck passed.
+- Build passed.
+- Docker/PostgreSQL runtime validation passed with 7 migrations applied and 2 source-separated `service-dry-run-invoked` results.

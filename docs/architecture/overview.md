@@ -576,3 +576,29 @@ Current background scheduler behavior:
 - Direct command dry-run and execute behavior from previous sprints remains separate and unchanged.
 
 Sprint 54 still does not implement a scheduled/background rollup job, process-local runner loop, external scheduler integration, retention execution, quota mutation, or raw event deletion.
+
+## Sprint 55 Background Scheduler Runtime Wiring Boundary
+
+Sprint 55 opens one guarded runtime path for analytics rollup scheduling: direct CLI `process-local` + `dry-run`.
+
+This path may resolve the runtime backfill service factory and invoke `runBackfill` in dry-run mode only after explicit guardrails pass.
+
+Allowed:
+
+- `process-local`
+- `dry-run`
+- bounded runner plan
+- source-separated dry-run service invocation
+- event-limit guardrail
+- max-bucket guardrail
+- Docker/PostgreSQL validated runtime service invocation
+
+Still blocked:
+
+- scheduled/background rollup job creation
+- external scheduler runtime execution
+- background execute
+- quota mutation
+- raw event deletion
+- retention execution
+- Admin UI expansion

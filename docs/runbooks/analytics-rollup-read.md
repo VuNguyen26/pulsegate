@@ -197,3 +197,9 @@ Sprint 54 does not change rollup read APIs or selected summary runtime reads.
 - ollupSummaryRuntimeRead=true remains the only summary runtime read switch.
 - Scheduler preview ackgroundScheduler output does not control summary API runtime reads.
 - Background scheduler contracts do not read rollup repositories and do not change raw-summary fallback behavior.
+
+## Sprint 55 Scheduler Runtime Boundary Note
+
+Sprint 55 does not change this feature path.
+
+The sprint only opens a guarded direct CLI `process-local` + `dry-run` scheduler runtime path for analytics rollup service invocation. It does not add scheduled/background jobs, external scheduler execution, execute mode expansion, quota mutation, raw event deletion, or retention execution.
