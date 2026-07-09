@@ -1,4 +1,4 @@
-﻿import {
+import {
   createAnalyticsRetentionPlan,
   parseAnalyticsRetentionPolicy,
   type AnalyticsRetentionPlan,
@@ -11,6 +11,10 @@ import {
   parseAnalyticsRetentionExecutionCommandArgs,
   type AnalyticsRetentionExecutionCommandArgs,
 } from './analytics-retention-execution-command-args.js';
+import {
+  buildAnalyticsRetentionExecuteContractReview,
+  type AnalyticsRetentionExecuteContractReview,
+} from './analytics-retention-execute-contract-review.js';
 
 export interface AnalyticsRetentionExecutionPreviewInput {
   readonly policy: Parameters<typeof parseAnalyticsRetentionPolicy>[0];
@@ -23,6 +27,7 @@ export interface AnalyticsRetentionExecutionPreview {
   readonly plan: AnalyticsRetentionPlan;
   readonly executionArgs: AnalyticsRetentionExecutionCommandArgs;
   readonly executionGuard: AnalyticsRetentionExecutionGuardDecision;
+  readonly executeContractReview: AnalyticsRetentionExecuteContractReview;
   readonly deleteImplementationAvailable: false;
 }
 
@@ -40,12 +45,20 @@ export function buildAnalyticsRetentionExecutionPreview(
     confirmExecute: executionArgs.confirmExecute,
     hardDeleteLimit: executionArgs.hardDeleteLimit,
   });
+  const executeContractReview = buildAnalyticsRetentionExecuteContractReview({
+    confirmationProvided: executionArgs.confirmExecute === true,
+    hardDeleteLimit: executionArgs.hardDeleteLimit ?? null,
+    candidateRecheckPlanned: false,
+    rollbackExpectationDocumented: false,
+    auditOutputPlanned: false,
+  });
 
   return {
     policy,
     plan,
     executionArgs,
     executionGuard,
+    executeContractReview,
     deleteImplementationAvailable: false,
   };
 }
