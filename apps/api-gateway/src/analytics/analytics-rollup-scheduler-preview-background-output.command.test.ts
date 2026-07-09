@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { runAnalyticsRollupSchedulerPreviewCommand } from "./analytics-rollup-scheduler-preview.command.js";
+import {
+  ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE,
+  runAnalyticsRollupSchedulerPreviewCommand,
+} from "./analytics-rollup-scheduler-preview.command.js";
 
 const baseArgs = [
   "--enabled",
@@ -289,4 +292,19 @@ describe("analytics rollup scheduler preview background output", () => {
     expect(output.dryRunServiceInvocationResults).toBeUndefined();
     expect(output.dryRunRuntimeFactoryError).toBeUndefined();
     expect(output.executeServiceInvocationResults).toBeUndefined();
-  });});
+  });
+  it("documents backgroundScheduler output in CLI usage text", () => {
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "backgroundScheduler",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "operator-visible contract data only",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "does not start scheduled jobs",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "process-local/external scheduler runtime execution",
+    );
+  });
+});
