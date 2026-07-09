@@ -1422,6 +1422,9 @@ describe("analytics rollup scheduler preview command", () => {
       "service request mapper contract is model-only",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "service adapter contract is model-only",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "blocked-by-default",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
@@ -3448,8 +3451,9 @@ describe("analytics rollup scheduler preview command", () => {
             },
             executeServiceAdapter: {
               required: true,
-              currentState: "not-wired",
-              nextStep: "invoke-runBackfill-only-after-all-execute-guardrails-pass",
+              currentState: "contract-model-only",
+              nextStep:
+                "add-explicit-command-execute-runtime-gate-before-runtime-wiring",
             },
             explicitRuntimeGate: {
               required: true,
@@ -3483,7 +3487,7 @@ describe("analytics rollup scheduler preview command", () => {
             willDeleteRawEvents: false,
           },
           nextRequiredAction:
-            "add-command-execute-service-adapter-contract-before-runtime-wiring",
+            "add-explicit-command-execute-runtime-gate-before-runtime-wiring",
         },
         commandExecuteRuntimeInvocationBlockerReview: {
           status: "runtime-invocation-blocked",

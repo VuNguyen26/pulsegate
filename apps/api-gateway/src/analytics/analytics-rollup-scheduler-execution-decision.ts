@@ -660,8 +660,8 @@ export type AnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview = {
     };
     executeServiceAdapter: {
       required: true;
-      currentState: "not-wired";
-      nextStep: "invoke-runBackfill-only-after-all-execute-guardrails-pass";
+      currentState: "contract-model-only";
+      nextStep: "add-explicit-command-execute-runtime-gate-before-runtime-wiring";
     };
     explicitRuntimeGate: {
       required: true;
@@ -691,7 +691,7 @@ export type AnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview = {
     willMutateQuotaCounting: false;
     willDeleteRawEvents: false;
   };
-  nextRequiredAction: "add-command-execute-service-adapter-contract-before-runtime-wiring";
+  nextRequiredAction: "add-explicit-command-execute-runtime-gate-before-runtime-wiring";
 };
 
 export type AnalyticsRollupSchedulerCommandExecuteWiringPreview = {
@@ -1524,8 +1524,8 @@ function createAnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview(
       },
       executeServiceAdapter: {
         required: true,
-        currentState: "not-wired",
-        nextStep: "invoke-runBackfill-only-after-all-execute-guardrails-pass",
+        currentState: "contract-model-only",
+        nextStep: "add-explicit-command-execute-runtime-gate-before-runtime-wiring",
       },
       explicitRuntimeGate: {
         required: true,
@@ -1557,7 +1557,7 @@ function createAnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview(
       willDeleteRawEvents: false,
     },
     nextRequiredAction:
-      "add-command-execute-service-adapter-contract-before-runtime-wiring",
+      "add-explicit-command-execute-runtime-gate-before-runtime-wiring",
   };
 }
 

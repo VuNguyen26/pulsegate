@@ -1,9 +1,13 @@
 import type {
+  AnalyticsRollupBackfillRunInput,
   AnalyticsRollupBackfillRunSummary,
   AnalyticsRollupBackfillService,
   AnalyticsRollupBackfillSourceRunSummary,
 } from "./analytics-rollup-backfill-service.js";
-import type { AnalyticsRollupSchedulerBackfillServiceDryRunMapping } from "./analytics-rollup-scheduler-backfill-request-mapper.js";
+import type {
+  AnalyticsRollupSchedulerBackfillServiceDryRunMapping,
+  AnalyticsRollupSchedulerBackfillServiceExecuteMapping,
+} from "./analytics-rollup-scheduler-backfill-request-mapper.js";
 
 export type AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreviewKind =
   "analytics-rollup-scheduler-backfill-service-dry-run-adapter-preview";
@@ -46,6 +50,51 @@ export type AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview = {
   bucketCount: number;
   plannedServiceResult: AnalyticsRollupBackfillRunSummary;
   safety: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterSafety;
+};
+
+export type AnalyticsRollupSchedulerBackfillServiceExecuteAdapterPreviewKind =
+  "analytics-rollup-scheduler-backfill-service-execute-adapter-preview";
+
+export type AnalyticsRollupSchedulerBackfillServiceExecuteAdapterPreviewStatus =
+  "blocked-before-service-invocation";
+
+export type AnalyticsRollupSchedulerBackfillServiceExecuteAdapterSafety = {
+  adapterOnly: true;
+  adapterCurrentlyAllowed: false;
+  invokesBackfillService: false;
+  executesBackfill: false;
+  readsEvents: false;
+  persistsRollups: false;
+  affectsQuotaCounting: false;
+  deletesRawEvents: false;
+  sourceSeparationPreserved: true;
+  eventLimitGuardrailApplied: true;
+  maxBucketGuardrailApplied: true;
+  explicitOperatorConfirmationRequired: true;
+  serviceInvocationCurrentlyAllowed: false;
+  executeRuntimeCurrentlyAllowed: false;
+  dockerPostgresRuntimeValidationRequired: true;
+};
+
+export type AnalyticsRollupSchedulerBackfillServiceExecuteAdapterPreview = {
+  kind: AnalyticsRollupSchedulerBackfillServiceExecuteAdapterPreviewKind;
+  status: AnalyticsRollupSchedulerBackfillServiceExecuteAdapterPreviewStatus;
+  adapterBoundary: "mapped-backfill-run-input-to-rollup-backfill-service-execute";
+  currentAdapterState: "contract-model-only";
+  source: AnalyticsRollupSchedulerBackfillServiceExecuteMapping["source"];
+  serviceMethod: "runBackfill";
+  inputMode: "execute";
+  outputMode: "execute";
+  plannedInvocationCardinality: "single-mapped-run-input";
+  eventLimit: number;
+  granularity: AnalyticsRollupBackfillRunSummary["granularity"];
+  requestedFrom: Date;
+  requestedTo: Date;
+  rebuildFrom: Date | null;
+  rebuildTo: Date | null;
+  bucketCount: number;
+  plannedRunInput: AnalyticsRollupBackfillRunInput;
+  safety: AnalyticsRollupSchedulerBackfillServiceExecuteAdapterSafety;
 };
 
 export type AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationStatus =
@@ -129,6 +178,25 @@ const INVOCATION_SAFETY: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInv
     dockerPostgresRuntimeValidationRequired: true,
   };
 
+const EXECUTE_ADAPTER_SAFETY: AnalyticsRollupSchedulerBackfillServiceExecuteAdapterSafety =
+  {
+    adapterOnly: true,
+    adapterCurrentlyAllowed: false,
+    invokesBackfillService: false,
+    executesBackfill: false,
+    readsEvents: false,
+    persistsRollups: false,
+    affectsQuotaCounting: false,
+    deletesRawEvents: false,
+    sourceSeparationPreserved: true,
+    eventLimitGuardrailApplied: true,
+    maxBucketGuardrailApplied: true,
+    explicitOperatorConfirmationRequired: true,
+    serviceInvocationCurrentlyAllowed: false,
+    executeRuntimeCurrentlyAllowed: false,
+    dockerPostgresRuntimeValidationRequired: true,
+  };
+
 function assertPositiveInteger(value: number | undefined, name: string): asserts value is number {
   if (!Number.isInteger(value) || value === undefined || value < 1) {
     throw new RangeError(`${name} must be a positive integer`);
@@ -172,6 +240,89 @@ function assertMappedDryRunServiceInput(
 
   assertPositiveInteger(runInput.eventLimit, "eventLimit");
   assertPositiveInteger(plan.windowPlan.bucketCount, "bucketCount");
+}
+
+function assertMappedExecuteServiceInput(
+  mapping: AnalyticsRollupSchedulerBackfillServiceExecuteMapping,
+): void {
+  const { runInput, safety, source } = mapping;
+  const { plan } = runInput;
+
+  if (
+    safety.mapperOnly !== true ||
+    safety.invokesBackfillService !== false ||
+    safety.readsEvents !== false ||
+    safety.persistsRollups !== false ||
+    safety.affectsQuotaCounting !== false ||
+    safety.deletesRawEvents !== false ||
+    safety.sourceSeparationPreserved !== true ||
+    safety.eventLimitGuardrailApplied !== true ||
+    safety.maxBucketGuardrailApplied !== true ||
+    safety.serviceInvocationCurrentlyAllowed !== false ||
+    safety.executeRuntimeCurrentlyAllowed !== false ||
+    safety.explicitOperatorConfirmationRequired !== true ||
+    safety.dockerPostgresRuntimeValidationRequired !== true
+  ) {
+    throw new RangeError(
+      "scheduler execute service adapter preview requires a non-invoking mapped input contract",
+    );
+  }
+
+  if (plan.mode !== "execute") {
+    throw new RangeError(
+      "scheduler execute service adapter preview only accepts execute service inputs",
+    );
+  }
+
+  if (plan.source !== source || plan.sources.length !== 1 || plan.sources[0] !== source) {
+    throw new RangeError(
+      "scheduler execute service adapter preview requires per-source mapped inputs",
+    );
+  }
+
+  assertPositiveInteger(runInput.eventLimit, "eventLimit");
+  assertPositiveInteger(plan.windowPlan.bucketCount, "bucketCount");
+}
+
+export function createAnalyticsRollupSchedulerBackfillServiceExecuteAdapterPreview(
+  mapping: AnalyticsRollupSchedulerBackfillServiceExecuteMapping,
+): AnalyticsRollupSchedulerBackfillServiceExecuteAdapterPreview {
+  assertMappedExecuteServiceInput(mapping);
+
+  const { eventLimit, plan } = mapping.runInput;
+  assertPositiveInteger(eventLimit, "eventLimit");
+
+  return {
+    kind: "analytics-rollup-scheduler-backfill-service-execute-adapter-preview",
+    status: "blocked-before-service-invocation",
+    adapterBoundary:
+      "mapped-backfill-run-input-to-rollup-backfill-service-execute",
+    currentAdapterState: "contract-model-only",
+    source: mapping.source,
+    serviceMethod: "runBackfill",
+    inputMode: "execute",
+    outputMode: "execute",
+    plannedInvocationCardinality: "single-mapped-run-input",
+    eventLimit,
+    granularity: plan.windowPlan.granularity,
+    requestedFrom: plan.windowPlan.requestedFrom,
+    requestedTo: plan.windowPlan.requestedTo,
+    rebuildFrom: plan.windowPlan.rebuildFrom,
+    rebuildTo: plan.windowPlan.rebuildTo,
+    bucketCount: plan.windowPlan.bucketCount,
+    plannedRunInput: mapping.runInput,
+    safety: EXECUTE_ADAPTER_SAFETY,
+  };
+}
+
+export function createAnalyticsRollupSchedulerBackfillServiceExecuteAdapterPreviews(
+  mappings: AnalyticsRollupSchedulerBackfillServiceExecuteMapping[],
+): AnalyticsRollupSchedulerBackfillServiceExecuteAdapterPreview[] {
+  assertUniqueMappedSources(mappings, "scheduler service adapter execute preview");
+
+  return mappings.map((mapping) =>
+    createAnalyticsRollupSchedulerBackfillServiceExecuteAdapterPreview(mapping),
+  );
 }
 
 function createPlannedSourceResult(

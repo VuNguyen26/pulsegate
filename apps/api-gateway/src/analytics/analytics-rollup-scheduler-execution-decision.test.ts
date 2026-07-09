@@ -1512,8 +1512,9 @@ describe("analytics rollup scheduler execution decision", () => {
             },
             executeServiceAdapter: {
               required: true,
-              currentState: "not-wired",
-              nextStep: "invoke-runBackfill-only-after-all-execute-guardrails-pass",
+              currentState: "contract-model-only",
+              nextStep:
+                "add-explicit-command-execute-runtime-gate-before-runtime-wiring",
             },
             explicitRuntimeGate: {
               required: true,
@@ -1547,7 +1548,7 @@ describe("analytics rollup scheduler execution decision", () => {
             willDeleteRawEvents: false,
           },
           nextRequiredAction:
-            "add-command-execute-service-adapter-contract-before-runtime-wiring",
+            "add-explicit-command-execute-runtime-gate-before-runtime-wiring",
         },
         commandExecuteRuntimeInvocationBlockerReview: {
           status: "runtime-invocation-blocked",
