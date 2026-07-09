@@ -1,4 +1,4 @@
-﻿import { pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 
 import {
   disconnectGatewayPrisma,
@@ -36,6 +36,8 @@ export const ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE = [
   'Safety:',
   '  This command reads retention candidate counts from PostgreSQL through the candidate read repository.',
   '  It prints an operator preview only. It does not call deleteCandidates and does not delete analytics events.',
+  '  Output includes executeContractReview and keeps destructive execution blocked even when execute preview arguments are provided.',
+  '  executeContractReview does not wire deleteCandidates or the Prisma retention delete repository into operator execution.',
 ].join('\n');
 
 export interface AnalyticsRetentionOperatorPreviewCommandLogger {

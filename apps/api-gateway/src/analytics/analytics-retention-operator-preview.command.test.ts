@@ -1,4 +1,4 @@
-﻿import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type {
   AnalyticsRetentionCandidateReadRepository,
@@ -51,6 +51,18 @@ describe('runAnalyticsRetentionOperatorPreviewCommand', () => {
     );
     expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
       'does not delete analytics events',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      'executeContractReview',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      'keeps destructive execution blocked',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      'does not wire deleteCandidates',
+    );
+    expect(ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE).toContain(
+      'Prisma retention delete repository',
     );
   });
 
@@ -108,6 +120,22 @@ describe('runAnalyticsRetentionOperatorPreviewCommand', () => {
       destructiveExecutionPerformed: false,
       deleteImplementationAvailable: false,
     });
+    expect(output.executeContractReview.summary).toMatchObject({
+      allowed: false,
+      reviewOnly: true,
+      destructiveExecutionAllowed: false,
+    });
+    expect(output.executeContractReview.guardrails).toMatchObject({
+      operatorConfirmationStatus: 'missing',
+      hardDeleteLimitStatus: 'missing',
+    });
+    expect(output.executeContractReview.safety).toMatchObject({
+      deleteCandidatesWired: false,
+      prismaDeleteRepositoryWiredToOperatorFlow: false,
+      deletesRawEvents: false,
+      affectsQuotaCounting: false,
+      runsDestructiveExecution: false,
+    });
   });
 
   it('should allow execute preview arguments without turning the operator command into delete execution', async () => {
@@ -163,6 +191,28 @@ describe('runAnalyticsRetentionOperatorPreviewCommand', () => {
     expect(output.destructiveExecutionPerformed).toBe(false);
     expect(output.safety.commandDeletesEvents).toBe(false);
     expect(output.safety.deleteRepositoryExecuted).toBe(false);
+    expect(output.executeContractReview.summary).toMatchObject({
+      allowed: false,
+      reviewOnly: true,
+      destructiveExecutionAllowed: false,
+    });
+    expect(output.executeContractReview.guardrails).toMatchObject({
+      operatorConfirmationProvided: true,
+      operatorConfirmationStatus: 'ready',
+      hardDeleteLimit: 30,
+      boundedHardDeleteLimit: true,
+      hardDeleteLimitStatus: 'ready',
+      candidateRecheckStatus: 'missing',
+      rollbackExpectationStatus: 'missing',
+      auditOutputStatus: 'missing',
+    });
+    expect(output.executeContractReview.safety).toMatchObject({
+      deleteCandidatesWired: false,
+      prismaDeleteRepositoryWiredToOperatorFlow: false,
+      deletesRawEvents: false,
+      affectsQuotaCounting: false,
+      runsDestructiveExecution: false,
+    });
   });
 
   it('should keep disabled retention as a safe printed preview', async () => {
@@ -243,6 +293,12 @@ describe('runAnalyticsRetentionOperatorPreviewCommand', () => {
     expect(output.summary.mode).toBe('execute');
     expect(output.summary.hardDeleteLimit).toBe(30);
     expect(output.summary.totals.candidateCount).toBe(12);
+    expect(output.executeContractReview.summary.allowed).toBe(false);
+    expect(output.executeContractReview.guardrails).toMatchObject({
+      operatorConfirmationStatus: 'missing',
+      hardDeleteLimit: 30,
+      hardDeleteLimitStatus: 'ready',
+    });
     expectNonDestructiveOperatorPreviewOutput(output);
   });
 
@@ -389,4 +445,3 @@ function createCandidateReadRepository(
     summarizeCandidates,
   };
 }
-
