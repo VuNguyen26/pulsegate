@@ -2621,6 +2621,132 @@ describe("analytics rollup scheduler preview command", () => {
     });
   });
 
+
+  it("should expose command execute contract review in command output without wiring execution", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const createRuntimeBackfillService = vi.fn();
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "both",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "execute",
+        "--event-limit",
+        "500",
+      ],
+      {
+        allowDryRunServiceInvocation: true,
+        createRuntimeBackfillService,
+      },
+    );
+
+    expect(createRuntimeBackfillService).not.toHaveBeenCalled();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.dryRunRuntimeCleanupError).toBeUndefined();
+    expect(output.dryRunRuntimeFactoryError).toBeUndefined();
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      source: "both",
+      sources: ["usage", "rejected"],
+      backfillRequestCount: 2,
+      boundary: {
+        trigger: "command",
+        requestedMode: "execute",
+        allowedMode: "preview",
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecuteContractReview: {
+          status: "review-required-before-execute-wiring",
+          reviewBoundary: "scheduler-command-execute-contract",
+          currentExecutionState: "blocked-not-wired",
+          targetTrigger: "command",
+          targetBackfillMode: "execute",
+          targetServiceMethod: "runBackfill",
+          requiredConfirmation: "explicit-operator-confirmation",
+          requiresReadyRunnerPlan: true,
+          requiresPriorDryRunRuntimeValidation: true,
+          requiresExplicitEventLimit: true,
+          requiresMaxBucketBound: true,
+          requiresBoundedBucketCount: true,
+          requiresSourceSeparatedExecution: true,
+          persistenceScope: "rollup-tables-only",
+          rollbackExpectation:
+            "bounded-idempotent-rollup-upsert-or-fail-closed-before-execution",
+          operatorOutputContract: {
+            includeConfirmationRequirement: true,
+            includeBlockedReason: true,
+            includeExecutionState: true,
+            includePersistenceScope: true,
+            includeRollbackExpectation: true,
+            includeSourceScopedSummary: true,
+            includeSafetyFlags: true,
+            includeNoQuotaMutationStatement: true,
+            includeNoRawEventDeletionStatement: true,
+          },
+          executionCurrentlyAllowed: false,
+          serviceInvocationCurrentlyAllowed: false,
+          mayInvokeBackfillServiceAfterExplicitWiring: true,
+          eventReadCurrentlyAllowed: false,
+          rollupPersistenceCurrentlyAllowed: false,
+          partialPersistenceAllowed: false,
+          quotaCountingChangeAllowed: false,
+          rawEventDeletionAllowed: false,
+          processLocalExecutionAllowed: false,
+          externalSchedulerExecutionAllowed: false,
+          scheduledJobCreationAllowed: false,
+          failureBehavior: "fail-closed-before-execute-invocation",
+        },
+        runtimeConsistency: {
+          status: "blocked-or-review-only",
+          requestedCapability: "command:execute",
+          backfillServiceInvocationWired: false,
+          serviceInvocationCurrentlyAllowed: false,
+          automaticTriggersRemainUnwired: true,
+          executeRemainsUnwired: true,
+          createsScheduledJob: false,
+          invokesBackfillService: false,
+          executesBackfill: false,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+        },
+      },
+      safety: {
+        previewOnly: true,
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
   it("should not resolve runtime dry-run backfill service factory for execute mode", async () => {
     const consoleLog = vi
       .spyOn(console, "log")
