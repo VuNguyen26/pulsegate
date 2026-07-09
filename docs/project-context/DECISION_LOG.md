@@ -1,5 +1,35 @@
 # Decision Log
 
+### 2026-07-09 - Analytics retention execute contract review remains review-only
+
+Decision:
+
+- Add `executeContractReview` for analytics retention execute review.
+- Expose the review in execution-preview, service-preview, and operator-preview outputs.
+- Document command usage/output behavior for review-only execute contract output.
+- Report operator confirmation, hard delete limit, candidate recheck expectation, rollback expectation, audit output expectation, and safety flags.
+- Keep `executeContractReview.summary.allowed=false`.
+- Do not expose a retention execute command.
+- Do not expose a retention delete API.
+- Do not create a scheduled retention delete job.
+- Do not call `deleteCandidates` from an operator-facing flow.
+- Do not wire the Prisma retention delete repository into command/API/job execution.
+- Do not mutate quota counting.
+- Do not delete raw events.
+
+Validation:
+
+- 133 test files passed.
+- 956 tests passed.
+- Typecheck passed.
+- Build passed.
+- Docker/PostgreSQL runtime validation was not required because Sprint 56 did not add a new DB runtime or destructive execution path.
+
+References:
+
+- docs/sdlc/sprint-history/sprint-56.md
+- docs/project-context/decisions/2026-07-09-analytics-retention-execute-contract-review.md
+
 ## Scope
 
 This file is a compact index of important decisions.

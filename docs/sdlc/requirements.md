@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.56.0
+v0.57.0
 
 ## Latest Completed Sprint
 
-Sprint 55 - Background Scheduler Runtime Wiring with guardrails
+Sprint 56 - Retention Execute Contract Review
 
 ---
 
@@ -1339,3 +1339,33 @@ Acceptance criteria:
 - Raw event deletion remains blocked.
 - Retention execution remains blocked.
 - Docker/PostgreSQL runtime validation is required and must pass before finalization.
+
+## Sprint 56 - Retention Execute Contract Review
+
+PulseGate shall expose review-only retention execute contract output before any destructive retention execution is introduced.
+
+Acceptance criteria:
+
+- Execution preview output includes `executeContractReview`.
+- Retention execution service preview includes `executeContractReview`.
+- Operator preview output includes `executeContractReview`.
+- Command usage text documents review-only execute contract output.
+- Review output reports operator confirmation status.
+- Review output reports hard delete limit status.
+- Review output reports candidate recheck expectation.
+- Review output reports rollback expectation.
+- Review output reports audit output expectation.
+- Review output reports safety flags for delete wiring, raw event deletion, quota mutation, background jobs, and retention execution.
+- `executeContractReview.summary.allowed` remains false.
+- No operator-facing command, API, or job calls `deleteCandidates`.
+- Prisma retention delete repository is not wired into operator-facing execution.
+- Quota counting remains unchanged.
+- Raw event deletion remains blocked.
+- No retention execute command, delete API, or scheduled retention delete job is implemented.
+
+Validation:
+
+- 133 test files / 956 tests passed.
+- Typecheck passed.
+- Build passed.
+- Docker/PostgreSQL runtime validation was not required because this sprint added contract/model/output/usage/test changes only.

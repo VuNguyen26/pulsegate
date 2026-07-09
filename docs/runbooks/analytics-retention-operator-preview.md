@@ -1,4 +1,4 @@
-﻿# Analytics Retention Operator Preview Runbook
+# Analytics Retention Operator Preview Runbook
 
 ## Scope
 
@@ -235,3 +235,23 @@ This is expected and safe.
 - docs/runbooks/analytics-retention-execution-preview.md
 - docs/runbooks/analytics-retention-delete-repository.md
 - docs/runbooks/analytics-retention-execution-service-preview.md
+
+## Sprint 56 Execute Contract Review Output
+
+Sprint 56 adds `executeContractReview` to operator preview JSON.
+
+The operator preview command can show execute review guardrails while remaining read-only:
+
+- DB-backed candidate counts may be read through the candidate read repository.
+- Execute preview arguments may set operator confirmation and hard delete limit review statuses.
+- `executeContractReview.summary.allowed=false`.
+- `output.deleteAllowed=false`.
+- `output.destructiveExecutionPerformed=false`.
+- `output.safety.commandDeletesEvents=false`.
+- `output.safety.deleteRepositoryExecuted=false`.
+- `executeContractReview.safety.deleteCandidatesWired=false`.
+- `executeContractReview.safety.prismaDeleteRepositoryWiredToOperatorFlow=false`.
+- `executeContractReview.safety.deletesRawEvents=false`.
+- `executeContractReview.safety.affectsQuotaCounting=false`.
+
+The command is still not a retention execute command. It must not be used as a delete path.

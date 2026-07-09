@@ -108,3 +108,22 @@ Do not merge usage and rejected event retention paths.
 - docs/runbooks/analytics-retention-dry-run.md
 - docs/runbooks/analytics-retention-execution-preview.md
 - docs/runbooks/analytics-retention-delete-repository.md
+
+## Sprint 56 Execute Contract Review Output
+
+Sprint 56 promotes `executeContractReview` into the retention execution service preview contract.
+
+The service preview now returns review-only execute contract output together with policy, plan, execution args, execution guard, delete batch plan, delete operation plan, prepared operation previews, and summary data.
+
+Important boundaries:
+
+- Service preview may prepare repository operation previews through candidate recheck logic.
+- Service preview still does not call `deleteCandidates`.
+- `executionResults` remain empty in preview-only flows.
+- `destructiveExecutionPerformed=false`.
+- `executeContractReview.summary.allowed=false`.
+- `executeContractReview.safety.deletesRawEvents=false`.
+- `executeContractReview.safety.affectsQuotaCounting=false`.
+- `executeContractReview.safety.runsRetentionExecution=false`.
+
+Candidate recheck can be visible as a ready review guardrail when a repository preparation executor is injected, but that still does not authorize destructive execution.

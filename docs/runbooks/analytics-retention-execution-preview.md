@@ -1,4 +1,4 @@
-﻿# Analytics Retention Execution Preview Runbook
+# Analytics Retention Execution Preview Runbook
 
 ## Scope
 
@@ -97,3 +97,25 @@ Migration deploy before DB-backed validation:
 
 Added in:
 - Sprint 27 - Analytics Retention Execution Guardrails
+
+## Sprint 56 Execute Contract Review Output
+
+Sprint 56 adds `executeContractReview` to retention execution preview JSON.
+
+The review is operator-visible but still non-destructive:
+
+- `executeContractReview.summary.allowed=false`
+- `executeContractReview.summary.reviewOnly=true`
+- `executeContractReview.summary.destructiveExecutionAllowed=false`
+- `executeContractReview.guardrails.operatorConfirmationStatus` reports missing or ready.
+- `executeContractReview.guardrails.hardDeleteLimitStatus` reports missing or ready.
+- `executeContractReview.guardrails.candidateRecheckStatus` reports missing until a future approved execution design requires it.
+- `executeContractReview.guardrails.rollbackExpectationStatus` remains missing until rollback expectation output is hardened.
+- `executeContractReview.guardrails.auditOutputStatus` remains missing until audit output expectation is hardened.
+- `executeContractReview.safety.deleteCandidatesWired=false`
+- `executeContractReview.safety.prismaDeleteRepositoryWiredToOperatorFlow=false`
+- `executeContractReview.safety.deletesRawEvents=false`
+- `executeContractReview.safety.affectsQuotaCounting=false`
+- `executeContractReview.safety.runsDestructiveExecution=false`
+
+Execute preview remains a preview. It does not delete analytics events and does not call `deleteCandidates`.

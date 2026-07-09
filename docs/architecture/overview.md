@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.51.0
+v0.57.0
 
 ## Current Status
 
-Sprint 50 - Command Execute Wiring Preview blocked-by-default Complete
+Sprint 56 - Retention Execute Contract Review Complete
 
 Current validation:
 
@@ -602,3 +602,33 @@ Still blocked:
 - raw event deletion
 - retention execution
 - Admin UI expansion
+
+## Sprint 56 Retention Execute Contract Review Boundary
+
+Sprint 56 adds a review-only retention execute contract boundary.
+
+`executeContractReview` is now exposed through:
+
+- `analytics:retention:execution-preview`
+- retention execution service preview
+- `analytics:retention:operator-preview`
+
+The review output covers:
+
+- operator confirmation
+- hard delete limit
+- candidate recheck expectation
+- rollback expectation
+- audit output expectation
+- safety flags for delete wiring, raw event deletion, quota mutation, background jobs, and retention execution
+
+The boundary remains non-destructive:
+
+- `executeContractReview.summary.allowed=false`
+- no retention execute command exists
+- no delete API exists
+- no scheduled retention delete job exists
+- operator preview does not call `deleteCandidates`
+- Prisma retention delete repository is not wired into command/API/job execution
+- quota counting remains unchanged
+- raw event deletion remains blocked

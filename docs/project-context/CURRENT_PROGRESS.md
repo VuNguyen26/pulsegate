@@ -1,122 +1,77 @@
 # Current Progress
 
-## Documentation Shape
-
-Detailed sprint history lives in:
-
-- docs/sdlc/sprint-history/
-
-Long decision records live in:
-
-- docs/project-context/decisions/
-
 ## Current Version
 
-v0.56.0
+v0.57.0
 
 ## Latest Completed Sprint
 
-Sprint 55 - Background Scheduler Runtime Wiring with guardrails
+Sprint 56 - Retention Execute Contract Review
 
-## Current State
+## Sprint 56 Completion Summary
 
-Sprint 54 added a DB-free background scheduler contract/runner boundary for analytics rollups.
-
-Implemented in Sprint 54:
-
-- Added background scheduler trigger contract for command, process-local, and external-scheduler.
-- Added background runner plan contract with ready/blocked states for scheduler-enabled, disabled, and invalid plans.
-- Added operator-visible background scheduler output.
-- Exposed ackgroundScheduler in nalytics:rollup:scheduler-preview command JSON output.
-- Documented usage text for background scheduler output.
-- Hardened command-output visibility tests for process-local preview, process-local dry-run, external-scheduler execute, disabled runner, and command ownership.
-
-Current background scheduler boundary:
-
-- command remains owned by direct CLI runtime semantics.
-- process-local and external-scheduler preview can produce contract output only.
-- process-local and external-scheduler dry-run/execute remain blocked with ackground-runtime-execution-not-wired.
-- No scheduled/background job is created.
-- No background trigger invokes AnalyticsRollupBackfillService.runBackfill.
-- No background trigger reads events, persists rollups, affects quota counting, deletes raw events, or runs retention execution.
-
-Sprint 54 details are archived in:
-
-- docs/sdlc/sprint-history/sprint-54.md
-
-Related decision record:
-
-- docs/project-context/decisions/2026-07-09-analytics-rollup-background-scheduler-contract-runner.md
-
-## Latest Validation Status
-
-Latest stable validation from Sprint 54:
-
-- 126 test files passed.
-- 923 tests passed.
-- Typecheck passed.
-- Build passed.
-- git diff --check passed.
-
-Docker/PostgreSQL runtime validation was not required because Sprint 54 only added DB-free contract/model/output/command-output/usage text and tests. It did not add a DB read, migration, repository/service runtime interaction, scheduled job, background runner loop, quota path, retention execution, or raw event deletion path.
-
-## Current Safety Boundaries
-
-Still not implemented:
-
-- Scheduled/background rollup job.
-- Process-local runner loop.
-- External scheduler runtime integration.
-- Background dry-run/execute invocation.
-- Background AnalyticsRollupBackfillService.runBackfill call.
-- Quota counting mutation from rollups.
-- Raw event deletion.
-- Retention execution.
-- Admin Dashboard UI.
-
-Preserved from previous sprints:
-
-- Direct command dry-run runtime invocation remains command-only and dry-run-only.
-- Direct command execute runtime remains guarded by command trigger, execute mode, explicit confirmation, event limit, bounded buckets, source separation, and runtime gate.
-- Selected summary runtime reads remain opt-in behind ollupSummaryRuntimeRead=true with raw-summary fallback.
-- ollupSummaryPreview=true remains preview-output-only.
-
-## Next Recommended Sprint
-
-Sprint 55 - Background Scheduler Runtime Wiring with guardrails
-
-## Sprint 55 Completion Summary
-
-Sprint 55 completed Background Scheduler Runtime Wiring with guardrails.
+Sprint 56 added a review-only analytics retention execute contract boundary.
 
 Implemented:
 
-- Background scheduler runtime gate.
-- `backgroundScheduler.runtimeGate` command output.
-- Process-local dry-run runtime gate opt-in.
-- Process-local dry-run invocation seam.
-- Direct CLI process-local dry-run runtime invocation through the existing dry-run backfill service adapter.
-- Runtime output consistency for safety and operator notes.
-- Docker/PostgreSQL runtime validation for guarded process-local dry-run invocation.
+- `executeContractReview` contract model.
+- DB-free execution-preview output exposure.
+- Operator-preview output exposure.
+- Command usage/output documentation.
+- Service-preview contract propagation.
+- Tests for contract model, execution preview, service preview, operator preview, and command output.
 
-Final Sprint 55 validation:
+Safety preserved:
 
-- 129 test files / 940 tests passed.
-- Typecheck passed.
-- Build passed.
-- Docker/PostgreSQL runtime validation passed.
-- `usage` and `rejected` each returned `service-dry-run-invoked`.
-
-Safety boundaries preserved:
-
-- No scheduled/background rollup job.
-- No external scheduler runtime execution.
-- No background execute.
+- No retention execute command.
+- No retention delete API.
+- No scheduled retention delete job.
+- No operator-facing `deleteCandidates` call.
+- No Prisma retention delete repository wiring into command/API/job execution.
 - No quota mutation.
 - No raw event deletion.
-- No retention execution.
-- No Admin UI or Product/Platform Expansion v2 work.
+- No rollup summary behavior change.
 
-Next sprint:
+Final Sprint 56 validation:
 
-Sprint 56 - Retention Execute Contract Review.
+- 133 test files / 956 tests passed.
+- Typecheck passed.
+- Build passed.
+- Docker/PostgreSQL runtime validation was not required because Sprint 56 added contract/model/output/usage/test changes only and no new DB runtime or destructive delete path.
+
+## Latest Commits
+
+- `d635573 feat(gateway): propagate retention execute review through service preview`
+- `dd501a2 test(gateway): document retention execute review command output`
+- `ec842ea feat(gateway): expose retention execute review in operator preview`
+- `026b744 feat(gateway): expose retention execute contract review preview`
+- `380e17e feat(gateway): add retention execute contract review`
+
+## Next Recommended Sprint
+
+Sprint 57 - Retention Execute Preview Hardening/rollback expectation.
+
+Sprint 57 should remain non-destructive unless explicitly approved. It should harden rollback/audit/candidate-recheck expectation output and keep `deleteCandidates`, Prisma delete execution, raw event deletion, quota mutation, and scheduled delete jobs blocked.
+
+## Fixed Roadmap
+
+Sprint 45-60 = Backend Portfolio v1.
+
+- 45 Fail-Closed Error Model
+- 46 Command Dry-Run Service Invocation Wiring Contract
+- 47 Command Dry-Run Runtime Service Invocation
+- 48 Dry-Run Runtime Output Hardening
+- 49 Command Execute Contract Review
+- 50 Command Execute Wiring Preview blocked-by-default
+- 51 Command Execute Runtime Wiring with strict guardrails
+- 52 Rollup Summary API Switch Preview
+- 53 Switch selected summary reads to rollup read model with fallback
+- 54 Background Scheduler Contract/Runner
+- 55 Background Scheduler Runtime Wiring with guardrails
+- 56 Retention Execute Contract Review
+- 57 Retention Execute Preview Hardening/rollback expectation
+- 58 Minimal Admin/RBAC hardening
+- 59 Observability + Grafana/k6 lightweight validation
+- 60 Final polish, docs, demo script, architecture cleanup, release v1.0.0
+
+Sprint 61-80 = Product/Platform Expansion v2.
