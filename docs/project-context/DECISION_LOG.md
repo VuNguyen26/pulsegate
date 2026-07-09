@@ -12,16 +12,42 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.52.0
+v0.53.0
 
 ## Latest Completed Sprint
 
-Sprint 51 - Command Execute Runtime Wiring with strict guardrails
+Sprint 52 - Rollup Summary API Switch Preview
 
 ---
 
 ## Recent Decisions
 
+### 2026-07-09 - Rollup summary API switch preview is exposed behind explicit flag
+
+Decision:
+
+- Add a DB-free rollup summary switch preview contract for selected summary API targets.
+- Add query compatibility preview for bounded summary query shapes.
+- Compose switch preview, query compatibility, fallback plan, operator decision, reviewer notes, and safety flags into one preview output.
+- Map real consumer usage, API key usage, and rejected summary filters into preview output.
+- Expose `rollupSummaryPreview=true` on selected summary APIs.
+- Keep default summary responses unchanged when the flag is absent or not exactly true.
+- Keep the runtime summary path on `raw-event-summary`.
+- Do not use rollup repositories in summary API runtime paths.
+- Do not mutate quota counting, persist rollups, delete raw events, create background jobs, or add retention execution.
+
+Validation:
+
+- 114 test files passed.
+- 841 tests passed.
+- Typecheck passed.
+- Build passed.
+- Docker/PostgreSQL runtime summary preview validation passed.
+
+References:
+
+- docs/sdlc/sprint-history/sprint-52.md
+- docs/project-context/decisions/2026-07-09-rollup-summary-api-switch-preview.md
 
 ### 2026-07-09 - Scheduler command execute runtime is wired for direct CLI with strict guardrails
 

@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.52.0
+- v0.53.0
 
 Latest completed sprint:
 
-- Sprint 51 - Command Execute Runtime Wiring with strict guardrails
+- Sprint 52 - Rollup Summary API Switch Preview
 
 ---
 
@@ -69,6 +69,8 @@ PulseGate currently includes:
 - Analytics rollup scheduler command execute readiness review
 - Analytics rollup scheduler command execute operator output review
 - Analytics rollup scheduler command execute wiring preview
+- Analytics rollup summary API switch preview
+- Rollup summary preview exposed on selected summary APIs behind explicit flag
 - Internal analytics rollup read endpoint
 - Analytics retention dry-run safety foundation
 - Analytics retention dry-run command
@@ -361,7 +363,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-50.md
+- docs/sdlc/sprint-history/sprint-52.md
 
 Latest analytics runbooks:
 
@@ -377,16 +379,16 @@ Latest analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-09-analytics-rollup-scheduler-command-execute-wiring-preview.md
+- docs/project-context/decisions/2026-07-09-rollup-summary-api-switch-preview.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 51 - Command Execute Runtime Wiring with strict guardrails
+Sprint 53 - Switch selected summary reads to rollup read model with fallback
 
 Reason:
 
-- Sprint 50 completed the blocked-by-default command execute wiring preview without introducing execute runtime behavior.
-- The next safe step is to wire command execute only behind strict confirmation, event-limit, max-bucket, bounded bucket count, source separation, rollback, operator output, and Docker/PostgreSQL runtime validation guardrails.
-- Process-local execution, external scheduler execution, scheduled/background jobs, quota counting changes, rollup summary API switching, retention delete execution, and raw event deletion should remain blocked until explicitly designed and validated.
+- Sprint 52 exposed a guarded rollup summary API switch preview without changing default summary behavior.
+- The next safe step is to switch selected bounded summary reads to the rollup read model only with explicit fallback to the raw-event summary path.
+- Runtime defaults, quota counting, raw event retention, scheduler/background execution, retention execution, and Admin UI should remain unchanged until their dedicated roadmap sprints.
