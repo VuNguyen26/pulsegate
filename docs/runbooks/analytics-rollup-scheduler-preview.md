@@ -324,3 +324,56 @@ Do not wire process-local or external-scheduler execution until automatic execut
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-backfill-service-adapter.ts
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-preview.command.ts
 - apps/api-gateway/package.json
+
+## Command Execute Runtime
+
+Use this command only for direct CLI command execute with strict guardrails:
+
+```powershell
+$env:DATABASE_URL="postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
+
+npm run analytics:rollup:scheduler-preview --workspace api-gateway -- `
+  --enabled true `
+  --source both `
+  --run-at 2026-07-06T13:07:00.000Z `
+  --granularity hour `
+  --lookback-buckets 1 `
+  --safety-delay-ms 300000 `
+  --max-buckets 1 `
+  --execution-mode execute `
+  --event-limit 500 `
+  --confirm-execute true
+```
+
+Expected successful runtime execute output:
+
+- executionDecision.status is execute-ready.
+- executionDecision.allowed is true.
+- executionDecision.blockedReason is null.
+- executionDecision.boundary.requestedMode is execute.
+- executionDecision.boundary.allowedMode is execute.
+- executionDecision.boundary.backfillExecutionWired is true.
+- executionDecision.wiringReview.commandExecuteRuntimeGateReview.status is runtime-gate-open.
+- executionDecision.wiringReview.commandExecuteRuntimeGateReview.gateDecision.runtimeInvocationAllowed is true.
+- executeServiceInvocationResults contains source-separated usage/rejected results when source is both.
+- serviceResult.mode is execute.
+- safety.affectsQuotaCounting is false.
+- safety.deletesRawEvents is false.
+
+Required guardrails:
+
+- command trigger only.
+- --execution-mode execute.
+- --confirm-execute true.
+- --event-limit must be present.
+- --max-buckets must stay bounded.
+- Docker/PostgreSQL validation is required for runtime execute changes.
+
+Still not supported:
+
+- process-local execute.
+- external scheduler execute.
+- scheduled/background execute.
+- retention delete execution.
+- quota mutation.
+- raw event deletion.

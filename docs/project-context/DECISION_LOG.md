@@ -12,15 +12,40 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.51.0
+v0.52.0
 
 ## Latest Completed Sprint
 
-Sprint 50 - Command Execute Wiring Preview blocked-by-default
+Sprint 51 - Command Execute Runtime Wiring with strict guardrails
 
 ---
 
 ## Recent Decisions
+
+
+### 2026-07-09 - Scheduler command execute runtime is wired for direct CLI with strict guardrails
+
+Decision:
+
+- Wire analytics rollup scheduler command execute runtime for direct CLI command usage only.
+- Allow execute-ready only when command trigger, execute mode, ready runner plan, explicit operator confirmation, explicit event limit, bounded bucket count, source separation, and runtime gate checks are satisfied.
+- Invoke AnalyticsRollupBackfillService.runBackfill in execute mode through the scheduler execute adapter.
+- Permit reads from usage/rejected event sources and persistence only to analytics rollup tables.
+- Keep quota counting mutation false and raw event deletion false.
+- Keep process-local execute, external scheduler execute, scheduled/background execute, retention delete execution, and summary API switch out of scope.
+
+Validation:
+
+- 110 test files passed.
+- 812 tests passed.
+- Typecheck passed.
+- Build passed.
+- Docker/PostgreSQL runtime execute validation passed.
+
+References:
+
+- docs/sdlc/sprint-history/sprint-51.md
+- docs/project-context/decisions/2026-07-09-analytics-rollup-scheduler-command-execute-runtime-wiring.md
 
 ### 2026-07-09 - Rollup scheduler command execute wiring preview remains blocked-by-default
 

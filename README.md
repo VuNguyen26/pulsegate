@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.51.0
+- v0.52.0
 
 Latest completed sprint:
 
-- Sprint 50 - Command Execute Wiring Preview blocked-by-default
+- Sprint 51 - Command Execute Runtime Wiring with strict guardrails
 
 ---
 

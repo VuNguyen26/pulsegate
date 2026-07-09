@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.51.0
+v0.52.0
 
 ## Latest Completed Sprint
 
-Sprint 50 - Command Execute Wiring Preview blocked-by-default
+Sprint 51 - Command Execute Runtime Wiring with strict guardrails
 
 ---
 
@@ -1107,6 +1107,35 @@ Status:
 
 Implemented as DB-free, non-destructive, blocked-by-default command execute wiring preview output.
 
+### FR - Analytics Rollup Scheduler Command Execute Runtime
+
+Current command:
+
+```bash
+npm run analytics:rollup:scheduler-preview --workspace api-gateway -- \
+  --enabled true \
+  --source both \
+  --run-at 2026-07-06T13:07:00.000Z \
+  --granularity hour \
+  --lookback-buckets 1 \
+  --safety-delay-ms 300000 \
+  --max-buckets 1 \
+  --execution-mode execute \
+  --event-limit 500 \
+  --confirm-execute true
+```
+
+Current behavior:
+
+- Direct CLI command execute can return executionDecision.status=execute-ready only with strict guardrails.
+- Required guardrails are command trigger, execute mode, ready runner plan, explicit --confirm-execute true, explicit --event-limit, bounded max buckets, source separation, and runtime gate open.
+- Runtime execute invokes the analytics rollup backfill service in execute mode.
+- Runtime execute may read usage and rejected events.
+- Runtime execute may persist analytics rollup tables only.
+- Runtime execute must not mutate quota counting.
+- Runtime execute must not delete raw events.
+- process-local execute, external scheduler execute, and scheduled/background execute remain unwired.
+
 ## Current Non-Functional Requirements
 
 ### NFR-001 Type Safety
@@ -1154,7 +1183,7 @@ Implemented.
 
 Latest validation:
 
-- Sprint 50 final automated validation passed with 105 test files and 773 tests.
+- Sprint 51 final automated validation passed with 110 test files and 812 tests.
 - npm run typecheck passed.
 - npm run build passed.
 - Docker/PostgreSQL runtime validation was not required for Sprint 50 because the sprint only added DB-free command execute wiring preview model/output/usage documentation and tests.
