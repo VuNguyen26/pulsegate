@@ -8,7 +8,7 @@ The command can run in three safe operator-visible modes:
 
 - Default preview: plans scheduler dry-run backfill request contracts without invoking the backfill service.
 - Direct command dry-run with --event-limit: invokes AnalyticsRollupBackfillService.runBackfill in dry-run mode only and prints source-separated dryRunServiceInvocationResults.
-- Blocked review paths: dry-run without event-limit, process-local dry-run, external scheduler dry-run, and execute mode remain blocked.
+- Blocked review paths: dry-run without event-limit, process-local dry-run, external scheduler dry-run, and execute mode remain blocked. Execute mode exposes command execute contract/readiness/operator output review only.
 
 It is not a scheduler job and does not execute rollup work.
 
@@ -223,14 +223,25 @@ Expected result:
 - executionDecision.boundary.backfillServiceInvocationWired is false.
 - executionDecision.boundary.backfillExecutionWired is false.
 - executionDecision.wiringReview.runtimeConsistency.status is blocked-or-review-only.
+- executionDecision.wiringReview.commandExecuteContractReview.status is review-required-before-execute-wiring.
+- executionDecision.wiringReview.commandExecuteReadinessReview.status is not-ready.
+- executionDecision.wiringReview.commandExecuteReadinessReview.reason is backfill-execution-not-wired.
+- executionDecision.wiringReview.commandExecuteOperatorOutputReview.status is operator-output-review-required-before-execute-wiring.
+- executionDecision.wiringReview.commandExecuteOperatorOutputReview.confirmationRequirement is explicit-operator-confirmation.
+- executionDecision.wiringReview.commandExecuteOperatorOutputReview.persistenceScope is rollup-tables-only.
+- executionDecision.wiringReview.commandExecuteOperatorOutputReview.rollbackExpectation is bounded-idempotent-rollup-upsert-or-fail-closed-before-execution.
+- executionDecision.wiringReview.commandExecuteOperatorOutputReview.sourceScopedPlannedRequests contains source-scoped planned requests with willInvokeBackfillService=false, willReadEvents=false, and willPersistRollups=false.
+- executionDecision.wiringReview.commandExecuteOperatorOutputReview.quotaCountingChangeAllowed is false.
+- executionDecision.wiringReview.commandExecuteOperatorOutputReview.rawEventDeletionAllowed is false.
 - dryRunServiceInvocationResults is not present.
 - No backfill service is invoked.
 - No execute backfill occurs.
 - No events are read.
 - No rollups are persisted.
+- No quota counting changes.
+- No raw events are deleted.
 
 ---
-
 ## Disabled Preview Example
 
     cd E:\pulsegate
@@ -267,7 +278,7 @@ Expected result:
 
 ## Operational Notes
 
-Review these fields before trusting command dry-run output:
+Review these fields before trusting scheduler preview output:
 
 1. runAt.
 2. effectiveTo.
@@ -278,21 +289,23 @@ Review these fields before trusting command dry-run output:
 7. executionDecision.blockedReason.
 8. executionDecision.boundary.
 9. executionDecision.wiringReview.runtimeConsistency.
-10. dryRunServiceInvocationResults for command dry-run with --event-limit.
-11. Per-source serviceResult.mode.
-12. Per-source serviceResult.sourceResults.
-13. Safety flags.
+10. commandExecuteContractReview for command execute.
+11. commandExecuteReadinessReview for command execute.
+12. commandExecuteOperatorOutputReview for command execute.
+13. dryRunServiceInvocationResults for command dry-run with --event-limit.
+14. Per-source serviceResult.mode.
+15. Per-source serviceResult.sourceResults.
+16. Safety flags.
 
 Do not treat this command as proof that rollups were rebuilt. Command dry-run invokes the backfill service only in dry-run mode and does not execute backfill.
 
 Do not treat blocked dry-run/execute/process-local/external-scheduler decisions as failures. They are expected unless their exact runtime wiring has been explicitly designed.
 
-Do not wire execute mode before command dry-run runtime output and failure cases are hardened.
+Do not wire execute mode before a blocked-by-default command execute wiring preview is explicitly designed and validated.
 
 Do not wire process-local or external-scheduler execution until automatic execution semantics are explicitly designed.
 
 ---
-
 ## Related Files
 
 - apps/api-gateway/src/analytics/analytics-rollup-schedule-plan.ts

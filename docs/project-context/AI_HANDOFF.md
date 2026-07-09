@@ -34,21 +34,21 @@ Local path:
 
 Current version:
 
-- v0.49.0
+- v0.50.0
 
 Latest completed sprint:
 
-- Sprint 48 - Command Dry-Run Runtime Output Hardening
+- Sprint 49 - Command Execute Contract Review
 
 Recommended next technical sprint:
 
-- Sprint 49 - Command Execute Contract Review
+- Sprint 50 - Command Execute Wiring Preview blocked-by-default
 
 ---
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 48:
+Latest stable validation from Sprint 49:
 
 - npm run test -> passed.
 - npm run typecheck -> passed.
@@ -57,35 +57,22 @@ Latest stable validation from Sprint 48:
 Latest automated test result:
 
 - 105 test files passed.
-- 763 tests passed.
+- 767 tests passed.
 
 Docker/PostgreSQL runtime validation:
 
-- PostgreSQL container was healthy.
-- DATABASE_URL was set for host-local PostgreSQL validation.
-- npm run db:migrate:deploy --workspace api-gateway passed with 7 migrations and no pending migrations.
-- analytics:rollup:scheduler-preview command dry-run runtime validation passed with --event-limit=500.
-- executionDecision.status=dry-run-ready.
-- executionDecision.boundary.backfillServiceInvocationWired=true.
-- executionDecision.wiringReview.runtimeConsistency.status=runtime-dry-run-service-invocation-wired.
-- dryRunServiceInvocationResults contained usage and rejected service-dry-run-invoked results.
-- serviceResult.mode=dry-run for both sources.
-- service dry-run output kept inputEventCount=0, aggregateCount=0, and upsertedCount=0.
-- happy-path runtime output did not include dryRunRuntimeCleanupError or dryRunRuntimeFactoryError.
-- executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
+- Not required for Sprint 49.
+- Sprint 49 was DB-free and only changed contract/review models, command usage text, and tests.
+- No runtime execute path, DB read, migration, Prisma persistence, rollup persistence, quota path, retention delete, or raw event deletion was introduced.
 
-Sprint 48 commits:
+Sprint 49 commits:
 
-- 294d74f test(gateway): lock external scheduler dry-run blocked path
-- 8e39ba9 test(gateway): lock scheduler dry-run fail-closed service output
-- 9fb359a test(gateway): lock scheduler dry-run source-separated failures
-- caac474 feat(gateway): preserve scheduler dry-run output on cleanup failure
-- 5615ce8 test(gateway): lock scheduler dry-run guardrail fail-fast
-- 8742af8 test(gateway): lock scheduler dry-run cleanup output contract
-- e59ea85 feat(gateway): expose scheduler dry-run factory failures
-- 4b91070 test(gateway): lock scheduler dry-run runtime output field visibility
+- 3ba0375 feat(gateway): expose scheduler command execute contract review
+- 22e3b8f test(gateway): document scheduler command execute contract usage
+- 030d98d feat(gateway): expose scheduler command execute readiness review
+- 48ee485 feat(gateway): expose scheduler command execute operator output review
 
-Sprint 48 preserved:
+Sprint 49 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
@@ -93,12 +80,14 @@ Sprint 48 preserved:
 - No usage recorder changes.
 - No rejected event recorder changes.
 - No scheduled/background rollup job.
-- No execute-mode backfill wiring.
+- No execute-mode runtime wiring.
+- No execute call to AnalyticsRollupBackfillService.runBackfill.
 - No process-local or external scheduler execution wiring.
 - No rollup summary API switch.
 - No retention execute command.
 - No operator-facing raw event deletion.
-- No raw event reads or rollup persistence through scheduler service dry-run.
+- No raw event reads or rollup persistence through scheduler execute.
+
 ## Current Architecture Summary
 
 API Gateway currently supports:
@@ -108,7 +97,7 @@ API Gateway currently supports:
 - API usage event recording and API rejected event recording.
 - Event-based quota checker and runtime quota enforcement.
 - Usage and rejected event summary/listing APIs with filters and pagination.
-- Analytics rollup calculation, persistence, manual backfill, read model, schedule preview, scheduler runner contract, scheduler execution decision boundary, scheduler execution wiring review, scheduler command dry-run design review, invocation contract, readiness review, invocation design review, service invocation contract review, implementation design, wiring readiness review, fail-closed error model, wiring contract, request mapper, service adapter boundary design, adapter preview output integration, command dry-run runtime service invocation, runtime consistency output, blocked-path runtime tests, schedule preview command, scheduler preview args parser, and scheduler preview command foundations.
+- Analytics rollup calculation, persistence, manual backfill, read model, schedule preview, scheduler runner contract, scheduler execution decision boundary, scheduler execution wiring review, scheduler command dry-run design review, invocation contract, readiness review, invocation design review, service invocation contract review, implementation design, wiring readiness review, fail-closed error model, wiring contract, request mapper, service adapter boundary design, adapter preview output integration, command dry-run runtime service invocation, runtime consistency output, blocked-path runtime tests, command execute contract review, command execute readiness review, command execute operator output review, schedule preview command, scheduler preview args parser, and scheduler preview command foundations.
 - Read-only analytics rollup endpoint.
 - Analytics retention dry-run, execution preview, repository safety, service preview, and operator preview foundations.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected analytics, quota, and rollup APIs.
@@ -137,6 +126,7 @@ Rollup commands:
 - npm run analytics:rollup:schedule-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
 - npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
 - npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-mode dry-run --event-limit 500
+- npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-mode execute --event-limit 500
 
 Analytics rollup scheduler foundation:
 
@@ -145,9 +135,10 @@ Analytics rollup scheduler foundation:
 - Direct command dry-run with --event-limit invokes AnalyticsRollupBackfillService.runBackfill in dry-run mode only.
 - Runtime command dry-run exposes dryRunServiceInvocationResults with source-separated usage and rejected service-dry-run-invoked results.
 - Runtime command dry-run exposes runtimeConsistency.status=runtime-dry-run-service-invocation-wired.
+- command:execute exposes commandExecuteContractReview, commandExecuteReadinessReview, and commandExecuteOperatorOutputReview.
+- command:execute remains blocked with backfill-execution-not-wired.
 - Dry-run without --event-limit remains blocked.
 - process-local and external-scheduler execution remain blocked.
-- execute mode remains blocked.
 - Rollups are not used by runtime summaries, scheduled background jobs, retention delete, execution preview, or quota counting yet.
 
 Analytics retention foundation:
@@ -166,7 +157,8 @@ Current analytics limitations:
 - No retention delete job yet.
 - No scheduled/background rollup job yet.
 - Command dry-run service invocation is wired only for direct CLI dry-run with event-limit.
-- Execute mode, process-local scheduler, and external scheduler execution remain unwired.
+- Command execute review output exists, but execute runtime remains unwired.
+- process-local scheduler and external scheduler execution remain unwired.
 
 ---
 
@@ -178,6 +170,7 @@ Analytics foundation:
 - apps/api-gateway/src/analytics/
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-backfill-request-mapper.ts
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-backfill-service-adapter.ts
+- apps/api-gateway/src/analytics/analytics-rollup-scheduler-execution-decision.ts
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-preview.command.ts
 - apps/api-gateway/src/routes/admin-analytics-rollup.route.ts
 
@@ -189,9 +182,9 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-47.md
+- docs/sdlc/sprint-history/sprint-49.md
 - docs/runbooks/analytics-rollup-scheduler-preview.md
-- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-invocation-runtime-wiring.md
+- docs/project-context/decisions/2026-07-09-analytics-rollup-scheduler-command-execute-contract-review.md
 
 ---
 
@@ -220,11 +213,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 49 after confirming Sprint 48 docs are committed and pushed.
+Start Sprint 50 after confirming Sprint 49 docs are committed and pushed.
 
 Recommended direction:
 
-- Command Execute Contract Review.
+- Command Execute Wiring Preview blocked-by-default.
 
 Before starting:
 
@@ -235,8 +228,7 @@ Before starting:
 - Keep successful usage and rejected/security event storage separate.
 - Keep scheduler dry-run separate from actual background execution.
 - Keep command dry-run behavior unchanged.
-- Keep AnalyticsRollupBackfillService.runBackfill dry-run path non-destructive.
-- Keep execute mode blocked until command execute contracts, guardrails, rollback expectations, and operator output are reviewed.
+- Keep execute mode blocked until command execute wiring preview, guardrails, rollback expectations, operator output, and runtime validation are explicitly designed.
 - Keep process-local/external-scheduler execution blocked until explicitly designed.
 - Keep retention execution explicit and guarded.
 - Do not expose a destructive execute command until explicitly approved.

@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.49.0
+- v0.50.0
 
 Latest completed sprint:
 
-- Sprint 48 - Command Dry-Run Runtime Output Hardening
+- Sprint 49 - Command Execute Contract Review
 
 ---
 
@@ -65,6 +65,9 @@ PulseGate currently includes:
 - Analytics rollup scheduler command dry-run runtime service invocation
 - Analytics rollup scheduler command dry-run runtime consistency output
 - Analytics rollup scheduler command dry-run runtime blocked-path tests
+- Analytics rollup scheduler command execute contract review
+- Analytics rollup scheduler command execute readiness review
+- Analytics rollup scheduler command execute operator output review
 - Internal analytics rollup read endpoint
 - Analytics retention dry-run safety foundation
 - Analytics retention dry-run command
@@ -86,15 +89,16 @@ PulseGate currently includes:
 Latest validation:
 
 - 105 test files passed
-- 756 tests passed
+- 767 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker/PostgreSQL runtime validation passed for analytics:rollup:scheduler-preview command dry-run runtime service invocation.
-- Runtime command dry-run with --event-limit=500 now reaches executionDecision.status=dry-run-ready and invokes AnalyticsRollupBackfillService.runBackfill in dry-run mode only through a Prisma-backed runtime service factory.
-- Runtime output exposes dryRunServiceInvocationResults with source-separated usage and rejected service-dry-run-invoked results.
-- Runtime consistency output exposes status=runtime-dry-run-service-invocation-wired while preserving automaticTriggersRemainUnwired=true and executeRemainsUnwired=true.
-- Blocked runtime validation passed for dry-run without --event-limit, process-local dry-run with --event-limit, and command execute with --event-limit.
-- Safety remained non-destructive: no scheduled/background job, no execute mode, no raw event reads from service dry-run, no rollup persistence, no quota counting change, and no raw event deletion.
+- Docker/PostgreSQL runtime validation was not required for Sprint 49 because the sprint only added DB-free command execute contract/readiness/operator-output review models, command usage text, and tests.
+- Command execute requests remain blocked with executionDecision.blockedReason=backfill-execution-not-wired.
+- Scheduler preview exposes commandExecuteContractReview for command:execute requests.
+- Scheduler preview exposes commandExecuteReadinessReview with source-aware planned request count, planned sources, planned granularity, confirmation/event-limit/max-bucket guardrails, and no service/event/persistence/quota/delete permissions.
+- Scheduler preview exposes commandExecuteOperatorOutputReview with confirmation requirement, blocked reason, readiness status, contract status, rollup-tables-only persistence scope, rollback expectation, source-scoped planned requests, safety flags, no quota mutation, and no raw event deletion.
+- Command execute usage text documents explicit operator confirmation, event-limit guardrail, max-bucket bound, bounded bucket count, source-separated execution, rollup-tables-only persistence, rollback expectation, no process-local/external scheduler execution, and no scheduled job creation.
+- Safety remained non-destructive: no scheduled/background job, no execute runtime wiring, no AnalyticsRollupBackfillService.runBackfill execute call, no raw event reads, no rollup persistence, no quota counting change, no summary API switch, no retention execution, and no raw event deletion.
 ---
 
 ## Tech Stack
@@ -223,6 +227,9 @@ Analytics rollup behavior:
 - Direct CLI scheduler command dry-run with --execution-mode dry-run and --event-limit <n> invokes AnalyticsRollupBackfillService.runBackfill through a runtime Prisma-backed service factory in dry-run mode only.
 - Runtime command dry-run emits dryRunServiceInvocationResults with one service-dry-run-invoked result per source and serviceResult.mode=dry-run.
 - Runtime command dry-run emits executionDecision.wiringReview.runtimeConsistency with status=runtime-dry-run-service-invocation-wired.
+- Scheduler preview exposes commandExecuteContractReview for command:execute requests while keeping execute blocked with backfill-execution-not-wired.
+- Scheduler preview exposes commandExecuteReadinessReview for command:execute requests, derived from the runner plan and preserving no service invocation, no execute backfill, no event reads, no rollup persistence, no quota mutation, and no raw event deletion.
+- Scheduler preview exposes commandExecuteOperatorOutputReview for command:execute requests, including explicit operator confirmation, blocked reason, readiness status, contract review status, rollup-tables-only persistence scope, rollback expectation, source-scoped planned requests, safety flags, no quota mutation, and no raw event deletion.
 - Dry-run service invocation remains command-only, event-limit guarded, max-bucket guarded, source-separated, operator-visible, and non-destructive.
 - Scheduler dry-run backfill request mapper maps ready runner backfill requests into dry-run AnalyticsRollupBackfillRunInput contracts without invoking the backfill service.
 - Scheduler dry-run service adapter boundary validates mapped dry-run service inputs and produces planned service-result previews without calling AnalyticsRollupBackfillService.runBackfill.
@@ -259,7 +266,7 @@ Current analytics limitation:
 
 - Usage and rejected summary APIs are still event-based at runtime.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Rollup schedule and scheduler preview commands exist; direct command dry-run service invocation is wired and validated, but no scheduled/background rollup job is implemented yet.
+- Rollup schedule and scheduler preview commands exist; direct command dry-run service invocation is wired and validated; command execute contract/readiness/operator-output review is implemented; but no scheduled/background rollup job or execute runtime is implemented yet.
 - Retention operator preview command exists, but destructive retention execution is still unavailable.
 - Retention Prisma delete repository exists but is not wired to any operator-facing execute command, API, or job.
 - No retention execute command is implemented yet.
@@ -352,7 +359,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-47.md
+- docs/sdlc/sprint-history/sprint-49.md
 
 Latest analytics runbooks:
 
@@ -368,17 +375,16 @@ Latest analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-runtime-output-hardening.md
+- docs/project-context/decisions/2026-07-09-analytics-rollup-scheduler-command-execute-contract-review.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 49 - Command Execute Contract Review
+Sprint 50 - Command Execute Wiring Preview blocked-by-default
 
 Reason:
 
-- Sprint 48 hardened command dry-run runtime output, factory failures, cleanup failures, source-separated partial failures, event-limit and max-bucket fail-fast behavior, and runtime output field visibility.
-- Docker/PostgreSQL runtime smoke validation passed for analytics:rollup:scheduler-preview command dry-run with source-separated usage and rejected service invocation results.
-- The next safe step is contract review for command execute only.
-- Execute wiring, process-local execution, external scheduler execution, scheduled/background jobs, quota counting changes, rollup summary API switching, retention delete execution, and raw event deletion should remain blocked until explicitly designed and validated.
+- Sprint 49 completed command execute contract, readiness, usage, and operator output review without wiring execute runtime.
+- The next safe step is a blocked-by-default execute wiring preview that can make future execute guardrails visible without calling execute backfill yet.
+- Execute runtime, process-local execution, external scheduler execution, scheduled/background jobs, quota counting changes, rollup summary API switching, retention delete execution, and raw event deletion should remain blocked until explicitly designed and validated.

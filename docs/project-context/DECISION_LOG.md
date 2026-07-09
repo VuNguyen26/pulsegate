@@ -12,16 +12,37 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.49.0
+v0.50.0
 
 ## Latest Completed Sprint
 
-Sprint 48 - Command Dry-Run Runtime Output Hardening
+Sprint 49 - Command Execute Contract Review
 
 ---
 
 ## Recent Decisions
 
+### 2026-07-09 - Rollup scheduler command execute contract remains review-only
+
+Decision:
+
+- Expose commandExecuteContractReview for command:execute scheduler preview requests.
+- Expose commandExecuteReadinessReview with source-aware planned request count, planned sources, planned granularity, required confirmation/event-limit/max-bucket/source-separation guardrails, and all execution permissions false.
+- Expose commandExecuteOperatorOutputReview with confirmation requirement, blocked reason, readiness status, contract review status, rollup-tables-only persistence scope, rollback expectation, source-scoped planned requests, safety flags, no quota mutation, and no raw event deletion.
+- Document command execute usage text for explicit operator confirmation, event-limit guardrail, max-bucket bound, bounded bucket count, source-separated execution, rollup-tables-only persistence, rollback expectation, no process-local/external scheduler execution, and no scheduled job creation.
+- Keep command execute blocked with backfill-execution-not-wired.
+- Keep process-local and external scheduler execution blocked with automatic-trigger-not-wired.
+- Do not wire execute runtime, call AnalyticsRollupBackfillService.runBackfill in execute mode, persist rollups, read raw events, change quota counting, switch summary APIs, add retention execution, or delete raw events.
+
+Rationale:
+
+- Execute mode is the next high-risk boundary after command dry-run runtime output hardening, so its contract, readiness, and operator output must be visible before any runtime wiring.
+- Source-aware readiness and operator output reduce future ambiguity around confirmation, planned requests, rollback, persistence scope, and safety flags.
+- Keeping Sprint 49 DB-free protects the current validated dry-run behavior while preparing Sprint 50 for a blocked-by-default execute wiring preview.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-09-analytics-rollup-scheduler-command-execute-contract-review.md
 ### 2026-07-08 - Rollup scheduler command dry-run runtime output is hardened
 
 Decision:

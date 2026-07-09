@@ -24,78 +24,68 @@ Long decision records live in:
 
 ## Current Version
 
-v0.49.0
+v0.50.0
 
 ---
 
 ## Latest Completed Sprint
 
-Sprint 48 - Command Dry-Run Runtime Output Hardening
+Sprint 49 - Command Execute Contract Review
 
 Status:
 
 Done.
 
-Sprint 48 hardened analytics rollup scheduler command dry-run runtime output after Sprint 47 wired direct command dry-run service invocation.
+Sprint 49 reviewed analytics rollup scheduler command execute contracts without wiring execute runtime.
 
-It preserved command-only, dry-run-only service invocation while strengthening failure handling, guardrails, source separation, and operator-visible output:
+It kept execute mode blocked while making future execute expectations explicit and operator-visible:
 
-- Locked external-scheduler dry-run with --event-limit as blocked before runtime service factory resolution.
-- Locked fail-closed service error output for injected dry-run backfill service failures.
-- Locked source-separated partial failure output so one source failure does not drop the other source result.
-- Preserved dryRunServiceInvocationResults when runtime cleanup fails and exposed dryRunRuntimeCleanupError only on cleanup failure.
-- Locked invalid event-limit and invalid max-bucket inputs to fail fast before runtime factory resolution.
-- Exposed dryRunRuntimeFactoryError when runtime service factory creation fails before invocation.
-- Locked runtime output field visibility for success, cleanup failure, factory failure, preview, and blocked paths.
-- Validated Docker/PostgreSQL runtime smoke behavior with migration deploy and direct scheduler command dry-run.
-- Kept execute mode blocked with backfill-execution-not-wired.
+- Exposed commandExecuteContractReview for command:execute requests.
+- Documented execute contract usage text for explicit operator confirmation, event-limit guardrail, max-bucket bound, bounded bucket count, source-separated execution, rollup-tables-only persistence, rollback expectation, no process-local/external scheduler execution, and no scheduled job creation.
+- Exposed commandExecuteReadinessReview with plannedBackfillRequestCount, plannedSources, plannedGranularity, runner-plan derivation, required guardrails, and all execution permissions false.
+- Exposed commandExecuteOperatorOutputReview with confirmation requirement, blocked reason, readiness status, contract review status, persistence scope, rollback expectation, source-scoped planned requests, safety flags, no quota mutation, and no raw event deletion.
+- Kept command execute blocked with backfill-execution-not-wired.
+- Kept command dry-run runtime behavior unchanged.
 - Kept process-local and external scheduler execution blocked with automatic-trigger-not-wired.
 - Did not create scheduled/background jobs.
-- Did not execute backfill.
-- Did not read raw events through service dry-run.
-- Did not persist rollups through service dry-run.
+- Did not wire execute runtime.
+- Did not call AnalyticsRollupBackfillService.runBackfill in execute mode.
+- Did not read raw events.
+- Did not persist rollups.
 - Did not change quota counting, usage recording, rejected event recording, rollup read APIs, summary APIs, migrations, or retention/delete paths.
 - Did not delete raw events.
 
-Sprint 48 details are archived in:
+Sprint 49 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-48.md
+- docs/sdlc/sprint-history/sprint-49.md
 
 Related decision record:
 
-- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-runtime-output-hardening.md
+- docs/project-context/decisions/2026-07-09-analytics-rollup-scheduler-command-execute-contract-review.md
 
 ---
 ## Latest Validation Status
 
-Latest stable validation from Sprint 48:
+Latest stable validation from Sprint 49:
 
-- npm run test -> passed with 105 test files and 763 tests
+- npm run test -> passed with 105 test files and 767 tests
 - npm run typecheck -> passed
 - npm run build -> passed
 
 Docker/PostgreSQL runtime validation:
 
-- PostgreSQL container was healthy.
-- DATABASE_URL was set to postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway for host-local validation.
-- npm run db:migrate:deploy --workspace api-gateway passed with 7 migrations and no pending migrations.
-- analytics:rollup:scheduler-preview command dry-run runtime validation passed with --event-limit=500.
-- Runtime output reached executionDecision.status=dry-run-ready.
-- Runtime output exposed dryRunServiceInvocationResults for usage and rejected sources.
-- Runtime output exposed service-dry-run-invoked results with serviceResult.mode=dry-run.
-- Runtime output exposed runtimeConsistency.status=runtime-dry-run-service-invocation-wired.
-- Runtime output did not expose dryRunRuntimeCleanupError or dryRunRuntimeFactoryError on the happy path.
-- Runtime output preserved executesBackfill=false, readsEvents=false, persistsRollups=false, affectsQuotaCounting=false, and deletesRawEvents=false.
+- Not required for Sprint 49.
+- Reason: Sprint 49 was DB-free and only changed contract/review models, command usage text, and tests.
+- No runtime execute path was introduced.
+- No DB read, migration, Prisma persistence, rollup persistence, quota path, retention delete, or raw event deletion was introduced.
 
-Blocked-path and failure validation:
+Safety validation:
 
-- External-scheduler dry-run with --event-limit remained blocked before runtime factory resolution.
-- Dry-run without --event-limit remained blocked with backfill-service-invocation-not-wired.
-- process-local dry-run with --event-limit remained blocked with automatic-trigger-not-wired.
-- command execute with --event-limit remained blocked with backfill-execution-not-wired.
-- Runtime service failures returned source-scoped failed-closed-service-error output.
-- Runtime cleanup failures preserved invocation results and exposed dryRunRuntimeCleanupError.
-- Runtime factory failures exposed dryRunRuntimeFactoryError without invoking the dry-run service.
+- command execute remained blocked with backfill-execution-not-wired.
+- commandExecuteContractReview, commandExecuteReadinessReview, and commandExecuteOperatorOutputReview were exposed only for command:execute.
+- Preview and dry-run paths kept commandExecute* execute review fields null when not applicable.
+- Runtime dry-run service factory was not resolved for execute mode.
+- No scheduled/background job, service execute invocation, execute backfill, event read, rollup persistence, quota mutation, or raw event deletion was introduced.
 
 ---
 ## Current Limitations
@@ -104,7 +94,7 @@ Blocked-path and failure validation:
 - Rejected summary APIs still read raw events.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
 - Direct command dry-run service invocation is wired, but no scheduled/background rollup job exists yet.
-- Execute mode is still blocked.
+- Command execute contract/readiness/operator output review is implemented, but execute runtime is still blocked and unwired.
 - process-local and external scheduler execution are still blocked.
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
@@ -118,13 +108,13 @@ Blocked-path and failure validation:
 
 ## Recommended Next Sprint
 
-Sprint 49 - Command Execute Contract Review
+Sprint 50 - Command Execute Wiring Preview blocked-by-default
 
 Recommended scope:
 
-- Review command execute request and response contracts.
-- Keep execute wiring blocked until explicit execute guardrails are designed.
-- Define rollback expectations and operator output before any execute-mode runtime wiring.
+- Add a blocked-by-default command execute wiring preview.
+- Keep execute runtime blocked until explicit guardrails are implemented and validated.
+- Do not call AnalyticsRollupBackfillService.runBackfill in execute mode yet.
 - Keep command dry-run behavior unchanged.
 - Keep process-local/external-scheduler execution blocked until automatic execution semantics are explicitly designed.
 - Keep successful usage and rejected/security events separate.
