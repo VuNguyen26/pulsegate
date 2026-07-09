@@ -748,5 +748,60 @@ describe("adminApiUsageRoute", () => {
       to: new Date("2026-07-05T00:00:00.000Z"),
     });
   });
-});
+  it("should not expose consumer usage rollup summary preview when flag is not true", async () => {
+    const usageSummaryRepository = createUsageSummaryRepository();
 
+    app = await buildTestApp({
+      usageSummaryRepository,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/internal/admin/usage/consumers/consumer_1/summary?rollupSummaryPreview=false&from=2026-07-04T00:00:00.000Z&to=2026-07-05T00:00:00.000Z",
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).not.toHaveProperty("rollupSummaryPreview");
+    expect(
+      usageSummaryRepository.getConsumerUsageSummary,
+    ).toHaveBeenCalledWith("consumer_1", {
+      from: new Date("2026-07-04T00:00:00.000Z"),
+      to: new Date("2026-07-05T00:00:00.000Z"),
+    });
+  });
+
+  it("should reject invalid usage summary query before exposing rollup summary preview", async () => {
+    const consumerRepository = createConsumerRepository();
+    const usageSummaryRepository = createUsageSummaryRepository();
+
+    app = await buildTestApp({
+      consumerRepository,
+      usageSummaryRepository,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/internal/admin/usage/consumers/consumer_1/summary?rollupSummaryPreview=true&statusCode=99",
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "statusCode must be an integer between 100 and 599",
+        requestId: expect.any(String),
+      },
+    });
+
+    expect(consumerRepository.findConsumerById).not.toHaveBeenCalled();
+    expect(
+      usageSummaryRepository.getConsumerUsageSummary,
+    ).not.toHaveBeenCalled();
+  });
+});

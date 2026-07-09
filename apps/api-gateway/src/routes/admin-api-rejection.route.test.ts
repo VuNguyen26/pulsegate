@@ -557,5 +557,27 @@ describe("adminApiRejectionRoute", () => {
 
     expect(rejectedEventsListingRepository.listEvents).not.toHaveBeenCalled();
   });
-});
+  it("should not expose rejected rollup summary preview when flag is not true", async () => {
+    const rejectedEventsSummaryRepository =
+      createRejectedEventsSummaryRepository();
 
+    app = await buildTestApp({
+      rejectedEventsSummaryRepository,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/internal/admin/api-rejections/summary?rollupSummaryPreview=false&from=2026-07-04T00:00:00.000Z&to=2026-07-05T00:00:00.000Z",
+      headers: {
+        "x-admin-api-key": "local-admin-key",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).not.toHaveProperty("rollupSummaryPreview");
+    expect(rejectedEventsSummaryRepository.getSummary).toHaveBeenCalledWith({
+      from: new Date("2026-07-04T00:00:00.000Z"),
+      to: new Date("2026-07-05T00:00:00.000Z"),
+    });
+  });
+});
