@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 
 import type { AnalyticsRollupBackfillService } from "./analytics-rollup-backfill-service.js";
+import { buildAnalyticsRollupBackgroundSchedulerOutput } from "./analytics-rollup-background-scheduler-output.js";
 import {
   createAnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreviews,
   invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapters,
@@ -359,6 +360,38 @@ async function createRuntimeAnalyticsRollupSchedulerDryRunBackfillService(): Pro
   };
 }
 
+type AnalyticsRollupSchedulerPreviewBackgroundSource =
+  | "usage"
+  | "rejected"
+  | "both";
+
+function resolveBackgroundSchedulerSource(
+  source: string | undefined,
+): AnalyticsRollupSchedulerPreviewBackgroundSource {
+  if (source === "usage" || source === "rejected" || source === "both") {
+    return source;
+  }
+
+  return "both";
+}
+
+function createBackgroundSchedulerOutputForCommandOptions(
+  options: AnalyticsRollupSchedulerPreviewCommandOptions,
+) {
+  return buildAnalyticsRollupBackgroundSchedulerOutput({
+    trigger: options.executionDecision.trigger ?? "command",
+    requestedMode: options.executionDecision.mode ?? "preview",
+    backgroundRunnerContractEnabled: true,
+    schedulerEnabled: options.schedule.enabled === true,
+    runAtIso: options.schedule.runAt.toISOString(),
+    granularity: options.schedule.granularity,
+    source: resolveBackgroundSchedulerSource(options.schedule.source),
+    lookbackBuckets: options.schedule.lookbackBuckets ?? 1,
+    maxBuckets:
+      options.schedule.maxBuckets ?? options.schedule.lookbackBuckets ?? 1,
+    safetyDelayMs: options.schedule.safetyDelayMs ?? 5 * 60 * 1000,
+  });
+}
 export async function runAnalyticsRollupSchedulerPreviewCommand(
   argv = process.argv.slice(2),
   dependencies: AnalyticsRollupSchedulerPreviewCommandDependencies = {},
@@ -412,10 +445,16 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
             dryRunServiceInvocationResults,
             dryRunRuntimeCleanupError,
           };
-  const commandOutput =
+  const commandOutputWithoutBackgroundScheduler =
     executeServiceInvocationResults === null
       ? baseCommandOutput
       : { ...baseCommandOutput, executeServiceInvocationResults };
+  const backgroundScheduler =
+    createBackgroundSchedulerOutputForCommandOptions(options);
+  const commandOutput = {
+    ...commandOutputWithoutBackgroundScheduler,
+    backgroundScheduler,
+  };
 
   console.log(JSON.stringify(commandOutput, null, 2));
 }

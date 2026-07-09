@@ -1,0 +1,167 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { runAnalyticsRollupSchedulerPreviewCommand } from "./analytics-rollup-scheduler-preview.command.js";
+
+const baseArgs = [
+  "--enabled",
+  "true",
+  "--source",
+  "both",
+  "--run-at",
+  "2026-07-09T10:00:00.000Z",
+  "--granularity",
+  "hour",
+  "--lookback-buckets",
+  "1",
+  "--max-buckets",
+  "1",
+  "--safety-delay-ms",
+  "300000",
+];
+
+const nonDestructiveBackgroundSafety = {
+  createsScheduledJob: false,
+  invokesBackfillService: false,
+  executesBackfill: false,
+  readsEvents: false,
+  persistsRollups: false,
+  affectsQuotaCounting: false,
+  deletesRawEvents: false,
+  runsRetentionExecution: false,
+};
+
+function readPrintedOutput(consoleLog: ReturnType<typeof vi.spyOn>) {
+  return JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+}
+
+describe("analytics rollup scheduler preview background output", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("exposes process-local preview as background preview-ready without runtime invocation", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+
+    await runAnalyticsRollupSchedulerPreviewCommand([
+      ...baseArgs,
+      "--execution-trigger",
+      "process-local",
+      "--execution-mode",
+      "preview",
+    ]);
+
+    const output = readPrintedOutput(consoleLog);
+
+    expect(output.backgroundScheduler.summary).toMatchObject({
+      status: "background-preview-ready",
+      runnerStatus: "background-preview-plan-ready",
+      blockedReason: null,
+      ready: true,
+      backgroundRunnerSelected: true,
+      backgroundRunnerPlanAllowed: true,
+      backgroundRuntimeInvocationAllowed: false,
+      directCommandRuntimePreserved: false,
+    });
+    expect(output.backgroundScheduler.previewPlan).toMatchObject({
+      trigger: "process-local",
+      requestedMode: "preview",
+      granularity: "hour",
+      source: "both",
+      lookbackBuckets: 1,
+      maxBuckets: 1,
+      safetyDelayMs: 300000,
+      runtimeInvocationAllowed: false,
+    });
+    expect(output.backgroundScheduler.safety).toEqual(
+      nonDestructiveBackgroundSafety,
+    );
+    expect(output.backgroundScheduler.review).toMatchObject({
+      separatesCommandFromBackgroundSemantics: true,
+      preservesDirectCommandDryRunAndExecute: true,
+      backgroundRuntimeStillClosed: true,
+      processLocalExecutionStillClosed: true,
+      previewOnlyWhenReady: true,
+    });
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.executeServiceInvocationResults).toBeUndefined();
+  });
+
+  it("exposes external scheduler execute as runtime-blocked and does not resolve runtime service", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const createRuntimeBackfillService = vi.fn(() => {
+      throw new Error("runtime service must not be resolved for external scheduler execute");
+    });
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        ...baseArgs,
+        "--execution-trigger",
+        "external-scheduler",
+        "--execution-mode",
+        "execute",
+        "--event-limit",
+        "500",
+      ],
+      { createRuntimeBackfillService },
+    );
+
+    const output = readPrintedOutput(consoleLog);
+
+    expect(createRuntimeBackfillService).not.toHaveBeenCalled();
+    expect(output.backgroundScheduler.summary).toMatchObject({
+      status: "background-runtime-blocked",
+      runnerStatus: "background-runtime-invocation-blocked",
+      blockedReason: "background-runtime-execution-not-wired",
+      ready: false,
+      backgroundRunnerSelected: true,
+      backgroundRunnerPlanAllowed: false,
+      backgroundRuntimeInvocationAllowed: false,
+    });
+    expect(output.backgroundScheduler.previewPlan).toBeNull();
+    expect(output.backgroundScheduler.safety).toEqual(
+      nonDestructiveBackgroundSafety,
+    );
+    expect(output.executeServiceInvocationResults).toBeUndefined();
+  });
+
+  it("exposes command trigger as direct CLI runtime preserved", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+
+    await runAnalyticsRollupSchedulerPreviewCommand([
+      ...baseArgs,
+      "--execution-trigger",
+      "command",
+      "--execution-mode",
+      "preview",
+    ]);
+
+    const output = readPrintedOutput(consoleLog);
+
+    expect(output.backgroundScheduler.summary).toMatchObject({
+      status: "command-runtime-preserved",
+      runnerStatus: "command-trigger-skipped",
+      blockedReason: "command-trigger-owned-by-direct-cli",
+      ready: false,
+      backgroundRunnerSelected: false,
+      backgroundRunnerPlanAllowed: false,
+      backgroundRuntimeInvocationAllowed: false,
+      directCommandRuntimePreserved: true,
+    });
+    expect(output.backgroundScheduler.previewPlan).toBeNull();
+    expect(output.backgroundScheduler.safety).toEqual(
+      nonDestructiveBackgroundSafety,
+    );
+    expect(output.backgroundScheduler.review).toMatchObject({
+      separatesCommandFromBackgroundSemantics: true,
+      preservesDirectCommandDryRunAndExecute: true,
+      backgroundRuntimeStillClosed: true,
+      previewOnlyWhenReady: true,
+    });
+  });
+});
