@@ -1114,6 +1114,121 @@ describe("analytics rollup scheduler execution decision", () => {
       },
     });
   });
+  it("should expose blocked command execute wiring preview without enabling runtime execution", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "execute" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      boundary: {
+        trigger: "command",
+        requestedMode: "execute",
+        allowedMode: "preview",
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecuteWiringPreview: {
+          status: "execute-wiring-preview-blocked",
+          previewBoundary: "scheduler-command-execute-wiring-preview",
+          currentWiringState: "blocked-not-wired",
+          requestedCapability: "command:execute",
+          blockedReason: "backfill-execution-not-wired",
+          confirmationState: "not-confirmed",
+          requiredConfirmation: "explicit-operator-confirmation",
+          readinessStatus: "not-ready",
+          contractReviewStatus: "review-required-before-execute-wiring",
+          operatorOutputReviewStatus:
+            "operator-output-review-required-before-execute-wiring",
+          plannedBackfillRequestCount: 2,
+          plannedSources: ["usage", "rejected"],
+          plannedGranularity: "hour",
+          sourceScopedPlannedExecutions: [
+            {
+              source: "usage",
+              requestedMode: "execute",
+              bucketCount: 1,
+              willInvokeBackfillService: false,
+              willExecuteBackfill: false,
+              willReadEvents: false,
+              willPersistRollups: false,
+            },
+            {
+              source: "rejected",
+              requestedMode: "execute",
+              bucketCount: 1,
+              willInvokeBackfillService: false,
+              willExecuteBackfill: false,
+              willReadEvents: false,
+              willPersistRollups: false,
+            },
+          ],
+          guardrails: {
+            requiresReadyRunnerPlan: true,
+            requiresPriorDryRunRuntimeValidation: true,
+            requiresExplicitEventLimit: true,
+            requiresMaxBucketBound: true,
+            requiresBoundedBucketCount: true,
+            requiresSourceSeparatedExecution: true,
+            requiresExplicitOperatorConfirmation: true,
+          },
+          safetyFlags: {
+            createsScheduledJob: false,
+            invokesBackfillService: false,
+            executesBackfill: false,
+            readsEvents: false,
+            persistsRollups: false,
+            affectsQuotaCounting: false,
+            deletesRawEvents: false,
+          },
+          executeRuntimeCurrentlyAllowed: false,
+          backfillExecutionWired: false,
+          serviceInvocationCurrentlyAllowed: false,
+          eventReadCurrentlyAllowed: false,
+          rollupPersistenceCurrentlyAllowed: false,
+          quotaCountingChangeAllowed: false,
+          rawEventDeletionAllowed: false,
+          processLocalExecutionAllowed: false,
+          externalSchedulerExecutionAllowed: false,
+          scheduledJobCreationAllowed: false,
+        },
+        commandExecuteReadinessReview: {
+          status: "not-ready",
+          reason: "backfill-execution-not-wired",
+        },
+        commandExecuteContractReview: {
+          status: "review-required-before-execute-wiring",
+        },
+        commandExecuteOperatorOutputReview: {
+          status: "operator-output-review-required-before-execute-wiring",
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
   it("should keep automatic dry-run triggers blocked before command dry-run design review", () => {
     const schedulePlan = createAnalyticsRollupSchedulePlan({
       enabled: true,
