@@ -71,6 +71,7 @@ export type AnalyticsRollupSchedulerPreviewCommandDependencies = {
     | Promise<AnalyticsRollupSchedulerPreviewCommandRuntimeBackfillService>;
   allowDryRunServiceInvocation?: boolean;
   allowExecuteServiceInvocation?: boolean;
+  allowProcessLocalDryRunRuntimeInvocation?: boolean;
 };
 
 export type AnalyticsRollupSchedulerPreviewCommandRuntimeCleanupError = {
@@ -316,6 +317,107 @@ async function invokeDryRunServiceAdaptersForCommandDryRun(
   };
 }
 
+function createDryRunServiceMappingsForProcessLocalDryRun(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+  options: AnalyticsRollupSchedulerPreviewCommandOptions,
+  dependencies: AnalyticsRollupSchedulerPreviewCommandDependencies,
+): AnalyticsRollupSchedulerBackfillServiceDryRunMapping[] | null {
+  const trigger = options.executionDecision.trigger ?? "command";
+  const requestedMode = options.executionDecision.mode ?? "preview";
+  const eventLimit = options.dryRunServiceAdapterPreview.eventLimit;
+
+  if (
+    dependencies.allowProcessLocalDryRunRuntimeInvocation !== true ||
+    trigger !== "process-local" ||
+    requestedMode !== "dry-run" ||
+    runnerPlan.status !== "ready" ||
+    eventLimit === undefined
+  ) {
+    return null;
+  }
+
+  return mapAnalyticsRollupSchedulerRunnerPlanToDryRunServiceInputs(
+    runnerPlan,
+    { eventLimit },
+  );
+}
+
+async function invokeDryRunServiceAdaptersForProcessLocalDryRun(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+  options: AnalyticsRollupSchedulerPreviewCommandOptions,
+  dependencies: AnalyticsRollupSchedulerPreviewCommandDependencies,
+): Promise<AnalyticsRollupSchedulerPreviewCommandDryRunInvocationOutput | null> {
+  const mappings = createDryRunServiceMappingsForProcessLocalDryRun(
+    runnerPlan,
+    options,
+    dependencies,
+  );
+
+  if (mappings === null) {
+    return null;
+  }
+
+  let runtimeBackfillService:
+    | AnalyticsRollupSchedulerPreviewCommandRuntimeBackfillService
+    | undefined;
+
+  if (dependencies.backfillService === undefined) {
+    try {
+      runtimeBackfillService =
+        await dependencies.createRuntimeBackfillService?.();
+    } catch (error: unknown) {
+      return {
+        dryRunServiceInvocationResults: null,
+        dryRunRuntimeCleanupError: null,
+        dryRunRuntimeFactoryError: createRuntimeFactoryError(error),
+      };
+    }
+  }
+
+  const backfillService =
+    dependencies.backfillService ?? runtimeBackfillService?.backfillService;
+
+  if (backfillService === undefined) {
+    return null;
+  }
+
+  let dryRunServiceInvocationResults:
+    | AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult[]
+    | null = null;
+  let invocationError: unknown = null;
+
+  try {
+    dryRunServiceInvocationResults =
+      await invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapters(
+        mappings,
+        backfillService,
+      );
+  } catch (error: unknown) {
+    invocationError = error;
+  }
+
+  const dryRunRuntimeCleanupError = await disposeRuntimeBackfillService(
+    runtimeBackfillService,
+  );
+
+  if (invocationError !== null) {
+    throw invocationError;
+  }
+
+  if (dryRunServiceInvocationResults === null) {
+    throw new Error(
+      "process-local dry-run service invocation did not produce results",
+    );
+  }
+
+  return {
+    dryRunServiceInvocationResults,
+    dryRunRuntimeCleanupError,
+    dryRunRuntimeFactoryError: null,
+  };
+}
+
+
 async function createRuntimeAnalyticsRollupSchedulerDryRunBackfillService(): Promise<AnalyticsRollupSchedulerPreviewCommandRuntimeBackfillService> {
   const [
     databaseModule,
@@ -378,11 +480,14 @@ function resolveBackgroundSchedulerSource(
 
 function createBackgroundSchedulerOutputForCommandOptions(
   options: AnalyticsRollupSchedulerPreviewCommandOptions,
+  dependencies: AnalyticsRollupSchedulerPreviewCommandDependencies,
 ) {
   return buildAnalyticsRollupBackgroundSchedulerOutput({
     trigger: options.executionDecision.trigger ?? "command",
     requestedMode: options.executionDecision.mode ?? "preview",
     backgroundRunnerContractEnabled: true,
+    allowProcessLocalDryRunRuntimeInvocation:
+      dependencies.allowProcessLocalDryRunRuntimeInvocation === true,
     schedulerEnabled: options.schedule.enabled === true,
     runAtIso: options.schedule.runAt.toISOString(),
     granularity: options.schedule.granularity,
@@ -422,6 +527,19 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
     );
   const executeServiceInvocationResults =
     executeServiceInvocationOutput?.executeServiceInvocationResults ?? null;
+  const processLocalDryRunServiceInvocationOutput =
+    await invokeDryRunServiceAdaptersForProcessLocalDryRun(
+      runnerPlan,
+      options,
+      dependencies,
+    );
+  const processLocalDryRunServiceInvocationResults =
+    processLocalDryRunServiceInvocationOutput?.dryRunServiceInvocationResults ??
+    null;
+  const processLocalDryRunRuntimeCleanupError =
+    processLocalDryRunServiceInvocationOutput?.dryRunRuntimeCleanupError ?? null;
+  const processLocalDryRunRuntimeFactoryError =
+    processLocalDryRunServiceInvocationOutput?.dryRunRuntimeFactoryError ?? null;
   const executionDecision = createAnalyticsRollupSchedulerExecutionDecision(
     runnerPlan,
     {
@@ -450,8 +568,28 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
     executeServiceInvocationResults === null
       ? baseCommandOutput
       : { ...baseCommandOutput, executeServiceInvocationResults };
+  const baseBackgroundScheduler = createBackgroundSchedulerOutputForCommandOptions(
+    options,
+    dependencies,
+  );
   const backgroundScheduler =
-    createBackgroundSchedulerOutputForCommandOptions(options);
+    processLocalDryRunServiceInvocationResults === null
+      ? processLocalDryRunRuntimeFactoryError === null
+        ? baseBackgroundScheduler
+        : {
+            ...baseBackgroundScheduler,
+            processLocalDryRunRuntimeFactoryError,
+          }
+      : processLocalDryRunRuntimeCleanupError === null
+        ? {
+            ...baseBackgroundScheduler,
+            processLocalDryRunServiceInvocationResults,
+          }
+        : {
+            ...baseBackgroundScheduler,
+            processLocalDryRunServiceInvocationResults,
+            processLocalDryRunRuntimeCleanupError,
+          };
   const commandOutput = {
     ...commandOutputWithoutBackgroundScheduler,
     backgroundScheduler,

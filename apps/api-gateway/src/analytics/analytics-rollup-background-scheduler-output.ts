@@ -9,6 +9,8 @@ import {
 import {
   buildAnalyticsRollupBackgroundSchedulerRuntimeGate,
   type AnalyticsRollupBackgroundSchedulerRuntimeGate,
+  type AnalyticsRollupBackgroundSchedulerRuntimeGateRequest,
+  type AnalyticsRollupBackgroundSchedulerRuntimeGateRunnerStatus,
 } from './analytics-rollup-background-scheduler-runtime-gate.js';
 
 import type { AnalyticsRollupBackgroundSchedulerSafetyFlags } from './analytics-rollup-background-scheduler-contract.js';
@@ -17,11 +19,12 @@ export type AnalyticsRollupBackgroundSchedulerOutputStatus =
   | 'command-runtime-preserved'
   | 'background-runner-blocked'
   | 'background-preview-ready'
-  | 'background-runtime-blocked';
+  | 'background-runtime-blocked'
+  | 'background-runtime-ready';
 
 export interface AnalyticsRollupBackgroundSchedulerOutputSummary {
   readonly status: AnalyticsRollupBackgroundSchedulerOutputStatus;
-  readonly runnerStatus: AnalyticsRollupBackgroundSchedulerRunnerPlanStatus;
+  readonly runnerStatus: AnalyticsRollupBackgroundSchedulerRuntimeGateRunnerStatus;
   readonly blockedReason: AnalyticsRollupBackgroundSchedulerRunnerPlanBlockedReason | null;
   readonly ready: boolean;
   readonly backgroundRunnerSelected: boolean;
@@ -50,7 +53,12 @@ export interface AnalyticsRollupBackgroundSchedulerOutput {
 
 function mapOutputStatus(
   plan: AnalyticsRollupBackgroundSchedulerRunnerPlan,
+  runtimeGate: AnalyticsRollupBackgroundSchedulerRuntimeGate,
 ): AnalyticsRollupBackgroundSchedulerOutputStatus {
+  if (runtimeGate.summary.status === 'process-local-dry-run-runtime-ready') {
+    return 'background-runtime-ready';
+  }
+
   if (plan.status === 'command-trigger-skipped') {
     return 'command-runtime-preserved';
   }
@@ -67,21 +75,26 @@ function mapOutputStatus(
 }
 
 export function buildAnalyticsRollupBackgroundSchedulerOutput(
-  request: AnalyticsRollupBackgroundSchedulerRunnerPlanRequest,
+  request: AnalyticsRollupBackgroundSchedulerRuntimeGateRequest,
 ): AnalyticsRollupBackgroundSchedulerOutput {
   const plan = buildAnalyticsRollupBackgroundSchedulerRunnerPlan(request);
   const runtimeGate = buildAnalyticsRollupBackgroundSchedulerRuntimeGate(request);
-  const outputStatus = mapOutputStatus(plan);
+  const outputStatus = mapOutputStatus(plan, runtimeGate);
+  const backgroundRuntimeReady =
+    runtimeGate.summary.status === "process-local-dry-run-runtime-ready";
 
   return {
     summary: {
       status: outputStatus,
-      runnerStatus: plan.status,
-      blockedReason: plan.blockedReason,
-      ready: plan.ready,
+      runnerStatus: backgroundRuntimeReady
+        ? runtimeGate.summary.runnerStatus
+        : plan.status,
+      blockedReason: backgroundRuntimeReady ? null : plan.blockedReason,
+      ready: backgroundRuntimeReady ? true : plan.ready,
       backgroundRunnerSelected: plan.contract.backgroundRunnerSelected,
       backgroundRunnerPlanAllowed: plan.contract.backgroundRunnerPlanAllowed,
-      backgroundRuntimeInvocationAllowed: plan.contract.backgroundRuntimeInvocationAllowed,
+      backgroundRuntimeInvocationAllowed:
+        runtimeGate.summary.runtimeInvocationAllowed,
       directCommandRuntimePreserved: plan.contract.directCommandRuntimePreserved,
     },
     previewPlan: plan.previewPlan,

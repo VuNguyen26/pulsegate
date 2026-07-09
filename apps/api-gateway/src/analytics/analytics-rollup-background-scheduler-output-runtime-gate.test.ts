@@ -87,6 +87,38 @@ describe("analytics rollup background scheduler output runtime gate", () => {
     });
   });
 
+  it("exposes process-local dry-run gate as runtime ready after explicit opt-in", () => {
+    const output = buildAnalyticsRollupBackgroundSchedulerOutput({
+      ...baseRequest,
+      trigger: "process-local",
+      requestedMode: "dry-run",
+      allowProcessLocalDryRunRuntimeInvocation: true,
+    });
+
+    expect(output.summary).toMatchObject({
+      status: "background-runtime-ready",
+      runnerStatus: "background-process-local-dry-run-runtime-ready",
+      blockedReason: null,
+      ready: true,
+      backgroundRuntimeInvocationAllowed: true,
+    });
+    expect(output.previewPlan).toBeNull();
+    expect(output.runtimeGate.summary).toMatchObject({
+      status: "process-local-dry-run-runtime-ready",
+      runnerStatus: "background-process-local-dry-run-runtime-ready",
+      blockedReason: null,
+      ready: true,
+      runtimeInvocationAllowed: true,
+      runtimeFactoryResolutionAllowed: true,
+      backfillServiceInvocationAllowed: true,
+      executeBackfillAllowed: false,
+    });
+    expect(output.runtimeGate.safety).toEqual({
+      ...nonDestructiveSafety,
+      invokesBackfillService: true,
+    });
+  });
+
   it("exposes external scheduler execute gate as runtime blocked", () => {
     const output = buildAnalyticsRollupBackgroundSchedulerOutput({
       ...baseRequest,

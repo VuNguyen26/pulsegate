@@ -140,6 +140,98 @@ describe("analytics rollup scheduler preview background runtime gate command out
     expect(output.dryRunServiceInvocationResults).toBeUndefined();
   });
 
+  it("invokes process-local dry-run service only after explicit opt-in and keeps command dry-run fields hidden", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const backfillService = {
+      runBackfill: vi.fn(async (runInput) => {
+        const sourceResults = runInput.plan.sources.map((source: "usage" | "rejected") => ({
+          source,
+          status: "planned" as const,
+          inputEventCount: 0,
+          aggregateCount: 0,
+          upsertedCount: 0,
+        }));
+
+        return {
+          mode: "dry-run" as const,
+          source: runInput.plan.source,
+          sources: runInput.plan.sources,
+          granularity: runInput.plan.windowPlan.granularity,
+          requestedFrom: runInput.plan.windowPlan.requestedFrom,
+          requestedTo: runInput.plan.windowPlan.requestedTo,
+          rebuildFrom: runInput.plan.windowPlan.rebuildFrom,
+          rebuildTo: runInput.plan.windowPlan.rebuildTo,
+          bucketCount: runInput.plan.windowPlan.bucketCount,
+          sourceResults,
+          totalInputEventCount: 0,
+          totalAggregateCount: 0,
+          totalUpsertedCount: 0,
+        };
+      }),
+    };
+    const createRuntimeBackfillService = vi.fn(() => {
+      throw new Error("runtime factory should not be used when service is injected");
+    });
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        ...baseArgs,
+        "--execution-trigger",
+        "process-local",
+        "--execution-mode",
+        "dry-run",
+        "--event-limit",
+        "500",
+      ],
+      {
+        backfillService,
+        createRuntimeBackfillService,
+        allowProcessLocalDryRunRuntimeInvocation: true,
+      },
+    );
+
+    const output = readPrintedOutput(consoleLog);
+
+    expect(createRuntimeBackfillService).not.toHaveBeenCalled();
+    expect(backfillService.runBackfill).toHaveBeenCalledTimes(2);
+    expect(output.backgroundScheduler.summary).toMatchObject({
+      status: "background-runtime-ready",
+      runnerStatus: "background-process-local-dry-run-runtime-ready",
+      blockedReason: null,
+      ready: true,
+      backgroundRuntimeInvocationAllowed: true,
+      directCommandRuntimePreserved: false,
+    });
+    expect(output.backgroundScheduler.runtimeGate.summary).toMatchObject({
+      status: "process-local-dry-run-runtime-ready",
+      runnerStatus: "background-process-local-dry-run-runtime-ready",
+      blockedReason: null,
+      trigger: "process-local",
+      requestedMode: "dry-run",
+      runtimeInvocationAllowed: true,
+      runtimeFactoryResolutionAllowed: true,
+      backfillServiceInvocationAllowed: true,
+      executeBackfillAllowed: false,
+    });
+    expect(
+      output.backgroundScheduler.processLocalDryRunServiceInvocationResults,
+    ).toHaveLength(2);
+    expect(
+      output.backgroundScheduler.processLocalDryRunServiceInvocationResults.map(
+        (result: { source: string }) => result.source,
+      ),
+    ).toEqual(["usage", "rejected"]);
+    expect(
+      output.backgroundScheduler.processLocalDryRunServiceInvocationResults.map(
+        (result: { status: string }) => result.status,
+      ),
+    ).toEqual(["service-dry-run-invoked", "service-dry-run-invoked"]);
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.dryRunRuntimeFactoryError).toBeUndefined();
+    expect(output.executeServiceInvocationResults).toBeUndefined();
+  });
   it("documents backgroundScheduler runtimeGate in CLI usage text", () => {
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "backgroundScheduler.runtimeGate",
