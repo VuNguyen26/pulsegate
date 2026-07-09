@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   AnalyticsRetentionCandidateSummary,
 } from './analytics-retention-candidate-read.repository.js';
 import type {
@@ -11,6 +11,10 @@ import {
   buildAnalyticsRetentionExecutionServiceSummary,
   type AnalyticsRetentionExecutionServiceSummary,
 } from './analytics-retention-execution-service-summary.js';
+import {
+  buildAnalyticsRetentionExecuteContractReview,
+  type AnalyticsRetentionExecuteContractReview,
+} from './analytics-retention-execute-contract-review.js';
 import type {
   AnalyticsRetentionConcreteSource,
 } from './analytics-retention-policy.js';
@@ -54,6 +58,7 @@ export interface AnalyticsRetentionOperatorPreviewOutput {
   readonly kind: 'analytics-retention-operator-preview';
   readonly summary: AnalyticsRetentionExecutionServiceSummary;
   readonly candidateCountLoader: AnalyticsRetentionOperatorPreviewCandidateLoaderSummary;
+  readonly executeContractReview: AnalyticsRetentionExecuteContractReview;
   readonly safety: AnalyticsRetentionOperatorPreviewSafetySummary;
   readonly deleteAllowed: false;
   readonly destructiveExecutionPerformed: false;
@@ -63,6 +68,7 @@ export function buildAnalyticsRetentionOperatorPreviewOutput(
   input: AnalyticsRetentionExecutionServiceCandidateReadPreview,
 ): AnalyticsRetentionOperatorPreviewOutput {
   const summary = buildAnalyticsRetentionExecutionServiceSummary(input.preview);
+  const executeContractReview = resolveExecuteContractReview(input.preview);
 
   return {
     kind: 'analytics-retention-operator-preview',
@@ -87,6 +93,7 @@ export function buildAnalyticsRetentionOperatorPreviewOutput(
       dryRunOnly: true,
       deleteAllowed: false,
     },
+    executeContractReview,
     safety: {
       commandDeletesEvents: false,
       candidateReadOnly: true,
@@ -99,6 +106,31 @@ export function buildAnalyticsRetentionOperatorPreviewOutput(
     deleteAllowed: false,
     destructiveExecutionPerformed: false,
   };
+}
+
+function resolveExecuteContractReview(
+  preview: AnalyticsRetentionExecutionServiceCandidateReadPreview['preview'],
+): AnalyticsRetentionExecuteContractReview {
+  const maybePreviewWithContract = preview as {
+    readonly executeContractReview?: AnalyticsRetentionExecuteContractReview;
+    readonly executionArgs?: {
+      readonly confirmExecute?: boolean;
+      readonly hardDeleteLimit?: number;
+    };
+  };
+
+  if (maybePreviewWithContract.executeContractReview !== undefined) {
+    return maybePreviewWithContract.executeContractReview;
+  }
+
+  return buildAnalyticsRetentionExecuteContractReview({
+    confirmationProvided:
+      maybePreviewWithContract.executionArgs?.confirmExecute === true,
+    hardDeleteLimit: maybePreviewWithContract.executionArgs?.hardDeleteLimit ?? null,
+    candidateRecheckPlanned: false,
+    rollbackExpectationDocumented: false,
+    auditOutputPlanned: false,
+  });
 }
 
 function summarizeCandidateSource(
