@@ -6,6 +6,10 @@ import {
   type AnalyticsRollupBackgroundSchedulerRunnerPlanRequest,
   type AnalyticsRollupBackgroundSchedulerRunnerPlanStatus,
 } from './analytics-rollup-background-scheduler-runner-plan.js';
+import {
+  buildAnalyticsRollupBackgroundSchedulerRuntimeGate,
+  type AnalyticsRollupBackgroundSchedulerRuntimeGate,
+} from './analytics-rollup-background-scheduler-runtime-gate.js';
 
 import type { AnalyticsRollupBackgroundSchedulerSafetyFlags } from './analytics-rollup-background-scheduler-contract.js';
 
@@ -38,6 +42,7 @@ export interface AnalyticsRollupBackgroundSchedulerOutputReview {
 export interface AnalyticsRollupBackgroundSchedulerOutput {
   readonly summary: AnalyticsRollupBackgroundSchedulerOutputSummary;
   readonly previewPlan: AnalyticsRollupBackgroundSchedulerPreviewPlan | null;
+  readonly runtimeGate: AnalyticsRollupBackgroundSchedulerRuntimeGate;
   readonly safety: AnalyticsRollupBackgroundSchedulerSafetyFlags;
   readonly review: AnalyticsRollupBackgroundSchedulerOutputReview;
   readonly operatorNotes: readonly string[];
@@ -65,6 +70,7 @@ export function buildAnalyticsRollupBackgroundSchedulerOutput(
   request: AnalyticsRollupBackgroundSchedulerRunnerPlanRequest,
 ): AnalyticsRollupBackgroundSchedulerOutput {
   const plan = buildAnalyticsRollupBackgroundSchedulerRunnerPlan(request);
+  const runtimeGate = buildAnalyticsRollupBackgroundSchedulerRuntimeGate(request);
   const outputStatus = mapOutputStatus(plan);
 
   return {
@@ -79,6 +85,7 @@ export function buildAnalyticsRollupBackgroundSchedulerOutput(
       directCommandRuntimePreserved: plan.contract.directCommandRuntimePreserved,
     },
     previewPlan: plan.previewPlan,
+    runtimeGate,
     safety: plan.safety,
     review: {
       separatesCommandFromBackgroundSemantics: true,
@@ -102,6 +109,7 @@ export function buildAnalyticsRollupBackgroundSchedulerOutput(
       ...plan.contract.operatorNotes,
       ...plan.operatorNotes,
       'Background scheduler output is operator-visible contract data only; it does not start a scheduled job.',
+      'Background scheduler runtime gate is exposed for operator review and remains blocked-by-default.',
     ],
   };
 }

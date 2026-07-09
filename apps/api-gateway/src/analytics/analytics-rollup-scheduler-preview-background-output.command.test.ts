@@ -77,6 +77,19 @@ describe("analytics rollup scheduler preview background output", () => {
       safetyDelayMs: 300000,
       runtimeInvocationAllowed: false,
     });
+    expect(output.backgroundScheduler.runtimeGate.summary).toMatchObject({
+      status: "background-preview-runtime-closed",
+      runnerStatus: "background-preview-plan-ready",
+      blockedReason: "background-preview-only-runtime-closed",
+      ready: true,
+      runtimeInvocationAllowed: false,
+      runtimeFactoryResolutionAllowed: false,
+      backfillServiceInvocationAllowed: false,
+      executeBackfillAllowed: false,
+    });
+    expect(output.backgroundScheduler.runtimeGate.safety).toEqual(
+      nonDestructiveBackgroundSafety,
+    );
     expect(output.backgroundScheduler.safety).toEqual(
       nonDestructiveBackgroundSafety,
     );
@@ -157,6 +170,20 @@ describe("analytics rollup scheduler preview background output", () => {
       directCommandRuntimePreserved: true,
     });
     expect(output.backgroundScheduler.previewPlan).toBeNull();
+    expect(output.backgroundScheduler.runtimeGate.summary).toMatchObject({
+      status: "command-runtime-preserved",
+      runnerStatus: "command-trigger-skipped",
+      blockedReason: "command-trigger-owned-by-direct-cli",
+      ready: false,
+      runtimeInvocationAllowed: false,
+      runtimeFactoryResolutionAllowed: false,
+      backfillServiceInvocationAllowed: false,
+      executeBackfillAllowed: false,
+      directCommandRuntimePreserved: true,
+    });
+    expect(output.backgroundScheduler.runtimeGate.safety).toEqual(
+      nonDestructiveBackgroundSafety,
+    );
     expect(output.backgroundScheduler.safety).toEqual(
       nonDestructiveBackgroundSafety,
     );
