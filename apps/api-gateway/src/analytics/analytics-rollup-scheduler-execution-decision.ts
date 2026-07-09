@@ -359,6 +359,29 @@ export type AnalyticsRollupSchedulerCommandDryRunDesignReview =
     }
   | null;
 
+export type AnalyticsRollupSchedulerCommandExecuteReadinessReview = {
+  status: "not-ready";
+  reason:
+    | "scheduler-runner-not-ready"
+    | "backfill-execution-not-wired";
+  executionBoundary: "scheduler-command-execute";
+  plannedBackfillRequestCount: number;
+  plannedSources: AnalyticsRollupSchedulerRunnerPlan["sources"];
+  plannedGranularity: AnalyticsRollupSchedulerRunnerPlan["granularity"];
+  backfillRequestsDerivedFromRunnerPlan: true;
+  requiresExplicitConfirmation: true;
+  requiresExplicitEventLimit: true;
+  requiresMaxBucketBound: true;
+  requiresBoundedBucketCount: true;
+  requiresSourceSeparatedExecution: true;
+  requiresPriorDryRunRuntimeValidation: true;
+  canInvokeBackfillService: false;
+  canExecuteBackfill: false;
+  canReadEvents: false;
+  canPersistRollups: false;
+  canAffectQuotaCounting: false;
+  canDeleteRawEvents: false;
+};
 export type AnalyticsRollupSchedulerCommandExecuteContractReview = {
   status: "review-required-before-execute-wiring";
   reviewBoundary: "scheduler-command-execute-contract";
@@ -426,6 +449,7 @@ export type AnalyticsRollupSchedulerExecutionWiringReview = {
   requiresExplicitDesignBeforeWiring: boolean;
   requiresDockerPostgresValidationBeforeWiring: boolean;
   runtimeConsistency: AnalyticsRollupSchedulerExecutionRuntimeConsistency;
+  commandExecuteReadinessReview: AnalyticsRollupSchedulerCommandExecuteReadinessReview | null;
   commandExecuteContractReview: AnalyticsRollupSchedulerCommandExecuteContractReview | null;
   dryRunDesignReview: AnalyticsRollupSchedulerCommandDryRunDesignReview;
   automaticTriggersRemainUnwired: true;
@@ -818,6 +842,40 @@ function resolveRecommendedNextStep(
   return "keep-command-preview-only";
 }
 
+function createAnalyticsRollupSchedulerCommandExecuteReadinessReview(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+  trigger: AnalyticsRollupSchedulerExecutionTrigger,
+  requestedMode: AnalyticsRollupSchedulerExecutionMode,
+): AnalyticsRollupSchedulerCommandExecuteReadinessReview | null {
+  if (trigger !== "command" || requestedMode !== "execute") {
+    return null;
+  }
+
+  return {
+    status: "not-ready",
+    reason:
+      runnerPlan.status === "ready"
+        ? "backfill-execution-not-wired"
+        : "scheduler-runner-not-ready",
+    executionBoundary: "scheduler-command-execute",
+    plannedBackfillRequestCount: runnerPlan.backfillRequests.length,
+    plannedSources: runnerPlan.sources,
+    plannedGranularity: runnerPlan.granularity,
+    backfillRequestsDerivedFromRunnerPlan: true,
+    requiresExplicitConfirmation: true,
+    requiresExplicitEventLimit: true,
+    requiresMaxBucketBound: true,
+    requiresBoundedBucketCount: true,
+    requiresSourceSeparatedExecution: true,
+    requiresPriorDryRunRuntimeValidation: true,
+    canInvokeBackfillService: false,
+    canExecuteBackfill: false,
+    canReadEvents: false,
+    canPersistRollups: false,
+    canAffectQuotaCounting: false,
+    canDeleteRawEvents: false,
+  };
+}
 function createAnalyticsRollupSchedulerCommandExecuteContractReview(
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
@@ -930,6 +988,12 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
       requestedMode,
       backfillServiceInvocationWired,
     ),
+    commandExecuteReadinessReview:
+      createAnalyticsRollupSchedulerCommandExecuteReadinessReview(
+        runnerPlan,
+        trigger,
+        requestedMode,
+      ),
     commandExecuteContractReview:
       createAnalyticsRollupSchedulerCommandExecuteContractReview(
         trigger,

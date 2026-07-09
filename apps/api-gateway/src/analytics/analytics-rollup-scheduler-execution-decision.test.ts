@@ -62,6 +62,7 @@ describe("analytics rollup scheduler execution decision", () => {
           deletesRawEvents: false,
           historicalReviewArtifactsMayRemainBlocked: true,
         },
+        commandExecuteReadinessReview: null,
         commandExecuteContractReview: null,
         dryRunDesignReview: null,
         automaticTriggersRemainUnwired: true,
@@ -134,6 +135,7 @@ describe("analytics rollup scheduler execution decision", () => {
         recommendedNextStep: "keep-automatic-triggers-unwired",
         requiresExplicitDesignBeforeWiring: true,
         requiresDockerPostgresValidationBeforeWiring: false,
+        commandExecuteReadinessReview: null,
         commandExecuteContractReview: null,
         dryRunDesignReview: null,
         automaticTriggersRemainUnwired: true,
@@ -819,6 +821,27 @@ describe("analytics rollup scheduler execution decision", () => {
         recommendedNextStep: "wire-command-dry-run-before-execute",
         requiresExplicitDesignBeforeWiring: true,
         requiresDockerPostgresValidationBeforeWiring: true,
+        commandExecuteReadinessReview: {
+          status: "not-ready",
+          reason: "backfill-execution-not-wired",
+          executionBoundary: "scheduler-command-execute",
+          plannedBackfillRequestCount: 1,
+          plannedSources: ["usage"],
+          plannedGranularity: "hour",
+          backfillRequestsDerivedFromRunnerPlan: true,
+          requiresExplicitConfirmation: true,
+          requiresExplicitEventLimit: true,
+          requiresMaxBucketBound: true,
+          requiresBoundedBucketCount: true,
+          requiresSourceSeparatedExecution: true,
+          requiresPriorDryRunRuntimeValidation: true,
+          canInvokeBackfillService: false,
+          canExecuteBackfill: false,
+          canReadEvents: false,
+          canPersistRollups: false,
+          canAffectQuotaCounting: false,
+          canDeleteRawEvents: false,
+        },
         commandExecuteContractReview: {
           status: "review-required-before-execute-wiring",
           reviewBoundary: "scheduler-command-execute-contract",
@@ -874,6 +897,128 @@ describe("analytics rollup scheduler execution decision", () => {
     });
   });
 
+
+  it("should expose source-aware command execute readiness review without wiring execution", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "execute" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      source: "both",
+      sources: ["usage", "rejected"],
+      backfillRequestCount: 2,
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecuteReadinessReview: {
+          status: "not-ready",
+          reason: "backfill-execution-not-wired",
+          executionBoundary: "scheduler-command-execute",
+          plannedBackfillRequestCount: 2,
+          plannedSources: ["usage", "rejected"],
+          plannedGranularity: "hour",
+          backfillRequestsDerivedFromRunnerPlan: true,
+          requiresExplicitConfirmation: true,
+          requiresExplicitEventLimit: true,
+          requiresMaxBucketBound: true,
+          requiresBoundedBucketCount: true,
+          requiresSourceSeparatedExecution: true,
+          requiresPriorDryRunRuntimeValidation: true,
+          canInvokeBackfillService: false,
+          canExecuteBackfill: false,
+          canReadEvents: false,
+          canPersistRollups: false,
+          canAffectQuotaCounting: false,
+          canDeleteRawEvents: false,
+        },
+        commandExecuteContractReview: {
+          status: "review-required-before-execute-wiring",
+        },
+        dryRunDesignReview: null,
+        automaticTriggersRemainUnwired: true,
+        executeRemainsUnwired: true,
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should expose not-ready command execute readiness for skipped runner plans", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: false,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "usage",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "execute" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "scheduler-runner-not-ready",
+      backfillRequestCount: 0,
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecuteReadinessReview: {
+          status: "not-ready",
+          reason: "scheduler-runner-not-ready",
+          executionBoundary: "scheduler-command-execute",
+          plannedBackfillRequestCount: 0,
+          plannedSources: ["usage"],
+          plannedGranularity: "hour",
+          backfillRequestsDerivedFromRunnerPlan: true,
+          requiresExplicitConfirmation: true,
+          requiresExplicitEventLimit: true,
+          requiresMaxBucketBound: true,
+          requiresBoundedBucketCount: true,
+          requiresSourceSeparatedExecution: true,
+          requiresPriorDryRunRuntimeValidation: true,
+          canInvokeBackfillService: false,
+          canExecuteBackfill: false,
+          canReadEvents: false,
+          canPersistRollups: false,
+          canAffectQuotaCounting: false,
+          canDeleteRawEvents: false,
+        },
+        commandExecuteContractReview: {
+          status: "review-required-before-execute-wiring",
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
   it("should keep automatic dry-run triggers blocked before command dry-run design review", () => {
     const schedulePlan = createAnalyticsRollupSchedulePlan({
       enabled: true,
@@ -907,6 +1052,7 @@ describe("analytics rollup scheduler execution decision", () => {
         recommendedNextStep: "keep-automatic-triggers-unwired",
         requiresExplicitDesignBeforeWiring: true,
         requiresDockerPostgresValidationBeforeWiring: true,
+        commandExecuteReadinessReview: null,
         commandExecuteContractReview: null,
         dryRunDesignReview: null,
         automaticTriggersRemainUnwired: true,
