@@ -24,6 +24,17 @@ const nonDestructiveSafety = {
   runsRetentionExecution: false,
 };
 
+const processLocalDryRunInvocationSafety = {
+  createsScheduledJob: false,
+  invokesBackfillService: true,
+  executesBackfill: false,
+  readsEvents: false,
+  persistsRollups: false,
+  affectsQuotaCounting: false,
+  deletesRawEvents: false,
+  runsRetentionExecution: false,
+};
+
 describe("analytics rollup background scheduler runtime gate", () => {
   it("preserves command runtime ownership and keeps background runtime closed", () => {
     const gate = buildAnalyticsRollupBackgroundSchedulerRuntimeGate({
@@ -87,7 +98,7 @@ describe("analytics rollup background scheduler runtime gate", () => {
     });
   });
 
-  it("blocks process-local dry-run before resolving any runtime service", () => {
+  it("blocks process-local dry-run before explicit runtime opt-in", () => {
     const gate = buildAnalyticsRollupBackgroundSchedulerRuntimeGate({
       ...baseRequest,
       trigger: "process-local",
@@ -100,6 +111,64 @@ describe("analytics rollup background scheduler runtime gate", () => {
       blockedReason: "background-runtime-execution-not-wired",
       trigger: "process-local",
       requestedMode: "dry-run",
+      ready: false,
+      runtimeInvocationAllowed: false,
+      runtimeFactoryResolutionAllowed: false,
+      backfillServiceInvocationAllowed: false,
+      executeBackfillAllowed: false,
+    });
+    expect(gate.safety).toEqual(nonDestructiveSafety);
+  });
+
+  it("opens process-local dry-run gate only after explicit runtime opt-in and bounded runner validation", () => {
+    const gate = buildAnalyticsRollupBackgroundSchedulerRuntimeGate({
+      ...baseRequest,
+      trigger: "process-local",
+      requestedMode: "dry-run",
+      allowProcessLocalDryRunRuntimeInvocation: true,
+    });
+
+    expect(gate.summary).toMatchObject({
+      status: "process-local-dry-run-runtime-ready",
+      runnerStatus: "background-process-local-dry-run-runtime-ready",
+      blockedReason: null,
+      trigger: "process-local",
+      requestedMode: "dry-run",
+      ready: true,
+      runtimeInvocationAllowed: true,
+      runtimeFactoryResolutionAllowed: true,
+      backfillServiceInvocationAllowed: true,
+      executeBackfillAllowed: false,
+      directCommandRuntimePreserved: false,
+    });
+    expect(gate.safety).toEqual(processLocalDryRunInvocationSafety);
+    expect(gate.review).toMatchObject({
+      separatesCommandFromBackgroundSemantics: true,
+      preservesDirectCommandDryRunAndExecute: true,
+      backgroundRuntimeStillClosed: false,
+      processLocalRuntimeStillClosed: false,
+      externalSchedulerRuntimeStillClosed: true,
+      serviceInvocationStillBlocked: false,
+      quotaCountingUnaffected: true,
+      rawEventDeletionBlocked: true,
+      retentionExecutionBlocked: true,
+    });
+  });
+
+  it("keeps process-local dry-run blocked after opt-in when runner bounds are invalid", () => {
+    const gate = buildAnalyticsRollupBackgroundSchedulerRuntimeGate({
+      ...baseRequest,
+      trigger: "process-local",
+      requestedMode: "dry-run",
+      allowProcessLocalDryRunRuntimeInvocation: true,
+      lookbackBuckets: 2,
+      maxBuckets: 1,
+    });
+
+    expect(gate.summary).toMatchObject({
+      status: "background-runtime-blocked",
+      runnerStatus: "background-runtime-invocation-blocked",
+      blockedReason: "lookback-exceeds-max-buckets",
       ready: false,
       runtimeInvocationAllowed: false,
       runtimeFactoryResolutionAllowed: false,
