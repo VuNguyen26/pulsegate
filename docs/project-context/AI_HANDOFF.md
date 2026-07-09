@@ -34,21 +34,21 @@ Local path:
 
 Current version:
 
-- v0.50.0
+- v0.51.0
 
 Latest completed sprint:
 
-- Sprint 49 - Command Execute Contract Review
+- Sprint 50 - Command Execute Wiring Preview blocked-by-default
 
 Recommended next technical sprint:
 
-- Sprint 50 - Command Execute Wiring Preview blocked-by-default
+- Sprint 51 - Command Execute Runtime Wiring with strict guardrails
 
 ---
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 49:
+Latest stable validation from Sprint 50:
 
 - npm run test -> passed.
 - npm run typecheck -> passed.
@@ -57,22 +57,21 @@ Latest stable validation from Sprint 49:
 Latest automated test result:
 
 - 105 test files passed.
-- 767 tests passed.
+- 773 tests passed.
 
 Docker/PostgreSQL runtime validation:
 
-- Not required for Sprint 49.
-- Sprint 49 was DB-free and only changed contract/review models, command usage text, and tests.
+- Not required for Sprint 50.
+- Sprint 50 was DB-free and only changed command execute wiring preview model/output, command usage/runbook docs, and tests.
 - No runtime execute path, DB read, migration, Prisma persistence, rollup persistence, quota path, retention delete, or raw event deletion was introduced.
 
-Sprint 49 commits:
+Sprint 50 commits:
 
-- 3ba0375 feat(gateway): expose scheduler command execute contract review
-- 22e3b8f test(gateway): document scheduler command execute contract usage
-- 030d98d feat(gateway): expose scheduler command execute readiness review
-- 48ee485 feat(gateway): expose scheduler command execute operator output review
+- 32ddf49 feat(gateway): expose scheduler command execute wiring preview
+- 857e863 test(gateway): expose scheduler command execute wiring preview output
+- e43a929 test(gateway): lock scheduler command execute wiring preview blocked paths
 
-Sprint 49 preserved:
+Sprint 50 preserved:
 
 - gateway.api_usage_events as the source of truth for successful usage and quota counting.
 - gateway.api_rejected_events as the separate source of truth for rejected/security traffic.
@@ -97,7 +96,7 @@ API Gateway currently supports:
 - API usage event recording and API rejected event recording.
 - Event-based quota checker and runtime quota enforcement.
 - Usage and rejected event summary/listing APIs with filters and pagination.
-- Analytics rollup calculation, persistence, manual backfill, read model, schedule preview, scheduler runner contract, scheduler execution decision boundary, scheduler execution wiring review, scheduler command dry-run design review, invocation contract, readiness review, invocation design review, service invocation contract review, implementation design, wiring readiness review, fail-closed error model, wiring contract, request mapper, service adapter boundary design, adapter preview output integration, command dry-run runtime service invocation, runtime consistency output, blocked-path runtime tests, command execute contract review, command execute readiness review, command execute operator output review, schedule preview command, scheduler preview args parser, and scheduler preview command foundations.
+- Analytics rollup calculation, persistence, manual backfill, read model, schedule preview, scheduler runner contract, scheduler execution decision boundary, scheduler execution wiring review, scheduler command dry-run design review, invocation contract, readiness review, invocation design review, service invocation contract review, implementation design, wiring readiness review, fail-closed error model, wiring contract, request mapper, service adapter boundary design, adapter preview output integration, command dry-run runtime service invocation, runtime consistency output, blocked-path runtime tests, command execute contract review, command execute readiness review, command execute operator output review, command execute wiring preview, schedule preview command, scheduler preview args parser, and scheduler preview command foundations.
 - Read-only analytics rollup endpoint.
 - Analytics retention dry-run, execution preview, repository safety, service preview, and operator preview foundations.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected analytics, quota, and rollup APIs.
@@ -135,8 +134,9 @@ Analytics rollup scheduler foundation:
 - Direct command dry-run with --event-limit invokes AnalyticsRollupBackfillService.runBackfill in dry-run mode only.
 - Runtime command dry-run exposes dryRunServiceInvocationResults with source-separated usage and rejected service-dry-run-invoked results.
 - Runtime command dry-run exposes runtimeConsistency.status=runtime-dry-run-service-invocation-wired.
-- command:execute exposes commandExecuteContractReview, commandExecuteReadinessReview, and commandExecuteOperatorOutputReview.
+- command:execute exposes commandExecuteContractReview, commandExecuteReadinessReview, commandExecuteOperatorOutputReview, and commandExecuteWiringPreview.
 - command:execute remains blocked with backfill-execution-not-wired.
+- commandExecuteWiringPreview is blocked-by-default, command-only, and absent for process-local/external-scheduler execute triggers.
 - Dry-run without --event-limit remains blocked.
 - process-local and external-scheduler execution remain blocked.
 - Rollups are not used by runtime summaries, scheduled background jobs, retention delete, execution preview, or quota counting yet.
@@ -157,7 +157,7 @@ Current analytics limitations:
 - No retention delete job yet.
 - No scheduled/background rollup job yet.
 - Command dry-run service invocation is wired only for direct CLI dry-run with event-limit.
-- Command execute review output exists, but execute runtime remains unwired.
+- Command execute wiring preview exists, but execute runtime remains unwired.
 - process-local scheduler and external scheduler execution remain unwired.
 
 ---
@@ -182,9 +182,9 @@ Docs:
 - docs/project-context/CURRENT_PROGRESS.md
 - docs/project-context/DECISION_LOG.md
 - docs/project-context/AI_HANDOFF.md
-- docs/sdlc/sprint-history/sprint-49.md
+- docs/sdlc/sprint-history/sprint-50.md
 - docs/runbooks/analytics-rollup-scheduler-preview.md
-- docs/project-context/decisions/2026-07-09-analytics-rollup-scheduler-command-execute-contract-review.md
+- docs/project-context/decisions/2026-07-09-analytics-rollup-scheduler-command-execute-wiring-preview.md
 
 ---
 
@@ -213,11 +213,11 @@ Work style:
 
 ## Recommended Next Step
 
-Start Sprint 50 after confirming Sprint 49 docs are committed and pushed.
+Start Sprint 51 after confirming Sprint 50 docs are committed and pushed.
 
 Recommended direction:
 
-- Command Execute Wiring Preview blocked-by-default.
+- Command Execute Runtime Wiring with strict guardrails.
 
 Before starting:
 
@@ -228,7 +228,7 @@ Before starting:
 - Keep successful usage and rejected/security event storage separate.
 - Keep scheduler dry-run separate from actual background execution.
 - Keep command dry-run behavior unchanged.
-- Keep execute mode blocked until command execute wiring preview, guardrails, rollback expectations, operator output, and runtime validation are explicitly designed.
+- Keep command execute behind explicit operator confirmation, event-limit guardrail, max-bucket bound, bounded bucket count, source separation, rollback expectation, operator output, and Docker/PostgreSQL runtime validation.
 - Keep process-local/external-scheduler execution blocked until explicitly designed.
 - Keep retention execution explicit and guarded.
-- Do not expose a destructive execute command until explicitly approved.
+- Do not expose destructive retention delete behavior until explicitly approved.

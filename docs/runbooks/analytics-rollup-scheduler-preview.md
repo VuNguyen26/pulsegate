@@ -8,7 +8,7 @@ The command can run in three safe operator-visible modes:
 
 - Default preview: plans scheduler dry-run backfill request contracts without invoking the backfill service.
 - Direct command dry-run with --event-limit: invokes AnalyticsRollupBackfillService.runBackfill in dry-run mode only and prints source-separated dryRunServiceInvocationResults.
-- Blocked review paths: dry-run without event-limit, process-local dry-run, external scheduler dry-run, and execute mode remain blocked. Execute mode exposes command execute contract/readiness/operator output review only.
+- Blocked review paths: dry-run without event-limit, process-local dry-run, external scheduler dry-run, and execute mode remain blocked. Execute mode exposes command execute contract/readiness/operator output review and blocked-by-default command execute wiring preview.
 
 It is not a scheduler job and does not execute rollup work.
 
@@ -227,6 +227,12 @@ Expected result:
 - executionDecision.wiringReview.commandExecuteReadinessReview.status is not-ready.
 - executionDecision.wiringReview.commandExecuteReadinessReview.reason is backfill-execution-not-wired.
 - executionDecision.wiringReview.commandExecuteOperatorOutputReview.status is operator-output-review-required-before-execute-wiring.
+- executionDecision.wiringReview.commandExecuteWiringPreview.status is execute-wiring-preview-blocked.
+- executionDecision.wiringReview.commandExecuteWiringPreview.currentWiringState is blocked-not-wired.
+- executionDecision.wiringReview.commandExecuteWiringPreview.confirmationState is not-confirmed.
+- executionDecision.wiringReview.commandExecuteWiringPreview.sourceScopedPlannedExecutions contains source-scoped execute requests with willInvokeBackfillService=false, willExecuteBackfill=false, willReadEvents=false, and willPersistRollups=false.
+- executionDecision.wiringReview.commandExecuteWiringPreview.executeRuntimeCurrentlyAllowed is false.
+- executionDecision.wiringReview.commandExecuteWiringPreview.backfillExecutionWired is false.
 - executionDecision.wiringReview.commandExecuteOperatorOutputReview.confirmationRequirement is explicit-operator-confirmation.
 - executionDecision.wiringReview.commandExecuteOperatorOutputReview.persistenceScope is rollup-tables-only.
 - executionDecision.wiringReview.commandExecuteOperatorOutputReview.rollbackExpectation is bounded-idempotent-rollup-upsert-or-fail-closed-before-execution.
@@ -292,16 +298,17 @@ Review these fields before trusting scheduler preview output:
 10. commandExecuteContractReview for command execute.
 11. commandExecuteReadinessReview for command execute.
 12. commandExecuteOperatorOutputReview for command execute.
-13. dryRunServiceInvocationResults for command dry-run with --event-limit.
-14. Per-source serviceResult.mode.
-15. Per-source serviceResult.sourceResults.
-16. Safety flags.
+13. commandExecuteWiringPreview for command execute.
+14. dryRunServiceInvocationResults for command dry-run with --event-limit.
+15. Per-source serviceResult.mode.
+16. Per-source serviceResult.sourceResults.
+17. Safety flags.
 
 Do not treat this command as proof that rollups were rebuilt. Command dry-run invokes the backfill service only in dry-run mode and does not execute backfill.
 
 Do not treat blocked dry-run/execute/process-local/external-scheduler decisions as failures. They are expected unless their exact runtime wiring has been explicitly designed.
 
-Do not wire execute mode before a blocked-by-default command execute wiring preview is explicitly designed and validated.
+Do not wire execute mode beyond command-only strict guardrails until explicit operator confirmation, event-limit guardrail, max-bucket bound, bounded bucket count, source separation, rollback expectation, operator output, and Docker/PostgreSQL runtime validation are implemented and reviewed.
 
 Do not wire process-local or external-scheduler execution until automatic execution semantics are explicitly designed.
 

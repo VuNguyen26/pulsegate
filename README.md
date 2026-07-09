@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.50.0
+- v0.51.0
 
 Latest completed sprint:
 
-- Sprint 49 - Command Execute Contract Review
+- Sprint 50 - Command Execute Wiring Preview blocked-by-default
 
 ---
 
@@ -68,6 +68,7 @@ PulseGate currently includes:
 - Analytics rollup scheduler command execute contract review
 - Analytics rollup scheduler command execute readiness review
 - Analytics rollup scheduler command execute operator output review
+- Analytics rollup scheduler command execute wiring preview
 - Internal analytics rollup read endpoint
 - Analytics retention dry-run safety foundation
 - Analytics retention dry-run command
@@ -89,14 +90,15 @@ PulseGate currently includes:
 Latest validation:
 
 - 105 test files passed
-- 767 tests passed
+- 773 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker/PostgreSQL runtime validation was not required for Sprint 49 because the sprint only added DB-free command execute contract/readiness/operator-output review models, command usage text, and tests.
+- Docker/PostgreSQL runtime validation was not required for Sprint 50 because the sprint only added DB-free command execute wiring preview model/output/usage documentation and tests.
 - Command execute requests remain blocked with executionDecision.blockedReason=backfill-execution-not-wired.
 - Scheduler preview exposes commandExecuteContractReview for command:execute requests.
 - Scheduler preview exposes commandExecuteReadinessReview with source-aware planned request count, planned sources, planned granularity, confirmation/event-limit/max-bucket guardrails, and no service/event/persistence/quota/delete permissions.
 - Scheduler preview exposes commandExecuteOperatorOutputReview with confirmation requirement, blocked reason, readiness status, contract status, rollup-tables-only persistence scope, rollback expectation, source-scoped planned requests, safety flags, no quota mutation, and no raw event deletion.
+- Scheduler preview exposes commandExecuteWiringPreview for command:execute requests with blocked-by-default execute wiring state, source-scoped planned executions, guardrails, and all runtime permissions false.
 - Command execute usage text documents explicit operator confirmation, event-limit guardrail, max-bucket bound, bounded bucket count, source-separated execution, rollup-tables-only persistence, rollback expectation, no process-local/external scheduler execution, and no scheduled job creation.
 - Safety remained non-destructive: no scheduled/background job, no execute runtime wiring, no AnalyticsRollupBackfillService.runBackfill execute call, no raw event reads, no rollup persistence, no quota counting change, no summary API switch, no retention execution, and no raw event deletion.
 ---
@@ -266,7 +268,7 @@ Current analytics limitation:
 
 - Usage and rejected summary APIs are still event-based at runtime.
 - Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Rollup schedule and scheduler preview commands exist; direct command dry-run service invocation is wired and validated; command execute contract/readiness/operator-output review is implemented; but no scheduled/background rollup job or execute runtime is implemented yet.
+- Rollup schedule and scheduler preview commands exist; direct command dry-run service invocation is wired and validated; command execute contract/readiness/operator-output/wiring preview is implemented; but no scheduled/background rollup job or execute runtime is implemented yet.
 - Retention operator preview command exists, but destructive retention execution is still unavailable.
 - Retention Prisma delete repository exists but is not wired to any operator-facing execute command, API, or job.
 - No retention execute command is implemented yet.
@@ -359,7 +361,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-49.md
+- docs/sdlc/sprint-history/sprint-50.md
 
 Latest analytics runbooks:
 
@@ -375,16 +377,16 @@ Latest analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-09-analytics-rollup-scheduler-command-execute-contract-review.md
+- docs/project-context/decisions/2026-07-09-analytics-rollup-scheduler-command-execute-wiring-preview.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 50 - Command Execute Wiring Preview blocked-by-default
+Sprint 51 - Command Execute Runtime Wiring with strict guardrails
 
 Reason:
 
-- Sprint 49 completed command execute contract, readiness, usage, and operator output review without wiring execute runtime.
-- The next safe step is a blocked-by-default execute wiring preview that can make future execute guardrails visible without calling execute backfill yet.
-- Execute runtime, process-local execution, external scheduler execution, scheduled/background jobs, quota counting changes, rollup summary API switching, retention delete execution, and raw event deletion should remain blocked until explicitly designed and validated.
+- Sprint 50 completed the blocked-by-default command execute wiring preview without introducing execute runtime behavior.
+- The next safe step is to wire command execute only behind strict confirmation, event-limit, max-bucket, bounded bucket count, source separation, rollback, operator output, and Docker/PostgreSQL runtime validation guardrails.
+- Process-local execution, external scheduler execution, scheduled/background jobs, quota counting changes, rollup summary API switching, retention delete execution, and raw event deletion should remain blocked until explicitly designed and validated.

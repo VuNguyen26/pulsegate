@@ -12,16 +12,37 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.50.0
+v0.51.0
 
 ## Latest Completed Sprint
 
-Sprint 49 - Command Execute Contract Review
+Sprint 50 - Command Execute Wiring Preview blocked-by-default
 
 ---
 
 ## Recent Decisions
 
+### 2026-07-09 - Rollup scheduler command execute wiring preview remains blocked-by-default
+
+Decision:
+
+- Expose commandExecuteWiringPreview for command:execute scheduler preview requests.
+- Keep command execute blocked with backfill-execution-not-wired for ready runner plans.
+- Keep skipped runner plans blocked with scheduler-runner-not-ready and zero source-scoped planned executions.
+- Keep process-local and external-scheduler execute requests blocked with automatic-trigger-not-wired and without commandExecuteWiringPreview.
+- Include planned source-scoped execute requests while keeping willInvokeBackfillService=false, willExecuteBackfill=false, willReadEvents=false, and willPersistRollups=false.
+- Keep executeRuntimeCurrentlyAllowed=false, backfillExecutionWired=false, serviceInvocationCurrentlyAllowed=false, eventReadCurrentlyAllowed=false, rollupPersistenceCurrentlyAllowed=false, quotaCountingChangeAllowed=false, rawEventDeletionAllowed=false, processLocalExecutionAllowed=false, externalSchedulerExecutionAllowed=false, and scheduledJobCreationAllowed=false.
+- Do not wire execute runtime, call AnalyticsRollupBackfillService.runBackfill in execute mode, persist rollups, read raw events, change quota counting, switch summary APIs, add retention execution, or delete raw events.
+
+Rationale:
+
+- Sprint 49 made execute contract/readiness/operator output visible, so Sprint 50 adds the next review boundary: a wiring preview that remains blocked-by-default.
+- Source-scoped planned execute output lets operators see future execute shape without runtime permissions.
+- Keeping the preview command-only prevents automatic scheduler semantics from being introduced before process-local/external scheduler execution is designed.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-09-analytics-rollup-scheduler-command-execute-wiring-preview.md
 ### 2026-07-09 - Rollup scheduler command execute contract remains review-only
 
 Decision:
