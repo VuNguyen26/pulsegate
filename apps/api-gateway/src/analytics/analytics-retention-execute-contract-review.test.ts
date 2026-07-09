@@ -91,6 +91,92 @@ describe('buildAnalyticsRetentionExecuteContractReview', () => {
     },
   );
 
+  it('exposes detailed review-only expectations when execute hardening is missing', () => {
+    const review = buildAnalyticsRetentionExecuteContractReview();
+
+    expect(review.expectations).toEqual({
+      candidateRecheckExpectation: {
+        required: true,
+        planned: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        sourceScopedRecheckRequired: true,
+        immediateBeforeDeleteRequired: true,
+        operatorExpectation:
+          'Re-read source-scoped candidate counts immediately before any future retention delete operation.',
+        readyEvidence: null,
+        missingReason: 'candidate-recheck-not-planned',
+      },
+      rollbackExpectation: {
+        required: true,
+        documented: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        rollbackPlanRequiredBeforeExecution: true,
+        destructiveFailureHandlingRequired: true,
+        operatorExpectation:
+          'Document rollback and failure-handling expectations before any future destructive retention execution path.',
+        readyEvidence: null,
+        missingReason: 'rollback-expectation-not-documented',
+      },
+      auditOutputExpectation: {
+        required: true,
+        planned: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        candidateAndDeleteLimitOutputRequired: true,
+        reviewModeMustReportNoDeletion: true,
+        operatorExpectation:
+          'Emit audit-friendly output with candidate counts, delete limits, operation previews, and explicit no-deletion review-mode status.',
+        readyEvidence: null,
+        missingReason: 'audit-output-not-planned',
+      },
+    });
+  });
+
+  it('marks detailed expectations ready without authorizing retention deletes', () => {
+    const review = buildAnalyticsRetentionExecuteContractReview({
+      candidateRecheckPlanned: true,
+      rollbackExpectationDocumented: true,
+      auditOutputPlanned: true,
+    });
+
+    expect(review.expectations).toMatchObject({
+      candidateRecheckExpectation: {
+        planned: true,
+        status: 'ready',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        readyEvidence: 'candidate-recheck-preview-planned',
+        missingReason: null,
+      },
+      rollbackExpectation: {
+        documented: true,
+        status: 'ready',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        readyEvidence: 'rollback-expectation-documented',
+        missingReason: null,
+      },
+      auditOutputExpectation: {
+        planned: true,
+        status: 'ready',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        readyEvidence: 'audit-output-preview-planned',
+        missingReason: null,
+      },
+    });
+
+    expect(review.summary.allowed).toBe(false);
+    expect(review.summary.destructiveExecutionAllowed).toBe(false);
+    expect(review.safety.deleteCandidatesWired).toBe(false);
+    expect(review.safety.runsDestructiveExecution).toBe(false);
+    expect(review.safety.runsRetentionExecution).toBe(false);
+  });
   it('documents operator guidance for future retention execute hardening', () => {
     const review = buildAnalyticsRetentionExecuteContractReview();
 

@@ -41,6 +41,34 @@ export interface AnalyticsRetentionExecuteContractReviewGuardrails {
   auditOutputStatus: AnalyticsRetentionExecuteGuardrailStatus;
 }
 
+export interface AnalyticsRetentionExecuteContractReviewExpectationDetail {
+  required: true;
+  status: AnalyticsRetentionExecuteGuardrailStatus;
+  reviewOnly: true;
+  destructiveExecutionAllowed: false;
+  operatorExpectation: string;
+  readyEvidence: string | null;
+  missingReason: string | null;
+}
+
+export interface AnalyticsRetentionExecuteContractReviewExpectations {
+  candidateRecheckExpectation: AnalyticsRetentionExecuteContractReviewExpectationDetail & {
+    planned: boolean;
+    sourceScopedRecheckRequired: true;
+    immediateBeforeDeleteRequired: true;
+  };
+  rollbackExpectation: AnalyticsRetentionExecuteContractReviewExpectationDetail & {
+    documented: boolean;
+    rollbackPlanRequiredBeforeExecution: true;
+    destructiveFailureHandlingRequired: true;
+  };
+  auditOutputExpectation: AnalyticsRetentionExecuteContractReviewExpectationDetail & {
+    planned: boolean;
+    candidateAndDeleteLimitOutputRequired: true;
+    reviewModeMustReportNoDeletion: true;
+  };
+}
+
 export interface AnalyticsRetentionExecuteContractReviewSafety {
   deleteCandidatesWired: false;
   prismaDeleteRepositoryWiredToOperatorFlow: false;
@@ -56,6 +84,7 @@ export interface AnalyticsRetentionExecuteContractReviewSafety {
 export interface AnalyticsRetentionExecuteContractReview {
   summary: AnalyticsRetentionExecuteContractReviewSummary;
   guardrails: AnalyticsRetentionExecuteContractReviewGuardrails;
+  expectations: AnalyticsRetentionExecuteContractReviewExpectations;
   safety: AnalyticsRetentionExecuteContractReviewSafety;
   operatorGuidance: string[];
 }
@@ -100,6 +129,11 @@ export function buildAnalyticsRetentionExecuteContractReview(
       auditOutputPlanned,
       auditOutputStatus: auditOutputPlanned ? 'ready' : 'missing',
     },
+    expectations: buildAnalyticsRetentionExecuteReviewExpectations({
+      candidateRecheckPlanned,
+      rollbackExpectationDocumented,
+      auditOutputPlanned,
+    }),
     safety: {
       deleteCandidatesWired: false,
       prismaDeleteRepositoryWiredToOperatorFlow: false,
@@ -118,6 +152,77 @@ export function buildAnalyticsRetentionExecuteContractReview(
       'Require explicit confirmation, bounded hard delete limit, candidate recheck, rollback expectation, and audit output before any future execute path.',
       'Retention execute must not affect quota counting or analytics rollup behavior.',
     ],
+  };
+}
+
+interface BuildAnalyticsRetentionExecuteReviewExpectationsInput {
+  candidateRecheckPlanned: boolean;
+  rollbackExpectationDocumented: boolean;
+  auditOutputPlanned: boolean;
+}
+
+function buildAnalyticsRetentionExecuteReviewExpectations(
+  input: BuildAnalyticsRetentionExecuteReviewExpectationsInput,
+): AnalyticsRetentionExecuteContractReviewExpectations {
+  const candidateRecheckStatus: AnalyticsRetentionExecuteGuardrailStatus =
+    input.candidateRecheckPlanned ? 'ready' : 'missing';
+  const rollbackExpectationStatus: AnalyticsRetentionExecuteGuardrailStatus =
+    input.rollbackExpectationDocumented ? 'ready' : 'missing';
+  const auditOutputStatus: AnalyticsRetentionExecuteGuardrailStatus =
+    input.auditOutputPlanned ? 'ready' : 'missing';
+
+  return {
+    candidateRecheckExpectation: {
+      required: true,
+      planned: input.candidateRecheckPlanned,
+      status: candidateRecheckStatus,
+      reviewOnly: true,
+      destructiveExecutionAllowed: false,
+      sourceScopedRecheckRequired: true,
+      immediateBeforeDeleteRequired: true,
+      operatorExpectation:
+        'Re-read source-scoped candidate counts immediately before any future retention delete operation.',
+      readyEvidence: input.candidateRecheckPlanned
+        ? 'candidate-recheck-preview-planned'
+        : null,
+      missingReason: input.candidateRecheckPlanned
+        ? null
+        : 'candidate-recheck-not-planned',
+    },
+    rollbackExpectation: {
+      required: true,
+      documented: input.rollbackExpectationDocumented,
+      status: rollbackExpectationStatus,
+      reviewOnly: true,
+      destructiveExecutionAllowed: false,
+      rollbackPlanRequiredBeforeExecution: true,
+      destructiveFailureHandlingRequired: true,
+      operatorExpectation:
+        'Document rollback and failure-handling expectations before any future destructive retention execution path.',
+      readyEvidence: input.rollbackExpectationDocumented
+        ? 'rollback-expectation-documented'
+        : null,
+      missingReason: input.rollbackExpectationDocumented
+        ? null
+        : 'rollback-expectation-not-documented',
+    },
+    auditOutputExpectation: {
+      required: true,
+      planned: input.auditOutputPlanned,
+      status: auditOutputStatus,
+      reviewOnly: true,
+      destructiveExecutionAllowed: false,
+      candidateAndDeleteLimitOutputRequired: true,
+      reviewModeMustReportNoDeletion: true,
+      operatorExpectation:
+        'Emit audit-friendly output with candidate counts, delete limits, operation previews, and explicit no-deletion review-mode status.',
+      readyEvidence: input.auditOutputPlanned
+        ? 'audit-output-preview-planned'
+        : null,
+      missingReason: input.auditOutputPlanned
+        ? null
+        : 'audit-output-not-planned',
+    },
   };
 }
 
