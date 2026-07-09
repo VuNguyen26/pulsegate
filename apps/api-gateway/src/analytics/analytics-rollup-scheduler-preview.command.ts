@@ -24,12 +24,12 @@ import {
 
 export const ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE = [
   "Usage:",
-  "  npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --run-at <iso> --granularity <hour|day> [--enabled <true|false>] [--source <usage|rejected|both>] [--lookback-buckets <n>] [--safety-delay-ms <n>] [--max-buckets <n>] [--execution-trigger <command|process-local|external-scheduler>] [--execution-mode <preview|dry-run|execute>] [--event-limit <n>]",
+  "  npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --run-at <iso> --granularity <hour|day> [--enabled <true|false>] [--source <usage|rejected|both>] [--lookback-buckets <n>] [--safety-delay-ms <n>] [--max-buckets <n>] [--execution-trigger <command|process-local|external-scheduler>] [--execution-mode <preview|dry-run|execute>] [--event-limit <n>] [--confirm-execute <true|false>]",
   "",
   "Examples:",
   "  npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --run-at 2026-07-06T13:07:00.000Z --granularity hour",
   "  npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1",
-  "  npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --execution-mode execute",
+  "  npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --execution-mode execute --event-limit 500 --confirm-execute true",
   "  npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --execution-mode dry-run --event-limit 500",
   "",
   "Safety:",
@@ -40,6 +40,7 @@ export const ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE = [
   "  Fail-closed dry-run service error modeling remains operator-review-only and requires blocked output, safety flags, source-scoped error output, no partial persistence, no quota mutation, and no raw event deletion before future wiring.",
   "  The dry-run service invocation wiring contract is non-invoking: command-only, dry-run request/response contract, source-scoped result summary, event-limit guardrail, max-bucket bound, no quota mutation, and no raw event deletion until explicit wiring.",
   "  Command execute requests remain blocked and expose commandExecuteContractReview, commandExecuteReadinessReview, commandExecuteOperatorOutputReview, and commandExecuteWiringPreview; execute wiring preview remains operator-visible and blocked-by-default until explicit operator confirmation, ready runner plan, prior dry-run runtime validation, event-limit guardrail, max-bucket bound, bounded bucket count, source-separated execution, operator safety output, and Docker/PostgreSQL runtime validation before future wiring.",
+  "  --confirm-execute true records explicit operator confirmation in command execute wiring preview only; it does not wire execute runtime, invoke backfill service, read events, persist rollups, affect quota counting, or delete raw events by itself.",
   "  Execute contract review scopes future persistence to rollup-tables-only, requires bounded-idempotent-rollup-upsert-or-fail-closed-before-execution rollback expectation, no quota mutation, no raw event deletion, no process-local/external scheduler execution, and no scheduled job creation until explicit wiring.",
   "  --event-limit enables a DB-free command dry-run service adapter preview and, for direct CLI runtime dry-run, gates the backfill service dry-run invocation.",
 ].join("\n");

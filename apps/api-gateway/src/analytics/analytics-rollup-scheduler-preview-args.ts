@@ -24,7 +24,8 @@ type SchedulerPreviewOption =
   | "--max-buckets"
   | "--execution-trigger"
   | "--execution-mode"
-  | "--event-limit";
+  | "--event-limit"
+  | "--confirm-execute";
 
 const SCHEDULE_PREVIEW_OPTIONS = new Set<string>([
   "--enabled",
@@ -41,6 +42,7 @@ const KNOWN_OPTIONS = new Set<string>([
   "--execution-trigger",
   "--execution-mode",
   "--event-limit",
+  "--confirm-execute",
 ]);
 
 function assertKnownOption(option: string): asserts option is SchedulerPreviewOption {
@@ -110,6 +112,18 @@ function parsePositiveIntegerOption(value: string, option: string): number {
   return parsed;
 }
 
+function parseBooleanOption(value: string, option: string): boolean {
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  throw new RangeError(`${option} must be true or false`);
+}
+
 export function parseAnalyticsRollupSchedulerPreviewArgs(
   args: string[],
 ): AnalyticsRollupSchedulerPreviewCommandOptions {
@@ -151,6 +165,11 @@ export function parseAnalyticsRollupSchedulerPreviewArgs(
       executionDecision.trigger = parseExecutionTrigger(value);
     } else if (option === "--execution-mode") {
       executionDecision.mode = parseExecutionMode(value);
+    } else if (option === "--confirm-execute") {
+      executionDecision.commandExecuteOperatorConfirmed = parseBooleanOption(
+        value,
+        option,
+      );
     } else {
       dryRunServiceAdapterPreview.eventLimit = parsePositiveIntegerOption(
         value,

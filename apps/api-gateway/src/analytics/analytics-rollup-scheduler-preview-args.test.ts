@@ -106,6 +106,41 @@ describe("analytics rollup scheduler preview args", () => {
     });
   });
 
+  it("should parse explicit command execute operator confirmation", () => {
+    const parsed = parseAnalyticsRollupSchedulerPreviewArgs([
+      "--run-at",
+      "2026-07-06T13:07:00.000Z",
+      "--granularity",
+      "hour",
+      "--execution-mode",
+      "execute",
+      "--event-limit",
+      "500",
+      "--confirm-execute",
+      "true",
+    ]);
+
+    expect(parsed.executionDecision).toEqual({
+      mode: "execute",
+      commandExecuteOperatorConfirmed: true,
+    });
+    expect(parsed.dryRunServiceAdapterPreview).toEqual({
+      eventLimit: 500,
+    });
+
+    const equalsParsed = parseAnalyticsRollupSchedulerPreviewArgs([
+      "--run-at=2026-07-06T13:07:00.000Z",
+      "--granularity=hour",
+      "--execution-mode=execute",
+      "--confirm-execute=false",
+    ]);
+
+    expect(equalsParsed.executionDecision).toEqual({
+      mode: "execute",
+      commandExecuteOperatorConfirmed: false,
+    });
+  });
+
   it("should reject invalid execution trigger and mode values", () => {
     expect(() =>
       parseAnalyticsRollupSchedulerPreviewArgs([
@@ -126,6 +161,19 @@ describe("analytics rollup scheduler preview args", () => {
         "hour",
         "--execution-mode",
         "force",
+      ]),
+    ).toThrow(RangeError);
+
+    expect(() =>
+      parseAnalyticsRollupSchedulerPreviewArgs([
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--execution-mode",
+        "execute",
+        "--confirm-execute",
+        "yes",
       ]),
     ).toThrow(RangeError);
   });

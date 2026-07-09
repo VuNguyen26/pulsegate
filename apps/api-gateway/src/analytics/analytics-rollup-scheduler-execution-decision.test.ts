@@ -900,6 +900,77 @@ describe("analytics rollup scheduler execution decision", () => {
   });
 
 
+  it("should record command execute operator confirmation without enabling runtime execution", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      {
+        mode: "execute",
+        commandExecuteOperatorConfirmed: true,
+      },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      boundary: {
+        trigger: "command",
+        requestedMode: "execute",
+        allowedMode: "preview",
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecuteWiringPreview: {
+          confirmationState: "confirmed",
+          requiredConfirmation: "explicit-operator-confirmation",
+          blockedReason: "backfill-execution-not-wired",
+          executeRuntimeCurrentlyAllowed: false,
+          backfillExecutionWired: false,
+          serviceInvocationCurrentlyAllowed: false,
+          eventReadCurrentlyAllowed: false,
+          rollupPersistenceCurrentlyAllowed: false,
+          quotaCountingChangeAllowed: false,
+          rawEventDeletionAllowed: false,
+        },
+        runtimeConsistency: {
+          status: "blocked-or-review-only",
+          requestedCapability: "command:execute",
+          backfillServiceInvocationWired: false,
+          serviceInvocationCurrentlyAllowed: false,
+          executeRemainsUnwired: true,
+          invokesBackfillService: false,
+          executesBackfill: false,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+        },
+      },
+      safety: {
+        previewOnly: true,
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
   it("should expose source-aware command execute readiness review without wiring execution", () => {
     const schedulePlan = createAnalyticsRollupSchedulePlan({
       enabled: true,

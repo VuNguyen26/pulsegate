@@ -32,6 +32,7 @@ export type AnalyticsRollupSchedulerExecutionDecisionInput = {
     | AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview[]
     | null;
   backfillServiceInvocationWired?: boolean;
+  commandExecuteOperatorConfirmed?: boolean;
 };
 
 export type AnalyticsRollupSchedulerExecutionBoundary = {
@@ -470,7 +471,7 @@ export type AnalyticsRollupSchedulerCommandExecuteWiringPreview = {
   blockedReason:
     | "scheduler-runner-not-ready"
     | "backfill-execution-not-wired";
-  confirmationState: "not-confirmed";
+  confirmationState: "not-confirmed" | "confirmed";
   requiredConfirmation: "explicit-operator-confirmation";
   readinessStatus: AnalyticsRollupSchedulerCommandExecuteReadinessReview["status"];
   contractReviewStatus: AnalyticsRollupSchedulerCommandExecuteContractReview["status"];
@@ -1036,6 +1037,7 @@ function createAnalyticsRollupSchedulerCommandExecuteWiringPreview(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
+  commandExecuteOperatorConfirmed: boolean,
 ): AnalyticsRollupSchedulerCommandExecuteWiringPreview | null {
   if (trigger !== "command" || requestedMode !== "execute") {
     return null;
@@ -1050,7 +1052,9 @@ function createAnalyticsRollupSchedulerCommandExecuteWiringPreview(
       runnerPlan.status === "ready"
         ? "backfill-execution-not-wired"
         : "scheduler-runner-not-ready",
-    confirmationState: "not-confirmed",
+    confirmationState: commandExecuteOperatorConfirmed
+      ? "confirmed"
+      : "not-confirmed",
     requiredConfirmation: "explicit-operator-confirmation",
     readinessStatus: "not-ready",
     contractReviewStatus: COMMAND_EXECUTE_CONTRACT_REVIEW.status,
@@ -1185,6 +1189,7 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
+  commandExecuteOperatorConfirmed: boolean,
   dryRunServiceAdapterPreviews:
     | AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview[]
     | null = null,
@@ -1226,6 +1231,7 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
               runnerPlan,
               trigger,
               requestedMode,
+              commandExecuteOperatorConfirmed,
             ),
         }
       : {}),    dryRunDesignReview: createAnalyticsRollupSchedulerCommandDryRunDesignReview(
@@ -1269,6 +1275,10 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
 ): AnalyticsRollupSchedulerExecutionDecision {
   const trigger = input.trigger ?? "command";
   const requestedMode = input.mode ?? "preview";
+  const commandExecuteOperatorConfirmed =
+    input.commandExecuteOperatorConfirmed === true &&
+    trigger === "command" &&
+    requestedMode === "execute";
   const backfillServiceInvocationWired =
     input.backfillServiceInvocationWired === true &&
     runnerPlan.status === "ready" &&
@@ -1323,6 +1333,7 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
       runnerPlan,
       trigger,
       requestedMode,
+      commandExecuteOperatorConfirmed,
       dryRunServiceAdapterPreviews,
       backfillServiceInvocationWired,
     ),
