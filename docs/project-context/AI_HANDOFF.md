@@ -12,98 +12,65 @@ Long decision records live in:
 
 ## Current Version
 
-- v0.54.0
+- v0.55.0
 
 ## Latest Completed Sprint
 
-- Sprint 53 - Switch selected summary reads to rollup read model with fallback
+- Sprint 54 - Background Scheduler Contract/Runner
 
 ## Next Recommended Sprint
 
-- Sprint 54 - Background Scheduler Contract/Runner
+- Sprint 55 - Background Scheduler Runtime Wiring with guardrails
 
 ## Current Validation Status
 
-Latest stable validation from Sprint 53:
+Latest stable validation from Sprint 54:
 
-- 122 test files passed.
-- 887 tests passed.
+- 126 test files passed.
+- 923 tests passed.
 - Typecheck passed.
 - Build passed.
 - git diff --check passed.
-- Docker/PostgreSQL runtime validation passed for selected summary runtime-read switching.
 
-Runtime validation:
+Docker/PostgreSQL runtime validation was not required for Sprint 54 because it only added DB-free contract/model/output/command-output/usage text and tests.
 
-- PostgreSQL healthy.
-- Redis healthy.
-- Prisma generate passed.
-- Prisma migrate deploy passed with no pending migrations.
-- product-service and api-gateway Docker build/start passed.
-- API Gateway health passed.
-- Seeded bounded raw usage events, usage rollup records, raw rejected events, and rejected rollup records.
-- Default consumer usage and API key usage summary responses returned raw-event totals.
-- `rollupSummaryRuntimeRead=true` returned rollup totals for bounded consumer usage and API key usage summary reads.
-- Consumer usage unbounded runtime-read request fell back to raw-event summary.
-- Default rejected summary response returned raw-event totals.
-- `rollupSummaryRuntimeRead=true` returned rollup totals for bounded rejected summary reads.
-- Rejected unbounded runtime-read request fell back to raw-event summary.
-- Preview output remained absent unless `rollupSummaryPreview=true` was explicitly requested.
-- Runtime read switching and preview output stayed isolated.
+## Sprint 54 Summary
 
-## Current Architecture Summary
+Sprint 54 added the background scheduler contract/runner boundary for analytics rollups:
 
-API Gateway currently supports:
+- Background scheduler contract model for command, process-local, and external-scheduler.
+- Background runner plan contract for enabled, disabled, invalid, preview-ready, and runtime-blocked plans.
+- Background scheduler operator output model.
+- ackgroundScheduler field in scheduler preview command JSON output.
+- Usage text and tests documenting that ackgroundScheduler is operator-visible contract data only.
+- Hardening tests confirming background runtime fields stay hidden and runtime factories are not resolved for unwired background triggers.
 
-- Route config and dynamic proxy foundations.
-- API key and JWT auth foundations.
-- Rate limit, quota, usage tracking, rejected-event tracking, and observability foundations.
-- Analytics rollup calculation, persistence, manual backfill, read model, schedule preview, scheduler runner contract, scheduler execution decision boundary, scheduler execution wiring review, command dry-run runtime invocation, command execute runtime wiring, and command execute runtime safety tests.
-- Rollup summary API switch preview on selected summary APIs behind `rollupSummaryPreview=true`.
-- Selected summary runtime reads behind `rollupSummaryRuntimeRead=true` with rollup read-model usage and raw-summary fallback.
-- Retention dry-run, retention execution previews, retention operator preview, and retention repository safety foundations.
+## Important Boundaries
 
-## Current Summary API Switch Boundary
+Do not regress these boundaries:
 
-Sprint 53 switches selected bounded summary reads only when explicitly requested:
-
-- default summary runtime path remains `raw-event-summary`
-- runtime switch flag is explicit: `rollupSummaryRuntimeRead=true`
-- preview flag remains explicit and separate: `rollupSummaryPreview=true`
-- selected targets are consumer usage summary, API key usage summary, and rejected summary
-- compatible runtime rollup reads require bounded `from` and `to`
-- missing, empty, unsupported, unbounded, failed, or source-mismatched rollup paths fall back to `raw-event-summary`
-- existing summary response shape is preserved
-- quota counting is not changed
-- raw events are not deleted
-- scheduler/background behavior is not changed
-- retention execution remains out of scope
-
-Still unwired:
-
-- automatic/background scheduler runner runtime
-- process-local execute
-- external scheduler execute
-- retention delete execution
-- quota mutation
-- raw event deletion
-- Admin UI
+- command trigger remains direct-CLI-owned.
+- Direct command dry-run and execute behavior must remain separate from background semantics.
+- process-local and external-scheduler preview may expose contract output but must not start runtime work.
+- process-local and external-scheduler dry-run/execute remain blocked with ackground-runtime-execution-not-wired.
+- No scheduled/background rollup job exists yet.
+- No background runner loop exists yet.
+- No background trigger invokes AnalyticsRollupBackfillService.runBackfill.
+- No background trigger reads events, persists rollups, affects quota counting, deletes raw events, or runs retention execution.
+- Summary runtime read switching remains controlled only by selected summary API requests with ollupSummaryRuntimeRead=true.
+- ollupSummaryPreview=true remains preview-output-only.
 
 ## Important Current Files
 
-- apps/api-gateway/src/analytics/analytics-rollup-summary-runtime-read-decision.ts
-- apps/api-gateway/src/analytics/analytics-rollup-summary-runtime-read-decision-request-mapper.ts
-- apps/api-gateway/src/analytics/analytics-rollup-summary-read-model-adapter.ts
-- apps/api-gateway/src/analytics/analytics-rollup-summary-runtime-read-resolver.ts
-- apps/api-gateway/src/analytics/analytics-rollup-summary-runtime-read-query-mapper.ts
-- apps/api-gateway/src/analytics/analytics-rollup-summary-runtime-read-service.ts
-- apps/api-gateway/src/routes/admin-api-usage.route.ts
-- apps/api-gateway/src/routes/admin-api-rejection.route.ts
-- docs/project-context/CURRENT_PROGRESS.md
-- docs/project-context/DECISION_LOG.md
-- docs/sdlc/sprint-history/sprint-53.md
-- docs/project-context/decisions/2026-07-09-rollup-summary-runtime-read-switch.md
+- apps/api-gateway/src/analytics/analytics-rollup-background-scheduler-contract.ts
+- apps/api-gateway/src/analytics/analytics-rollup-background-scheduler-runner-plan.ts
+- apps/api-gateway/src/analytics/analytics-rollup-background-scheduler-output.ts
+- apps/api-gateway/src/analytics/analytics-rollup-scheduler-preview.command.ts
+- apps/api-gateway/src/analytics/analytics-rollup-scheduler-preview-background-output.command.test.ts
+- docs/runbooks/analytics-rollup-scheduler-preview.md
+- docs/sdlc/sprint-history/sprint-54.md
+- docs/project-context/decisions/2026-07-09-analytics-rollup-background-scheduler-contract-runner.md
 
 ## Startup Instruction
 
-Start Sprint 54 after confirming Sprint 53 docs are committed and pushed.
+Start Sprint 55 only after confirming Sprint 54 docs are committed and pushed.

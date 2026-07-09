@@ -391,3 +391,18 @@ Boundary:
 - Missing, empty, unsupported, unbounded, failed, or source-mismatched summary rollup reads fall back to raw-event summary.
 - `rollupSummaryPreview=true` remains separate preview output on summary APIs.
 - Scheduler preview does not mutate quota counting, delete raw events, create background jobs, or run retention execution.
+
+## Sprint 54 Background Scheduler Output Boundary
+
+Sprint 54 adds ackgroundScheduler to scheduler preview command JSON output.
+
+Operator expectations:
+
+- ackgroundScheduler is contract/output data only.
+- command trigger reports direct CLI runtime ownership.
+- process-local and external-scheduler preview can report background preview readiness.
+- process-local and external-scheduler dry-run/execute remain blocked with ackground-runtime-execution-not-wired.
+- Disabled or invalid background runner plans do not expose a preview plan.
+- The output must keep scheduled job creation, backfill service invocation, backfill execution, event reads, rollup persistence, quota mutation, raw event deletion, and retention execution disabled.
+
+Do not treat ackgroundScheduler.summary.ready=true as proof that a background job ran. It only means the preview contract is ready.

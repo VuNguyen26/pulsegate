@@ -146,3 +146,9 @@ This is expected in Sprint 26.
 - No retention schedule exists yet.
 - No retention metrics or dashboard panels exist yet.
 - No summary APIs use retention or rollup reads yet.
+
+## Sprint 54 Scheduler Boundary Note
+
+Sprint 54 does not change retention dry-run or retention execution behavior.
+
+Background scheduler contract/output must not run retention execution and must not delete raw events.

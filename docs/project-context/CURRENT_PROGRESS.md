@@ -12,86 +12,75 @@ Long decision records live in:
 
 ## Current Version
 
-v0.54.0
+v0.55.0
 
 ## Latest Completed Sprint
 
-Sprint 53 - Switch selected summary reads to rollup read model with fallback
+Sprint 54 - Background Scheduler Contract/Runner
 
 ## Current State
 
-Sprint 53 switched selected bounded summary reads to the analytics rollup read model behind an explicit runtime flag with raw-event-summary fallback.
+Sprint 54 added a DB-free background scheduler contract/runner boundary for analytics rollups.
 
-Selected runtime-read targets:
+Implemented in Sprint 54:
 
-- consumer usage summary
-- API key usage summary
-- rejected events summary
+- Added background scheduler trigger contract for command, process-local, and external-scheduler.
+- Added background runner plan contract with ready/blocked states for scheduler-enabled, disabled, and invalid plans.
+- Added operator-visible background scheduler output.
+- Exposed ackgroundScheduler in nalytics:rollup:scheduler-preview command JSON output.
+- Documented usage text for background scheduler output.
+- Hardened command-output visibility tests for process-local preview, process-local dry-run, external-scheduler execute, disabled runner, and command ownership.
 
-Current summary API behavior:
+Current background scheduler boundary:
 
-- Default summary API responses still use the existing raw-event summary path.
-- `rollupSummaryRuntimeRead=true` enables selected bounded summary reads to use rollup read repositories.
-- Runtime rollup reads require compatible bounded `from` and `to` windows.
-- Missing, empty, unsupported, unbounded, source-mismatched, or failed rollup read paths fall back to `raw-event-summary`.
-- `rollupSummaryPreview=true` remains preview output only.
-- Preview output remains isolated from runtime read switching.
-- Existing summary response shapes are preserved.
-- Quota counting remains unchanged.
-- Raw events are not deleted.
-- No scheduled/background rollup execute job was created.
-- Retention execution remains out of scope.
+- command remains owned by direct CLI runtime semantics.
+- process-local and external-scheduler preview can produce contract output only.
+- process-local and external-scheduler dry-run/execute remain blocked with ackground-runtime-execution-not-wired.
+- No scheduled/background job is created.
+- No background trigger invokes AnalyticsRollupBackfillService.runBackfill.
+- No background trigger reads events, persists rollups, affects quota counting, deletes raw events, or runs retention execution.
 
-Sprint 53 details are archived in:
+Sprint 54 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-53.md
+- docs/sdlc/sprint-history/sprint-54.md
 
 Related decision record:
 
-- docs/project-context/decisions/2026-07-09-rollup-summary-runtime-read-switch.md
+- docs/project-context/decisions/2026-07-09-analytics-rollup-background-scheduler-contract-runner.md
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 53:
+Latest stable validation from Sprint 54:
 
-- 122 test files passed.
-- 887 tests passed.
+- 126 test files passed.
+- 923 tests passed.
 - Typecheck passed.
 - Build passed.
 - git diff --check passed.
-- Docker/PostgreSQL runtime validation passed for selected summary runtime-read switching.
 
-Runtime validation result:
+Docker/PostgreSQL runtime validation was not required because Sprint 54 only added DB-free contract/model/output/command-output/usage text and tests. It did not add a DB read, migration, repository/service runtime interaction, scheduled job, background runner loop, quota path, retention execution, or raw event deletion path.
 
-- PostgreSQL and Redis were healthy.
-- Prisma generate passed.
-- Prisma migrate deploy passed with no pending migrations.
-- Docker build/start passed for product-service and api-gateway.
-- API Gateway health passed.
-- Validation data was seeded for usage raw events, rejected raw events, usage rollups, and rejected rollups.
-- Default consumer usage and API key usage summaries returned raw-event totals.
-- Consumer usage and API key usage summaries returned rollup totals when `rollupSummaryRuntimeRead=true` and bounded `from`/`to` were provided.
-- Consumer usage unbounded runtime-read request fell back to raw summary.
-- Default rejected summary returned raw-event totals.
-- Rejected summary returned rollup totals when `rollupSummaryRuntimeRead=true` and bounded `from`/`to` were provided.
-- Rejected unbounded runtime-read request fell back to raw summary.
-- `rollupSummaryPreview` did not appear unless explicitly requested.
-- Runtime data and preview output stayed isolated when both runtime and preview flags were present.
+## Current Safety Boundaries
 
-## Current Limitations
+Still not implemented:
 
-- Summary APIs still default to the raw-event summary path unless `rollupSummaryRuntimeRead=true` is provided.
-- Rollup runtime reads require bounded compatible query windows.
-- Rollup data freshness/missing-state checks are intentionally conservative.
-- No scheduled/background rollup execute job exists.
-- process-local execute remains unwired.
-- external scheduler execute remains unwired.
-- Retention delete execution remains out of scope.
-- No Admin Dashboard before Sprint 61.
-- No Developer Portal before Sprint 65.
-- No billing/marketplace before Sprint 80.
-- No Kafka/RabbitMQ or Kubernetes/cloud expansion before Sprint 71.
+- Scheduled/background rollup job.
+- Process-local runner loop.
+- External scheduler runtime integration.
+- Background dry-run/execute invocation.
+- Background AnalyticsRollupBackfillService.runBackfill call.
+- Quota counting mutation from rollups.
+- Raw event deletion.
+- Retention execution.
+- Admin Dashboard UI.
+
+Preserved from previous sprints:
+
+- Direct command dry-run runtime invocation remains command-only and dry-run-only.
+- Direct command execute runtime remains guarded by command trigger, execute mode, explicit confirmation, event limit, bounded buckets, source separation, and runtime gate.
+- Selected summary runtime reads remain opt-in behind ollupSummaryRuntimeRead=true with raw-summary fallback.
+- ollupSummaryPreview=true remains preview-output-only.
 
 ## Next Recommended Sprint
 
-Sprint 54 - Background Scheduler Contract/Runner
+Sprint 55 - Background Scheduler Runtime Wiring with guardrails

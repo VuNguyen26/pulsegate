@@ -488,7 +488,7 @@ Core:
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
-- Rollup schedule and scheduler preview commands exist, direct command dry-run runtime service invocation is wired and validated, and command execute contract/readiness/operator output/wiring preview is implemented, but no scheduled/background rollup job or execute runtime yet.
+- Rollup schedule and scheduler preview commands exist, direct command dry-run runtime service invocation is wired and validated, and command execute contract/readiness/operator output/wiring preview is implemented, and Sprint 54 background scheduler contract/runner output exists, but no scheduled/background rollup job, process-local runner loop, external scheduler runtime, or retention execution exists yet.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
 - Admin Dashboard is not implemented yet.
@@ -560,3 +560,19 @@ Selected targets:
 - `GET /internal/admin/api-rejections/summary`
 
 The runtime flag does not change quota counting, raw event retention, scheduler/background execution, retention execution, or Admin UI behavior.
+
+## Background Scheduler Contract/Runner Boundary
+
+Sprint 54 adds an explicit background scheduler contract/runner boundary without opening background runtime execution.
+
+Current background scheduler behavior:
+
+- ackgroundScheduler is exposed in scheduler preview command JSON as operator-visible contract data.
+- command trigger remains owned by the direct CLI runtime path.
+- process-local and external-scheduler preview can produce background preview contract output when the scheduler plan is ready.
+- process-local and external-scheduler dry-run/execute remain runtime-blocked with ackground-runtime-execution-not-wired.
+- Disabled or invalid background runner plans are blocked without preview plans.
+- Background scheduler output reports safety flags for no scheduled job creation, no backfill service invocation, no backfill execution, no event reads, no rollup persistence, no quota counting change, no raw event deletion, and no retention execution.
+- Direct command dry-run and execute behavior from previous sprints remains separate and unchanged.
+
+Sprint 54 still does not implement a scheduled/background rollup job, process-local runner loop, external scheduler integration, retention execution, quota mutation, or raw event deletion.

@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.54.0
+- v0.55.0
 
 Latest completed sprint:
 
-- Sprint 53 - Switch selected summary reads to rollup read model with fallback
+- Sprint 54 - Background Scheduler Contract/Runner
 
 ---
 
@@ -69,6 +69,7 @@ PulseGate currently includes:
 - Analytics rollup scheduler command execute readiness review
 - Analytics rollup scheduler command execute operator output review
 - Analytics rollup scheduler command execute wiring preview
+- Analytics rollup background scheduler contract/runner output
 - Analytics rollup summary API switch preview
 - Rollup summary preview exposed on selected summary APIs behind explicit flag
 - Selected summary runtime reads can use rollup read model behind explicit flag with raw-summary fallback
@@ -92,19 +93,12 @@ PulseGate currently includes:
 
 Latest validation:
 
-- 122 test files passed
-- 887 tests passed
+- 126 test files passed
+- 923 tests passed
 - npm run typecheck passed
 - npm run build passed
 - git diff --check passed
-- Docker/PostgreSQL runtime validation passed for selected summary runtime read switching.
-- Consumer usage summary default path remains raw-event summary.
-- API key usage summary default path remains raw-event summary.
-- Rejected summary default path remains raw-event summary.
-- `rollupSummaryRuntimeRead=true` switches bounded consumer usage, API key usage, and rejected summary reads to rollup read model when rollup records are available.
-- Missing, empty, unsupported, unbounded, or failed rollup read paths fall back to raw-event summary.
-- `rollupSummaryPreview=true` remains preview output only and stays isolated from runtime read switching.
-- Quota counting, raw event retention, background scheduler behavior, retention execution, and Admin UI remain unchanged.
+- Docker/PostgreSQL runtime validation was not required for Sprint 54 because the sprint only added DB-free background scheduler contract, runner plan, operator output, command-output exposure, usage text, and tests.
 ---
 
 ## Tech Stack
@@ -387,10 +381,10 @@ Latest decision record:
 
 ## Recommended Next Sprint
 
-Sprint 54 - Background Scheduler Contract/Runner
+Sprint 55 - Background Scheduler Runtime Wiring with guardrails
 
 Reason:
 
-- Sprint 53 safely switched selected bounded summary reads to rollup read models behind an explicit runtime flag and raw-summary fallback.
-- The next safe step is to define the background scheduler contract/runner without enabling destructive retention execution or broad automatic rollup execution.
-- Runtime defaults, quota counting, raw event retention, retention execution, and Admin UI should remain unchanged until their dedicated roadmap sprints.
+- Sprint 54 made the background scheduler contract, runner plan, operator output, and command JSON boundary explicit without starting a scheduled job.
+- The next safe step is runtime wiring with strict guardrails only after preserving direct command dry-run/execute semantics and keeping process-local/external-scheduler execution separately controlled.
+- Runtime wiring must keep no quota counting mutation, no raw event deletion, no retention execution, source separation, bounded buckets, operator output, and Docker/PostgreSQL validation.

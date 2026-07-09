@@ -276,3 +276,9 @@ Safety:
 - Quota counting is unchanged and does not use rollup tables.
 - Summary APIs do not persist rollups or delete raw events.
 - Scheduler/background execution and retention execution are unchanged.
+
+## Sprint 54 Scheduler Boundary Note
+
+Sprint 54 does not change successful usage analytics, quota counting, or usage event storage.
+
+Background scheduler contract/output remains DB-free and does not read usage events, persist usage rollups, or affect quota counting.

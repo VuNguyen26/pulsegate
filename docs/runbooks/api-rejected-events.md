@@ -323,3 +323,9 @@ Safety:
 - Quota counting is unchanged and does not use rollup tables.
 - Summary APIs do not persist rollups or delete raw events.
 - Scheduler/background execution and retention execution are unchanged.
+
+## Sprint 54 Scheduler Boundary Note
+
+Sprint 54 does not change rejected event recording, rejected event listing, or rejected summary behavior.
+
+Background scheduler contract/output remains DB-free and does not read rejected events, persist rejected rollups, or delete raw rejected events.

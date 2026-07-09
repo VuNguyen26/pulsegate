@@ -189,3 +189,11 @@ Behavior:
 - Empty, missing, unsupported, unbounded, failed, or source-mismatched rollup reads fall back to raw-event summary.
 - `rollupSummaryPreview=true` remains a separate preview output flag.
 - Quota counting remains raw-event/runtime request based and does not use rollup tables.
+
+## Sprint 54 Scheduler Boundary Note
+
+Sprint 54 does not change rollup read APIs or selected summary runtime reads.
+
+- ollupSummaryRuntimeRead=true remains the only summary runtime read switch.
+- Scheduler preview ackgroundScheduler output does not control summary API runtime reads.
+- Background scheduler contracts do not read rollup repositories and do not change raw-summary fallback behavior.

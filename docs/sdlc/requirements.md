@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.52.0
+v0.55.0
 
 ## Latest Completed Sprint
 
-Sprint 51 - Command Execute Runtime Wiring with strict guardrails
+Sprint 54 - Background Scheduler Contract/Runner
 
 ---
 
@@ -1285,3 +1285,38 @@ Requirements:
 - Summary APIs shall not persist rollups.
 - Summary APIs shall not delete raw events.
 - Summary runtime-read switching shall not create scheduler/background jobs or retention execution.
+
+### FR-054 Background Scheduler Contract/Runner
+
+Sprint 54 adds a DB-free background scheduler contract and runner-plan boundary.
+
+Required behavior:
+
+- Expose background scheduler trigger semantics separately from direct CLI command semantics.
+- Preserve direct command dry-run and execute behavior.
+- Treat command trigger as direct-CLI-owned, not background-runner-owned.
+- Allow background preview output only when scheduler contract and runner plan are ready.
+- Keep process-local and external-scheduler dry-run/execute runtime invocation blocked.
+- Expose ackgroundScheduler in scheduler preview command JSON as operator-visible contract output.
+- Keep disabled and invalid background plans blocked without preview plans.
+- Keep all background safety flags non-destructive.
+
+Forbidden behavior:
+
+- Do not create scheduled/background jobs.
+- Do not invoke the backfill service from background triggers.
+- Do not execute backfill from background triggers.
+- Do not read events from background triggers.
+- Do not persist rollups from background triggers.
+- Do not affect quota counting.
+- Do not delete raw events.
+- Do not run retention execution.
+
+Validation:
+
+- 126 test files passed.
+- 923 tests passed.
+- Typecheck passed.
+- Build passed.
+- git diff --check passed.
+- Docker/PostgreSQL runtime validation was not required because Sprint 54 only changed DB-free contract/model/output/command-output/usage text and tests.

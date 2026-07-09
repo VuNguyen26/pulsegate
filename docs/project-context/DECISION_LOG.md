@@ -12,15 +12,37 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.54.0
+v0.55.0
 
 ## Latest Completed Sprint
 
-Sprint 53 - Switch selected summary reads to rollup read model with fallback
+Sprint 54 - Background Scheduler Contract/Runner
 
 ---
 
 ## Recent Decisions
+
+### 2026-07-09 - Background scheduler contract/runner remains contract-only
+
+Decision:
+
+- Add DB-free background scheduler contract, runner plan, and operator output models.
+- Expose ackgroundScheduler in scheduler preview command JSON output.
+- Keep command trigger owned by direct CLI runtime semantics.
+- Allow process-local and external-scheduler preview contract output only.
+- Keep process-local and external-scheduler dry-run/execute runtime invocation blocked with ackground-runtime-execution-not-wired.
+- Keep direct command dry-run and execute behavior unchanged.
+- Do not create scheduled/background jobs, invoke backfill service from background triggers, read events, persist rollups, affect quota counting, delete raw events, or run retention execution.
+
+Rationale:
+
+- Background scheduler runtime wiring needs a clear contract and operator output boundary before any runner loop or external scheduler integration exists.
+- Separating command runtime from background semantics prevents accidental interpretation of preview output as execution.
+- Keeping Sprint 54 DB-free preserves the safe validation model before Sprint 55 runtime wiring.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-09-analytics-rollup-background-scheduler-contract-runner.md
 
 ### 2026-07-09 - Selected summary runtime reads can use rollup read model behind explicit flag
 
