@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { AnalyticsRetentionDeletePlanSource } from './analytics-retention-delete-batch-plan.js';
 import {
   createAnalyticsRetentionDeleteRepositoryExecutor,
@@ -59,6 +59,7 @@ describe('analytics retention execution service summary', () => {
         repositoryOperationPlanned: false,
         repositoryRequestedLimit: null,
         preparedOperation: null,
+        preparedOperationError: null,
         executionResult: null,
       },
     ]);
@@ -109,6 +110,7 @@ describe('analytics retention execution service summary', () => {
         repositoryRequestedLimit: source.repositoryRequestedLimit,
         preparedDeleteAllowed: source.preparedOperation?.deleteAllowed,
         preparedCandidateCount: source.preparedOperation?.candidateCountBeforeDelete,
+        preparedOperationError: source.preparedOperationError,
         executionResult: source.executionResult,
       })),
     ).toEqual([
@@ -119,6 +121,7 @@ describe('analytics retention execution service summary', () => {
         repositoryRequestedLimit: 3,
         preparedDeleteAllowed: true,
         preparedCandidateCount: 3,
+        preparedOperationError: null,
         executionResult: null,
       },
       {
@@ -128,6 +131,7 @@ describe('analytics retention execution service summary', () => {
         repositoryRequestedLimit: 2,
         preparedDeleteAllowed: true,
         preparedCandidateCount: 4,
+        preparedOperationError: null,
         executionResult: null,
       },
     ]);
@@ -169,11 +173,60 @@ describe('analytics retention execution service summary', () => {
         repositoryOperationPlanned: false,
         repositoryRequestedLimit: null,
         preparedOperation: null,
+        preparedOperationError: null,
         executionResult: null,
       },
     ]);
   });
 
+  it('surfaces fail-closed preparation errors in summary output', async () => {
+    const failingExecutor: AnalyticsRetentionDeleteRepositoryPreparationExecutor = {
+      async prepareDeleteOperation() {
+        throw new Error('candidate recheck repository unavailable');
+      },
+    };
+
+    const preview = await buildAnalyticsRetentionExecutionServicePreview({
+      policy: {
+        enabled: true,
+        source: 'usage',
+        usageRetentionDays: 90,
+      },
+      executionArgs: executeArgs(5),
+      now: NOW,
+      usageCandidateCount: 5,
+      deleteRepositoryExecutor: failingExecutor,
+    });
+
+    const summary = buildAnalyticsRetentionExecutionServiceSummary(preview);
+
+    expect(summary.deleteAllowed).toBe(false);
+    expect(summary.destructiveExecutionPerformed).toBe(false);
+    expect(summary.preparedOperationErrors).toEqual([
+      {
+        source: 'usage',
+        requestedLimit: 5,
+        message: 'candidate recheck repository unavailable',
+        failClosedReason: 'CANDIDATE_RECHECK_PREPARATION_FAILED',
+        deleteAllowed: false,
+      },
+    ]);
+    expect(summary.sources).toHaveLength(1);
+    expect(summary.sources[0]).toMatchObject({
+      source: 'usage',
+      repositoryOperationPlanned: true,
+      repositoryRequestedLimit: 5,
+      preparedOperation: null,
+      preparedOperationError: {
+        source: 'usage',
+        requestedLimit: 5,
+        message: 'candidate recheck repository unavailable',
+        failClosedReason: 'CANDIDATE_RECHECK_PREPARATION_FAILED',
+        deleteAllowed: false,
+      },
+      executionResult: null,
+    });
+  });
   it('summarizes repository safety blocked prepared operations', async () => {
     const fakeRepository = createFakeDeleteRepository({
       usage: 1,

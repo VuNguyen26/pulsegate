@@ -1,4 +1,4 @@
-﻿import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type {
   AnalyticsRetentionCandidateReadRepository,
@@ -10,6 +10,9 @@ import {
 import {
   buildAnalyticsRetentionExecutionServiceCandidateReadPreview,
 } from './analytics-retention-execution-service-candidate-read-preview.js';
+import type {
+  AnalyticsRetentionDeleteRepositoryPreparationExecutor,
+} from './analytics-retention-execution-service.js';
 import {
   buildAnalyticsRetentionOperatorPreviewOutput,
   type AnalyticsRetentionOperatorPreviewOutput,
@@ -199,6 +202,67 @@ describe('buildAnalyticsRetentionOperatorPreviewOutput', () => {
     expect(output.summary.reasons.deleteBatchPlan.length).toBeGreaterThan(0);
     expect(output.deleteAllowed).toBe(false);
     expect(output.safety.deleteRepositoryExecuted).toBe(false);
+  });
+  it('should surface fail-closed preparation errors through operator summary output', async () => {
+    const { repository } = createCandidateReadRepository({
+      enabled: true,
+      generatedAt: NOW,
+      usage: {
+        source: 'usage',
+        cutoffExclusive: new Date('2026-04-07T00:00:00.000Z'),
+        retentionDays: 90,
+        candidateCount: 12,
+        dryRunOnly: true,
+        deleteAllowed: false,
+      },
+      rejected: null,
+    });
+    const failingExecutor: AnalyticsRetentionDeleteRepositoryPreparationExecutor = {
+      async prepareDeleteOperation() {
+        throw new Error('candidate recheck repository unavailable');
+      },
+    };
+
+    const preview = await buildAnalyticsRetentionExecutionServiceCandidateReadPreview({
+      policy: {
+        enabled: true,
+        source: 'usage',
+        usageRetentionDays: 90,
+      },
+      executionArgs: [
+        '--mode',
+        'execute',
+        '--confirm-execute',
+        ANALYTICS_RETENTION_EXECUTE_CONFIRMATION_VALUE,
+        '--hard-delete-limit',
+        '12',
+      ],
+      now: NOW,
+      candidateReadRepository: repository,
+      deleteRepositoryExecutor: failingExecutor,
+    });
+
+    const output = buildAnalyticsRetentionOperatorPreviewOutput(preview);
+
+    expect(output.summary.deleteAllowed).toBe(false);
+    expect(output.safety.servicePreviewDeleteAllowed).toBe(false);
+    expect(output.summary.preparedOperationErrors).toEqual([
+      {
+        source: 'usage',
+        requestedLimit: 12,
+        message: 'candidate recheck repository unavailable',
+        failClosedReason: 'CANDIDATE_RECHECK_PREPARATION_FAILED',
+        deleteAllowed: false,
+      },
+    ]);
+    expect(output.summary.sources[0]?.preparedOperationError).toEqual({
+      source: 'usage',
+      requestedLimit: 12,
+      message: 'candidate recheck repository unavailable',
+      failClosedReason: 'CANDIDATE_RECHECK_PREPARATION_FAILED',
+      deleteAllowed: false,
+    });
+    expectNonDestructiveOperatorPreviewOutput(output);
   });
   it('should keep operator safety contract non-destructive when execute guard is incomplete', async () => {
     const { repository } = createCandidateReadRepository({

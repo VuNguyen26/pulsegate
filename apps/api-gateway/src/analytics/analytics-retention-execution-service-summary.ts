@@ -1,9 +1,12 @@
-﻿import type { AnalyticsRetentionDeletePlanSource } from './analytics-retention-delete-batch-plan.js';
+import type { AnalyticsRetentionDeletePlanSource } from './analytics-retention-delete-batch-plan.js';
 import type {
   AnalyticsRetentionDeleteRepositoryExecutionResult,
   AnalyticsRetentionDeleteRepositoryPreparedOperation,
 } from './analytics-retention-delete.repository.js';
-import type { AnalyticsRetentionExecutionServicePreview } from './analytics-retention-execution-service.js';
+import type {
+  AnalyticsRetentionExecutionServicePreview,
+  AnalyticsRetentionPreparedOperationError,
+} from './analytics-retention-execution-service.js';
 
 export interface AnalyticsRetentionExecutionServiceSummaryTotals {
   readonly candidateCount: number;
@@ -41,6 +44,14 @@ export interface AnalyticsRetentionExecutionResultSummary {
   readonly blockedReasons: readonly string[];
 }
 
+export interface AnalyticsRetentionPreparedOperationErrorSummary {
+  readonly source: AnalyticsRetentionDeletePlanSource;
+  readonly requestedLimit: number;
+  readonly message: string;
+  readonly failClosedReason: AnalyticsRetentionPreparedOperationError['failClosedReason'];
+  readonly deleteAllowed: false;
+}
+
 export interface AnalyticsRetentionExecutionSourceSummary {
   readonly source: AnalyticsRetentionDeletePlanSource;
   readonly retentionDays: number | null;
@@ -50,6 +61,7 @@ export interface AnalyticsRetentionExecutionSourceSummary {
   readonly repositoryOperationPlanned: boolean;
   readonly repositoryRequestedLimit: number | null;
   readonly preparedOperation: AnalyticsRetentionPreparedOperationSummary | null;
+  readonly preparedOperationError: AnalyticsRetentionPreparedOperationErrorSummary | null;
   readonly executionResult: AnalyticsRetentionExecutionResultSummary | null;
 }
 
@@ -65,6 +77,7 @@ export interface AnalyticsRetentionExecutionServiceSummary {
   readonly hardDeleteLimit: number | null;
   readonly totals: AnalyticsRetentionExecutionServiceSummaryTotals;
   readonly reasons: AnalyticsRetentionExecutionServiceSummaryReasons;
+  readonly preparedOperationErrors: readonly AnalyticsRetentionPreparedOperationErrorSummary[];
   readonly sources: readonly AnalyticsRetentionExecutionSourceSummary[];
 }
 
@@ -87,6 +100,9 @@ export function buildAnalyticsRetentionExecutionServiceSummary(
       deleteBatchPlan: [...preview.deleteBatchPlan.reasons],
       deleteOperationPlan: [...preview.deleteOperationPlan.reasons],
     },
+    preparedOperationErrors: preview.preparedOperationErrors.map(
+      summarizePreparedOperationError,
+    ),
     sources: getSummarySources(preview).map((source) =>
       buildSourceSummary(preview, source),
     ),
@@ -146,6 +162,7 @@ function shouldIncludeSource(
       (request) => request.source === source,
     ) ||
     preview.preparedOperations.some((operation) => operation.source === source) ||
+    preview.preparedOperationErrors.some((error) => error.source === source) ||
     preview.executionResults.some((result) => result.source === source)
   );
 }
@@ -174,6 +191,10 @@ function buildSourceSummary(
     repositoryOperationPlanned: operationRequest !== null,
     repositoryRequestedLimit: operationRequest?.requestedLimit ?? null,
     preparedOperation: summarizePreparedOperation(preview, source),
+    preparedOperationError: summarizePreparedOperationErrorForSource(
+      preview,
+      source,
+    ),
     executionResult: summarizeExecutionResult(preview, source),
   };
 }
@@ -197,6 +218,31 @@ function summarizePreparedOperation(
     deleteAllowed: operation.deleteAllowed,
     blockedReasons: [...operation.blockedReasons],
   };
+}
+
+function summarizePreparedOperationError(
+  error: AnalyticsRetentionPreparedOperationError,
+): AnalyticsRetentionPreparedOperationErrorSummary {
+  return {
+    source: error.source,
+    requestedLimit: error.requestedLimit,
+    message: error.message,
+    failClosedReason: error.failClosedReason,
+    deleteAllowed: false,
+  };
+}
+
+function summarizePreparedOperationErrorForSource(
+  preview: AnalyticsRetentionExecutionServicePreview,
+  source: AnalyticsRetentionDeletePlanSource,
+): AnalyticsRetentionPreparedOperationErrorSummary | null {
+  const error = findSourceItem(preview.preparedOperationErrors, source);
+
+  if (error === null) {
+    return null;
+  }
+
+  return summarizePreparedOperationError(error);
 }
 
 function summarizeExecutionResult(
@@ -224,6 +270,7 @@ function summarizeExecutionResult(
 function findSourceItem<
   T extends
     | AnalyticsRetentionDeleteRepositoryPreparedOperation
+    | AnalyticsRetentionPreparedOperationError
     | AnalyticsRetentionDeleteRepositoryExecutionResult,
 >(
   items: readonly T[],
