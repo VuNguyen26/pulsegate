@@ -299,3 +299,27 @@ Rejected event analytics must not store or return:
 - Raw API keys
 - JWTs
 - Authorization headers
+
+## Rollup Summary Runtime Read Opt-In
+
+The rejected events summary API can opt in to rollup read-model summaries:
+
+- `GET /internal/admin/api-rejections/summary?rollupSummaryRuntimeRead=true&from=<iso>&to=<iso>`
+
+Default behavior:
+
+- Without `rollupSummaryRuntimeRead=true`, rejected summaries continue to read the raw rejected-event summary path.
+- Existing response shape is preserved.
+
+Runtime rollup behavior:
+
+- Bounded `from` and `to` windows are required.
+- Compatible rejected summary filters can be mapped to `gateway.api_rejected_rollups`.
+- Missing, empty, unsupported, unbounded, failed, or source-mismatched rollup reads fall back to raw-event summary.
+
+Safety:
+
+- `rollupSummaryPreview=true` remains preview output only.
+- Quota counting is unchanged and does not use rollup tables.
+- Summary APIs do not persist rollups or delete raw events.
+- Scheduler/background execution and retention execution are unchanged.

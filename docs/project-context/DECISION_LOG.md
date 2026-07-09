@@ -12,16 +12,43 @@ Detailed decision records live in:
 
 ## Current Version
 
-v0.53.0
+v0.54.0
 
 ## Latest Completed Sprint
 
-Sprint 52 - Rollup Summary API Switch Preview
+Sprint 53 - Switch selected summary reads to rollup read model with fallback
 
 ---
 
 ## Recent Decisions
 
+### 2026-07-09 - Selected summary runtime reads can use rollup read model behind explicit flag
+
+Decision:
+
+- Add a runtime read decision model for selected summary API targets.
+- Map real consumer usage, API key usage, and rejected summary filters into runtime read decisions.
+- Adapt usage and rejected rollup read records back into the existing summary response read models.
+- Add a runtime resolver and read-service seam with raw-summary fallback.
+- Map runtime read decisions into rollup read queries for the existing analytics rollup read service.
+- Wire consumer usage summary, API key usage summary, and rejected summary routes behind `rollupSummaryRuntimeRead=true`.
+- Keep default summary responses on `raw-event-summary`.
+- Keep `rollupSummaryPreview=true` as preview output only.
+- Fall back to raw summary for unbounded, unsupported, empty, missing, failed, or mismatched rollup read paths.
+- Do not change quota counting, persist rollups from summary APIs, delete raw events, add background jobs, add retention execution, or change Admin UI.
+
+Validation:
+
+- 122 test files passed.
+- 887 tests passed.
+- Typecheck passed.
+- Build passed.
+- Docker/PostgreSQL runtime validation passed for usage and rejected summary runtime-read switching.
+
+References:
+
+- docs/sdlc/sprint-history/sprint-53.md
+- docs/project-context/decisions/2026-07-09-rollup-summary-runtime-read-switch.md
 ### 2026-07-09 - Rollup summary API switch preview is exposed behind explicit flag
 
 Decision:

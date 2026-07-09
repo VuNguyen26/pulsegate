@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.53.0
+- v0.54.0
 
 Latest completed sprint:
 
-- Sprint 52 - Rollup Summary API Switch Preview
+- Sprint 53 - Switch selected summary reads to rollup read model with fallback
 
 ---
 
@@ -71,6 +71,7 @@ PulseGate currently includes:
 - Analytics rollup scheduler command execute wiring preview
 - Analytics rollup summary API switch preview
 - Rollup summary preview exposed on selected summary APIs behind explicit flag
+- Selected summary runtime reads can use rollup read model behind explicit flag with raw-summary fallback
 - Internal analytics rollup read endpoint
 - Analytics retention dry-run safety foundation
 - Analytics retention dry-run command
@@ -91,18 +92,19 @@ PulseGate currently includes:
 
 Latest validation:
 
-- 105 test files passed
-- 773 tests passed
+- 122 test files passed
+- 887 tests passed
 - npm run typecheck passed
 - npm run build passed
-- Docker/PostgreSQL runtime validation was not required for Sprint 50 because the sprint only added DB-free command execute wiring preview model/output/usage documentation and tests.
-- Command execute requests remain blocked with executionDecision.blockedReason=backfill-execution-not-wired.
-- Scheduler preview exposes commandExecuteContractReview for command:execute requests.
-- Scheduler preview exposes commandExecuteReadinessReview with source-aware planned request count, planned sources, planned granularity, confirmation/event-limit/max-bucket guardrails, and no service/event/persistence/quota/delete permissions.
-- Scheduler preview exposes commandExecuteOperatorOutputReview with confirmation requirement, blocked reason, readiness status, contract status, rollup-tables-only persistence scope, rollback expectation, source-scoped planned requests, safety flags, no quota mutation, and no raw event deletion.
-- Scheduler preview exposes commandExecuteWiringPreview for command:execute requests with blocked-by-default execute wiring state, source-scoped planned executions, guardrails, and all runtime permissions false.
-- Command execute usage text documents explicit operator confirmation, event-limit guardrail, max-bucket bound, bounded bucket count, source-separated execution, rollup-tables-only persistence, rollback expectation, no process-local/external scheduler execution, and no scheduled job creation.
-- Safety remained non-destructive: no scheduled/background job, no execute runtime wiring, no AnalyticsRollupBackfillService.runBackfill execute call, no raw event reads, no rollup persistence, no quota counting change, no summary API switch, no retention execution, and no raw event deletion.
+- git diff --check passed
+- Docker/PostgreSQL runtime validation passed for selected summary runtime read switching.
+- Consumer usage summary default path remains raw-event summary.
+- API key usage summary default path remains raw-event summary.
+- Rejected summary default path remains raw-event summary.
+- `rollupSummaryRuntimeRead=true` switches bounded consumer usage, API key usage, and rejected summary reads to rollup read model when rollup records are available.
+- Missing, empty, unsupported, unbounded, or failed rollup read paths fall back to raw-event summary.
+- `rollupSummaryPreview=true` remains preview output only and stays isolated from runtime read switching.
+- Quota counting, raw event retention, background scheduler behavior, retention execution, and Admin UI remain unchanged.
 ---
 
 ## Tech Stack
@@ -385,10 +387,10 @@ Latest decision record:
 
 ## Recommended Next Sprint
 
-Sprint 53 - Switch selected summary reads to rollup read model with fallback
+Sprint 54 - Background Scheduler Contract/Runner
 
 Reason:
 
-- Sprint 52 exposed a guarded rollup summary API switch preview without changing default summary behavior.
-- The next safe step is to switch selected bounded summary reads to the rollup read model only with explicit fallback to the raw-event summary path.
-- Runtime defaults, quota counting, raw event retention, scheduler/background execution, retention execution, and Admin UI should remain unchanged until their dedicated roadmap sprints.
+- Sprint 53 safely switched selected bounded summary reads to rollup read models behind an explicit runtime flag and raw-summary fallback.
+- The next safe step is to define the background scheduler contract/runner without enabling destructive retention execution or broad automatic rollup execution.
+- Runtime defaults, quota counting, raw event retention, retention execution, and Admin UI should remain unchanged until their dedicated roadmap sprints.

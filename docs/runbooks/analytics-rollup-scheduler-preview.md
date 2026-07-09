@@ -377,3 +377,17 @@ Still not supported:
 - retention delete execution.
 - quota mutation.
 - raw event deletion.
+
+## Summary Runtime Read Switch Boundary
+
+Sprint 53 adds `rollupSummaryRuntimeRead=true` to selected summary APIs, but this scheduler preview command does not control that runtime switch.
+
+Boundary:
+
+- Scheduler preview still models scheduler planning and command dry-run/execute boundaries.
+- Summary runtime read switching is controlled only by selected summary API requests.
+- Summary runtime reads still default to `raw-event-summary`.
+- Bounded selected summary requests may opt in to rollup read models with `rollupSummaryRuntimeRead=true`.
+- Missing, empty, unsupported, unbounded, failed, or source-mismatched summary rollup reads fall back to raw-event summary.
+- `rollupSummaryPreview=true` remains separate preview output on summary APIs.
+- Scheduler preview does not mutate quota counting, delete raw events, create background jobs, or run retention execution.

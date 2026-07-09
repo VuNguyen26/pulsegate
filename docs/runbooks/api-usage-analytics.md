@@ -251,3 +251,28 @@ Remember:
 - Usage events listing reads from gateway.api_usage_events.
 - Rejected requests are stored in gateway.api_rejected_events, not gateway.api_usage_events.
 - A newly created consumer/API key needs at least one successful protected request before a matching usage event appears.
+
+## Rollup Summary Runtime Read Opt-In
+
+Selected usage summary APIs can opt in to rollup read-model summaries:
+
+- `GET /internal/admin/usage/consumers/:consumerId/summary?rollupSummaryRuntimeRead=true&from=<iso>&to=<iso>`
+- `GET /internal/admin/usage/api-keys/:apiKeyId/summary?rollupSummaryRuntimeRead=true&from=<iso>&to=<iso>`
+
+Default behavior:
+
+- Without `rollupSummaryRuntimeRead=true`, usage summaries continue to read the raw usage-event summary path.
+- Existing response shape is preserved.
+
+Runtime rollup behavior:
+
+- Bounded `from` and `to` windows are required.
+- Compatible usage filters can be mapped to `gateway.api_usage_rollups`.
+- Missing, empty, unsupported, unbounded, failed, or source-mismatched rollup reads fall back to raw-event summary.
+
+Safety:
+
+- `rollupSummaryPreview=true` remains preview output only.
+- Quota counting is unchanged and does not use rollup tables.
+- Summary APIs do not persist rollups or delete raw events.
+- Scheduler/background execution and retention execution are unchanged.

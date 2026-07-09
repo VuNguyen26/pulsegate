@@ -12,45 +12,54 @@ Long decision records live in:
 
 ## Current Version
 
-v0.53.0
+v0.54.0
 
 ## Latest Completed Sprint
 
-Sprint 52 - Rollup Summary API Switch Preview
+Sprint 53 - Switch selected summary reads to rollup read model with fallback
 
 ## Current State
 
-Sprint 52 added a guarded rollup summary API switch preview for selected admin summary APIs.
+Sprint 53 switched selected bounded summary reads to the analytics rollup read model behind an explicit runtime flag with raw-event-summary fallback.
+
+Selected runtime-read targets:
+
+- consumer usage summary
+- API key usage summary
+- rejected events summary
 
 Current summary API behavior:
 
 - Default summary API responses still use the existing raw-event summary path.
-- `rollupSummaryPreview=true` exposes a preview object on selected summary APIs.
-- Selected preview targets are consumer usage summary, API key usage summary, and rejected events summary.
-- Preview output reports target, compatibility, operator decision, fallback plan, reviewer notes, and safety flags.
-- Preview output currently falls back to `raw-event-summary` when rollup data state is unknown.
-- Query compatibility requires bounded `from` and `to` windows before a future rollup read switch can be considered.
-- Preview mappers are DB-free and do not call rollup repositories.
-- Runtime defaults remain unchanged.
+- `rollupSummaryRuntimeRead=true` enables selected bounded summary reads to use rollup read repositories.
+- Runtime rollup reads require compatible bounded `from` and `to` windows.
+- Missing, empty, unsupported, unbounded, source-mismatched, or failed rollup read paths fall back to `raw-event-summary`.
+- `rollupSummaryPreview=true` remains preview output only.
+- Preview output remains isolated from runtime read switching.
+- Existing summary response shapes are preserved.
+- Quota counting remains unchanged.
+- Raw events are not deleted.
+- No scheduled/background rollup execute job was created.
+- Retention execution remains out of scope.
 
-Sprint 52 details are archived in:
+Sprint 53 details are archived in:
 
-- docs/sdlc/sprint-history/sprint-52.md
+- docs/sdlc/sprint-history/sprint-53.md
 
 Related decision record:
 
-- docs/project-context/decisions/2026-07-09-rollup-summary-api-switch-preview.md
+- docs/project-context/decisions/2026-07-09-rollup-summary-runtime-read-switch.md
 
 ## Latest Validation Status
 
-Latest stable validation from Sprint 52:
+Latest stable validation from Sprint 53:
 
-- 114 test files passed.
-- 841 tests passed.
+- 122 test files passed.
+- 887 tests passed.
 - Typecheck passed.
 - Build passed.
 - git diff --check passed.
-- Docker/PostgreSQL runtime validation passed for summary preview endpoints.
+- Docker/PostgreSQL runtime validation passed for selected summary runtime-read switching.
 
 Runtime validation result:
 
@@ -59,19 +68,21 @@ Runtime validation result:
 - Prisma migrate deploy passed with no pending migrations.
 - Docker build/start passed for product-service and api-gateway.
 - API Gateway health passed.
-- Validation data was seeded for one consumer, one API key, one usage event, and one rejected event.
-- Default consumer usage and rejected summary responses did not include `rollupSummaryPreview`.
-- Consumer usage summary preview returned target `usage-consumer-summary`.
-- API key usage summary preview returned target `usage-api-key-summary`.
-- Rejected summary preview returned target `rejected-summary`.
-- All preview endpoints retained `raw-event-summary` as fallback path and did not apply a runtime switch.
+- Validation data was seeded for usage raw events, rejected raw events, usage rollups, and rejected rollups.
+- Default consumer usage and API key usage summaries returned raw-event totals.
+- Consumer usage and API key usage summaries returned rollup totals when `rollupSummaryRuntimeRead=true` and bounded `from`/`to` were provided.
+- Consumer usage unbounded runtime-read request fell back to raw summary.
+- Default rejected summary returned raw-event totals.
+- Rejected summary returned rollup totals when `rollupSummaryRuntimeRead=true` and bounded `from`/`to` were provided.
+- Rejected unbounded runtime-read request fell back to raw summary.
+- `rollupSummaryPreview` did not appear unless explicitly requested.
+- Runtime data and preview output stayed isolated when both runtime and preview flags were present.
 
 ## Current Limitations
 
-- Summary APIs still default to the raw-event summary path.
-- Rollup summary preview is exposed only when `rollupSummaryPreview=true`.
-- Rollup read repositories are not used by summary API runtime paths yet.
-- Rollup data freshness/missing-state checks are preview-only.
+- Summary APIs still default to the raw-event summary path unless `rollupSummaryRuntimeRead=true` is provided.
+- Rollup runtime reads require bounded compatible query windows.
+- Rollup data freshness/missing-state checks are intentionally conservative.
 - No scheduled/background rollup execute job exists.
 - process-local execute remains unwired.
 - external scheduler execute remains unwired.
@@ -83,4 +94,4 @@ Runtime validation result:
 
 ## Next Recommended Sprint
 
-Sprint 53 - Switch selected summary reads to rollup read model with fallback
+Sprint 54 - Background Scheduler Contract/Runner

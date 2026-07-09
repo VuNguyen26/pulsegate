@@ -48,7 +48,7 @@ Long decision records live in:
 
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
-PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, DB-backed non-destructive retention operator preview hardening, non-destructive rollup schedule preview planning, non-destructive rollup scheduler runner preview planning, non-destructive rollup scheduler execution boundary preview planning, non-destructive rollup scheduler execution wiring review, non-destructive rollup scheduler command dry-run design review, non-destructive rollup scheduler command dry-run invocation contract and readiness review, non-destructive rollup scheduler command dry-run invocation design review, non-destructive rollup scheduler command dry-run service invocation contract review, non-destructive rollup scheduler command dry-run service invocation implementation design, non-destructive rollup scheduler command dry-run service invocation wiring readiness review, non-destructive rollup scheduler command dry-run service invocation fail-closed error model, non-destructive rollup scheduler command dry-run service invocation wiring contract, non-destructive rollup scheduler command dry-run service invocation request mapper design, non-destructive rollup scheduler command dry-run service adapter boundary design, non-destructive rollup scheduler command dry-run service adapter preview output integration, command dry-run runtime service invocation, runtime consistency output, blocked-path runtime tests, non-destructive rollup scheduler command execute contract review, non-destructive command execute readiness review, non-destructive command execute operator output review, non-destructive blocked-by-default command execute wiring preview, and CI/CD.
+PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, DB-backed non-destructive retention operator preview hardening, non-destructive rollup schedule preview planning, non-destructive rollup scheduler runner preview planning, non-destructive rollup scheduler execution boundary preview planning, non-destructive rollup scheduler execution wiring review, non-destructive rollup scheduler command dry-run design review, non-destructive rollup scheduler command dry-run invocation contract and readiness review, non-destructive rollup scheduler command dry-run invocation design review, non-destructive rollup scheduler command dry-run service invocation contract review, non-destructive rollup scheduler command dry-run service invocation implementation design, non-destructive rollup scheduler command dry-run service invocation wiring readiness review, non-destructive rollup scheduler command dry-run service invocation fail-closed error model, non-destructive rollup scheduler command dry-run service invocation wiring contract, non-destructive rollup scheduler command dry-run service invocation request mapper design, non-destructive rollup scheduler command dry-run service adapter boundary design, non-destructive rollup scheduler command dry-run service adapter preview output integration, command dry-run runtime service invocation, runtime consistency output, blocked-path runtime tests, non-destructive rollup scheduler command execute contract review, non-destructive command execute readiness review, non-destructive command execute operator output review, non-destructive blocked-by-default command execute wiring preview, selected summary runtime rollup read switching behind explicit flag with raw-summary fallback, and CI/CD.
 
 ---
 
@@ -156,7 +156,7 @@ Analytics retention operator preview flow:
 
 The repository safety flow exists as a backend foundation only. The operator preview command reads candidate counts and builds safety output, but it is not an execute command and is not wired to deleteCandidates, a delete API, a scheduled job, or a quota path.
 
-Rollup tables, retention dry-run, and retention repository primitives are not used by quota counting or existing summary APIs.
+Rollup tables, retention dry-run, and retention repository primitives are not used by quota counting. Summary APIs still default to raw-event summary, while selected bounded consumer usage, API key usage, and rejected summary reads can opt in to rollup read models with `rollupSummaryRuntimeRead=true` and raw-summary fallback.
 
 ---
 
@@ -518,3 +518,45 @@ Rationale:
 - The next architecture step should only wire command execute behind explicit operator confirmation, event-limit guardrail, max-bucket bound, bounded bucket count, source separation, rollback expectation, operator output, and Docker/PostgreSQL runtime validation.
 - Process-local or external scheduler execution should remain blocked until background execution semantics and runtime validation are designed.
 - Delete execution should remain unavailable until command/API semantics, runtime validation, rollback expectations, and operator controls are explicitly designed.
+
+## Selected Summary Runtime Rollup Reads
+
+Sprint 53 adds an explicit runtime-read switch for selected admin summary APIs.
+
+Default behavior remains unchanged:
+
+~~~text
+summary API request
+  -> parsed filters
+  -> raw-event summary repository
+  -> existing summary response shape
+~~~
+
+Opt-in runtime rollup behavior:
+
+~~~text
+summary API request with rollupSummaryRuntimeRead=true
+  -> parsed filters
+  -> runtime read decision
+  -> rollup read query mapper
+  -> analytics rollup read service
+  -> usage or rejected rollup read repository
+  -> read-model adapter
+  -> existing summary response shape
+~~~
+
+Fallback behavior:
+
+~~~text
+unsupported, unbounded, missing, empty, failed, or source-mismatched rollup read
+  -> raw-event summary repository
+  -> existing summary response shape
+~~~
+
+Selected targets:
+
+- `GET /internal/admin/usage/consumers/:consumerId/summary`
+- `GET /internal/admin/usage/api-keys/:apiKeyId/summary`
+- `GET /internal/admin/api-rejections/summary`
+
+The runtime flag does not change quota counting, raw event retention, scheduler/background execution, retention execution, or Admin UI behavior.

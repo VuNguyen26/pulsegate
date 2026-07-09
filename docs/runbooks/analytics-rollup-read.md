@@ -1,4 +1,4 @@
-﻿# Analytics Rollup Read Runbook
+# Analytics Rollup Read Runbook
 
 ## Scope
 
@@ -8,7 +8,7 @@ Endpoint:
 
 - GET /internal/admin/analytics/rollups
 
-The endpoint is intended for internal/admin inspection of analytics rollup tables. It does not replace the existing usage or rejected summary APIs.
+The endpoint is intended for internal/admin inspection of analytics rollup tables. It remains the direct rollup inspection endpoint. Selected usage and rejected summary APIs can also opt in to rollup read-model summaries with `rollupSummaryRuntimeRead=true`, while default summary behavior remains raw-event summary.
 
 ---
 
@@ -152,7 +152,7 @@ Expected result:
 - Run db:migrate:deploy when a local Docker database is missing analytics rollup tables.
 - Empty items are valid when no rollup rows exist yet.
 - The endpoint reads rollup tables only.
-- Existing summary APIs still read raw event tables.
+- Existing summary APIs still default to raw-event summary. Selected bounded consumer usage, API key usage, and rejected summary reads can opt in to rollup read models with `rollupSummaryRuntimeRead=true`; unsupported, unbounded, missing, empty, failed, or source-mismatched rollup reads fall back to raw-event summary.
 - Quota counting still uses gateway.api_usage_events.
 - Do not use this endpoint as proof that retention deletion is safe.
 - Do not delete raw events until a retention safety sprint explicitly implements and validates that behavior.
@@ -168,3 +168,24 @@ Expected result:
 - apps/api-gateway/src/routes/admin-analytics-rollup.route.ts
 - apps/api-gateway/src/app.ts
 - apps/api-gateway/prisma/schema.prisma
+
+## Summary API Runtime Read Opt-In
+
+Sprint 53 adds an opt-in summary runtime-read path that reuses the rollup read repositories.
+
+Selected endpoints:
+
+- `GET /internal/admin/usage/consumers/:consumerId/summary`
+- `GET /internal/admin/usage/api-keys/:apiKeyId/summary`
+- `GET /internal/admin/api-rejections/summary`
+
+Behavior:
+
+- Default summary requests still use raw-event summary repositories.
+- Add `rollupSummaryRuntimeRead=true` to request a rollup read-model summary.
+- Provide bounded `from` and `to` query parameters for the runtime rollup path.
+- Usage summary runtime reads use `gateway.api_usage_rollups`.
+- Rejected summary runtime reads use `gateway.api_rejected_rollups`.
+- Empty, missing, unsupported, unbounded, failed, or source-mismatched rollup reads fall back to raw-event summary.
+- `rollupSummaryPreview=true` remains a separate preview output flag.
+- Quota counting remains raw-event/runtime request based and does not use rollup tables.

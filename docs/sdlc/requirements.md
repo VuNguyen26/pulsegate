@@ -353,7 +353,7 @@ Required safety:
 - Must keep successful usage and rejected/security traffic separate.
 - Must not change quota counting.
 - Must not change usage or rejected event recorders.
-- Must not switch runtime summary APIs to rollup reads until explicitly designed.
+- Runtime summary APIs may use rollup reads only through explicitly designed selected summary runtime-read switching with raw-summary fallback.
 - Must not delete raw events.
 
 Status:
@@ -418,7 +418,7 @@ Required behavior:
 - Reject execute mode.
 - Do not delete raw events.
 - Do not change quota counting.
-- Do not switch summary APIs to rollup reads.
+- Summary API runtime-read switching is controlled separately by rollupSummaryRuntimeRead=true and raw-summary fallback; this scheduler/scheduling scope must not control that switch.
 
 Status:
 
@@ -445,7 +445,7 @@ Required behavior:
 - No operator-facing raw event deletion is exposed by this requirement.
 - No quota counting change.
 - No usage or rejected recorder change.
-- No summary API switch to rollup reads.
+- Summary API runtime-read switching is controlled separately by rollupSummaryRuntimeRead=true and raw-summary fallback; this retention/scheduler scope must not control that switch.
 
 Status:
 
@@ -1257,3 +1257,31 @@ Recommended next:
 - Add Developer Portal later.
 - Add service discovery later.
 - Add Kubernetes/cloud deployment later.
+
+## Selected Summary Runtime Rollup Reads
+
+PulseGate shall allow selected admin summary APIs to opt in to rollup read-model summaries behind an explicit runtime flag.
+
+Endpoints:
+
+- GET /internal/admin/usage/consumers/:consumerId/summary
+- GET /internal/admin/usage/api-keys/:apiKeyId/summary
+- GET /internal/admin/api-rejections/summary
+
+Runtime flag:
+
+- `rollupSummaryRuntimeRead=true`
+
+Requirements:
+
+- Default summary behavior shall remain raw-event summary when the runtime flag is absent or not exactly true.
+- Runtime rollup reads shall require compatible bounded `from` and `to` windows.
+- Consumer usage and API key usage summaries may read from `gateway.api_usage_rollups` when the runtime flag is enabled and compatible rollup rows are available.
+- Rejected summaries may read from `gateway.api_rejected_rollups` when the runtime flag is enabled and compatible rollup rows are available.
+- Existing summary response shapes shall be preserved.
+- Unsupported, unbounded, missing, empty, failed, or source-mismatched rollup reads shall fall back to raw-event summary.
+- `rollupSummaryPreview=true` shall remain preview output only and independent from runtime read switching.
+- Quota counting shall not use rollup tables.
+- Summary APIs shall not persist rollups.
+- Summary APIs shall not delete raw events.
+- Summary runtime-read switching shall not create scheduler/background jobs or retention execution.

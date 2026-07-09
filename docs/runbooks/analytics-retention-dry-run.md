@@ -1,4 +1,4 @@
-﻿# Analytics Retention Dry-Run Runbook
+# Analytics Retention Dry-Run Runbook
 
 ## Purpose
 
@@ -21,7 +21,7 @@ Current behavior:
 - No quota counting changes.
 - No usage recorder changes.
 - No rejected event recorder changes.
-- No summary API switch to rollup reads.
+- No summary API switch is controlled by retention dry-run. Selected summary runtime-read switching is controlled separately by ollupSummaryRuntimeRead=true and raw-summary fallback.
 
 Output includes:
 
