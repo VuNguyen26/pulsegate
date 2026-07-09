@@ -655,8 +655,8 @@ export type AnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview = {
   requiredRuntimeSeams: {
     executeServiceRequestMapper: {
       required: true;
-      currentState: "not-wired";
-      nextStep: "map-source-scoped-runner-requests-to-execute-backfill-run-inputs";
+      currentState: "contract-model-only";
+      nextStep: "add-execute-service-adapter-contract-before-runtime-wiring";
     };
     executeServiceAdapter: {
       required: true;
@@ -691,7 +691,7 @@ export type AnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview = {
     willMutateQuotaCounting: false;
     willDeleteRawEvents: false;
   };
-  nextRequiredAction: "add-command-execute-service-request-mapper-contract-before-runtime-wiring";
+  nextRequiredAction: "add-command-execute-service-adapter-contract-before-runtime-wiring";
 };
 
 export type AnalyticsRollupSchedulerCommandExecuteWiringPreview = {
@@ -1519,8 +1519,8 @@ function createAnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview(
     requiredRuntimeSeams: {
       executeServiceRequestMapper: {
         required: true,
-        currentState: "not-wired",
-        nextStep: "map-source-scoped-runner-requests-to-execute-backfill-run-inputs",
+        currentState: "contract-model-only",
+        nextStep: "add-execute-service-adapter-contract-before-runtime-wiring",
       },
       executeServiceAdapter: {
         required: true,
@@ -1557,7 +1557,7 @@ function createAnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview(
       willDeleteRawEvents: false,
     },
     nextRequiredAction:
-      "add-command-execute-service-request-mapper-contract-before-runtime-wiring",
+      "add-command-execute-service-adapter-contract-before-runtime-wiring",
   };
 }
 

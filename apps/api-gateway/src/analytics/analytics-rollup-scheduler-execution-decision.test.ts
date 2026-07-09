@@ -1506,9 +1506,9 @@ describe("analytics rollup scheduler execution decision", () => {
           requiredRuntimeSeams: {
             executeServiceRequestMapper: {
               required: true,
-              currentState: "not-wired",
+              currentState: "contract-model-only",
               nextStep:
-                "map-source-scoped-runner-requests-to-execute-backfill-run-inputs",
+                "add-execute-service-adapter-contract-before-runtime-wiring",
             },
             executeServiceAdapter: {
               required: true,
@@ -1547,7 +1547,7 @@ describe("analytics rollup scheduler execution decision", () => {
             willDeleteRawEvents: false,
           },
           nextRequiredAction:
-            "add-command-execute-service-request-mapper-contract-before-runtime-wiring",
+            "add-command-execute-service-adapter-contract-before-runtime-wiring",
         },
         commandExecuteRuntimeInvocationBlockerReview: {
           status: "runtime-invocation-blocked",
