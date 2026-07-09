@@ -1,13 +1,17 @@
-import type {
-  FastifyInstance,
-  FastifyReply,
-  FastifyRequest,
-} from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
+import { createPrismaAnalyticsRejectedRollupReadRepository } from "../analytics/analytics-rejected-rollup-read.repository.js";
 import {
-  mapApiKeyUsageSummaryPreviewRequest,
-  mapConsumerUsageSummaryPreviewRequest,
-} from "../analytics/analytics-rollup-summary-preview-request-mapper.js";
+  createAnalyticsRollupReadService,
+  type AnalyticsRollupReadService,
+} from "../analytics/analytics-rollup-read-service.js";
+import { mapApiKeyUsageSummaryPreviewRequest, mapConsumerUsageSummaryPreviewRequest } from "../analytics/analytics-rollup-summary-preview-request-mapper.js";
+import {
+  mapApiKeyUsageSummaryRuntimeReadDecisionRequest,
+  mapConsumerUsageSummaryRuntimeReadDecisionRequest,
+} from "../analytics/analytics-rollup-summary-runtime-read-decision-request-mapper.js";
+import { resolveUsageSummaryWithRollupRuntimeReadService } from "../analytics/analytics-rollup-summary-runtime-read-service.js";
+import { createPrismaAnalyticsUsageRollupReadRepository } from "../analytics/analytics-usage-rollup-read.repository.js";
 import { createPrismaApiConsumerManagementRepository } from "../api-consumers/api-consumer-management.repository.js";
 import type { ApiConsumerManagementRepository } from "../api-consumers/api-consumer-management.types.js";
 import { createPrismaApiKeyManagementRepository } from "../api-keys/api-key-management.repository.js";
@@ -38,6 +42,7 @@ export type AdminApiUsageRouteOptions = {
   usageEventsListingRepository?: ApiUsageEventsListingRepository;
   consumerRepository?: ApiConsumerManagementRepository;
   apiKeyRepository?: ApiKeyManagementRepository;
+  rollupReadService?: AnalyticsRollupReadService;
   adminApiKey?: string;
   adminApiKeyHeader?: string;
 };
@@ -84,6 +89,12 @@ function shouldIncludeRollupSummaryPreview(
   return query.rollupSummaryPreview?.trim().toLowerCase() === "true";
 }
 
+function shouldUseRollupSummaryRuntimeRead(
+  query: AdminApiUsageSummaryQuerystring,
+): boolean {
+  return query.rollupSummaryRuntimeRead?.trim().toLowerCase() === "true";
+}
+
 function sendInvalidQueryParameter(
   reply: FastifyReply,
   request: FastifyRequest,
@@ -98,6 +109,15 @@ function sendInvalidQueryParameter(
   });
 }
 
+function createDefaultRollupReadService(): AnalyticsRollupReadService {
+  return createAnalyticsRollupReadService({
+    usageRollupReadRepository:
+      createPrismaAnalyticsUsageRollupReadRepository(gatewayPrisma),
+    rejectedRollupReadRepository:
+      createPrismaAnalyticsRejectedRollupReadRepository(gatewayPrisma),
+  });
+}
+
 export async function adminApiUsageRoute(
   app: FastifyInstance,
   options: AdminApiUsageRouteOptions = {},
@@ -105,18 +125,17 @@ export async function adminApiUsageRoute(
   const usageSummaryRepository =
     options.usageSummaryRepository ??
     createPrismaApiUsageSummaryRepository(gatewayPrisma);
-
   const usageEventsListingRepository =
     options.usageEventsListingRepository ??
     createPrismaApiUsageEventsListingRepository(gatewayPrisma);
-
   const consumerRepository =
     options.consumerRepository ??
     createPrismaApiConsumerManagementRepository(gatewayPrisma);
-
   const apiKeyRepository =
     options.apiKeyRepository ??
     createPrismaApiKeyManagementRepository(gatewayPrisma);
+  const rollupReadService =
+    options.rollupReadService ?? createDefaultRollupReadService();
 
   const requireAdminApiKey = createAdminApiKeyAuthMiddleware({
     apiKey: options.adminApiKey,
@@ -130,7 +149,6 @@ export async function adminApiUsageRoute(
     },
     async (request, reply) => {
       const parsedQuery = parseApiUsageEventsListingQuery(request.query);
-
       if (!parsedQuery.ok) {
         return sendInvalidQueryParameter(reply, request, parsedQuery.error);
       }
@@ -155,7 +173,6 @@ export async function adminApiUsageRoute(
     },
     async (request, reply) => {
       const parsedQuery = parseApiUsageSummaryQuery(request.query);
-
       if (!parsedQuery.ok) {
         return sendInvalidQueryParameter(reply, request, parsedQuery.error);
       }
@@ -175,10 +192,26 @@ export async function adminApiUsageRoute(
       }
 
       const filters = parsedQuery.value.filters;
-      const summary = await usageSummaryRepository.getConsumerUsageSummary(
+      const rawSummary = await usageSummaryRepository.getConsumerUsageSummary(
         consumer.id,
         filters,
       );
+
+      const summary = shouldUseRollupSummaryRuntimeRead(request.query)
+        ? (
+            await resolveUsageSummaryWithRollupRuntimeReadService({
+              decisionRequest: mapConsumerUsageSummaryRuntimeReadDecisionRequest({
+                filters,
+                rollupRuntimeReadEnabled: true,
+                rollupDataState: "fresh",
+              }),
+              rawSummary,
+              subjectType: "consumer",
+              subjectId: consumer.id,
+              rollupReadService,
+            })
+          ).summary
+        : rawSummary;
 
       const response = {
         data: mapApiUsageSummaryReadModelToResponse(summary),
@@ -209,7 +242,6 @@ export async function adminApiUsageRoute(
     },
     async (request, reply) => {
       const parsedQuery = parseApiUsageSummaryQuery(request.query);
-
       if (!parsedQuery.ok) {
         return sendInvalidQueryParameter(reply, request, parsedQuery.error);
       }
@@ -229,10 +261,26 @@ export async function adminApiUsageRoute(
       }
 
       const filters = parsedQuery.value.filters;
-      const summary = await usageSummaryRepository.getApiKeyUsageSummary(
+      const rawSummary = await usageSummaryRepository.getApiKeyUsageSummary(
         apiKey.id,
         filters,
       );
+
+      const summary = shouldUseRollupSummaryRuntimeRead(request.query)
+        ? (
+            await resolveUsageSummaryWithRollupRuntimeReadService({
+              decisionRequest: mapApiKeyUsageSummaryRuntimeReadDecisionRequest({
+                filters,
+                rollupRuntimeReadEnabled: true,
+                rollupDataState: "fresh",
+              }),
+              rawSummary,
+              subjectType: "apiKey",
+              subjectId: apiKey.id,
+              rollupReadService,
+            })
+          ).summary
+        : rawSummary;
 
       const response = {
         data: mapApiUsageSummaryReadModelToResponse(summary),
