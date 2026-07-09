@@ -1,6 +1,14 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
+import { createPrismaAnalyticsRejectedRollupReadRepository } from "../analytics/analytics-rejected-rollup-read.repository.js";
+import {
+  createAnalyticsRollupReadService,
+  type AnalyticsRollupReadService,
+} from "../analytics/analytics-rollup-read-service.js";
 import { mapRejectedSummaryPreviewRequest } from "../analytics/analytics-rollup-summary-preview-request-mapper.js";
+import { mapRejectedSummaryRuntimeReadDecisionRequest } from "../analytics/analytics-rollup-summary-runtime-read-decision-request-mapper.js";
+import { resolveRejectedSummaryWithRollupRuntimeReadService } from "../analytics/analytics-rollup-summary-runtime-read-service.js";
+import { createPrismaAnalyticsUsageRollupReadRepository } from "../analytics/analytics-usage-rollup-read.repository.js";
 import { createPrismaApiRejectedEventsListingRepository } from "../api-rejections/api-rejected-events-listing.repository.js";
 import {
   parseRejectedEventsListingQuery,
@@ -18,6 +26,7 @@ import { createAdminApiKeyAuthMiddleware } from "../middlewares/admin-api-key-au
 export type AdminApiRejectionRouteOptions = {
   rejectedEventsSummaryRepository?: ApiRejectedEventsSummaryRepository;
   rejectedEventsListingRepository?: ApiRejectedEventsListingRepository;
+  rollupReadService?: AnalyticsRollupReadService;
   adminApiKey?: string;
   adminApiKeyHeader?: string;
 };
@@ -42,6 +51,21 @@ function shouldIncludeRollupSummaryPreview(
   return query.rollupSummaryPreview?.trim().toLowerCase() === "true";
 }
 
+function shouldUseRollupSummaryRuntimeRead(
+  query: AdminApiRejectedEventsQuerystring,
+): boolean {
+  return query.rollupSummaryRuntimeRead?.trim().toLowerCase() === "true";
+}
+
+function createDefaultRollupReadService(): AnalyticsRollupReadService {
+  return createAnalyticsRollupReadService({
+    usageRollupReadRepository:
+      createPrismaAnalyticsUsageRollupReadRepository(gatewayPrisma),
+    rejectedRollupReadRepository:
+      createPrismaAnalyticsRejectedRollupReadRepository(gatewayPrisma),
+  });
+}
+
 export async function adminApiRejectionRoute(
   app: FastifyInstance,
   options: AdminApiRejectionRouteOptions = {},
@@ -49,10 +73,11 @@ export async function adminApiRejectionRoute(
   const rejectedEventsSummaryRepository =
     options.rejectedEventsSummaryRepository ??
     createPrismaApiRejectedEventsSummaryRepository(gatewayPrisma);
-
   const rejectedEventsListingRepository =
     options.rejectedEventsListingRepository ??
     createPrismaApiRejectedEventsListingRepository(gatewayPrisma);
+  const rollupReadService =
+    options.rollupReadService ?? createDefaultRollupReadService();
 
   const requireAdminApiKey = createAdminApiKeyAuthMiddleware({
     apiKey: options.adminApiKey,
@@ -73,9 +98,25 @@ export async function adminApiRejectionRoute(
         return sendBadQueryResponse(request, reply, parsedQuery.error);
       }
 
-      const summary = await rejectedEventsSummaryRepository.getSummary(
-        parsedQuery.value.filters,
+      const filters = parsedQuery.value.filters;
+      const rawSummary = await rejectedEventsSummaryRepository.getSummary(
+        filters,
       );
+
+      const summary = shouldUseRollupSummaryRuntimeRead(request.query)
+        ? (
+            await resolveRejectedSummaryWithRollupRuntimeReadService({
+              decisionRequest: mapRejectedSummaryRuntimeReadDecisionRequest({
+                filters,
+                rollupRuntimeReadEnabled: true,
+                rollupDataState: "fresh",
+              }),
+              rawSummary,
+              filters,
+              rollupReadService,
+            })
+          ).summary
+        : rawSummary;
 
       const response = {
         data: mapApiRejectedEventsSummaryReadModelToResponse(summary),
@@ -85,7 +126,7 @@ export async function adminApiRejectionRoute(
         return {
           ...response,
           rollupSummaryPreview: mapRejectedSummaryPreviewRequest({
-            filters: parsedQuery.value.filters,
+            filters,
             rollupPreviewEnabled: true,
           }).output,
         };
@@ -117,5 +158,3 @@ export async function adminApiRejectionRoute(
     },
   );
 }
-
-
