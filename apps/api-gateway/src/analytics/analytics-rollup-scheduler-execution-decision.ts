@@ -661,11 +661,11 @@ export type AnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview = {
     executeServiceAdapter: {
       required: true;
       currentState: "contract-model-only";
-      nextStep: "add-explicit-command-execute-runtime-gate-before-runtime-wiring";
+      nextStep: "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation";
     };
     explicitRuntimeGate: {
       required: true;
-      currentState: "not-wired";
+      currentState: "contract-model-only";
       nextStep: "add-command-execute-runtime-gate-separate-from-dry-run-gate";
     };
     runtimeBackfillServiceFactory: {
@@ -691,7 +691,74 @@ export type AnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview = {
     willMutateQuotaCounting: false;
     willDeleteRawEvents: false;
   };
-  nextRequiredAction: "add-explicit-command-execute-runtime-gate-before-runtime-wiring";
+  nextRequiredAction: "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation";
+};
+
+export type AnalyticsRollupSchedulerCommandExecuteRuntimeGateReview = {
+  status: "runtime-gate-closed";
+  reviewBoundary: "scheduler-command-execute-runtime-gate";
+  requestedCapability: "command:execute";
+  currentGateState: "contract-model-only";
+  blockedReason:
+    | "scheduler-runner-not-ready"
+    | "backfill-execution-not-wired";
+  gateInputs: {
+    trigger: "command";
+    requestedMode: "execute";
+    runnerPlanStatus: AnalyticsRollupSchedulerRunnerPlan["status"];
+    commandExecuteOperatorConfirmed: boolean;
+    eventLimit: number | null;
+    plannedBackfillRequestCount: number;
+    plannedSources: AnalyticsRollupSchedulerRunnerPlan["sources"];
+  };
+  gateChecks: {
+    commandTrigger: {
+      required: true;
+      satisfied: true;
+    };
+    executeMode: {
+      required: true;
+      satisfied: true;
+    };
+    readyRunnerPlan: {
+      required: true;
+      satisfied: boolean;
+    };
+    explicitOperatorConfirmation: {
+      required: true;
+      satisfied: boolean;
+    };
+    explicitEventLimit: {
+      required: true;
+      satisfied: boolean;
+    };
+    executeServiceRequestMapperContract: {
+      required: true;
+      satisfied: true;
+      currentState: "contract-model-only";
+    };
+    executeServiceAdapterContract: {
+      required: true;
+      satisfied: true;
+      currentState: "contract-model-only";
+    };
+    dockerPostgresRuntimeValidation: {
+      required: true;
+      satisfied: false;
+      currentState: "pending";
+    };
+  };
+  gateDecision: {
+    runtimeInvocationAllowed: false;
+    willInvokeBackfillService: false;
+    willExecuteBackfill: false;
+    willReadEvents: false;
+    willPersistRollups: false;
+    willMutateQuotaCounting: false;
+    willDeleteRawEvents: false;
+    blockedUntil: "explicit-future-runtime-wiring-and-docker-postgres-validation";
+  };
+  nextRequiredAction: "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation";
 };
 
 export type AnalyticsRollupSchedulerCommandExecuteWiringPreview = {
@@ -782,6 +849,7 @@ export type AnalyticsRollupSchedulerExecutionWiringReview = {
   commandExecuteRuntimeInvocationBlockerReview: AnalyticsRollupSchedulerCommandExecuteRuntimeInvocationBlockerReview | null;
   commandExecutePersistenceBarrierReview: AnalyticsRollupSchedulerCommandExecutePersistenceBarrierReview | null;
   commandExecuteRuntimeWiringSeamReview: AnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview | null;
+  commandExecuteRuntimeGateReview: AnalyticsRollupSchedulerCommandExecuteRuntimeGateReview | null;
   commandExecuteWiringPreview?: AnalyticsRollupSchedulerCommandExecuteWiringPreview | null;  dryRunDesignReview: AnalyticsRollupSchedulerCommandDryRunDesignReview;
   automaticTriggersRemainUnwired: true;
   executeRemainsUnwired: true;
@@ -1525,11 +1593,11 @@ function createAnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview(
       executeServiceAdapter: {
         required: true,
         currentState: "contract-model-only",
-        nextStep: "add-explicit-command-execute-runtime-gate-before-runtime-wiring",
+        nextStep: "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation",
       },
       explicitRuntimeGate: {
         required: true,
-        currentState: "not-wired",
+        currentState: "contract-model-only",
         nextStep: "add-command-execute-runtime-gate-separate-from-dry-run-gate",
       },
       runtimeBackfillServiceFactory: {
@@ -1557,7 +1625,91 @@ function createAnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview(
       willDeleteRawEvents: false,
     },
     nextRequiredAction:
-      "add-explicit-command-execute-runtime-gate-before-runtime-wiring",
+      "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation",
+  };
+}
+
+function createAnalyticsRollupSchedulerCommandExecuteRuntimeGateReview(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+  trigger: AnalyticsRollupSchedulerExecutionTrigger,
+  requestedMode: AnalyticsRollupSchedulerExecutionMode,
+  commandExecuteOperatorConfirmed: boolean,
+  commandExecuteEventLimit: number | null,
+): AnalyticsRollupSchedulerCommandExecuteRuntimeGateReview | null {
+  if (trigger !== "command" || requestedMode !== "execute") {
+    return null;
+  }
+
+  const readyRunnerPlan = runnerPlan.status === "ready";
+  const explicitEventLimit = commandExecuteEventLimit !== null;
+
+  return {
+    status: "runtime-gate-closed",
+    reviewBoundary: "scheduler-command-execute-runtime-gate",
+    requestedCapability: "command:execute",
+    currentGateState: "contract-model-only",
+    blockedReason: readyRunnerPlan
+      ? "backfill-execution-not-wired"
+      : "scheduler-runner-not-ready",
+    gateInputs: {
+      trigger: "command",
+      requestedMode: "execute",
+      runnerPlanStatus: runnerPlan.status,
+      commandExecuteOperatorConfirmed,
+      eventLimit: commandExecuteEventLimit,
+      plannedBackfillRequestCount: runnerPlan.backfillRequests.length,
+      plannedSources: runnerPlan.sources,
+    },
+    gateChecks: {
+      commandTrigger: {
+        required: true,
+        satisfied: true,
+      },
+      executeMode: {
+        required: true,
+        satisfied: true,
+      },
+      readyRunnerPlan: {
+        required: true,
+        satisfied: readyRunnerPlan,
+      },
+      explicitOperatorConfirmation: {
+        required: true,
+        satisfied: commandExecuteOperatorConfirmed,
+      },
+      explicitEventLimit: {
+        required: true,
+        satisfied: explicitEventLimit,
+      },
+      executeServiceRequestMapperContract: {
+        required: true,
+        satisfied: true,
+        currentState: "contract-model-only",
+      },
+      executeServiceAdapterContract: {
+        required: true,
+        satisfied: true,
+        currentState: "contract-model-only",
+      },
+      dockerPostgresRuntimeValidation: {
+        required: true,
+        satisfied: false,
+        currentState: "pending",
+      },
+    },
+    gateDecision: {
+      runtimeInvocationAllowed: false,
+      willInvokeBackfillService: false,
+      willExecuteBackfill: false,
+      willReadEvents: false,
+      willPersistRollups: false,
+      willMutateQuotaCounting: false,
+      willDeleteRawEvents: false,
+      blockedUntil:
+        "explicit-future-runtime-wiring-and-docker-postgres-validation",
+    },
+    nextRequiredAction:
+      "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation",
   };
 }
 
@@ -1779,6 +1931,14 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
         runnerPlan,
         trigger,
         requestedMode,
+        commandExecuteEventLimit,
+      ),
+    commandExecuteRuntimeGateReview:
+      createAnalyticsRollupSchedulerCommandExecuteRuntimeGateReview(
+        runnerPlan,
+        trigger,
+        requestedMode,
+        commandExecuteOperatorConfirmed,
         commandExecuteEventLimit,
       ),
     ...(trigger === "command" && requestedMode === "execute"

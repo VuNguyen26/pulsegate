@@ -1425,6 +1425,9 @@ describe("analytics rollup scheduler preview command", () => {
       "service adapter contract is model-only",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "commandExecuteRuntimeGateReview",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "blocked-by-default",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
@@ -3453,11 +3456,11 @@ describe("analytics rollup scheduler preview command", () => {
               required: true,
               currentState: "contract-model-only",
               nextStep:
-                "add-explicit-command-execute-runtime-gate-before-runtime-wiring",
+                "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation",
             },
             explicitRuntimeGate: {
               required: true,
-              currentState: "not-wired",
+              currentState: "contract-model-only",
               nextStep:
                 "add-command-execute-runtime-gate-separate-from-dry-run-gate",
             },
@@ -3487,7 +3490,7 @@ describe("analytics rollup scheduler preview command", () => {
             willDeleteRawEvents: false,
           },
           nextRequiredAction:
-            "add-explicit-command-execute-runtime-gate-before-runtime-wiring",
+            "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation",
         },
         commandExecuteRuntimeInvocationBlockerReview: {
           status: "runtime-invocation-blocked",
@@ -3509,6 +3512,134 @@ describe("analytics rollup scheduler preview command", () => {
         commandExecuteWiringPreview: {
           executeRuntimeCurrentlyAllowed: false,
           backfillExecutionWired: false,
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+it("should expose command execute runtime gate review without invoking runtime execution", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const createRuntimeBackfillService = vi.fn();
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "both",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "execute",
+        "--event-limit",
+        "500",
+        "--confirm-execute",
+        "true",
+      ],
+      {
+        allowDryRunServiceInvocation: true,
+        createRuntimeBackfillService,
+      },
+    );
+
+    expect(createRuntimeBackfillService).not.toHaveBeenCalled();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      wiringReview: {
+        commandExecuteRuntimeGateReview: {
+          status: "runtime-gate-closed",
+          reviewBoundary: "scheduler-command-execute-runtime-gate",
+          requestedCapability: "command:execute",
+          currentGateState: "contract-model-only",
+          blockedReason: "backfill-execution-not-wired",
+          gateInputs: {
+            trigger: "command",
+            requestedMode: "execute",
+            runnerPlanStatus: "ready",
+            commandExecuteOperatorConfirmed: true,
+            eventLimit: 500,
+            plannedBackfillRequestCount: 2,
+            plannedSources: ["usage", "rejected"],
+          },
+          gateChecks: {
+            readyRunnerPlan: {
+              required: true,
+              satisfied: true,
+            },
+            explicitOperatorConfirmation: {
+              required: true,
+              satisfied: true,
+            },
+            explicitEventLimit: {
+              required: true,
+              satisfied: true,
+            },
+            executeServiceRequestMapperContract: {
+              required: true,
+              satisfied: true,
+              currentState: "contract-model-only",
+            },
+            executeServiceAdapterContract: {
+              required: true,
+              satisfied: true,
+              currentState: "contract-model-only",
+            },
+            dockerPostgresRuntimeValidation: {
+              required: true,
+              satisfied: false,
+              currentState: "pending",
+            },
+          },
+          gateDecision: {
+            runtimeInvocationAllowed: false,
+            willInvokeBackfillService: false,
+            willExecuteBackfill: false,
+            willReadEvents: false,
+            willPersistRollups: false,
+            willMutateQuotaCounting: false,
+            willDeleteRawEvents: false,
+          },
+          nextRequiredAction:
+            "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation",
+        },
+        commandExecuteRuntimeWiringSeamReview: {
+          requiredRuntimeSeams: {
+            executeServiceRequestMapper: {
+              currentState: "contract-model-only",
+            },
+            executeServiceAdapter: {
+              currentState: "contract-model-only",
+            },
+            explicitRuntimeGate: {
+              currentState: "contract-model-only",
+            },
+          },
+          nextRequiredAction:
+            "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation",
         },
       },
       safety: {
