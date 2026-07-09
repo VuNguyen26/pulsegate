@@ -170,26 +170,31 @@ async function invokeExecuteServiceAdaptersForCommandExecute(
   options: AnalyticsRollupSchedulerPreviewCommandOptions,
   dependencies: AnalyticsRollupSchedulerPreviewCommandDependencies,
 ): Promise<AnalyticsRollupSchedulerPreviewCommandExecuteInvocationOutput | null> {
-  if (dependencies.allowExecuteServiceInvocation !== true) {
-    return null;
+  if (dependencies.allowExecuteServiceInvocation !== true) return null;
+
+  const mappings = createExecuteServiceMappingsForCommandExecute(runnerPlan, options);
+  if (mappings === null) return null;
+
+  const runtime =
+    dependencies.backfillService === undefined &&
+    dependencies.createRuntimeBackfillService !== undefined
+      ? await dependencies.createRuntimeBackfillService()
+      : null;
+
+  try {
+    const backfillService = dependencies.backfillService ?? runtime?.backfillService;
+    if (backfillService === undefined) return null;
+
+    const executeServiceInvocationResults =
+      await invokeAnalyticsRollupSchedulerBackfillServiceExecuteAdapters(
+        mappings,
+        backfillService,
+      );
+
+    return { executeServiceInvocationResults };
+  } finally {
+    await runtime?.dispose?.();
   }
-
-  const mappings = createExecuteServiceMappingsForCommandExecute(
-    runnerPlan,
-    options,
-  );
-
-  if (mappings === null || dependencies.backfillService === undefined) {
-    return null;
-  }
-
-  const executeServiceInvocationResults =
-    await invokeAnalyticsRollupSchedulerBackfillServiceExecuteAdapters(
-      mappings,
-      dependencies.backfillService,
-    );
-
-  return { executeServiceInvocationResults };
 }
 
 function createDryRunServiceMappingsForCommandDryRun(
@@ -390,6 +395,7 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
       commandExecuteEventLimit: options.dryRunServiceAdapterPreview.eventLimit,
       dryRunServiceAdapterPreviews,
       backfillServiceInvocationWired: dryRunServiceInvocationResults !== null,
+      backfillExecutionWired: executeServiceInvocationResults !== null,
     },
   );
 
@@ -426,6 +432,7 @@ function isDirectRun(): boolean {
 if (isDirectRun()) {
   runAnalyticsRollupSchedulerPreviewCommand(process.argv.slice(2), {
     allowDryRunServiceInvocation: true,
+    allowExecuteServiceInvocation: true,
     createRuntimeBackfillService:
       createRuntimeAnalyticsRollupSchedulerDryRunBackfillService,
   }).catch((error: unknown) => {

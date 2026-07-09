@@ -3767,24 +3767,30 @@ it("should invoke command execute through injected service seam only when explic
       }),
     ]);
     expect(output.executionDecision).toMatchObject({
-      status: "blocked",
-      blockedReason: "backfill-execution-not-wired",
+      status: "execute-ready",
+      blockedReason: null,
+      boundary: {
+        backfillExecutionWired: true,
+      },
       wiringReview: {
         commandExecuteRuntimeGateReview: {
-          status: "runtime-gate-closed",
+          status: "runtime-gate-open",
+          currentGateState: "runtime-execute-wired",
           gateDecision: {
-            runtimeInvocationAllowed: false,
-            willInvokeBackfillService: false,
-            willReadEvents: false,
-            willPersistRollups: false,
+            runtimeInvocationAllowed: true,
+            willInvokeBackfillService: true,
+            willReadEvents: true,
+            willPersistRollups: true,
+            willMutateQuotaCounting: false,
+            willDeleteRawEvents: false,
           },
         },
       },
       safety: {
-        invokesBackfillService: false,
-        executesBackfill: false,
-        readsEvents: false,
-        persistsRollups: false,
+        invokesBackfillService: true,
+        executesBackfill: true,
+        readsEvents: true,
+        persistsRollups: true,
         affectsQuotaCounting: false,
         deletesRawEvents: false,
       },
