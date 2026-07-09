@@ -4,12 +4,16 @@ import type { AnalyticsRollupBackfillService } from "./analytics-rollup-backfill
 import {
   createAnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreviews,
   invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapters,
+  invokeAnalyticsRollupSchedulerBackfillServiceExecuteAdapters,
   type AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult,
   type AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview,
+  type AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationResult,
 } from "./analytics-rollup-scheduler-backfill-service-adapter.js";
 import {
   mapAnalyticsRollupSchedulerRunnerPlanToDryRunServiceInputs,
+  mapAnalyticsRollupSchedulerRunnerPlanToExecuteServiceInputs,
   type AnalyticsRollupSchedulerBackfillServiceDryRunMapping,
+  type AnalyticsRollupSchedulerBackfillServiceExecuteMapping,
 } from "./analytics-rollup-scheduler-backfill-request-mapper.js";
 import { createAnalyticsRollupSchedulePlan } from "./analytics-rollup-schedule-plan.js";
 import {
@@ -48,6 +52,7 @@ export const ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE = [
   "  Command execute service request mapper contract is model-only: it maps source-scoped runner requests to execute run inputs with explicit operator confirmation and event-limit guardrails, but still does not invoke runBackfill, read events, persist rollups, mutate quota, or delete raw events.",
   "  Command execute service adapter contract is model-only: it validates source-scoped execute run inputs and planned runBackfill boundaries, but still does not invoke the service, read events, persist rollups, mutate quota, or delete raw events.",
   "  Command execute runtime gate contract exposes commandExecuteRuntimeGateReview: the gate remains closed by default, records confirmation/event-limit/mapper/adapter checks, and still does not invoke runBackfill, read events, persist rollups, mutate quota, or delete raw events.",
+  "  Command execute injected invocation seam is test-harness-only: it requires an injected backfill service plus explicit dependency opt-in, and direct CLI remains blocked/non-invoking until Docker/PostgreSQL runtime validation.",
   "  Execute contract review scopes future persistence to rollup-tables-only, requires bounded-idempotent-rollup-upsert-or-fail-closed-before-execution rollback expectation, no quota mutation, no raw event deletion, no process-local/external scheduler execution, and no scheduled job creation until explicit wiring.",
   "  --event-limit enables a DB-free command dry-run service adapter preview and, for direct CLI runtime dry-run, gates the backfill service dry-run invocation.",
 ].join("\n");
@@ -63,6 +68,7 @@ export type AnalyticsRollupSchedulerPreviewCommandDependencies = {
     | AnalyticsRollupSchedulerPreviewCommandRuntimeBackfillService
     | Promise<AnalyticsRollupSchedulerPreviewCommandRuntimeBackfillService>;
   allowDryRunServiceInvocation?: boolean;
+  allowExecuteServiceInvocation?: boolean;
 };
 
 export type AnalyticsRollupSchedulerPreviewCommandRuntimeCleanupError = {
@@ -81,6 +87,12 @@ type AnalyticsRollupSchedulerPreviewCommandDryRunInvocationOutput = {
     | null;
   dryRunRuntimeCleanupError: AnalyticsRollupSchedulerPreviewCommandRuntimeCleanupError | null;
   dryRunRuntimeFactoryError: AnalyticsRollupSchedulerPreviewCommandRuntimeFactoryError | null;
+};
+
+type AnalyticsRollupSchedulerPreviewCommandExecuteInvocationOutput = {
+  executeServiceInvocationResults:
+    | AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationResult[]
+    | null;
 };
 
 function createRuntimeCleanupError(
@@ -122,6 +134,62 @@ async function disposeRuntimeBackfillService(
   } catch (error: unknown) {
     return createRuntimeCleanupError(error);
   }
+}
+
+function createExecuteServiceMappingsForCommandExecute(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+  options: AnalyticsRollupSchedulerPreviewCommandOptions,
+): AnalyticsRollupSchedulerBackfillServiceExecuteMapping[] | null {
+  const trigger = options.executionDecision.trigger ?? "command";
+  const requestedMode = options.executionDecision.mode ?? "preview";
+  const eventLimit = options.dryRunServiceAdapterPreview.eventLimit;
+  const commandExecuteOperatorConfirmed =
+    options.executionDecision.commandExecuteOperatorConfirmed === true;
+
+  if (
+    trigger !== "command" ||
+    requestedMode !== "execute" ||
+    runnerPlan.status !== "ready" ||
+    eventLimit === undefined ||
+    commandExecuteOperatorConfirmed !== true
+  ) {
+    return null;
+  }
+
+  return mapAnalyticsRollupSchedulerRunnerPlanToExecuteServiceInputs(
+    runnerPlan,
+    {
+      eventLimit,
+      commandExecuteOperatorConfirmed,
+    },
+  );
+}
+
+async function invokeExecuteServiceAdaptersForCommandExecute(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+  options: AnalyticsRollupSchedulerPreviewCommandOptions,
+  dependencies: AnalyticsRollupSchedulerPreviewCommandDependencies,
+): Promise<AnalyticsRollupSchedulerPreviewCommandExecuteInvocationOutput | null> {
+  if (dependencies.allowExecuteServiceInvocation !== true) {
+    return null;
+  }
+
+  const mappings = createExecuteServiceMappingsForCommandExecute(
+    runnerPlan,
+    options,
+  );
+
+  if (mappings === null || dependencies.backfillService === undefined) {
+    return null;
+  }
+
+  const executeServiceInvocationResults =
+    await invokeAnalyticsRollupSchedulerBackfillServiceExecuteAdapters(
+      mappings,
+      dependencies.backfillService,
+    );
+
+  return { executeServiceInvocationResults };
 }
 
 function createDryRunServiceMappingsForCommandDryRun(
@@ -307,6 +375,14 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
     dryRunServiceInvocationOutput?.dryRunRuntimeCleanupError ?? null;
   const dryRunRuntimeFactoryError =
     dryRunServiceInvocationOutput?.dryRunRuntimeFactoryError ?? null;
+  const executeServiceInvocationOutput =
+    await invokeExecuteServiceAdaptersForCommandExecute(
+      runnerPlan,
+      options,
+      dependencies,
+    );
+  const executeServiceInvocationResults =
+    executeServiceInvocationOutput?.executeServiceInvocationResults ?? null;
   const executionDecision = createAnalyticsRollupSchedulerExecutionDecision(
     runnerPlan,
     {
@@ -317,7 +393,7 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
     },
   );
 
-  const commandOutput =
+  const baseCommandOutput =
     dryRunServiceInvocationResults === null
       ? dryRunRuntimeFactoryError === null
         ? { ...runnerPlan, executionDecision }
@@ -330,6 +406,10 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
             dryRunServiceInvocationResults,
             dryRunRuntimeCleanupError,
           };
+  const commandOutput =
+    executeServiceInvocationResults === null
+      ? baseCommandOutput
+      : { ...baseCommandOutput, executeServiceInvocationResults };
 
   console.log(JSON.stringify(commandOutput, null, 2));
 }

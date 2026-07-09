@@ -1428,6 +1428,9 @@ describe("analytics rollup scheduler preview command", () => {
       "commandExecuteRuntimeGateReview",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "injected invocation seam is test-harness-only",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "blocked-by-default",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
@@ -3649,6 +3652,193 @@ it("should expose command execute runtime gate review without invoking runtime e
         persistsRollups: false,
         affectsQuotaCounting: false,
         deletesRawEvents: false,
+      },
+    });
+  });
+
+it("should invoke command execute through injected service seam only when explicitly enabled", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+
+    const runBackfill = vi.fn<AnalyticsRollupBackfillService["runBackfill"]>(
+      async (runInput) => {
+        const { plan } = runInput;
+        const sourceResults = plan.sources.map((source) => ({
+          source,
+          status: "executed" as const,
+          inputEventCount: 1,
+          aggregateCount: 1,
+          upsertedCount: 1,
+        }));
+
+        return {
+          mode: "execute",
+          source: plan.source,
+          sources: plan.sources,
+          granularity: plan.windowPlan.granularity,
+          requestedFrom: plan.windowPlan.requestedFrom,
+          requestedTo: plan.windowPlan.requestedTo,
+          rebuildFrom: plan.windowPlan.rebuildFrom,
+          rebuildTo: plan.windowPlan.rebuildTo,
+          bucketCount: plan.windowPlan.bucketCount,
+          sourceResults,
+          totalInputEventCount: sourceResults.length,
+          totalAggregateCount: sourceResults.length,
+          totalUpsertedCount: sourceResults.length,
+        };
+      },
+    );
+    const backfillService: AnalyticsRollupBackfillService = { runBackfill };
+    const createRuntimeBackfillService = vi.fn();
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "both",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "execute",
+        "--event-limit",
+        "500",
+        "--confirm-execute",
+        "true",
+      ],
+      {
+        allowExecuteServiceInvocation: true,
+        backfillService,
+        createRuntimeBackfillService,
+      },
+    );
+
+    expect(createRuntimeBackfillService).not.toHaveBeenCalled();
+    expect(runBackfill).toHaveBeenCalledTimes(2);
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.executeServiceInvocationResults).toHaveLength(2);
+    expect(output.executeServiceInvocationResults).toEqual([
+      expect.objectContaining({
+        status: "service-execute-invoked",
+        source: "usage",
+        inputMode: "execute",
+        outputMode: "execute",
+        serviceResult: expect.objectContaining({
+          mode: "execute",
+          source: "usage",
+          sources: ["usage"],
+          totalInputEventCount: 1,
+          totalAggregateCount: 1,
+          totalUpsertedCount: 1,
+        }),
+        safety: expect.objectContaining({
+          invokesBackfillService: true,
+          executesBackfill: true,
+          readsEvents: true,
+          persistsRollups: true,
+          persistenceScope: "rollup-tables-only",
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+          dockerPostgresRuntimeValidationRequired: true,
+        }),
+      }),
+      expect.objectContaining({
+        status: "service-execute-invoked",
+        source: "rejected",
+        inputMode: "execute",
+        outputMode: "execute",
+        serviceResult: expect.objectContaining({
+          mode: "execute",
+          source: "rejected",
+          sources: ["rejected"],
+        }),
+      }),
+    ]);
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      blockedReason: "backfill-execution-not-wired",
+      wiringReview: {
+        commandExecuteRuntimeGateReview: {
+          status: "runtime-gate-closed",
+          gateDecision: {
+            runtimeInvocationAllowed: false,
+            willInvokeBackfillService: false,
+            willReadEvents: false,
+            willPersistRollups: false,
+          },
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should keep command execute non-invoking when injected execute seam is not explicitly enabled", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const backfillService: AnalyticsRollupBackfillService = {
+      runBackfill: vi.fn(async () => {
+        throw new Error("should not be called");
+      }),
+    };
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "both",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "execute",
+        "--event-limit",
+        "500",
+        "--confirm-execute",
+        "true",
+      ],
+      { backfillService },
+    );
+
+    expect(backfillService.runBackfill).not.toHaveBeenCalled();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+    expect(output.executeServiceInvocationResults).toBeUndefined();
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      blockedReason: "backfill-execution-not-wired",
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
       },
     });
   });
