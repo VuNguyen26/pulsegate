@@ -2993,6 +2993,180 @@ describe("analytics rollup scheduler preview command", () => {
       },
     });
   });
+  it("should expose not-ready command execute wiring preview for disabled scheduler output", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const createRuntimeBackfillService = vi.fn();
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "false",
+        "--source",
+        "usage",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--execution-mode",
+        "execute",
+        "--event-limit",
+        "500",
+      ],
+      {
+        allowDryRunServiceInvocation: true,
+        createRuntimeBackfillService,
+      },
+    );
+
+    expect(createRuntimeBackfillService).not.toHaveBeenCalled();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.dryRunRuntimeCleanupError).toBeUndefined();
+    expect(output.dryRunRuntimeFactoryError).toBeUndefined();
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "scheduler-runner-not-ready",
+      backfillRequestCount: 0,
+      boundary: {
+        trigger: "command",
+        requestedMode: "execute",
+        allowedMode: "preview",
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecuteWiringPreview: {
+          status: "execute-wiring-preview-blocked",
+          blockedReason: "scheduler-runner-not-ready",
+          confirmationState: "not-confirmed",
+          plannedBackfillRequestCount: 0,
+          plannedSources: ["usage"],
+          sourceScopedPlannedExecutions: [],
+          executeRuntimeCurrentlyAllowed: false,
+          backfillExecutionWired: false,
+          serviceInvocationCurrentlyAllowed: false,
+          eventReadCurrentlyAllowed: false,
+          rollupPersistenceCurrentlyAllowed: false,
+          quotaCountingChangeAllowed: false,
+          rawEventDeletionAllowed: false,
+        },
+        commandExecuteReadinessReview: {
+          status: "not-ready",
+          reason: "scheduler-runner-not-ready",
+        },
+        commandExecuteContractReview: {
+          status: "review-required-before-execute-wiring",
+        },
+        commandExecuteOperatorOutputReview: {
+          status: "operator-output-review-required-before-execute-wiring",
+          blockedReason: "scheduler-runner-not-ready",
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should keep command execute wiring preview absent for process-local execute output", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const createRuntimeBackfillService = vi.fn();
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "usage",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-trigger",
+        "process-local",
+        "--execution-mode",
+        "execute",
+        "--event-limit",
+        "500",
+      ],
+      {
+        allowDryRunServiceInvocation: true,
+        createRuntimeBackfillService,
+      },
+    );
+
+    expect(createRuntimeBackfillService).not.toHaveBeenCalled();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "automatic-trigger-not-wired",
+      boundary: {
+        trigger: "process-local",
+        requestedMode: "execute",
+        allowedMode: "preview",
+        processLocalExecutionWired: false,
+        externalSchedulerExecutionWired: false,
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      wiringReview: {
+        requestedCapability: "process-local:execute",
+        recommendedNextStep: "keep-automatic-triggers-unwired",
+        commandExecuteReadinessReview: null,
+        commandExecuteContractReview: null,
+        commandExecuteOperatorOutputReview: null,
+        dryRunDesignReview: null,
+        runtimeConsistency: {
+          status: "blocked-or-review-only",
+          requestedCapability: "process-local:execute",
+          backfillServiceInvocationWired: false,
+          serviceInvocationCurrentlyAllowed: false,
+          createsScheduledJob: false,
+          invokesBackfillService: false,
+          executesBackfill: false,
+          readsEvents: false,
+          persistsRollups: false,
+          affectsQuotaCounting: false,
+          deletesRawEvents: false,
+        },
+      },
+      safety: {
+        createsScheduledJob: false,
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+    expect(
+      output.executionDecision.wiringReview.commandExecuteWiringPreview,
+    ).toBeUndefined();
+  });
   it("should not resolve runtime dry-run backfill service factory for execute mode", async () => {
     const consoleLog = vi
       .spyOn(console, "log")

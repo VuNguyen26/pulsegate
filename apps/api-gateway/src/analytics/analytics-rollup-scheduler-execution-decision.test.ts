@@ -1229,6 +1229,130 @@ describe("analytics rollup scheduler execution decision", () => {
       },
     });
   });
+  it("should expose not-ready command execute wiring preview for skipped runner plans", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: false,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "usage",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "execute" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "scheduler-runner-not-ready",
+      backfillRequestCount: 0,
+      boundary: {
+        trigger: "command",
+        requestedMode: "execute",
+        allowedMode: "preview",
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecuteWiringPreview: {
+          status: "execute-wiring-preview-blocked",
+          currentWiringState: "blocked-not-wired",
+          requestedCapability: "command:execute",
+          blockedReason: "scheduler-runner-not-ready",
+          confirmationState: "not-confirmed",
+          plannedBackfillRequestCount: 0,
+          plannedSources: ["usage"],
+          plannedGranularity: "hour",
+          sourceScopedPlannedExecutions: [],
+          safetyFlags: {
+            createsScheduledJob: false,
+            invokesBackfillService: false,
+            executesBackfill: false,
+            readsEvents: false,
+            persistsRollups: false,
+            affectsQuotaCounting: false,
+            deletesRawEvents: false,
+          },
+          executeRuntimeCurrentlyAllowed: false,
+          backfillExecutionWired: false,
+          serviceInvocationCurrentlyAllowed: false,
+          eventReadCurrentlyAllowed: false,
+          rollupPersistenceCurrentlyAllowed: false,
+          quotaCountingChangeAllowed: false,
+          rawEventDeletionAllowed: false,
+          processLocalExecutionAllowed: false,
+          externalSchedulerExecutionAllowed: false,
+          scheduledJobCreationAllowed: false,
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should keep command execute wiring preview command-only for automatic execute triggers", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "usage",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      {
+        trigger: "process-local",
+        mode: "execute",
+      },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "automatic-trigger-not-wired",
+      boundary: {
+        trigger: "process-local",
+        requestedMode: "execute",
+        allowedMode: "preview",
+        processLocalExecutionWired: false,
+        externalSchedulerExecutionWired: false,
+        backfillServiceInvocationWired: false,
+        backfillExecutionWired: false,
+      },
+      wiringReview: {
+        requestedCapability: "process-local:execute",
+        recommendedNextStep: "keep-automatic-triggers-unwired",
+        commandExecuteReadinessReview: null,
+        commandExecuteContractReview: null,
+        commandExecuteOperatorOutputReview: null,
+        dryRunDesignReview: null,
+        automaticTriggersRemainUnwired: true,
+        executeRemainsUnwired: true,
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+    expect(decision.wiringReview.commandExecuteWiringPreview).toBeUndefined();
+  });
   it("should keep automatic dry-run triggers blocked before command dry-run design review", () => {
     const schedulePlan = createAnalyticsRollupSchedulePlan({
       enabled: true,
