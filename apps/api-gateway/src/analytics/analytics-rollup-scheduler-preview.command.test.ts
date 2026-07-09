@@ -1407,6 +1407,9 @@ describe("analytics rollup scheduler preview command", () => {
       "commandExecuteWiringPreview",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "commandExecutePreflightGuardrailReview",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "blocked-by-default",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
@@ -2996,6 +2999,123 @@ describe("analytics rollup scheduler preview command", () => {
       },
     });
   });
+  it("should expose command execute preflight guardrail review without invoking runtime execution", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const createRuntimeBackfillService = vi.fn();
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "both",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "execute",
+        "--event-limit",
+        "500",
+        "--confirm-execute",
+        "true",
+      ],
+      {
+        allowDryRunServiceInvocation: true,
+        createRuntimeBackfillService,
+      },
+    );
+
+    expect(createRuntimeBackfillService).not.toHaveBeenCalled();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecutePreflightGuardrailReview: {
+          status: "preflight-blocked",
+          reviewBoundary: "scheduler-command-execute-preflight-guardrails",
+          requestedCapability: "command:execute",
+          blockedReason: "backfill-execution-not-wired",
+          confirmationState: "confirmed",
+          eventLimitState: "provided",
+          guardrails: {
+            readyRunnerPlan: {
+              required: true,
+              satisfied: true,
+              status: "satisfied",
+            },
+            explicitOperatorConfirmation: {
+              required: true,
+              satisfied: true,
+              status: "satisfied",
+            },
+            explicitEventLimit: {
+              required: true,
+              satisfied: true,
+              status: "satisfied",
+              value: 500,
+            },
+            maxBucketBound: {
+              required: true,
+              satisfied: true,
+              status: "satisfied",
+            },
+            boundedBucketCount: {
+              required: true,
+              satisfied: true,
+              status: "satisfied",
+              bucketCount: 1,
+            },
+            sourceSeparatedExecution: {
+              required: true,
+              satisfied: true,
+              status: "satisfied",
+              plannedSources: ["usage", "rejected"],
+            },
+            priorDryRunRuntimeValidation: {
+              required: true,
+              satisfied: false,
+              status: "missing",
+            },
+          },
+          executeRuntimeCurrentlyAllowed: false,
+          serviceInvocationCurrentlyAllowed: false,
+          eventReadCurrentlyAllowed: false,
+          rollupPersistenceCurrentlyAllowed: false,
+          quotaCountingChangeAllowed: false,
+          rawEventDeletionAllowed: false,
+        },
+        commandExecuteWiringPreview: {
+          confirmationState: "confirmed",
+          executeRuntimeCurrentlyAllowed: false,
+          backfillExecutionWired: false,
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
   it("should expose confirmed command execute wiring preview without invoking runtime execution", async () => {
     const consoleLog = vi
       .spyOn(console, "log")

@@ -41,6 +41,7 @@ export const ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE = [
   "  The dry-run service invocation wiring contract is non-invoking: command-only, dry-run request/response contract, source-scoped result summary, event-limit guardrail, max-bucket bound, no quota mutation, and no raw event deletion until explicit wiring.",
   "  Command execute requests remain blocked and expose commandExecuteContractReview, commandExecuteReadinessReview, commandExecuteOperatorOutputReview, and commandExecuteWiringPreview; execute wiring preview remains operator-visible and blocked-by-default until explicit operator confirmation, ready runner plan, prior dry-run runtime validation, event-limit guardrail, max-bucket bound, bounded bucket count, source-separated execution, operator safety output, and Docker/PostgreSQL runtime validation before future wiring.",
   "  --confirm-execute true records explicit operator confirmation in command execute wiring preview only; it does not wire execute runtime, invoke backfill service, read events, persist rollups, affect quota counting, or delete raw events by itself.",
+  "  Command execute preflight output exposes commandExecutePreflightGuardrailReview so operators can verify ready runner plan, confirmation, event-limit, max-bucket, bounded-bucket, source separation, and prior dry-run validation guardrails before any future execute wiring.",
   "  Execute contract review scopes future persistence to rollup-tables-only, requires bounded-idempotent-rollup-upsert-or-fail-closed-before-execution rollback expectation, no quota mutation, no raw event deletion, no process-local/external scheduler execution, and no scheduled job creation until explicit wiring.",
   "  --event-limit enables a DB-free command dry-run service adapter preview and, for direct CLI runtime dry-run, gates the backfill service dry-run invocation.",
 ].join("\n");
@@ -304,6 +305,7 @@ export async function runAnalyticsRollupSchedulerPreviewCommand(
     runnerPlan,
     {
       ...options.executionDecision,
+      commandExecuteEventLimit: options.dryRunServiceAdapterPreview.eventLimit,
       dryRunServiceAdapterPreviews,
       backfillServiceInvocationWired: dryRunServiceInvocationResults !== null,
     },

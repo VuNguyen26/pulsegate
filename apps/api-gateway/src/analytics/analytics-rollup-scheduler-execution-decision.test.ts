@@ -65,6 +65,7 @@ describe("analytics rollup scheduler execution decision", () => {
         commandExecuteReadinessReview: null,
         commandExecuteContractReview: null,
         commandExecuteOperatorOutputReview: null,
+        commandExecutePreflightGuardrailReview: null,
         dryRunDesignReview: null,
         automaticTriggersRemainUnwired: true,
         executeRemainsUnwired: true,
@@ -961,6 +962,177 @@ describe("analytics rollup scheduler execution decision", () => {
       },
       safety: {
         previewOnly: true,
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should expose command execute preflight guardrail review without enabling runtime execution", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      {
+        mode: "execute",
+        commandExecuteOperatorConfirmed: true,
+        commandExecuteEventLimit: 500,
+      },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      boundary: {
+        requestedMode: "execute",
+        allowedMode: "preview",
+        backfillExecutionWired: false,
+      },
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecutePreflightGuardrailReview: {
+          status: "preflight-blocked",
+          reviewBoundary: "scheduler-command-execute-preflight-guardrails",
+          requestedCapability: "command:execute",
+          blockedReason: "backfill-execution-not-wired",
+          confirmationState: "confirmed",
+          eventLimitState: "provided",
+          guardrails: {
+            readyRunnerPlan: {
+              required: true,
+              satisfied: true,
+              status: "satisfied",
+            },
+            explicitOperatorConfirmation: {
+              required: true,
+              satisfied: true,
+              status: "satisfied",
+            },
+            explicitEventLimit: {
+              required: true,
+              satisfied: true,
+              status: "satisfied",
+              value: 500,
+            },
+            maxBucketBound: {
+              required: true,
+              satisfied: true,
+              status: "satisfied",
+            },
+            boundedBucketCount: {
+              required: true,
+              satisfied: true,
+              status: "satisfied",
+              bucketCount: 1,
+            },
+            sourceSeparatedExecution: {
+              required: true,
+              satisfied: true,
+              status: "satisfied",
+              plannedSources: ["usage", "rejected"],
+            },
+            priorDryRunRuntimeValidation: {
+              required: true,
+              satisfied: false,
+              status: "missing",
+            },
+          },
+          executeRuntimeCurrentlyAllowed: false,
+          serviceInvocationCurrentlyAllowed: false,
+          eventReadCurrentlyAllowed: false,
+          rollupPersistenceCurrentlyAllowed: false,
+          quotaCountingChangeAllowed: false,
+          rawEventDeletionAllowed: false,
+        },
+        commandExecuteWiringPreview: {
+          confirmationState: "confirmed",
+          executeRuntimeCurrentlyAllowed: false,
+          backfillExecutionWired: false,
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should expose missing command execute preflight guardrails for skipped runner plans", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: false,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "usage",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "execute" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "scheduler-runner-not-ready",
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecutePreflightGuardrailReview: {
+          status: "preflight-blocked",
+          blockedReason: "scheduler-runner-not-ready",
+          confirmationState: "not-confirmed",
+          eventLimitState: "missing",
+          guardrails: {
+            readyRunnerPlan: {
+              satisfied: false,
+              status: "missing",
+            },
+            explicitOperatorConfirmation: {
+              satisfied: false,
+              status: "missing",
+            },
+            explicitEventLimit: {
+              satisfied: false,
+              status: "missing",
+              value: null,
+            },
+            boundedBucketCount: {
+              satisfied: false,
+              status: "missing",
+              bucketCount: 0,
+            },
+            priorDryRunRuntimeValidation: {
+              satisfied: false,
+              status: "missing",
+            },
+          },
+          executeRuntimeCurrentlyAllowed: false,
+          serviceInvocationCurrentlyAllowed: false,
+          eventReadCurrentlyAllowed: false,
+          rollupPersistenceCurrentlyAllowed: false,
+          quotaCountingChangeAllowed: false,
+          rawEventDeletionAllowed: false,
+        },
+      },
+      safety: {
         invokesBackfillService: false,
         executesBackfill: false,
         readsEvents: false,

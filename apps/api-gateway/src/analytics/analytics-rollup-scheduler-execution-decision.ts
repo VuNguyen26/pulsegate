@@ -33,6 +33,7 @@ export type AnalyticsRollupSchedulerExecutionDecisionInput = {
     | null;
   backfillServiceInvocationWired?: boolean;
   commandExecuteOperatorConfirmed?: boolean;
+  commandExecuteEventLimit?: number;
 };
 
 export type AnalyticsRollupSchedulerExecutionBoundary = {
@@ -463,6 +464,63 @@ export type AnalyticsRollupSchedulerCommandExecuteOperatorOutputReview = {
   quotaCountingChangeAllowed: false;
   rawEventDeletionAllowed: false;
 };
+export type AnalyticsRollupSchedulerCommandExecutePreflightGuardrailReview = {
+  status: "preflight-blocked";
+  reviewBoundary: "scheduler-command-execute-preflight-guardrails";
+  requestedCapability: "command:execute";
+  blockedReason:
+    | "scheduler-runner-not-ready"
+    | "backfill-execution-not-wired";
+  confirmationState: "not-confirmed" | "confirmed";
+  eventLimitState: "missing" | "provided";
+  guardrails: {
+    readyRunnerPlan: {
+      required: true;
+      satisfied: boolean;
+      status: "missing" | "satisfied";
+    };
+    explicitOperatorConfirmation: {
+      required: true;
+      satisfied: boolean;
+      status: "missing" | "satisfied";
+    };
+    explicitEventLimit: {
+      required: true;
+      satisfied: boolean;
+      status: "missing" | "satisfied";
+      value: number | null;
+    };
+    maxBucketBound: {
+      required: true;
+      satisfied: boolean;
+      status: "missing" | "satisfied";
+    };
+    boundedBucketCount: {
+      required: true;
+      satisfied: boolean;
+      status: "missing" | "satisfied";
+      bucketCount: number;
+    };
+    sourceSeparatedExecution: {
+      required: true;
+      satisfied: boolean;
+      status: "missing" | "satisfied";
+      plannedSources: AnalyticsRollupSchedulerRunnerPlan["sources"];
+    };
+    priorDryRunRuntimeValidation: {
+      required: true;
+      satisfied: false;
+      status: "missing";
+    };
+  };
+  executeRuntimeCurrentlyAllowed: false;
+  serviceInvocationCurrentlyAllowed: false;
+  eventReadCurrentlyAllowed: false;
+  rollupPersistenceCurrentlyAllowed: false;
+  quotaCountingChangeAllowed: false;
+  rawEventDeletionAllowed: false;
+};
+
 export type AnalyticsRollupSchedulerCommandExecuteWiringPreview = {
   status: "execute-wiring-preview-blocked";
   previewBoundary: "scheduler-command-execute-wiring-preview";
@@ -547,6 +605,7 @@ export type AnalyticsRollupSchedulerExecutionWiringReview = {
   commandExecuteReadinessReview: AnalyticsRollupSchedulerCommandExecuteReadinessReview | null;
   commandExecuteContractReview: AnalyticsRollupSchedulerCommandExecuteContractReview | null;
   commandExecuteOperatorOutputReview: AnalyticsRollupSchedulerCommandExecuteOperatorOutputReview | null;
+  commandExecutePreflightGuardrailReview: AnalyticsRollupSchedulerCommandExecutePreflightGuardrailReview | null;
   commandExecuteWiringPreview?: AnalyticsRollupSchedulerCommandExecuteWiringPreview | null;  dryRunDesignReview: AnalyticsRollupSchedulerCommandDryRunDesignReview;
   automaticTriggersRemainUnwired: true;
   executeRemainsUnwired: true;
@@ -1033,6 +1092,88 @@ function createAnalyticsRollupSchedulerCommandExecuteOperatorOutputReview(
     rawEventDeletionAllowed: false,
   };
 }
+function createAnalyticsRollupSchedulerCommandExecutePreflightGuardrailReview(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+  trigger: AnalyticsRollupSchedulerExecutionTrigger,
+  requestedMode: AnalyticsRollupSchedulerExecutionMode,
+  commandExecuteOperatorConfirmed: boolean,
+  commandExecuteEventLimit: number | null,
+): AnalyticsRollupSchedulerCommandExecutePreflightGuardrailReview | null {
+  if (trigger !== "command" || requestedMode !== "execute") {
+    return null;
+  }
+
+  const readyRunnerPlan = runnerPlan.status === "ready";
+  const explicitEventLimitProvided = commandExecuteEventLimit !== null;
+  const boundedBucketCount = readyRunnerPlan && runnerPlan.bucketCount > 0;
+  const maxBucketBound = boundedBucketCount;
+  const sourceSeparatedExecution =
+    readyRunnerPlan &&
+    runnerPlan.backfillRequests.length === runnerPlan.sources.length &&
+    runnerPlan.backfillRequests.every((request) =>
+      runnerPlan.sources.includes(request.source),
+    );
+
+  return {
+    status: "preflight-blocked",
+    reviewBoundary: "scheduler-command-execute-preflight-guardrails",
+    requestedCapability: "command:execute",
+    blockedReason: readyRunnerPlan
+      ? "backfill-execution-not-wired"
+      : "scheduler-runner-not-ready",
+    confirmationState: commandExecuteOperatorConfirmed
+      ? "confirmed"
+      : "not-confirmed",
+    eventLimitState: explicitEventLimitProvided ? "provided" : "missing",
+    guardrails: {
+      readyRunnerPlan: {
+        required: true,
+        satisfied: readyRunnerPlan,
+        status: readyRunnerPlan ? "satisfied" : "missing",
+      },
+      explicitOperatorConfirmation: {
+        required: true,
+        satisfied: commandExecuteOperatorConfirmed,
+        status: commandExecuteOperatorConfirmed ? "satisfied" : "missing",
+      },
+      explicitEventLimit: {
+        required: true,
+        satisfied: explicitEventLimitProvided,
+        status: explicitEventLimitProvided ? "satisfied" : "missing",
+        value: commandExecuteEventLimit,
+      },
+      maxBucketBound: {
+        required: true,
+        satisfied: maxBucketBound,
+        status: maxBucketBound ? "satisfied" : "missing",
+      },
+      boundedBucketCount: {
+        required: true,
+        satisfied: boundedBucketCount,
+        status: boundedBucketCount ? "satisfied" : "missing",
+        bucketCount: runnerPlan.bucketCount,
+      },
+      sourceSeparatedExecution: {
+        required: true,
+        satisfied: sourceSeparatedExecution,
+        status: sourceSeparatedExecution ? "satisfied" : "missing",
+        plannedSources: runnerPlan.sources,
+      },
+      priorDryRunRuntimeValidation: {
+        required: true,
+        satisfied: false,
+        status: "missing",
+      },
+    },
+    executeRuntimeCurrentlyAllowed: false,
+    serviceInvocationCurrentlyAllowed: false,
+    eventReadCurrentlyAllowed: false,
+    rollupPersistenceCurrentlyAllowed: false,
+    quotaCountingChangeAllowed: false,
+    rawEventDeletionAllowed: false,
+  };
+}
+
 function createAnalyticsRollupSchedulerCommandExecuteWiringPreview(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
@@ -1190,6 +1331,7 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
   commandExecuteOperatorConfirmed: boolean,
+  commandExecuteEventLimit: number | null,
   dryRunServiceAdapterPreviews:
     | AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview[]
     | null = null,
@@ -1223,6 +1365,14 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
         runnerPlan,
         trigger,
         requestedMode,
+      ),
+    commandExecutePreflightGuardrailReview:
+      createAnalyticsRollupSchedulerCommandExecutePreflightGuardrailReview(
+        runnerPlan,
+        trigger,
+        requestedMode,
+        commandExecuteOperatorConfirmed,
+        commandExecuteEventLimit,
       ),
     ...(trigger === "command" && requestedMode === "execute"
       ? {
@@ -1279,6 +1429,12 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
     input.commandExecuteOperatorConfirmed === true &&
     trigger === "command" &&
     requestedMode === "execute";
+  const commandExecuteEventLimit =
+    trigger === "command" &&
+    requestedMode === "execute" &&
+    input.commandExecuteEventLimit !== undefined
+      ? input.commandExecuteEventLimit
+      : null;
   const backfillServiceInvocationWired =
     input.backfillServiceInvocationWired === true &&
     runnerPlan.status === "ready" &&
@@ -1334,6 +1490,7 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
       trigger,
       requestedMode,
       commandExecuteOperatorConfirmed,
+      commandExecuteEventLimit,
       dryRunServiceAdapterPreviews,
       backfillServiceInvocationWired,
     ),
