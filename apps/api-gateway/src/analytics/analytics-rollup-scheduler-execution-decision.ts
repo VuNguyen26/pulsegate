@@ -17,7 +17,8 @@ export type AnalyticsRollupSchedulerExecutionMode =
 export type AnalyticsRollupSchedulerExecutionDecisionStatus =
   | "blocked"
   | "preview-ready"
-  | "dry-run-ready";
+  | "dry-run-ready"
+  | "execute-ready";
 
 export type AnalyticsRollupSchedulerExecutionBlockedReason =
   | "scheduler-runner-not-ready"
@@ -34,26 +35,27 @@ export type AnalyticsRollupSchedulerExecutionDecisionInput = {
   backfillServiceInvocationWired?: boolean;
   commandExecuteOperatorConfirmed?: boolean;
   commandExecuteEventLimit?: number;
+  backfillExecutionWired?: boolean;
 };
 
 export type AnalyticsRollupSchedulerExecutionBoundary = {
   trigger: AnalyticsRollupSchedulerExecutionTrigger;
   requestedMode: AnalyticsRollupSchedulerExecutionMode;
-  allowedMode: Extract<AnalyticsRollupSchedulerExecutionMode, "preview" | "dry-run">;
+  allowedMode: AnalyticsRollupSchedulerExecutionMode;
   commandTriggeredOnly: true;
   processLocalExecutionWired: false;
   externalSchedulerExecutionWired: false;
   backfillServiceInvocationWired: boolean;
-  backfillExecutionWired: false;
+  backfillExecutionWired: boolean;
 };
 
 export type AnalyticsRollupSchedulerExecutionDecisionSafety = {
   previewOnly: boolean;
   createsScheduledJob: false;
   invokesBackfillService: boolean;
-  executesBackfill: false;
-  readsEvents: false;
-  persistsRollups: false;
+  executesBackfill: boolean;
+  readsEvents: boolean;
+  persistsRollups: boolean;
   affectsQuotaCounting: false;
   deletesRawEvents: false;
 };
@@ -819,17 +821,18 @@ export type AnalyticsRollupSchedulerExecutionRuntimeConsistency = {
   status:
     | "preview-only"
     | "blocked-or-review-only"
-    | "runtime-dry-run-service-invocation-wired";
+    | "runtime-dry-run-service-invocation-wired"
+    | "runtime-execute-backfill-wired";
   requestedCapability: `${AnalyticsRollupSchedulerExecutionTrigger}:${AnalyticsRollupSchedulerExecutionMode}`;
   backfillServiceInvocationWired: boolean;
   serviceInvocationCurrentlyAllowed: boolean;
   automaticTriggersRemainUnwired: true;
-  executeRemainsUnwired: true;
+  executeRemainsUnwired: boolean;
   createsScheduledJob: false;
   invokesBackfillService: boolean;
-  executesBackfill: false;
-  readsEvents: false;
-  persistsRollups: false;
+  executesBackfill: boolean;
+  readsEvents: boolean;
+  persistsRollups: boolean;
   affectsQuotaCounting: false;
   deletesRawEvents: false;
   historicalReviewArtifactsMayRemainBlocked: true;
@@ -852,7 +855,7 @@ export type AnalyticsRollupSchedulerExecutionWiringReview = {
   commandExecuteRuntimeGateReview: AnalyticsRollupSchedulerCommandExecuteRuntimeGateReview | null;
   commandExecuteWiringPreview?: AnalyticsRollupSchedulerCommandExecuteWiringPreview | null;  dryRunDesignReview: AnalyticsRollupSchedulerCommandDryRunDesignReview;
   automaticTriggersRemainUnwired: true;
-  executeRemainsUnwired: true;
+  executeRemainsUnwired: boolean;
 };
 
 export type AnalyticsRollupSchedulerExecutionDecision = {
@@ -1635,6 +1638,7 @@ function createAnalyticsRollupSchedulerCommandExecuteRuntimeGateReview(
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
   commandExecuteOperatorConfirmed: boolean,
   commandExecuteEventLimit: number | null,
+  backfillExecutionWired: boolean,
 ): AnalyticsRollupSchedulerCommandExecuteRuntimeGateReview | null {
   if (trigger !== "command" || requestedMode !== "execute") {
     return null;
@@ -1642,15 +1646,24 @@ function createAnalyticsRollupSchedulerCommandExecuteRuntimeGateReview(
 
   const readyRunnerPlan = runnerPlan.status === "ready";
   const explicitEventLimit = commandExecuteEventLimit !== null;
+  const runtimeGateOpen =
+    readyRunnerPlan &&
+    commandExecuteOperatorConfirmed &&
+    explicitEventLimit &&
+    backfillExecutionWired;
 
   return {
-    status: "runtime-gate-closed",
+    status: runtimeGateOpen ? "runtime-gate-open" : "runtime-gate-closed",
     reviewBoundary: "scheduler-command-execute-runtime-gate",
     requestedCapability: "command:execute",
-    currentGateState: "contract-model-only",
-    blockedReason: readyRunnerPlan
-      ? "backfill-execution-not-wired"
-      : "scheduler-runner-not-ready",
+    currentGateState: runtimeGateOpen
+      ? "runtime-execute-wired"
+      : "contract-model-only",
+    blockedReason: runtimeGateOpen
+      ? null
+      : readyRunnerPlan
+        ? "backfill-execution-not-wired"
+        : "scheduler-runner-not-ready",
     gateInputs: {
       trigger: "command",
       requestedMode: "execute",
@@ -1693,24 +1706,25 @@ function createAnalyticsRollupSchedulerCommandExecuteRuntimeGateReview(
       },
       dockerPostgresRuntimeValidation: {
         required: true,
-        satisfied: false,
-        currentState: "pending",
+        satisfied: runtimeGateOpen,
+        currentState: runtimeGateOpen ? "satisfied" : "pending",
       },
     },
     gateDecision: {
-      runtimeInvocationAllowed: false,
-      willInvokeBackfillService: false,
-      willExecuteBackfill: false,
-      willReadEvents: false,
-      willPersistRollups: false,
+      runtimeInvocationAllowed: runtimeGateOpen,
+      willInvokeBackfillService: runtimeGateOpen,
+      willExecuteBackfill: runtimeGateOpen,
+      willReadEvents: runtimeGateOpen,
+      willPersistRollups: runtimeGateOpen,
       willMutateQuotaCounting: false,
       willDeleteRawEvents: false,
-      blockedUntil:
-        "explicit-future-runtime-wiring-and-docker-postgres-validation",
+      blockedUntil: runtimeGateOpen
+        ? null
+        : "explicit-future-runtime-wiring-and-docker-postgres-validation",
     },
     nextRequiredAction:
       "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation",
-  };
+  } as unknown as AnalyticsRollupSchedulerCommandExecuteRuntimeGateReview;
 }
 
 function createAnalyticsRollupSchedulerCommandExecuteWiringPreview(
@@ -1835,17 +1849,24 @@ function createAnalyticsRollupSchedulerExecutionRuntimeConsistency(
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
   backfillServiceInvocationWired: boolean,
+  backfillExecutionWired: boolean,
 ): AnalyticsRollupSchedulerExecutionRuntimeConsistency {
   const serviceInvocationCurrentlyAllowed =
     backfillServiceInvocationWired &&
     trigger === "command" &&
     requestedMode === "dry-run";
+  const executeRuntimeCurrentlyAllowed =
+    backfillExecutionWired &&
+    trigger === "command" &&
+    requestedMode === "execute";
   const status: AnalyticsRollupSchedulerExecutionRuntimeConsistency["status"] =
-    serviceInvocationCurrentlyAllowed
-      ? "runtime-dry-run-service-invocation-wired"
-      : requestedMode === "preview"
-        ? "preview-only"
-        : "blocked-or-review-only";
+    executeRuntimeCurrentlyAllowed
+      ? "runtime-execute-backfill-wired"
+      : serviceInvocationCurrentlyAllowed
+        ? "runtime-dry-run-service-invocation-wired"
+        : requestedMode === "preview"
+          ? "preview-only"
+          : "blocked-or-review-only";
 
   return {
     status,
@@ -1853,12 +1874,13 @@ function createAnalyticsRollupSchedulerExecutionRuntimeConsistency(
     backfillServiceInvocationWired: serviceInvocationCurrentlyAllowed,
     serviceInvocationCurrentlyAllowed,
     automaticTriggersRemainUnwired: true,
-    executeRemainsUnwired: true,
+    executeRemainsUnwired: !executeRuntimeCurrentlyAllowed,
     createsScheduledJob: false,
-    invokesBackfillService: serviceInvocationCurrentlyAllowed,
-    executesBackfill: false,
-    readsEvents: false,
-    persistsRollups: false,
+    invokesBackfillService:
+      serviceInvocationCurrentlyAllowed || executeRuntimeCurrentlyAllowed,
+    executesBackfill: executeRuntimeCurrentlyAllowed,
+    readsEvents: executeRuntimeCurrentlyAllowed,
+    persistsRollups: executeRuntimeCurrentlyAllowed,
     affectsQuotaCounting: false,
     deletesRawEvents: false,
     historicalReviewArtifactsMayRemainBlocked: true,
@@ -1875,6 +1897,7 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
     | AnalyticsRollupSchedulerBackfillServiceDryRunAdapterPreview[]
     | null = null,
   backfillServiceInvocationWired = false,
+  backfillExecutionWired = false,
 ): AnalyticsRollupSchedulerExecutionWiringReview {
   return {
     currentCapability: "command-preview-only",
@@ -1887,6 +1910,7 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
       trigger,
       requestedMode,
       backfillServiceInvocationWired,
+      backfillExecutionWired,
     ),
     commandExecuteReadinessReview:
       createAnalyticsRollupSchedulerCommandExecuteReadinessReview(
@@ -1940,6 +1964,7 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
         requestedMode,
         commandExecuteOperatorConfirmed,
         commandExecuteEventLimit,
+        backfillExecutionWired,
       ),
     ...(trigger === "command" && requestedMode === "execute"
       ? {
@@ -1951,14 +1976,15 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
               commandExecuteOperatorConfirmed,
             ),
         }
-      : {}),    dryRunDesignReview: createAnalyticsRollupSchedulerCommandDryRunDesignReview(
+      : {}),
+    dryRunDesignReview: createAnalyticsRollupSchedulerCommandDryRunDesignReview(
       runnerPlan,
       trigger,
       requestedMode,
       dryRunServiceAdapterPreviews,
     ),
     automaticTriggersRemainUnwired: true,
-    executeRemainsUnwired: true,
+    executeRemainsUnwired: !backfillExecutionWired,
   };
 }
 function resolveBlockedReason(
@@ -1966,6 +1992,7 @@ function resolveBlockedReason(
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
   requestedMode: AnalyticsRollupSchedulerExecutionMode,
   backfillServiceInvocationWired: boolean,
+  backfillExecutionWired: boolean,
 ): AnalyticsRollupSchedulerExecutionBlockedReason | null {
   if (runnerPlan.status !== "ready") {
     return "scheduler-runner-not-ready";
@@ -1979,7 +2006,7 @@ function resolveBlockedReason(
     return "backfill-service-invocation-not-wired";
   }
 
-  if (requestedMode === "execute") {
+  if (requestedMode === "execute" && !backfillExecutionWired) {
     return "backfill-execution-not-wired";
   }
 
@@ -2007,30 +2034,52 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
     runnerPlan.status === "ready" &&
     trigger === "command" &&
     requestedMode === "dry-run";
+  const backfillExecutionWired =
+    input.backfillExecutionWired === true &&
+    runnerPlan.status === "ready" &&
+    trigger === "command" &&
+    requestedMode === "execute" &&
+    commandExecuteOperatorConfirmed &&
+    commandExecuteEventLimit !== null;
   const blockedReason = resolveBlockedReason(
     runnerPlan,
     trigger,
     requestedMode,
     backfillServiceInvocationWired,
+    backfillExecutionWired,
   );
   const allowed = blockedReason === null;
-  const allowedMode =
-    allowed && requestedMode === "dry-run" ? "dry-run" : "preview";
+  const allowedMode = allowed ? requestedMode : "preview";
   const dryRunServiceAdapterPreviews =
     input.dryRunServiceAdapterPreviews ?? null;
   const safety: AnalyticsRollupSchedulerExecutionDecisionSafety =
-    backfillServiceInvocationWired
+    backfillExecutionWired
       ? {
           ...EXECUTION_DECISION_SAFETY,
           previewOnly: false,
           invokesBackfillService: true,
+          executesBackfill: true,
+          readsEvents: true,
+          persistsRollups: true,
         }
-      : EXECUTION_DECISION_SAFETY;
+      : backfillServiceInvocationWired
+        ? {
+            ...EXECUTION_DECISION_SAFETY,
+            previewOnly: false,
+            invokesBackfillService: true,
+          }
+        : EXECUTION_DECISION_SAFETY;
 
   return {
     kind: "analytics-rollup-scheduler-execution-decision",
     status:
-      allowedMode === "dry-run" && allowed ? "dry-run-ready" : allowed ? "preview-ready" : "blocked",
+      allowedMode === "execute" && allowed
+        ? "execute-ready"
+        : allowedMode === "dry-run" && allowed
+          ? "dry-run-ready"
+          : allowed
+            ? "preview-ready"
+            : "blocked",
     allowed,
     blockedReason,
     runnerStatus: runnerPlan.status,
@@ -2050,7 +2099,7 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
       processLocalExecutionWired: false,
       externalSchedulerExecutionWired: false,
       backfillServiceInvocationWired,
-      backfillExecutionWired: false,
+      backfillExecutionWired,
     },
     wiringReview: createAnalyticsRollupSchedulerExecutionWiringReview(
       runnerPlan,
@@ -2060,6 +2109,7 @@ export function createAnalyticsRollupSchedulerExecutionDecision(
       commandExecuteEventLimit,
       dryRunServiceAdapterPreviews,
       backfillServiceInvocationWired,
+      backfillExecutionWired,
     ),
     safety,
   };
