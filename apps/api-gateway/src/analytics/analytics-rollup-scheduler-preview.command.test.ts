@@ -1416,6 +1416,9 @@ describe("analytics rollup scheduler preview command", () => {
       "commandExecutePersistenceBarrierReview",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "commandExecuteRuntimeWiringSeamReview",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "blocked-by-default",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
@@ -3367,6 +3370,138 @@ describe("analytics rollup scheduler preview command", () => {
           rollupPersistenceCurrentlyAllowed: false,
           quotaCountingChangeAllowed: false,
           rawEventDeletionAllowed: false,
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should expose command execute runtime wiring seam review without invoking runtime execution", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const createRuntimeBackfillService = vi.fn();
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "both",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "execute",
+        "--event-limit",
+        "500",
+        "--confirm-execute",
+        "true",
+      ],
+      {
+        allowDryRunServiceInvocation: true,
+        createRuntimeBackfillService,
+      },
+    );
+
+    expect(createRuntimeBackfillService).not.toHaveBeenCalled();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecuteRuntimeWiringSeamReview: {
+          status: "runtime-wiring-seam-not-ready",
+          reviewBoundary: "scheduler-command-execute-runtime-wiring-seam",
+          requestedCapability: "command:execute",
+          serviceMethod: "AnalyticsRollupBackfillService.runBackfill",
+          currentRuntimeState: "not-wired",
+          blockedReason: "backfill-execution-not-wired",
+          requiredRuntimeSeams: {
+            executeServiceRequestMapper: {
+              required: true,
+              currentState: "not-wired",
+              nextStep:
+                "map-source-scoped-runner-requests-to-execute-backfill-run-inputs",
+            },
+            executeServiceAdapter: {
+              required: true,
+              currentState: "not-wired",
+              nextStep: "invoke-runBackfill-only-after-all-execute-guardrails-pass",
+            },
+            explicitRuntimeGate: {
+              required: true,
+              currentState: "not-wired",
+              nextStep:
+                "add-command-execute-runtime-gate-separate-from-dry-run-gate",
+            },
+            runtimeBackfillServiceFactory: {
+              required: true,
+              currentState: "dry-run-factory-exists-execute-factory-not-wired",
+              nextStep:
+                "reuse-or-wrap-runtime-backfill-service-factory-with-execute-only-guardrails",
+            },
+            dockerPostgresRuntimeValidation: {
+              required: true,
+              currentState: "pending",
+              nextStep:
+                "validate-execute-runtime-with-docker-postgres-before-release",
+            },
+          },
+          plannedExecuteInvocation: {
+            eventLimit: 500,
+            plannedBackfillRequestCount: 2,
+            plannedSources: ["usage", "rejected"],
+            invocationCardinality: "source-scoped-run-inputs",
+            willInvokeBackfillService: false,
+            willExecuteBackfill: false,
+            willReadEvents: false,
+            willPersistRollups: false,
+            willMutateQuotaCounting: false,
+            willDeleteRawEvents: false,
+          },
+          nextRequiredAction:
+            "add-command-execute-service-request-mapper-contract-before-runtime-wiring",
+        },
+        commandExecuteRuntimeInvocationBlockerReview: {
+          status: "runtime-invocation-blocked",
+          plannedInvocation: {
+            willInvokeBackfillService: false,
+            willExecuteBackfill: false,
+            willReadEvents: false,
+            willPersistRollups: false,
+          },
+        },
+        commandExecutePersistenceBarrierReview: {
+          status: "persistence-barrier-blocked",
+          plannedWriteIntent: {
+            willPersistRollups: false,
+            willMutateQuotaCounting: false,
+            willDeleteRawEvents: false,
+          },
+        },
+        commandExecuteWiringPreview: {
+          executeRuntimeCurrentlyAllowed: false,
+          backfillExecutionWired: false,
         },
       },
       safety: {

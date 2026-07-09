@@ -643,6 +643,57 @@ export type AnalyticsRollupSchedulerCommandExecutePersistenceBarrierReview = {
   };
 };
 
+export type AnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview = {
+  status: "runtime-wiring-seam-not-ready";
+  reviewBoundary: "scheduler-command-execute-runtime-wiring-seam";
+  requestedCapability: "command:execute";
+  serviceMethod: "AnalyticsRollupBackfillService.runBackfill";
+  currentRuntimeState: "not-wired";
+  blockedReason:
+    | "scheduler-runner-not-ready"
+    | "backfill-execution-not-wired";
+  requiredRuntimeSeams: {
+    executeServiceRequestMapper: {
+      required: true;
+      currentState: "not-wired";
+      nextStep: "map-source-scoped-runner-requests-to-execute-backfill-run-inputs";
+    };
+    executeServiceAdapter: {
+      required: true;
+      currentState: "not-wired";
+      nextStep: "invoke-runBackfill-only-after-all-execute-guardrails-pass";
+    };
+    explicitRuntimeGate: {
+      required: true;
+      currentState: "not-wired";
+      nextStep: "add-command-execute-runtime-gate-separate-from-dry-run-gate";
+    };
+    runtimeBackfillServiceFactory: {
+      required: true;
+      currentState: "dry-run-factory-exists-execute-factory-not-wired";
+      nextStep: "reuse-or-wrap-runtime-backfill-service-factory-with-execute-only-guardrails";
+    };
+    dockerPostgresRuntimeValidation: {
+      required: true;
+      currentState: "pending";
+      nextStep: "validate-execute-runtime-with-docker-postgres-before-release";
+    };
+  };
+  plannedExecuteInvocation: {
+    eventLimit: number | null;
+    plannedBackfillRequestCount: number;
+    plannedSources: AnalyticsRollupSchedulerRunnerPlan["sources"];
+    invocationCardinality: "source-scoped-run-inputs";
+    willInvokeBackfillService: false;
+    willExecuteBackfill: false;
+    willReadEvents: false;
+    willPersistRollups: false;
+    willMutateQuotaCounting: false;
+    willDeleteRawEvents: false;
+  };
+  nextRequiredAction: "add-command-execute-service-request-mapper-contract-before-runtime-wiring";
+};
+
 export type AnalyticsRollupSchedulerCommandExecuteWiringPreview = {
   status: "execute-wiring-preview-blocked";
   previewBoundary: "scheduler-command-execute-wiring-preview";
@@ -730,6 +781,7 @@ export type AnalyticsRollupSchedulerExecutionWiringReview = {
   commandExecutePreflightGuardrailReview: AnalyticsRollupSchedulerCommandExecutePreflightGuardrailReview | null;
   commandExecuteRuntimeInvocationBlockerReview: AnalyticsRollupSchedulerCommandExecuteRuntimeInvocationBlockerReview | null;
   commandExecutePersistenceBarrierReview: AnalyticsRollupSchedulerCommandExecutePersistenceBarrierReview | null;
+  commandExecuteRuntimeWiringSeamReview: AnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview | null;
   commandExecuteWiringPreview?: AnalyticsRollupSchedulerCommandExecuteWiringPreview | null;  dryRunDesignReview: AnalyticsRollupSchedulerCommandDryRunDesignReview;
   automaticTriggersRemainUnwired: true;
   executeRemainsUnwired: true;
@@ -1444,6 +1496,71 @@ function createAnalyticsRollupSchedulerCommandExecutePersistenceBarrierReview(
   };
 }
 
+function createAnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+  trigger: AnalyticsRollupSchedulerExecutionTrigger,
+  requestedMode: AnalyticsRollupSchedulerExecutionMode,
+  commandExecuteEventLimit: number | null,
+): AnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview | null {
+  if (trigger !== "command" || requestedMode !== "execute") {
+    return null;
+  }
+
+  return {
+    status: "runtime-wiring-seam-not-ready",
+    reviewBoundary: "scheduler-command-execute-runtime-wiring-seam",
+    requestedCapability: "command:execute",
+    serviceMethod: "AnalyticsRollupBackfillService.runBackfill",
+    currentRuntimeState: "not-wired",
+    blockedReason:
+      runnerPlan.status === "ready"
+        ? "backfill-execution-not-wired"
+        : "scheduler-runner-not-ready",
+    requiredRuntimeSeams: {
+      executeServiceRequestMapper: {
+        required: true,
+        currentState: "not-wired",
+        nextStep: "map-source-scoped-runner-requests-to-execute-backfill-run-inputs",
+      },
+      executeServiceAdapter: {
+        required: true,
+        currentState: "not-wired",
+        nextStep: "invoke-runBackfill-only-after-all-execute-guardrails-pass",
+      },
+      explicitRuntimeGate: {
+        required: true,
+        currentState: "not-wired",
+        nextStep: "add-command-execute-runtime-gate-separate-from-dry-run-gate",
+      },
+      runtimeBackfillServiceFactory: {
+        required: true,
+        currentState: "dry-run-factory-exists-execute-factory-not-wired",
+        nextStep:
+          "reuse-or-wrap-runtime-backfill-service-factory-with-execute-only-guardrails",
+      },
+      dockerPostgresRuntimeValidation: {
+        required: true,
+        currentState: "pending",
+        nextStep: "validate-execute-runtime-with-docker-postgres-before-release",
+      },
+    },
+    plannedExecuteInvocation: {
+      eventLimit: commandExecuteEventLimit,
+      plannedBackfillRequestCount: runnerPlan.backfillRequests.length,
+      plannedSources: runnerPlan.sources,
+      invocationCardinality: "source-scoped-run-inputs",
+      willInvokeBackfillService: false,
+      willExecuteBackfill: false,
+      willReadEvents: false,
+      willPersistRollups: false,
+      willMutateQuotaCounting: false,
+      willDeleteRawEvents: false,
+    },
+    nextRequiredAction:
+      "add-command-execute-service-request-mapper-contract-before-runtime-wiring",
+  };
+}
+
 function createAnalyticsRollupSchedulerCommandExecuteWiringPreview(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
@@ -1656,6 +1773,13 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
         runnerPlan,
         trigger,
         requestedMode,
+      ),
+    commandExecuteRuntimeWiringSeamReview:
+      createAnalyticsRollupSchedulerCommandExecuteRuntimeWiringSeamReview(
+        runnerPlan,
+        trigger,
+        requestedMode,
+        commandExecuteEventLimit,
       ),
     ...(trigger === "command" && requestedMode === "execute"
       ? {

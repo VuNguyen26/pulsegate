@@ -68,6 +68,7 @@ describe("analytics rollup scheduler execution decision", () => {
         commandExecutePreflightGuardrailReview: null,
         commandExecuteRuntimeInvocationBlockerReview: null,
         commandExecutePersistenceBarrierReview: null,
+        commandExecuteRuntimeWiringSeamReview: null,
         dryRunDesignReview: null,
         automaticTriggersRemainUnwired: true,
         executeRemainsUnwired: true,
@@ -1454,6 +1455,169 @@ describe("analytics rollup scheduler execution decision", () => {
             willRunExternalSchedulerExecute: false,
             plannedBackfillRequestCount: 0,
             plannedSources: ["usage"],
+          },
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should expose command execute runtime wiring seam review without wiring runtime", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      {
+        mode: "execute",
+        commandExecuteOperatorConfirmed: true,
+        commandExecuteEventLimit: 500,
+      },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecuteRuntimeWiringSeamReview: {
+          status: "runtime-wiring-seam-not-ready",
+          reviewBoundary: "scheduler-command-execute-runtime-wiring-seam",
+          requestedCapability: "command:execute",
+          serviceMethod: "AnalyticsRollupBackfillService.runBackfill",
+          currentRuntimeState: "not-wired",
+          blockedReason: "backfill-execution-not-wired",
+          requiredRuntimeSeams: {
+            executeServiceRequestMapper: {
+              required: true,
+              currentState: "not-wired",
+              nextStep:
+                "map-source-scoped-runner-requests-to-execute-backfill-run-inputs",
+            },
+            executeServiceAdapter: {
+              required: true,
+              currentState: "not-wired",
+              nextStep: "invoke-runBackfill-only-after-all-execute-guardrails-pass",
+            },
+            explicitRuntimeGate: {
+              required: true,
+              currentState: "not-wired",
+              nextStep:
+                "add-command-execute-runtime-gate-separate-from-dry-run-gate",
+            },
+            runtimeBackfillServiceFactory: {
+              required: true,
+              currentState: "dry-run-factory-exists-execute-factory-not-wired",
+              nextStep:
+                "reuse-or-wrap-runtime-backfill-service-factory-with-execute-only-guardrails",
+            },
+            dockerPostgresRuntimeValidation: {
+              required: true,
+              currentState: "pending",
+              nextStep:
+                "validate-execute-runtime-with-docker-postgres-before-release",
+            },
+          },
+          plannedExecuteInvocation: {
+            eventLimit: 500,
+            plannedBackfillRequestCount: 2,
+            plannedSources: ["usage", "rejected"],
+            invocationCardinality: "source-scoped-run-inputs",
+            willInvokeBackfillService: false,
+            willExecuteBackfill: false,
+            willReadEvents: false,
+            willPersistRollups: false,
+            willMutateQuotaCounting: false,
+            willDeleteRawEvents: false,
+          },
+          nextRequiredAction:
+            "add-command-execute-service-request-mapper-contract-before-runtime-wiring",
+        },
+        commandExecuteRuntimeInvocationBlockerReview: {
+          status: "runtime-invocation-blocked",
+          plannedInvocation: {
+            willInvokeBackfillService: false,
+            willExecuteBackfill: false,
+            willReadEvents: false,
+            willPersistRollups: false,
+          },
+        },
+        commandExecutePersistenceBarrierReview: {
+          status: "persistence-barrier-blocked",
+          plannedWriteIntent: {
+            willPersistRollups: false,
+            willMutateQuotaCounting: false,
+            willDeleteRawEvents: false,
+          },
+        },
+        commandExecuteWiringPreview: {
+          executeRuntimeCurrentlyAllowed: false,
+          backfillExecutionWired: false,
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should expose not-ready command execute runtime wiring seam review without wiring runtime", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: false,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "usage",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "execute" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "scheduler-runner-not-ready",
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecuteRuntimeWiringSeamReview: {
+          status: "runtime-wiring-seam-not-ready",
+          blockedReason: "scheduler-runner-not-ready",
+          serviceMethod: "AnalyticsRollupBackfillService.runBackfill",
+          currentRuntimeState: "not-wired",
+          plannedExecuteInvocation: {
+            eventLimit: null,
+            plannedBackfillRequestCount: 0,
+            plannedSources: ["usage"],
+            invocationCardinality: "source-scoped-run-inputs",
+            willInvokeBackfillService: false,
+            willExecuteBackfill: false,
+            willReadEvents: false,
+            willPersistRollups: false,
+            willMutateQuotaCounting: false,
+            willDeleteRawEvents: false,
           },
         },
       },
