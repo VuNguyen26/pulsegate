@@ -144,6 +144,60 @@ export type AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationResult
   safety: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInvocationSafety;
 };
 
+export type AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationStatus =
+  | "service-execute-invoked"
+  | "failed-closed-service-error";
+
+export type AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationSafety =
+  {
+    adapterOnly: false;
+    adapterCurrentlyAllowed: true;
+    invokesBackfillService: true;
+    executesBackfill: true;
+    readsEvents: true;
+    persistsRollups: true;
+    persistenceScope: "rollup-tables-only";
+    affectsQuotaCounting: false;
+    deletesRawEvents: false;
+    sourceSeparationPreserved: true;
+    eventLimitGuardrailApplied: true;
+    maxBucketGuardrailApplied: true;
+    explicitOperatorConfirmationApplied: true;
+    failClosedServiceErrorsApplied: true;
+    serviceInvocationCurrentlyAllowed: true;
+    executeRuntimeCurrentlyAllowed: true;
+    dockerPostgresRuntimeValidationRequired: true;
+  };
+
+export type AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationError =
+  {
+    name: string;
+    message: string;
+  };
+
+export type AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationResult =
+  {
+    kind: "analytics-rollup-scheduler-backfill-service-execute-adapter-invocation";
+    status: AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationStatus;
+    adapterBoundary: "mapped-backfill-run-input-to-rollup-backfill-service-execute";
+    currentAdapterState: "runtime-execute-invocation";
+    source: AnalyticsRollupSchedulerBackfillServiceExecuteMapping["source"];
+    serviceMethod: "runBackfill";
+    inputMode: "execute";
+    outputMode: "execute";
+    invocationCardinality: "single-mapped-run-input";
+    eventLimit: number;
+    granularity: AnalyticsRollupBackfillRunSummary["granularity"];
+    requestedFrom: Date;
+    requestedTo: Date;
+    rebuildFrom: Date | null;
+    rebuildTo: Date | null;
+    bucketCount: number;
+    serviceResult: AnalyticsRollupBackfillRunSummary | null;
+    error: AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationError | null;
+    safety: AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationSafety;
+  };
+
 const ADAPTER_SAFETY: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterSafety =
   {
     adapterOnly: true,
@@ -175,6 +229,27 @@ const INVOCATION_SAFETY: AnalyticsRollupSchedulerBackfillServiceDryRunAdapterInv
     maxBucketGuardrailApplied: true,
     failClosedServiceErrorsApplied: true,
     serviceInvocationCurrentlyAllowed: true,
+    dockerPostgresRuntimeValidationRequired: true,
+  };
+
+const EXECUTE_INVOCATION_SAFETY: AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationSafety =
+  {
+    adapterOnly: false,
+    adapterCurrentlyAllowed: true,
+    invokesBackfillService: true,
+    executesBackfill: true,
+    readsEvents: true,
+    persistsRollups: true,
+    persistenceScope: "rollup-tables-only",
+    affectsQuotaCounting: false,
+    deletesRawEvents: false,
+    sourceSeparationPreserved: true,
+    eventLimitGuardrailApplied: true,
+    maxBucketGuardrailApplied: true,
+    explicitOperatorConfirmationApplied: true,
+    failClosedServiceErrorsApplied: true,
+    serviceInvocationCurrentlyAllowed: true,
+    executeRuntimeCurrentlyAllowed: true,
     dockerPostgresRuntimeValidationRequired: true,
   };
 
@@ -533,6 +608,128 @@ export async function invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapter
   for (const mapping of mappings) {
     results.push(
       await invokeAnalyticsRollupSchedulerBackfillServiceDryRunAdapter(
+        mapping,
+        backfillService,
+      ),
+    );
+  }
+
+  return results;
+}
+
+function assertExecuteServiceResult(
+  mapping: AnalyticsRollupSchedulerBackfillServiceExecuteMapping,
+  serviceResult: AnalyticsRollupBackfillRunSummary,
+): void {
+  const { plan } = mapping.runInput;
+
+  if (serviceResult.mode !== "execute") {
+    throw new RangeError(
+      "scheduler execute service adapter expected execute service result",
+    );
+  }
+
+  if (serviceResult.source !== plan.source) {
+    throw new RangeError(
+      "scheduler execute service adapter source result mismatch",
+    );
+  }
+
+  if (
+    serviceResult.sources.length !== plan.sources.length ||
+    serviceResult.sources.some((source, index) => source !== plan.sources[index])
+  ) {
+    throw new RangeError(
+      "scheduler execute service adapter source separation mismatch",
+    );
+  }
+
+  const expectedSources = new Set(plan.sources);
+
+  if (
+    serviceResult.sourceResults.some(
+      (sourceResult) => !expectedSources.has(sourceResult.source),
+    )
+  ) {
+    throw new RangeError(
+      "scheduler execute service adapter source result contains unexpected source",
+    );
+  }
+}
+
+function createBaseExecuteInvocationResult(
+  mapping: AnalyticsRollupSchedulerBackfillServiceExecuteMapping,
+): Omit<
+  AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationResult,
+  "status" | "serviceResult" | "error"
+> {
+  const { eventLimit, plan } = mapping.runInput;
+  assertPositiveInteger(eventLimit, "eventLimit");
+
+  return {
+    kind: "analytics-rollup-scheduler-backfill-service-execute-adapter-invocation",
+    adapterBoundary:
+      "mapped-backfill-run-input-to-rollup-backfill-service-execute",
+    currentAdapterState: "runtime-execute-invocation",
+    source: mapping.source,
+    serviceMethod: "runBackfill",
+    inputMode: "execute",
+    outputMode: "execute",
+    invocationCardinality: "single-mapped-run-input",
+    eventLimit,
+    granularity: plan.windowPlan.granularity,
+    requestedFrom: plan.windowPlan.requestedFrom,
+    requestedTo: plan.windowPlan.requestedTo,
+    rebuildFrom: plan.windowPlan.rebuildFrom,
+    rebuildTo: plan.windowPlan.rebuildTo,
+    bucketCount: plan.windowPlan.bucketCount,
+    safety: EXECUTE_INVOCATION_SAFETY,
+  };
+}
+
+export async function invokeAnalyticsRollupSchedulerBackfillServiceExecuteAdapter(
+  mapping: AnalyticsRollupSchedulerBackfillServiceExecuteMapping,
+  backfillService: AnalyticsRollupBackfillService,
+): Promise<AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationResult> {
+  assertMappedExecuteServiceInput(mapping);
+
+  const baseResult = createBaseExecuteInvocationResult(mapping);
+
+  try {
+    const serviceResult = await backfillService.runBackfill(mapping.runInput);
+    assertExecuteServiceResult(mapping, serviceResult);
+
+    return {
+      ...baseResult,
+      status: "service-execute-invoked",
+      serviceResult,
+      error: null,
+    };
+  } catch (error: unknown) {
+    return {
+      ...baseResult,
+      status: "failed-closed-service-error",
+      serviceResult: null,
+      error: createInvocationError(error),
+    };
+  }
+}
+
+export async function invokeAnalyticsRollupSchedulerBackfillServiceExecuteAdapters(
+  mappings: AnalyticsRollupSchedulerBackfillServiceExecuteMapping[],
+  backfillService: AnalyticsRollupBackfillService,
+): Promise<AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationResult[]> {
+  assertUniqueMappedSources(
+    mappings,
+    "scheduler service adapter execute invocation",
+  );
+
+  const results: AnalyticsRollupSchedulerBackfillServiceExecuteAdapterInvocationResult[] =
+    [];
+
+  for (const mapping of mappings) {
+    results.push(
+      await invokeAnalyticsRollupSchedulerBackfillServiceExecuteAdapter(
         mapping,
         backfillService,
       ),
