@@ -1,3 +1,32 @@
+### 2026-07-09 - Analytics retention execute preview hardening remains non-destructive
+
+Decision:
+- Harden retention execute preview output in Sprint 57 without opening destructive retention execution.
+- Expose `executeContractReview.expectations` for candidate recheck, rollback, and audit output expectations.
+- Fail closed when candidate recheck preparation fails and surface `preparedOperationErrors` in service/operator summaries.
+- Keep `executeContractReview.summary.allowed=false`.
+- Do not expose a retention execute command, delete API, scheduled retention delete job, or Admin UI path.
+- Do not call `deleteCandidates` from operator-facing flows.
+- Do not wire Prisma retention delete repository execution into a destructive path.
+- Do not mutate quota counting.
+- Do not delete raw events.
+
+Rationale:
+- Sprint 57 strengthens operator visibility before any future destructive retention execution.
+- Candidate recheck preparation must fail closed so future delete wiring cannot proceed after stale or unavailable candidate counts.
+- Summary/operator output must show rollback/audit/candidate-recheck expectations and preparation failures clearly.
+
+Validation:
+- `npm run test` passed: 133 test files / 961 tests.
+- `npm run typecheck` passed.
+- `npm run build` passed.
+- `git diff --check` passed.
+- Docker/PostgreSQL runtime validation was not required because no new DB runtime path, migration, destructive delete path, quota path, scheduled job, or raw event deletion path was introduced.
+
+Docs:
+- docs/project-context/decisions/2026-07-09-analytics-retention-execute-preview-hardening.md
+- docs/sdlc/sprint-history/sprint-57.md
+
 # Decision Log
 
 ### 2026-07-09 - Analytics retention execute contract review remains review-only

@@ -255,3 +255,28 @@ The operator preview command can show execute review guardrails while remaining 
 - `executeContractReview.safety.affectsQuotaCounting=false`.
 
 The command is still not a retention execute command. It must not be used as a delete path.
+
+## Sprint 57 Operator Expectation and Preparation Error Output
+
+Sprint 57 surfaces retention execute expectation and preparation failure details through operator preview output.
+
+Operator preview output includes:
+
+- `executeContractReview.expectations.candidateRecheckExpectation`
+- `executeContractReview.expectations.rollbackExpectation`
+- `executeContractReview.expectations.auditOutputExpectation`
+- `summary.preparedOperationErrors[]`
+- per-source `summary.sources[].preparedOperationError`
+
+When candidate recheck preparation fails, operator summary output reports the fail-closed preparation error and keeps service preview deletion blocked.
+
+Safety remains unchanged:
+
+- operator preview is not a retention execute command
+- `deleteAllowed=false`
+- `destructiveExecutionPerformed=false`
+- `safety.commandDeletesEvents=false`
+- `safety.deleteRepositoryExecuted=false`
+- no operator-facing `deleteCandidates`
+- no raw event deletion
+- no quota mutation

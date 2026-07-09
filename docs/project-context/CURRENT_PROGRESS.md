@@ -2,12 +2,56 @@
 
 ## Current Version
 
-v0.57.0
+v0.58.0
 
 ## Latest Completed Sprint
 
-Sprint 56 - Retention Execute Contract Review
+Sprint 57 - Retention Execute Preview Hardening/rollback expectation
 
+## Sprint 57 Completion Summary
+
+Sprint 57 completed Retention Execute Preview Hardening/rollback expectation.
+
+Delivered:
+
+- `executeContractReview.expectations` with candidate recheck, rollback, and audit output expectation details.
+- Propagation of expectation details through retention execution preview, service preview, and operator preview.
+- Command usage/output test coverage for expectation visibility.
+- Fail-closed candidate recheck preparation handling.
+- `preparedOperationErrors` in service summary and operator summary output.
+
+Preserved safety boundaries:
+
+- No retention execute command.
+- No delete API.
+- No scheduled retention delete job.
+- No operator-facing `deleteCandidates` call.
+- No destructive Prisma retention delete execution wiring.
+- No raw event deletion.
+- No quota mutation.
+- No Admin UI changes.
+
+Sprint 57 commits:
+
+- `8e066c9 feat(gateway): harden retention execute review expectations`
+- `ec538c5 test(gateway): lock retention execute expectation propagation`
+- `68e9181 test(gateway): document retention execute expectation output`
+- `7fff7eb feat(gateway): fail closed retention recheck preparation`
+- `a89f0b3 feat(gateway): surface retention preparation errors`
+
+Validation before docs finalization:
+
+- `npm run test`: 133 test files / 961 tests passed.
+- `npm run typecheck`: passed.
+- `npm run build`: passed.
+- `git diff --check`: passed.
+- Docker/PostgreSQL runtime validation was not required because Sprint 57 did not add a new DB runtime path, migration, destructive delete path, quota path, scheduled job, or raw event deletion path.
+
+## Next Sprint
+
+Sprint 58 - Minimal Admin/RBAC hardening.
+
+Sprint 58 should remain bounded to Admin/RBAC hardening and should not change retention execution, rollup scheduler runtime, quota counting, raw event deletion, or Admin UI beyond the explicit Sprint 58 scope.
 ## Sprint 56 Completion Summary
 
 Sprint 56 added a review-only analytics retention execute contract boundary.

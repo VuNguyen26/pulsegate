@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.57.0
+v0.58.0
 
 ## Latest Completed Sprint
 
-Sprint 56 - Retention Execute Contract Review
+Sprint 57 - Retention Execute Preview Hardening/rollback expectation
 
 ---
 
@@ -1369,3 +1369,33 @@ Validation:
 - Typecheck passed.
 - Build passed.
 - Docker/PostgreSQL runtime validation was not required because this sprint added contract/model/output/usage/test changes only.
+
+## Sprint 57 - Retention Execute Preview Hardening/rollback expectation
+
+PulseGate shall harden review-only retention execute preview output before any destructive retention execution is introduced.
+
+Acceptance criteria:
+
+- `executeContractReview.expectations` is exposed with `candidateRecheckExpectation`, `rollbackExpectation`, and `auditOutputExpectation`.
+- Retention execution preview, execution service preview, and operator preview preserve the expectation details.
+- Command usage/output tests document expectation visibility for retention execution preview and operator preview.
+- Candidate recheck preparation failures are reported as fail-closed preview output.
+- `preparedOperationErrors` are exposed in service summary output.
+- Operator preview summary output surfaces fail-closed preparation errors.
+- `executeContractReview.summary.allowed` remains false.
+- `executeContractReview.summary.destructiveExecutionAllowed` remains false.
+- No operator-facing command, API, or scheduled job calls `deleteCandidates`.
+- No Prisma retention delete repository destructive execution path is wired.
+- No raw events are deleted.
+- Quota counting remains unchanged.
+- No Admin UI behavior changes.
+
+Validation:
+
+- Unit/integration test suite passes.
+- Typecheck passes.
+- Build passes.
+- Whitespace diff check passes.
+- Docker/PostgreSQL runtime validation is not required unless a new DB runtime path, migration, destructive delete path, quota path, scheduled job, or raw event deletion path is introduced.
+
+Implementation status: Complete in Sprint 57 as non-destructive preview hardening.

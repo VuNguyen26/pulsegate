@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.57.0
+- v0.58.0
 
 Latest completed sprint:
 
-- Sprint 56 - Retention Execute Contract Review
+- Sprint 57 - Retention Execute Preview Hardening/rollback expectation
 
 ---
 
@@ -259,6 +259,9 @@ Analytics retention behavior:
 - Operator preview validates execution arguments before DB-backed candidate reads, so invalid execute-only flags fail fast before touching the candidate repository.
 - Operator preview returns JSON with commandDeletesEvents=false, candidateReadOnly=true, deleteRepositoryExecuted=false, deleteAllowed=false, and destructiveExecutionPerformed=false.
 - Service previews and operator previews do not call deleteCandidates and do not expose raw event deletion.
+- Retention execute review output includes `executeContractReview.expectations` with `candidateRecheckExpectation`, `rollbackExpectation`, and `auditOutputExpectation`.
+- Retention execution service preview fails closed when candidate recheck preparation fails and reports `preparedOperationErrors`.
+- Service summary and operator summary output surface fail-closed preparation errors without running destructive execution.
 - The existing execution preview command remains DB-free and still reports deleteImplementationAvailable=false.
 - No retention execute command is implemented yet.
 
@@ -410,6 +413,63 @@ Final Sprint 55 validation passed:
 - typecheck
 - build
 - Docker/PostgreSQL runtime validation
+
+## Sprint 57 Completion
+
+Sprint 57 completed Retention Execute Preview Hardening/rollback expectation.
+
+Sprint 57 hardened retention execute preview output without opening destructive retention execution.
+
+Completed scope:
+
+- Added explicit `executeContractReview.expectations` output.
+- Added candidate recheck, rollback, and audit output expectation details.
+- Propagated expectation details through execution preview, execution service preview, and operator preview output.
+- Documented expectation visibility in retention execution preview and operator preview command usage/tests.
+- Added fail-closed preparation error handling for candidate recheck preparation.
+- Exposed `preparedOperationErrors` in service summary and operator summary output.
+
+Safety boundaries preserved:
+
+- no retention execute command
+- no retention delete API
+- no scheduled retention delete job
+- no operator-facing `deleteCandidates` call
+- no Prisma retention delete repository destructive execution path
+- no raw event deletion
+- no quota mutation
+- no Admin UI changes
+
+Sprint 57 commits:
+
+- `8e066c9 feat(gateway): harden retention execute review expectations`
+- `ec538c5 test(gateway): lock retention execute expectation propagation`
+- `68e9181 test(gateway): document retention execute expectation output`
+- `7fff7eb feat(gateway): fail closed retention recheck preparation`
+- `a89f0b3 feat(gateway): surface retention preparation errors`
+
+Final Sprint 57 code validation before docs finalization:
+
+- `npm run test` passed: 133 test files / 961 tests.
+- `npm run typecheck` passed.
+- `npm run build` passed.
+- `git diff --check` passed.
+- Docker/PostgreSQL runtime validation was not required because Sprint 57 changed preview/model/output/tests only and did not add a new DB runtime path, migration, destructive retention execution, quota path, scheduled job, or raw event deletion path.
+
+Sprint 57 docs:
+
+- README.md
+- docs/architecture/overview.md
+- docs/sdlc/requirements.md
+- docs/project-context/CURRENT_PROGRESS.md
+- docs/project-context/AI_HANDOFF.md
+- docs/project-context/DECISION_LOG.md
+- docs/project-context/decisions/2026-07-09-analytics-retention-execute-preview-hardening.md
+- docs/runbooks/analytics-retention-dry-run.md
+- docs/runbooks/analytics-retention-execution-preview.md
+- docs/runbooks/analytics-retention-execution-service-preview.md
+- docs/runbooks/analytics-retention-operator-preview.md
+- docs/sdlc/sprint-history/sprint-57.md
 
 ## Sprint 56 Completion
 

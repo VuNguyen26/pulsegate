@@ -21,7 +21,8 @@ Current behavior:
 - No quota counting changes.
 - No usage recorder changes.
 - No rejected event recorder changes.
-- No summary API switch is controlled by retention dry-run. Selected summary runtime-read switching is controlled separately by ollupSummaryRuntimeRead=true and raw-summary fallback.
+- No summary API switch is controlled by retention dry-run. Selected summary runtime-read switching is controlled separately by
+ollupSummaryRuntimeRead=true and raw-summary fallback.
 
 Output includes:
 
@@ -158,3 +159,15 @@ Background scheduler contract/output must not run retention execution and must n
 Sprint 55 does not change this feature path.
 
 The sprint only opens a guarded direct CLI `process-local` + `dry-run` scheduler runtime path for analytics rollup service invocation. It does not add scheduled/background jobs, external scheduler execution, execute mode expansion, quota mutation, raw event deletion, or retention execution.
+
+## Sprint 57 Dry-Run Behavior Note
+
+Sprint 57 does not change retention dry-run behavior.
+
+Retention dry-run remains count/preview oriented and non-destructive:
+
+- no `deleteCandidates`
+- no raw event deletion
+- no quota mutation
+- no retention execute command
+- no scheduled delete job

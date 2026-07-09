@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.57.0
+v0.58.0
 
 ## Current Status
 
-Sprint 56 - Retention Execute Contract Review Complete
+Sprint 57 - Retention Execute Preview Hardening/rollback expectation Complete
 
 Current validation:
 
@@ -603,6 +603,30 @@ Still blocked:
 - retention execution
 - Admin UI expansion
 
+## Sprint 57 Retention Execute Preview Hardening Boundary
+
+Sprint 57 hardens the non-destructive retention execute preview boundary created in Sprint 56.
+
+New output behavior:
+
+- `executeContractReview.expectations.candidateRecheckExpectation`
+- `executeContractReview.expectations.rollbackExpectation`
+- `executeContractReview.expectations.auditOutputExpectation`
+- `preparedOperationErrors` on retention execution service preview summaries
+- per-source `preparedOperationError` output on service/operator summaries
+- fail-closed candidate recheck preparation errors before any future destructive delete path
+
+Safety remains unchanged:
+
+- `executeContractReview.summary.allowed=false`
+- `executeContractReview.summary.destructiveExecutionAllowed=false`
+- service/operator previews do not call `deleteCandidates`
+- Prisma delete repository preparation can be previewed, but destructive delete execution is not wired to an operator command, API, scheduled job, or quota path
+- raw events are not deleted
+- quota counting remains based on raw successful usage events
+- no Admin UI behavior changes
+
+Sprint 57 remains preview hardening only. It does not introduce a retention execute command, delete API, scheduled delete job, runtime retention execution path, quota mutation, or raw event deletion.
 ## Sprint 56 Retention Execute Contract Review Boundary
 
 Sprint 56 adds a review-only retention execute contract boundary.

@@ -127,3 +127,30 @@ Important boundaries:
 - `executeContractReview.safety.runsRetentionExecution=false`.
 
 Candidate recheck can be visible as a ready review guardrail when a repository preparation executor is injected, but that still does not authorize destructive execution.
+
+## Sprint 57 Fail-Closed Preparation Output
+
+Sprint 57 hardens retention execution service preview output.
+
+New service preview summary output:
+
+- `preparedOperationErrors[]`
+- per-source `preparedOperationError`
+
+If candidate recheck preparation fails, the service preview returns fail-closed output instead of allowing delete execution.
+
+The fail-closed preparation error includes:
+
+- `source`
+- `requestedLimit`
+- `message`
+- `failClosedReason=CANDIDATE_RECHECK_PREPARATION_FAILED`
+- `deleteAllowed=false`
+
+The service preview remains non-destructive:
+
+- It does not call `deleteCandidates`.
+- It does not delete raw events.
+- It does not mutate quota counting.
+- It does not expose a retention execute command, delete API, or scheduled delete job.
+- `destructiveExecutionPerformed=false`.

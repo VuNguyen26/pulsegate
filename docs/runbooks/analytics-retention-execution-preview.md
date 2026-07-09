@@ -119,3 +119,24 @@ The review is operator-visible but still non-destructive:
 - `executeContractReview.safety.runsDestructiveExecution=false`
 
 Execute preview remains a preview. It does not delete analytics events and does not call `deleteCandidates`.
+
+## Sprint 57 Execute Expectation Hardening
+
+Sprint 57 extends execution preview output with explicit expectation details:
+
+- `executeContractReview.expectations.candidateRecheckExpectation`
+- `executeContractReview.expectations.rollbackExpectation`
+- `executeContractReview.expectations.auditOutputExpectation`
+
+The output remains review-only:
+
+- `executeContractReview.summary.allowed=false`
+- `executeContractReview.summary.reviewOnly=true`
+- `executeContractReview.summary.destructiveExecutionAllowed=false`
+- `executeContractReview.safety.deleteCandidatesWired=false`
+- `executeContractReview.safety.prismaDeleteRepositoryWiredToOperatorFlow=false`
+- `executeContractReview.safety.deletesRawEvents=false`
+- `executeContractReview.safety.affectsQuotaCounting=false`
+- `executeContractReview.safety.runsDestructiveExecution=false`
+
+The execution preview command still does not delete analytics events and still does not call `deleteCandidates`.
