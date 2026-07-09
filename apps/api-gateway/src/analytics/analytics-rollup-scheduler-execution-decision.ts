@@ -422,6 +422,46 @@ export type AnalyticsRollupSchedulerCommandExecuteContractReview = {
   scheduledJobCreationAllowed: false;
   failureBehavior: "fail-closed-before-execute-invocation";
 };
+export type AnalyticsRollupSchedulerCommandExecuteOperatorOutputReview = {
+  status: "operator-output-review-required-before-execute-wiring";
+  outputBoundary: "scheduler-command-execute-operator-output";
+  currentOutputState: "blocked-review-only";
+  confirmationRequirement: "explicit-operator-confirmation";
+  blockedReason:
+    | "scheduler-runner-not-ready"
+    | "backfill-execution-not-wired";
+  readinessStatus: AnalyticsRollupSchedulerCommandExecuteReadinessReview["status"];
+  contractReviewStatus: AnalyticsRollupSchedulerCommandExecuteContractReview["status"];
+  persistenceScope: AnalyticsRollupSchedulerCommandExecuteContractReview["persistenceScope"];
+  rollbackExpectation: AnalyticsRollupSchedulerCommandExecuteContractReview["rollbackExpectation"];
+  plannedBackfillRequestCount: number;
+  plannedSources: AnalyticsRollupSchedulerRunnerPlan["sources"];
+  sourceScopedPlannedRequests: Array<{
+    source: AnalyticsRollupSchedulerRunnerPlan["backfillRequests"][number]["source"];
+    mode: AnalyticsRollupSchedulerRunnerPlan["backfillRequests"][number]["mode"];
+    bucketCount: AnalyticsRollupSchedulerRunnerPlan["backfillRequests"][number]["bucketCount"];
+    willInvokeBackfillService: false;
+    willReadEvents: false;
+    willPersistRollups: false;
+  }>;
+  includeConfirmationRequirement: true;
+  includeBlockedReason: true;
+  includeReadinessStatus: true;
+  includeContractReviewStatus: true;
+  includePersistenceScope: true;
+  includeRollbackExpectation: true;
+  includeSourceScopedPlannedRequests: true;
+  includeSafetyFlags: true;
+  includeNoQuotaMutationStatement: true;
+  includeNoRawEventDeletionStatement: true;
+  operatorOutputCurrentlyExposed: true;
+  executeRuntimeCurrentlyAllowed: false;
+  serviceInvocationCurrentlyAllowed: false;
+  eventReadCurrentlyAllowed: false;
+  rollupPersistenceCurrentlyAllowed: false;
+  quotaCountingChangeAllowed: false;
+  rawEventDeletionAllowed: false;
+};
 export type AnalyticsRollupSchedulerExecutionRuntimeConsistency = {
   status:
     | "preview-only"
@@ -451,6 +491,7 @@ export type AnalyticsRollupSchedulerExecutionWiringReview = {
   runtimeConsistency: AnalyticsRollupSchedulerExecutionRuntimeConsistency;
   commandExecuteReadinessReview: AnalyticsRollupSchedulerCommandExecuteReadinessReview | null;
   commandExecuteContractReview: AnalyticsRollupSchedulerCommandExecuteContractReview | null;
+  commandExecuteOperatorOutputReview: AnalyticsRollupSchedulerCommandExecuteOperatorOutputReview | null;
   dryRunDesignReview: AnalyticsRollupSchedulerCommandDryRunDesignReview;
   automaticTriggersRemainUnwired: true;
   executeRemainsUnwired: true;
@@ -886,6 +927,57 @@ function createAnalyticsRollupSchedulerCommandExecuteContractReview(
 
   return COMMAND_EXECUTE_CONTRACT_REVIEW;
 }
+function createAnalyticsRollupSchedulerCommandExecuteOperatorOutputReview(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+  trigger: AnalyticsRollupSchedulerExecutionTrigger,
+  requestedMode: AnalyticsRollupSchedulerExecutionMode,
+): AnalyticsRollupSchedulerCommandExecuteOperatorOutputReview | null {
+  if (trigger !== "command" || requestedMode !== "execute") {
+    return null;
+  }
+
+  return {
+    status: "operator-output-review-required-before-execute-wiring",
+    outputBoundary: "scheduler-command-execute-operator-output",
+    currentOutputState: "blocked-review-only",
+    confirmationRequirement: "explicit-operator-confirmation",
+    blockedReason:
+      runnerPlan.status === "ready"
+        ? "backfill-execution-not-wired"
+        : "scheduler-runner-not-ready",
+    readinessStatus: "not-ready",
+    contractReviewStatus: COMMAND_EXECUTE_CONTRACT_REVIEW.status,
+    persistenceScope: COMMAND_EXECUTE_CONTRACT_REVIEW.persistenceScope,
+    rollbackExpectation: COMMAND_EXECUTE_CONTRACT_REVIEW.rollbackExpectation,
+    plannedBackfillRequestCount: runnerPlan.backfillRequests.length,
+    plannedSources: runnerPlan.sources,
+    sourceScopedPlannedRequests: runnerPlan.backfillRequests.map((request) => ({
+      source: request.source,
+      mode: request.mode,
+      bucketCount: request.bucketCount,
+      willInvokeBackfillService: false,
+      willReadEvents: false,
+      willPersistRollups: false,
+    })),
+    includeConfirmationRequirement: true,
+    includeBlockedReason: true,
+    includeReadinessStatus: true,
+    includeContractReviewStatus: true,
+    includePersistenceScope: true,
+    includeRollbackExpectation: true,
+    includeSourceScopedPlannedRequests: true,
+    includeSafetyFlags: true,
+    includeNoQuotaMutationStatement: true,
+    includeNoRawEventDeletionStatement: true,
+    operatorOutputCurrentlyExposed: true,
+    executeRuntimeCurrentlyAllowed: false,
+    serviceInvocationCurrentlyAllowed: false,
+    eventReadCurrentlyAllowed: false,
+    rollupPersistenceCurrentlyAllowed: false,
+    quotaCountingChangeAllowed: false,
+    rawEventDeletionAllowed: false,
+  };
+}
 function createAnalyticsRollupSchedulerCommandDryRunDesignReview(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
@@ -996,6 +1088,12 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
       ),
     commandExecuteContractReview:
       createAnalyticsRollupSchedulerCommandExecuteContractReview(
+        trigger,
+        requestedMode,
+      ),
+    commandExecuteOperatorOutputReview:
+      createAnalyticsRollupSchedulerCommandExecuteOperatorOutputReview(
+        runnerPlan,
         trigger,
         requestedMode,
       ),

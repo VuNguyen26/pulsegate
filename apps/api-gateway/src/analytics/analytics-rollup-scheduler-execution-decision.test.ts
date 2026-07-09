@@ -64,6 +64,7 @@ describe("analytics rollup scheduler execution decision", () => {
         },
         commandExecuteReadinessReview: null,
         commandExecuteContractReview: null,
+        commandExecuteOperatorOutputReview: null,
         dryRunDesignReview: null,
         automaticTriggersRemainUnwired: true,
         executeRemainsUnwired: true,
@@ -137,6 +138,7 @@ describe("analytics rollup scheduler execution decision", () => {
         requiresDockerPostgresValidationBeforeWiring: false,
         commandExecuteReadinessReview: null,
         commandExecuteContractReview: null,
+        commandExecuteOperatorOutputReview: null,
         dryRunDesignReview: null,
         automaticTriggersRemainUnwired: true,
         executeRemainsUnwired: true,
@@ -1019,6 +1021,99 @@ describe("analytics rollup scheduler execution decision", () => {
       },
     });
   });
+
+  it("should expose command execute operator output review without enabling execution", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "execute" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      source: "both",
+      sources: ["usage", "rejected"],
+      backfillRequestCount: 2,
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecuteOperatorOutputReview: {
+          status: "operator-output-review-required-before-execute-wiring",
+          outputBoundary: "scheduler-command-execute-operator-output",
+          currentOutputState: "blocked-review-only",
+          confirmationRequirement: "explicit-operator-confirmation",
+          blockedReason: "backfill-execution-not-wired",
+          readinessStatus: "not-ready",
+          contractReviewStatus: "review-required-before-execute-wiring",
+          persistenceScope: "rollup-tables-only",
+          rollbackExpectation:
+            "bounded-idempotent-rollup-upsert-or-fail-closed-before-execution",
+          plannedBackfillRequestCount: 2,
+          plannedSources: ["usage", "rejected"],
+          sourceScopedPlannedRequests: [
+            {
+              source: "usage",
+              mode: "dry-run",
+              bucketCount: 1,
+              willInvokeBackfillService: false,
+              willReadEvents: false,
+              willPersistRollups: false,
+            },
+            {
+              source: "rejected",
+              mode: "dry-run",
+              bucketCount: 1,
+              willInvokeBackfillService: false,
+              willReadEvents: false,
+              willPersistRollups: false,
+            },
+          ],
+          includeConfirmationRequirement: true,
+          includeBlockedReason: true,
+          includeReadinessStatus: true,
+          includeContractReviewStatus: true,
+          includePersistenceScope: true,
+          includeRollbackExpectation: true,
+          includeSourceScopedPlannedRequests: true,
+          includeSafetyFlags: true,
+          includeNoQuotaMutationStatement: true,
+          includeNoRawEventDeletionStatement: true,
+          operatorOutputCurrentlyExposed: true,
+          executeRuntimeCurrentlyAllowed: false,
+          serviceInvocationCurrentlyAllowed: false,
+          eventReadCurrentlyAllowed: false,
+          rollupPersistenceCurrentlyAllowed: false,
+          quotaCountingChangeAllowed: false,
+          rawEventDeletionAllowed: false,
+        },
+        commandExecuteReadinessReview: {
+          status: "not-ready",
+        },
+        commandExecuteContractReview: {
+          status: "review-required-before-execute-wiring",
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
   it("should keep automatic dry-run triggers blocked before command dry-run design review", () => {
     const schedulePlan = createAnalyticsRollupSchedulePlan({
       enabled: true,
@@ -1054,6 +1149,7 @@ describe("analytics rollup scheduler execution decision", () => {
         requiresDockerPostgresValidationBeforeWiring: true,
         commandExecuteReadinessReview: null,
         commandExecuteContractReview: null,
+        commandExecuteOperatorOutputReview: null,
         dryRunDesignReview: null,
         automaticTriggersRemainUnwired: true,
         executeRemainsUnwired: true,
