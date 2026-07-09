@@ -38,7 +38,7 @@ export const ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE = [
   "  npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --execution-mode dry-run --event-limit 500",
   "",
   "Safety:",
-  "  Background scheduler output is exposed as backgroundScheduler in command JSON; backgroundScheduler.runtimeGate is operator-visible guardrail data, remains blocked-by-default, does not resolve a runtime service factory, does not start scheduled jobs, and does not open process-local/external scheduler runtime execution.",
+  "  Background scheduler output is exposed as backgroundScheduler in command JSON; backgroundScheduler.runtimeGate is operator-visible guardrail data, remains blocked-by-default unless direct CLI process-local dry-run guardrails opt in, does not start scheduled jobs, does not open external scheduler runtime execution, and never opens background execute.",
   "  Preview only mode is non-invoking, prints an execution boundary decision, and does not invoke backfill service. Direct CLI command dry-run with --event-limit may invoke the backfill service in dry-run mode only; Does not create scheduled jobs, execute backfill, read events, persist rollups, affect quota counting, or delete raw events.",
   "  Command dry-run requests currently remain blocked unless runtime dry-run service invocation is explicitly wired; blocked review output exposes dryRunDesignReview, dryRunInvocationReadiness, dryRunInvocationDesignReview, dryRunServiceInvocationContractReview, dryRunServiceInvocationImplementationDesign, dryRunServiceInvocationWiringReadinessReview, dryRunServiceInvocationFailClosedErrorModel, dryRunServiceInvocationWiringContract, dryRunServiceInvocationRequestMapperDesign, dryRunServiceAdapterBoundaryDesign, dryRunServiceAdapterPreviews, and dryRunInvocationContract only. Runtime dry-run output also exposes dryRunServiceInvocationResults.",
   "  The dry-run invocation contract remains review-only for automatic triggers and execute mode; direct CLI command dry-run is command-triggered, dry-run-only, per-source, event-limit and max-bucket guarded.",
@@ -611,6 +611,7 @@ if (isDirectRun()) {
   runAnalyticsRollupSchedulerPreviewCommand(process.argv.slice(2), {
     allowDryRunServiceInvocation: true,
     allowExecuteServiceInvocation: true,
+    allowProcessLocalDryRunRuntimeInvocation: true,
     createRuntimeBackfillService:
       createRuntimeAnalyticsRollupSchedulerDryRunBackfillService,
   }).catch((error: unknown) => {

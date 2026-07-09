@@ -334,13 +334,16 @@ describe("analytics rollup scheduler preview background output", () => {
       "blocked-by-default",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
-      "does not resolve a runtime service factory",
+      "unless direct CLI process-local dry-run guardrails opt in",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "does not start scheduled jobs",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
-      "does not open process-local/external scheduler runtime execution",
+      "does not open external scheduler runtime execution",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "never opens background execute",
     );
   });
 });

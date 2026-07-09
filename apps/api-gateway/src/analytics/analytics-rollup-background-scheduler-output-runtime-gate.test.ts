@@ -117,6 +117,22 @@ describe("analytics rollup background scheduler output runtime gate", () => {
       ...nonDestructiveSafety,
       invokesBackfillService: true,
     });
+    expect(output.safety).toEqual({
+      ...nonDestructiveSafety,
+      invokesBackfillService: true,
+    });
+    expect(output.review).toMatchObject({
+      backgroundRuntimeStillClosed: false,
+      processLocalExecutionStillClosed: false,
+      externalSchedulerExecutionStillClosed: true,
+      previewOnlyWhenReady: false,
+    });
+    expect(output.operatorNotes.join("\n")).toContain(
+      "Process-local dry-run runtime was explicitly opened by direct CLI guardrails.",
+    );
+    expect(output.operatorNotes.join("\n")).toContain(
+      "External scheduler runtime execution and all background execute paths remain blocked.",
+    );
   });
 
   it("exposes external scheduler execute gate as runtime blocked", () => {

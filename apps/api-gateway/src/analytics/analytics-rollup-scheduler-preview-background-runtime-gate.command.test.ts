@@ -204,6 +204,21 @@ describe("analytics rollup scheduler preview background runtime gate command out
       backgroundRuntimeInvocationAllowed: true,
       directCommandRuntimePreserved: false,
     });
+    expect(output.backgroundScheduler.safety).toMatchObject({
+      invokesBackfillService: true,
+      executesBackfill: false,
+      readsEvents: false,
+      persistsRollups: false,
+      affectsQuotaCounting: false,
+      deletesRawEvents: false,
+      runsRetentionExecution: false,
+    });
+    expect(output.backgroundScheduler.review).toMatchObject({
+      backgroundRuntimeStillClosed: false,
+      processLocalExecutionStillClosed: false,
+      externalSchedulerExecutionStillClosed: true,
+      previewOnlyWhenReady: false,
+    });
     expect(output.backgroundScheduler.runtimeGate.summary).toMatchObject({
       status: "process-local-dry-run-runtime-ready",
       runnerStatus: "background-process-local-dry-run-runtime-ready",
@@ -232,6 +247,79 @@ describe("analytics rollup scheduler preview background runtime gate command out
     expect(output.dryRunRuntimeFactoryError).toBeUndefined();
     expect(output.executeServiceInvocationResults).toBeUndefined();
   });
+  it("resolves runtime factory for process-local dry-run only after explicit opt-in", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const dispose = vi.fn(async () => undefined);
+    const backfillService = {
+      runBackfill: vi.fn(async (runInput) => {
+        const sourceResults = runInput.plan.sources.map(
+          (source: "usage" | "rejected") => ({
+            source,
+            status: "planned" as const,
+            inputEventCount: 0,
+            aggregateCount: 0,
+            upsertedCount: 0,
+          }),
+        );
+
+        return {
+          mode: "dry-run" as const,
+          source: runInput.plan.source,
+          sources: runInput.plan.sources,
+          granularity: runInput.plan.windowPlan.granularity,
+          requestedFrom: runInput.plan.windowPlan.requestedFrom,
+          requestedTo: runInput.plan.windowPlan.requestedTo,
+          rebuildFrom: runInput.plan.windowPlan.rebuildFrom,
+          rebuildTo: runInput.plan.windowPlan.rebuildTo,
+          bucketCount: runInput.plan.windowPlan.bucketCount,
+          sourceResults,
+          totalInputEventCount: 0,
+          totalAggregateCount: 0,
+          totalUpsertedCount: 0,
+        };
+      }),
+    };
+    const createRuntimeBackfillService = vi.fn(async () => ({
+      backfillService,
+      dispose,
+    }));
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        ...baseArgs,
+        "--execution-trigger",
+        "process-local",
+        "--execution-mode",
+        "dry-run",
+        "--event-limit",
+        "500",
+      ],
+      {
+        createRuntimeBackfillService,
+        allowProcessLocalDryRunRuntimeInvocation: true,
+      },
+    );
+
+    const output = readPrintedOutput(consoleLog);
+
+    expect(createRuntimeBackfillService).toHaveBeenCalledTimes(1);
+    expect(backfillService.runBackfill).toHaveBeenCalledTimes(2);
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(output.backgroundScheduler.summary).toMatchObject({
+      status: "background-runtime-ready",
+      runnerStatus: "background-process-local-dry-run-runtime-ready",
+      blockedReason: null,
+      ready: true,
+      backgroundRuntimeInvocationAllowed: true,
+    });
+    expect(
+      output.backgroundScheduler.processLocalDryRunServiceInvocationResults,
+    ).toHaveLength(2);
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.executeServiceInvocationResults).toBeUndefined();
+  });
   it("documents backgroundScheduler runtimeGate in CLI usage text", () => {
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "backgroundScheduler.runtimeGate",
@@ -240,10 +328,10 @@ describe("analytics rollup scheduler preview background runtime gate command out
       "blocked-by-default",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
-      "does not resolve a runtime service factory",
+      "unless direct CLI process-local dry-run guardrails opt in",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
-      "does not open process-local/external scheduler runtime execution",
+      "does not open external scheduler runtime execution",
     );
   });
 });

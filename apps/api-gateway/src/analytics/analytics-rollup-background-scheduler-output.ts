@@ -82,6 +82,42 @@ export function buildAnalyticsRollupBackgroundSchedulerOutput(
   const outputStatus = mapOutputStatus(plan, runtimeGate);
   const backgroundRuntimeReady =
     runtimeGate.summary.status === "process-local-dry-run-runtime-ready";
+  const outputSafety = backgroundRuntimeReady ? runtimeGate.safety : plan.safety;
+  const outputReview = backgroundRuntimeReady
+    ? {
+        separatesCommandFromBackgroundSemantics:
+          runtimeGate.review.separatesCommandFromBackgroundSemantics,
+        preservesDirectCommandDryRunAndExecute:
+          runtimeGate.review.preservesDirectCommandDryRunAndExecute,
+        backgroundRuntimeStillClosed:
+          runtimeGate.review.backgroundRuntimeStillClosed,
+        processLocalExecutionStillClosed:
+          runtimeGate.review.processLocalRuntimeStillClosed,
+        externalSchedulerExecutionStillClosed:
+          runtimeGate.review.externalSchedulerRuntimeStillClosed,
+        previewOnlyWhenReady: false,
+      }
+    : {
+        separatesCommandFromBackgroundSemantics: true,
+        preservesDirectCommandDryRunAndExecute: true,
+        backgroundRuntimeStillClosed: true,
+        processLocalExecutionStillClosed: true,
+        externalSchedulerExecutionStillClosed: true,
+        previewOnlyWhenReady: true,
+      };
+  const outputOperatorNotes = backgroundRuntimeReady
+    ? [
+        "Process-local dry-run runtime was explicitly opened by direct CLI guardrails.",
+        "Process-local dry-run may invoke the backfill service in dry-run mode only; it must not execute backfill, read events, persist rollups, affect quota counting, delete raw events, or run retention execution.",
+        "Background scheduler output does not start a scheduled job.",
+        "External scheduler runtime execution and all background execute paths remain blocked.",
+      ]
+    : [
+        ...plan.operatorNotes,
+        ...runtimeGate.operatorNotes,
+        "Background scheduler output is operator-visible contract data only; it does not start a scheduled job.",
+        "Background scheduler runtime gate is exposed for operator review and remains blocked-by-default.",
+      ];
 
   return {
     summary: {
@@ -99,30 +135,8 @@ export function buildAnalyticsRollupBackgroundSchedulerOutput(
     },
     previewPlan: plan.previewPlan,
     runtimeGate,
-    safety: plan.safety,
-    review: {
-      separatesCommandFromBackgroundSemantics: true,
-      preservesDirectCommandDryRunAndExecute:
-        request.trigger === 'command'
-          ? plan.contract.directCommandRuntimePreserved
-          : true,
-      backgroundRuntimeStillClosed: !plan.contract.backgroundRuntimeInvocationAllowed,
-      processLocalExecutionStillClosed:
-        request.trigger !== 'process-local' ||
-        plan.contract.backgroundRuntimeInvocationAllowed === false,
-      externalSchedulerExecutionStillClosed:
-        request.trigger !== 'external-scheduler' ||
-        plan.contract.backgroundRuntimeInvocationAllowed === false,
-      previewOnlyWhenReady:
-        plan.ready === true
-          ? plan.previewPlan !== null && plan.previewPlan.runtimeInvocationAllowed === false
-          : plan.previewPlan === null,
-    },
-    operatorNotes: [
-      ...plan.contract.operatorNotes,
-      ...plan.operatorNotes,
-      'Background scheduler output is operator-visible contract data only; it does not start a scheduled job.',
-      'Background scheduler runtime gate is exposed for operator review and remains blocked-by-default.',
-    ],
+    safety: outputSafety,
+    review: outputReview,
+    operatorNotes: outputOperatorNotes,
   };
 }
