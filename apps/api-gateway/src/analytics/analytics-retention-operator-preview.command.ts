@@ -37,6 +37,7 @@ export const ANALYTICS_RETENTION_OPERATOR_PREVIEW_COMMAND_USAGE = [
   '  This command reads retention candidate counts from PostgreSQL through the candidate read repository.',
   '  It prints an operator preview only. It does not call deleteCandidates and does not delete analytics events.',
   '  Output includes executeContractReview and keeps destructive execution blocked even when execute preview arguments are provided.',
+  '  Output includes executeContractReview.expectations with candidateRecheckExpectation, rollbackExpectation, and auditOutputExpectation details.',
   '  executeContractReview does not wire deleteCandidates or the Prisma retention delete repository into operator execution.',
 ].join('\n');
 

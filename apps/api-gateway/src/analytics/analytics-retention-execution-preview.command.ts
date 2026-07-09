@@ -13,6 +13,7 @@ export const ANALYTICS_RETENTION_EXECUTION_PREVIEW_COMMAND_USAGE = [
   'Safety:',
   '  This command only builds an execution preview. It does not connect to the database and does not delete analytics events.',
   '  Output includes executeContractReview so operators can review confirmation, hard delete limit, candidate recheck, rollback expectation, audit output, and non-destructive safety flags.',
+  '  Output includes executeContractReview.expectations with candidateRecheckExpectation, rollbackExpectation, and auditOutputExpectation details.',
   '  executeContractReview remains review-only and does not wire deleteCandidates or Prisma retention delete execution.',
 ].join('\n');
 

@@ -85,6 +85,18 @@ describe('runAnalyticsRetentionExecutionPreviewCommand', () => {
       'review-only',
     );
     expect(ANALYTICS_RETENTION_EXECUTION_PREVIEW_COMMAND_USAGE).toContain(
+      'executeContractReview.expectations',
+    );
+    expect(ANALYTICS_RETENTION_EXECUTION_PREVIEW_COMMAND_USAGE).toContain(
+      'candidateRecheckExpectation',
+    );
+    expect(ANALYTICS_RETENTION_EXECUTION_PREVIEW_COMMAND_USAGE).toContain(
+      'rollbackExpectation',
+    );
+    expect(ANALYTICS_RETENTION_EXECUTION_PREVIEW_COMMAND_USAGE).toContain(
+      'auditOutputExpectation',
+    );
+    expect(ANALYTICS_RETENTION_EXECUTION_PREVIEW_COMMAND_USAGE).toContain(
       'does not wire deleteCandidates',
     );
     expect(ANALYTICS_RETENTION_EXECUTION_PREVIEW_COMMAND_USAGE).toContain(
@@ -130,6 +142,29 @@ describe('runAnalyticsRetentionExecutionPreviewCommand', () => {
       candidateRecheckStatus: 'missing',
       rollbackExpectationStatus: 'missing',
       auditOutputStatus: 'missing',
+    });
+    expect(output.executeContractReview.expectations).toMatchObject({
+      candidateRecheckExpectation: {
+        planned: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'candidate-recheck-not-planned',
+      },
+      rollbackExpectation: {
+        documented: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'rollback-expectation-not-documented',
+      },
+      auditOutputExpectation: {
+        planned: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'audit-output-not-planned',
+      },
     });
     expect(output.executeContractReview.safety).toMatchObject({
       deleteCandidatesWired: false,
@@ -187,6 +222,29 @@ describe('runAnalyticsRetentionExecutionPreviewCommand', () => {
       candidateRecheckStatus: 'missing',
       rollbackExpectationStatus: 'missing',
       auditOutputStatus: 'missing',
+    });
+    expect(output.executeContractReview.expectations).toMatchObject({
+      candidateRecheckExpectation: {
+        planned: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'candidate-recheck-not-planned',
+      },
+      rollbackExpectation: {
+        documented: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'rollback-expectation-not-documented',
+      },
+      auditOutputExpectation: {
+        planned: false,
+        status: 'missing',
+        reviewOnly: true,
+        destructiveExecutionAllowed: false,
+        missingReason: 'audit-output-not-planned',
+      },
     });
     expect(output.executeContractReview.safety).toMatchObject({
       deleteCandidatesWired: false,
