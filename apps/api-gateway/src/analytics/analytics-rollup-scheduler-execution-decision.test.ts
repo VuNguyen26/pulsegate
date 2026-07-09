@@ -67,6 +67,7 @@ describe("analytics rollup scheduler execution decision", () => {
         commandExecuteOperatorOutputReview: null,
         commandExecutePreflightGuardrailReview: null,
         commandExecuteRuntimeInvocationBlockerReview: null,
+        commandExecutePersistenceBarrierReview: null,
         dryRunDesignReview: null,
         automaticTriggersRemainUnwired: true,
         executeRemainsUnwired: true,
@@ -1274,6 +1275,183 @@ describe("analytics rollup scheduler execution decision", () => {
             willAffectQuotaCounting: false,
             willDeleteRawEvents: false,
             eventLimit: null,
+            plannedBackfillRequestCount: 0,
+            plannedSources: ["usage"],
+          },
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should expose command execute persistence barrier review without wiring writes", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: true,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "both",
+      lookbackBuckets: 1,
+      safetyDelayMs: 300000,
+      maxBuckets: 1,
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      {
+        mode: "execute",
+        commandExecuteOperatorConfirmed: true,
+        commandExecuteEventLimit: 500,
+      },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecutePersistenceBarrierReview: {
+          status: "persistence-barrier-blocked",
+          reviewBoundary: "scheduler-command-execute-persistence-barriers",
+          requestedCapability: "command:execute",
+          blockedReason: "backfill-execution-not-wired",
+          persistenceScope: {
+            required: "rollup-tables-only",
+            currentState: "not-wired",
+            allowedTables: [],
+          },
+          writeBarriers: {
+            rollupPersistence: {
+              required: true,
+              satisfied: false,
+              status: "blocked",
+            },
+            quotaCountingMutation: {
+              required: false,
+              satisfied: false,
+              status: "not-allowed",
+            },
+            rawEventDeletion: {
+              required: false,
+              satisfied: false,
+              status: "not-allowed",
+            },
+            summaryReadSwitch: {
+              required: false,
+              satisfied: false,
+              status: "not-in-scope",
+            },
+            retentionDeleteExecution: {
+              required: false,
+              satisfied: false,
+              status: "not-in-scope",
+            },
+            scheduledJobCreation: {
+              required: false,
+              satisfied: false,
+              status: "not-in-scope",
+            },
+            processLocalExecute: {
+              required: false,
+              satisfied: false,
+              status: "not-in-scope",
+            },
+            externalSchedulerExecute: {
+              required: false,
+              satisfied: false,
+              status: "not-in-scope",
+            },
+          },
+          plannedWriteIntent: {
+            willPersistRollups: false,
+            willMutateQuotaCounting: false,
+            willDeleteRawEvents: false,
+            willSwitchSummaryReads: false,
+            willExecuteRetentionDelete: false,
+            willCreateScheduledJob: false,
+            willRunProcessLocalExecute: false,
+            willRunExternalSchedulerExecute: false,
+            plannedBackfillRequestCount: 2,
+            plannedSources: ["usage", "rejected"],
+          },
+          rollbackExpectation: {
+            requiredBeforeFutureExecuteWiring: true,
+            currentState: "not-applicable-no-writes",
+          },
+        },
+        commandExecuteRuntimeInvocationBlockerReview: {
+          status: "runtime-invocation-blocked",
+          plannedInvocation: {
+            willInvokeBackfillService: false,
+            willExecuteBackfill: false,
+            willReadEvents: false,
+            willPersistRollups: false,
+          },
+        },
+        commandExecuteWiringPreview: {
+          executeRuntimeCurrentlyAllowed: false,
+          backfillExecutionWired: false,
+          rollupPersistenceCurrentlyAllowed: false,
+          quotaCountingChangeAllowed: false,
+          rawEventDeletionAllowed: false,
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should expose not-ready command execute persistence barrier review without wiring writes", () => {
+    const schedulePlan = createAnalyticsRollupSchedulePlan({
+      enabled: false,
+      runAt: new Date("2026-07-06T13:07:00.000Z"),
+      granularity: "hour",
+      source: "usage",
+    });
+    const runnerPlan = createAnalyticsRollupSchedulerRunnerPlan(schedulePlan);
+
+    const decision = createAnalyticsRollupSchedulerExecutionDecision(
+      runnerPlan,
+      { mode: "execute" },
+    );
+
+    expect(decision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "scheduler-runner-not-ready",
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecutePersistenceBarrierReview: {
+          status: "persistence-barrier-blocked",
+          blockedReason: "scheduler-runner-not-ready",
+          persistenceScope: {
+            required: "rollup-tables-only",
+            currentState: "not-wired",
+            allowedTables: [],
+          },
+          plannedWriteIntent: {
+            willPersistRollups: false,
+            willMutateQuotaCounting: false,
+            willDeleteRawEvents: false,
+            willSwitchSummaryReads: false,
+            willExecuteRetentionDelete: false,
+            willCreateScheduledJob: false,
+            willRunProcessLocalExecute: false,
+            willRunExternalSchedulerExecute: false,
             plannedBackfillRequestCount: 0,
             plannedSources: ["usage"],
           },

@@ -571,6 +571,78 @@ export type AnalyticsRollupSchedulerCommandExecuteRuntimeInvocationBlockerReview
   nextRequiredAction: "wire-command-execute-runtime-with-strict-guardrails-and-docker-postgres-validation";
 };
 
+export type AnalyticsRollupSchedulerCommandExecutePersistenceBarrierReview = {
+  status: "persistence-barrier-blocked";
+  reviewBoundary: "scheduler-command-execute-persistence-barriers";
+  requestedCapability: "command:execute";
+  blockedReason:
+    | "scheduler-runner-not-ready"
+    | "backfill-execution-not-wired";
+  persistenceScope: {
+    required: "rollup-tables-only";
+    currentState: "not-wired";
+    allowedTables: [];
+  };
+  writeBarriers: {
+    rollupPersistence: {
+      required: true;
+      satisfied: false;
+      status: "blocked";
+    };
+    quotaCountingMutation: {
+      required: false;
+      satisfied: false;
+      status: "not-allowed";
+    };
+    rawEventDeletion: {
+      required: false;
+      satisfied: false;
+      status: "not-allowed";
+    };
+    summaryReadSwitch: {
+      required: false;
+      satisfied: false;
+      status: "not-in-scope";
+    };
+    retentionDeleteExecution: {
+      required: false;
+      satisfied: false;
+      status: "not-in-scope";
+    };
+    scheduledJobCreation: {
+      required: false;
+      satisfied: false;
+      status: "not-in-scope";
+    };
+    processLocalExecute: {
+      required: false;
+      satisfied: false;
+      status: "not-in-scope";
+    };
+    externalSchedulerExecute: {
+      required: false;
+      satisfied: false;
+      status: "not-in-scope";
+    };
+  };
+  plannedWriteIntent: {
+    willPersistRollups: false;
+    willMutateQuotaCounting: false;
+    willDeleteRawEvents: false;
+    willSwitchSummaryReads: false;
+    willExecuteRetentionDelete: false;
+    willCreateScheduledJob: false;
+    willRunProcessLocalExecute: false;
+    willRunExternalSchedulerExecute: false;
+    plannedBackfillRequestCount: number;
+    plannedSources: AnalyticsRollupSchedulerRunnerPlan["sources"];
+  };
+  rollbackExpectation: {
+    requiredBeforeFutureExecuteWiring: true;
+    currentState: "not-applicable-no-writes";
+  };
+};
+
 export type AnalyticsRollupSchedulerCommandExecuteWiringPreview = {
   status: "execute-wiring-preview-blocked";
   previewBoundary: "scheduler-command-execute-wiring-preview";
@@ -657,6 +729,7 @@ export type AnalyticsRollupSchedulerExecutionWiringReview = {
   commandExecuteOperatorOutputReview: AnalyticsRollupSchedulerCommandExecuteOperatorOutputReview | null;
   commandExecutePreflightGuardrailReview: AnalyticsRollupSchedulerCommandExecutePreflightGuardrailReview | null;
   commandExecuteRuntimeInvocationBlockerReview: AnalyticsRollupSchedulerCommandExecuteRuntimeInvocationBlockerReview | null;
+  commandExecutePersistenceBarrierReview: AnalyticsRollupSchedulerCommandExecutePersistenceBarrierReview | null;
   commandExecuteWiringPreview?: AnalyticsRollupSchedulerCommandExecuteWiringPreview | null;  dryRunDesignReview: AnalyticsRollupSchedulerCommandDryRunDesignReview;
   automaticTriggersRemainUnwired: true;
   executeRemainsUnwired: true;
@@ -1288,6 +1361,89 @@ function createAnalyticsRollupSchedulerCommandExecuteRuntimeInvocationBlockerRev
   };
 }
 
+function createAnalyticsRollupSchedulerCommandExecutePersistenceBarrierReview(
+  runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
+  trigger: AnalyticsRollupSchedulerExecutionTrigger,
+  requestedMode: AnalyticsRollupSchedulerExecutionMode,
+): AnalyticsRollupSchedulerCommandExecutePersistenceBarrierReview | null {
+  if (trigger !== "command" || requestedMode !== "execute") {
+    return null;
+  }
+
+  return {
+    status: "persistence-barrier-blocked",
+    reviewBoundary: "scheduler-command-execute-persistence-barriers",
+    requestedCapability: "command:execute",
+    blockedReason:
+      runnerPlan.status === "ready"
+        ? "backfill-execution-not-wired"
+        : "scheduler-runner-not-ready",
+    persistenceScope: {
+      required: "rollup-tables-only",
+      currentState: "not-wired",
+      allowedTables: [],
+    },
+    writeBarriers: {
+      rollupPersistence: {
+        required: true,
+        satisfied: false,
+        status: "blocked",
+      },
+      quotaCountingMutation: {
+        required: false,
+        satisfied: false,
+        status: "not-allowed",
+      },
+      rawEventDeletion: {
+        required: false,
+        satisfied: false,
+        status: "not-allowed",
+      },
+      summaryReadSwitch: {
+        required: false,
+        satisfied: false,
+        status: "not-in-scope",
+      },
+      retentionDeleteExecution: {
+        required: false,
+        satisfied: false,
+        status: "not-in-scope",
+      },
+      scheduledJobCreation: {
+        required: false,
+        satisfied: false,
+        status: "not-in-scope",
+      },
+      processLocalExecute: {
+        required: false,
+        satisfied: false,
+        status: "not-in-scope",
+      },
+      externalSchedulerExecute: {
+        required: false,
+        satisfied: false,
+        status: "not-in-scope",
+      },
+    },
+    plannedWriteIntent: {
+      willPersistRollups: false,
+      willMutateQuotaCounting: false,
+      willDeleteRawEvents: false,
+      willSwitchSummaryReads: false,
+      willExecuteRetentionDelete: false,
+      willCreateScheduledJob: false,
+      willRunProcessLocalExecute: false,
+      willRunExternalSchedulerExecute: false,
+      plannedBackfillRequestCount: runnerPlan.backfillRequests.length,
+      plannedSources: runnerPlan.sources,
+    },
+    rollbackExpectation: {
+      requiredBeforeFutureExecuteWiring: true,
+      currentState: "not-applicable-no-writes",
+    },
+  };
+}
+
 function createAnalyticsRollupSchedulerCommandExecuteWiringPreview(
   runnerPlan: AnalyticsRollupSchedulerRunnerPlan,
   trigger: AnalyticsRollupSchedulerExecutionTrigger,
@@ -1494,6 +1650,12 @@ function createAnalyticsRollupSchedulerExecutionWiringReview(
         trigger,
         requestedMode,
         commandExecuteEventLimit,
+      ),
+    commandExecutePersistenceBarrierReview:
+      createAnalyticsRollupSchedulerCommandExecutePersistenceBarrierReview(
+        runnerPlan,
+        trigger,
+        requestedMode,
       ),
     ...(trigger === "command" && requestedMode === "execute"
       ? {

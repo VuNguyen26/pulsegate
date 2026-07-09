@@ -1413,6 +1413,9 @@ describe("analytics rollup scheduler preview command", () => {
       "commandExecuteRuntimeInvocationBlockerReview",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
+      "commandExecutePersistenceBarrierReview",
+    );
+    expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
       "blocked-by-default",
     );
     expect(ANALYTICS_ROLLUP_SCHEDULER_PREVIEW_COMMAND_USAGE).toContain(
@@ -3221,6 +3224,149 @@ describe("analytics rollup scheduler preview command", () => {
           confirmationState: "confirmed",
           executeRuntimeCurrentlyAllowed: false,
           backfillExecutionWired: false,
+        },
+      },
+      safety: {
+        invokesBackfillService: false,
+        executesBackfill: false,
+        readsEvents: false,
+        persistsRollups: false,
+        affectsQuotaCounting: false,
+        deletesRawEvents: false,
+      },
+    });
+  });
+
+  it("should expose command execute persistence barrier review without invoking runtime execution", async () => {
+    const consoleLog = vi
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+    const createRuntimeBackfillService = vi.fn();
+
+    await runAnalyticsRollupSchedulerPreviewCommand(
+      [
+        "--enabled",
+        "true",
+        "--source",
+        "both",
+        "--run-at",
+        "2026-07-06T13:07:00.000Z",
+        "--granularity",
+        "hour",
+        "--lookback-buckets",
+        "1",
+        "--safety-delay-ms",
+        "300000",
+        "--max-buckets",
+        "1",
+        "--execution-mode",
+        "execute",
+        "--event-limit",
+        "500",
+        "--confirm-execute",
+        "true",
+      ],
+      {
+        allowDryRunServiceInvocation: true,
+        createRuntimeBackfillService,
+      },
+    );
+
+    expect(createRuntimeBackfillService).not.toHaveBeenCalled();
+
+    const output = JSON.parse(consoleLog.mock.calls[0]?.[0] as string);
+
+    expect(output.dryRunServiceInvocationResults).toBeUndefined();
+    expect(output.executionDecision).toMatchObject({
+      status: "blocked",
+      allowed: false,
+      blockedReason: "backfill-execution-not-wired",
+      wiringReview: {
+        requestedCapability: "command:execute",
+        commandExecutePersistenceBarrierReview: {
+          status: "persistence-barrier-blocked",
+          reviewBoundary: "scheduler-command-execute-persistence-barriers",
+          requestedCapability: "command:execute",
+          blockedReason: "backfill-execution-not-wired",
+          persistenceScope: {
+            required: "rollup-tables-only",
+            currentState: "not-wired",
+            allowedTables: [],
+          },
+          writeBarriers: {
+            rollupPersistence: {
+              required: true,
+              satisfied: false,
+              status: "blocked",
+            },
+            quotaCountingMutation: {
+              required: false,
+              satisfied: false,
+              status: "not-allowed",
+            },
+            rawEventDeletion: {
+              required: false,
+              satisfied: false,
+              status: "not-allowed",
+            },
+            summaryReadSwitch: {
+              required: false,
+              satisfied: false,
+              status: "not-in-scope",
+            },
+            retentionDeleteExecution: {
+              required: false,
+              satisfied: false,
+              status: "not-in-scope",
+            },
+            scheduledJobCreation: {
+              required: false,
+              satisfied: false,
+              status: "not-in-scope",
+            },
+            processLocalExecute: {
+              required: false,
+              satisfied: false,
+              status: "not-in-scope",
+            },
+            externalSchedulerExecute: {
+              required: false,
+              satisfied: false,
+              status: "not-in-scope",
+            },
+          },
+          plannedWriteIntent: {
+            willPersistRollups: false,
+            willMutateQuotaCounting: false,
+            willDeleteRawEvents: false,
+            willSwitchSummaryReads: false,
+            willExecuteRetentionDelete: false,
+            willCreateScheduledJob: false,
+            willRunProcessLocalExecute: false,
+            willRunExternalSchedulerExecute: false,
+            plannedBackfillRequestCount: 2,
+            plannedSources: ["usage", "rejected"],
+          },
+          rollbackExpectation: {
+            requiredBeforeFutureExecuteWiring: true,
+            currentState: "not-applicable-no-writes",
+          },
+        },
+        commandExecuteRuntimeInvocationBlockerReview: {
+          status: "runtime-invocation-blocked",
+          plannedInvocation: {
+            willInvokeBackfillService: false,
+            willExecuteBackfill: false,
+            willReadEvents: false,
+            willPersistRollups: false,
+          },
+        },
+        commandExecuteWiringPreview: {
+          executeRuntimeCurrentlyAllowed: false,
+          backfillExecutionWired: false,
+          rollupPersistenceCurrentlyAllowed: false,
+          quotaCountingChangeAllowed: false,
+          rawEventDeletionAllowed: false,
         },
       },
       safety: {
