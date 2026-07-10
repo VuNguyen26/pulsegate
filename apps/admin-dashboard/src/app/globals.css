@@ -400,3 +400,84 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+/* Sprint 62 consumer-scoped API key read view */
+.api-key-consumer-picker {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.api-key-consumer-picker label {
+  font-weight: 700;
+}
+
+.api-key-consumer-picker select {
+  width: min(100%, 34rem);
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+}
+
+.api-key-registry-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.api-key-summary-item {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #dbe4ee;
+  border-radius: 0.9rem;
+  background: #ffffff;
+}
+
+.api-key-summary-item strong {
+  font-size: 1.65rem;
+}
+
+.api-key-summary-item span,
+.api-key-audit-cell small {
+  color: #64748b;
+}
+
+.api-key-name-cell,
+.api-key-audit-cell {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.api-key-status-pill {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.api-key-status-pill[data-status="active"] {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.api-key-status-pill[data-status="revoked"] {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+@media (max-width: 900px) {
+  .api-key-registry-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .api-key-registry-summary {
+    grid-template-columns: 1fr;
+  }
+}
