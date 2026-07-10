@@ -481,3 +481,132 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+/* Sprint 62 read-only usage plan view */
+.usage-plan-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.usage-plan-summary-item {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #dbe4ee;
+  border-radius: 0.9rem;
+  background: #ffffff;
+}
+
+.usage-plan-summary-item strong {
+  font-size: 1.65rem;
+}
+
+.usage-plan-summary-item span,
+.usage-plan-name-cell small,
+.usage-plan-audit-cell small,
+.usage-plan-quota-cell span {
+  color: #64748b;
+}
+
+.usage-plan-name-cell,
+.usage-plan-audit-cell,
+.usage-plan-quota-cell {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.usage-plan-status-pill {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.usage-plan-status-pill[data-status="enabled"] {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.usage-plan-status-pill[data-status="disabled"] {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.usage-plan-picker {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.usage-plan-picker label {
+  font-weight: 700;
+}
+
+.usage-plan-picker select {
+  width: min(100%, 34rem);
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+}
+
+.usage-plan-detail {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.usage-plan-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0;
+}
+
+.usage-plan-detail-grid div {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+}
+
+.usage-plan-detail-grid dt {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.usage-plan-detail-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.usage-plan-read-only-note {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-left: 0.25rem solid #0f766e;
+  background: #f0fdfa;
+}
+
+@media (max-width: 1000px) {
+  .usage-plan-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .usage-plan-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .usage-plan-summary,
+  .usage-plan-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
