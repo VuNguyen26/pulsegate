@@ -34,6 +34,7 @@ pulsegate-postgres         healthy
 pulsegate-redis            healthy
 pulsegate-product-service  healthy
 pulsegate-api-gateway      up
+pulsegate-admin-dashboard  healthy
 pulsegate-prometheus       up
 pulsegate-grafana          up
 ```
@@ -103,6 +104,69 @@ Expected:
 200 OK
 Product list returned
 ```
+
+## Admin Dashboard Validation
+
+The Admin Dashboard requires a non-empty read-only Admin key shared with the API Gateway.
+
+Before starting the full stack:
+
+```powershell
+$env:ADMIN_API_KEY = '<full-access-local-key>'
+$env:ADMIN_READ_ONLY_API_KEY = '<read-only-local-key>'
+$env:ADMIN_API_KEY_HEADER = 'x-admin-api-key'
+```
+
+Start or rebuild the Dashboard service:
+
+```powershell
+docker compose up -d --build admin-dashboard
+docker compose ps admin-dashboard
+```
+
+Expected:
+
+```txt
+pulsegate-admin-dashboard
+healthy
+0.0.0.0:3003->3003/tcp
+```
+
+Validate the Overview page:
+
+```powershell
+Invoke-WebRequest `
+  'http://127.0.0.1:3003/' `
+  -UseBasicParsing
+```
+
+Expected:
+
+```txt
+200 OK
+```
+
+Validate the server-only Dashboard BFF:
+
+```powershell
+Invoke-RestMethod `
+  'http://127.0.0.1:3003/api/admin/runtime-status' |
+  ConvertTo-Json -Depth 10
+```
+
+Expected:
+
+```txt
+data.accessMode = read-only
+data.runtime.mode = runtime-registry
+data.runtime.available = true
+```
+
+The Dashboard container must receive `ADMIN_READ_ONLY_API_KEY` but must not receive the full-access `ADMIN_API_KEY`.
+
+For configuration, failure-state, credential-boundary, image, log, and troubleshooting checks, follow:
+
+- `docs/runbooks/admin-dashboard.md`
 
 ## Stop Docker Stack
 

@@ -2,48 +2,124 @@
 
 ## Current Version
 
-v1.0.0
+v1.1.0
+
+Private npm workspace package versions remain `0.1.0`.
+
+The existing annotated Git tag `v1.0.0` remains unchanged at the final Sprint 60 documentation commit.
 
 ## Latest Completed Sprint
 
-Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0
+Sprint 61 - Admin Dashboard foundation
 
-## Sprint 60 Completion Summary
+## Sprint 61 Completion Summary
 
-Sprint 60 completed Backend Portfolio v1 release preparation without adding a major runtime feature.
+Sprint 61 established the first PulseGate Admin Dashboard foundation without expanding mutation, quota, scheduler, retention, persistence, or raw-event behavior.
 
 Delivered:
 
-- Added `npm run validate:release` for tests, typecheck, build, diff checks, clean-tree verification, and `origin/main` synchronization.
-- Added `npm run demo:runtime` for bounded Docker, Gateway, Prometheus, Grafana, Admin auth, metric-label, and k6 validation.
-- Corrected stale scheduler documentation for guarded direct command execute and process-local dry-run.
-- Added `docs/releases/v1.0.0.md`.
-- Added the Sprint 60 history and v1 release-readiness decision record.
-- Kept private npm workspace versions at `0.1.0`.
-- Prepared Git/product documentation version `v1.0.0`; the Git tag remains pending final validation and explicit approval.
+- Added `apps/admin-dashboard` with Next.js App Router, React, TypeScript, and plain CSS.
+- Added a responsive application shell, top bar, sidebar navigation, Overview page, and loading/error/not-found boundaries.
+- Added roadmap placeholders for Dashboard functionality assigned to Sprints 62-64.
+- Added the root `npm run dev:dashboard` command.
+- Reserved Dashboard port `3003`.
+- Added a strict server-only Admin API configuration boundary.
+- Added a fixed read-only Gateway client for:
+  - `GET /internal/admin/routes/runtime`
+- Added a fixed browser-facing BFF endpoint:
+  - `GET /api/admin/runtime-status`
+- Added no generic Admin API proxy.
+- Added fail-closed handling for missing or invalid configuration.
+- Added normalized unauthorized, forbidden, timeout, unavailable, upstream, and invalid-response errors.
+- Added a runtime status panel showing only safe runtime registry metadata.
+- Added loading, connected, unavailable, and retry states.
+- Added browser-side response contract validation.
+- Added a multi-stage production Dashboard Dockerfile.
+- Runs the Dashboard image as the non-root `node` user.
+- Added the Docker Compose `admin-dashboard` service on port `3003`.
+- Added a Dashboard health check.
+- Added Dashboard environment documentation to `.env.example`.
+- Added `docs/runbooks/admin-dashboard.md`.
 
-Sprint 60 commits so far:
+Sprint 61 implementation commits:
 
-- `4fb3c70 chore: add release readiness validation`
-- `5059d61 chore: add bounded runtime demo`
-- `33c05a3 docs: fix scheduler runtime runbook`
-- `d653d9c docs: add sprint 60 release records`
+- `82926c6 feat(dashboard): add admin dashboard foundation`
+- `9e35b5b feat(dashboard): add secure admin api boundary`
+- `0475e51 feat(dashboard): show gateway runtime status`
+- `12d1148 feat(dashboard): add production runtime wiring`
 
-Validation:
+Automated validation before documentation finalization:
+
+- Admin Dashboard: 5 test files / 22 tests passed.
+- API Gateway: 136 test files / 988 tests passed.
+- Root typecheck passed.
+- Root production build passed.
+- `docker compose config --quiet` passed.
+- `git diff --check` passed.
+- Browser-facing production source secret audit passed.
+- Dashboard Docker image secret inspection passed.
+
+Docker runtime validation:
+
+- PostgreSQL healthy.
+- Redis healthy.
+- Product Service healthy.
+- API Gateway running on port `3000`.
+- Admin Dashboard healthy on port `3003`.
+- Direct read-only Gateway runtime request returned `HTTP 200`.
+- Dashboard Overview returned `HTTP 200`.
+- Dashboard BFF returned `HTTP 200`.
+- Runtime registry returned `available=true` with two loaded routes.
+- Dashboard access mode returned `read-only`.
+- Invalid Dashboard credentials returned `HTTP 403`.
+- Invalid credential errors were normalized to `ADMIN_DASHBOARD_FORBIDDEN`.
+- The Dashboard container received `ADMIN_READ_ONLY_API_KEY`.
+- The Dashboard container did not receive full-access `ADMIN_API_KEY`.
+- Admin credentials were absent from HTML, BFF responses, client bundles, logs, and image configuration.
+
+Security and safety boundaries preserved:
+
+- No Dashboard mutation controls.
+- No generic Admin API proxy.
+- No full-access Admin credential in the Dashboard runtime.
+- No Admin credential in `NEXT_PUBLIC_*` variables or browser storage.
+- No consumer, API key, usage-plan, or route persistence changes.
+- No quota behavior changes.
+- No successful-usage or rejected-event recorder changes.
+- No scheduler execution expansion.
+- No retention execution.
+- No raw-event deletion.
+- No database migration.
+- No database-backed administrator, organization, tenant, or enterprise IAM model.
+- No Developer Portal, Kubernetes, OpenTelemetry, or Loki scope.
+
+Known dependency note:
+
+- Next.js `16.2.10` currently resolves a transitive PostCSS version reported by npm audit with moderate findings.
+- Sprint 61 does not use `npm audit fix --force`, framework downgrade, or canary releases.
+- The Dashboard does not accept untrusted CSS input.
+
+## Sprint 60 Completion Summary
+
+Sprint 60 completed Backend Portfolio v1 and released `v1.0.0`.
+
+Delivered:
+
+- Added `npm run validate:release`.
+- Added `npm run demo:runtime`.
+- Added bounded Gateway, Prometheus, Grafana, Admin authorization, metric-label, and k6 runtime validation.
+- Added release notes and final recurring documentation.
+- Created and pushed annotated Git tag `v1.0.0`.
+- Tag `v1.0.0` points to commit `407d03678674219e7228b15f0cd7a23074493f31`.
+- Private npm workspace package versions remained `0.1.0`.
+
+Final Sprint 60 validation:
 
 - 136 test files / 988 tests passed.
 - Typecheck and build passed.
-- Clean release-readiness validation passed.
-- Runtime demo passed Gateway, Prometheus, Grafana, Admin authorization, bounded metric-label, and k6 checks.
+- Release-readiness validation passed.
+- Runtime demo passed.
 - k6 completed 10/10 iterations and 20/20 checks with 0% failures.
-
-Boundaries preserved:
-
-- No destructive retention execution or raw event deletion.
-- No autonomous scheduled/background execute.
-- No external scheduler runtime execution.
-- No quota source-of-truth change.
-- No Admin Dashboard or Developer Portal was added in Sprint 60.
 
 ## Sprint 59 Completion Summary
 
@@ -98,9 +174,26 @@ Preserved boundaries:
 
 ## Next Sprint
 
-Sprint 61 - Admin Dashboard foundation.
+Sprint 62 - Dashboard consumers/API keys/usage plans.
 
-Sprint 61 must remain limited to the Admin Dashboard foundation defined by the fixed roadmap.
+Sprint 62 may add bounded Dashboard views and controls for:
+
+- API consumers
+- API keys
+- usage plans
+- route configuration
+
+Sprint 62 must preserve:
+
+- full-access and read-only Admin authorization
+- sanitized actor attribution
+- current persistence semantics
+- quota source-of-truth behavior
+- successful and rejected event separation
+- scheduler and retention safety boundaries
+- raw-event deletion prohibition
+
+It must not introduce a generic Admin API proxy, browser-stored credentials, enterprise IAM, unrelated analytics panels, scheduler execution expansion, or retention execution.
 
 ## Fixed Roadmap
 

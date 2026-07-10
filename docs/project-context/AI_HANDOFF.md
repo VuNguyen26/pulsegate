@@ -2,136 +2,332 @@
 
 ## Current Version
 
-- v1.0.0
+- Product/documentation version: `v1.1.0`
+- Private npm workspace versions: `0.1.0`
+- Existing annotated release tag: `v1.0.0`
+- Tag `v1.0.0` remains unchanged at commit:
+  - `407d03678674219e7228b15f0cd7a23074493f31`
 
 ## Latest Completed Sprint
 
-- Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0
+- Sprint 61 - Admin Dashboard foundation
 
-## Latest Sprint 60 Checkpoint Before Live Docs Finalization
+## Latest Implementation Commit Before Docs Finalization
 
-- `d653d9c docs: add sprint 60 release records`
+- `12d1148 feat(dashboard): add production runtime wiring`
 
-## Sprint 60 Summary
+Sprint 61 implementation commits:
 
-Sprint 60 completes Backend Portfolio v1 release preparation without adding a major runtime feature.
+- `82926c6 feat(dashboard): add admin dashboard foundation`
+- `9e35b5b feat(dashboard): add secure admin api boundary`
+- `0475e51 feat(dashboard): show gateway runtime status`
+- `12d1148 feat(dashboard): add production runtime wiring`
 
-Key outcomes:
+## Sprint 61 Summary
 
-- `npm run validate:release` provides repeatable automated release validation.
-- `npm run demo:runtime` provides bounded Docker runtime validation.
-- Gateway, Prometheus, Grafana, Admin authorization, metric cardinality, and k6 checks passed.
-- Scheduler documentation reflects guarded direct command execute and process-local dry-run support.
-- Release notes, Sprint 60 history, and the v1 release-readiness decision record were added.
-- Git/product documentation version is `v1.0.0`.
-- Private npm workspace versions remain `0.1.0`.
-- The Git tag remains pending final validation and explicit approval.
+Sprint 61 establishes the first PulseGate Admin Dashboard foundation.
 
-Sprint 60 commits:
+Delivered:
 
-- `4fb3c70 chore: add release readiness validation`
-- `5059d61 chore: add bounded runtime demo`
-- `33c05a3 docs: fix scheduler runtime runbook`
-- `d653d9c docs: add sprint 60 release records`
+- Added `apps/admin-dashboard`.
+- Uses Next.js App Router, React, TypeScript, and plain CSS.
+- Added responsive application shell, top bar, sidebar, Overview page, loading, error, and not-found boundaries.
+- Added placeholders for Dashboard functionality assigned to Sprints 62-64.
+- Added root command:
+  - `npm run dev:dashboard`
+- Dashboard local and Docker port:
+  - `3003`
+- Added a server-only Admin API boundary.
+- Added strict environment validation.
+- Added a fixed read-only Gateway client.
+- Added a fixed browser-facing BFF endpoint.
+- Added Overview runtime connectivity states.
+- Added a production multi-stage Docker image.
+- Added Docker Compose runtime wiring and health checking.
+- Added Dashboard runbook and Sprint 61 records.
 
-Safety boundaries:
+## Dashboard Security Architecture
 
-- No destructive retention execution or raw event deletion.
-- No autonomous scheduled/background execute.
-- No external scheduler runtime execution.
-- No Admin Dashboard or Developer Portal was added in Sprint 60.
+The browser must not call protected Gateway Admin APIs directly.
 
-## Sprint 59 Summary
+Browser request:
 
-Sprint 59 completed a lightweight observability hardening and reproducible demo-validation pass.
+```txt
+GET /api/admin/runtime-status
+```
 
-Implementation commits:
+Dashboard server request:
 
-- `ec09747 fix(gateway): bound unmatched metrics route labels`
-- `3f5c428 test(observability): add bounded k6 gateway smoke`
-- `c9da0cb feat(observability): refine gateway Grafana dashboard`
+```txt
+GET /internal/admin/routes/runtime
+```
 
-Key outcomes:
+The Dashboard server reads:
 
-- Matched requests continue to use bounded Fastify route templates in Prometheus labels.
-- Unmatched requests use `route="__unmatched__"` instead of raw request paths.
-- Existing metric names remain unchanged:
-  - `http_requests_total`
-  - `http_request_duration_seconds`
-  - `http_response_cache_total`
-- Existing labels remain bounded to method, route template/fixed unmatched value, status code, and allowlisted cache status.
-- `npm run test:k6:smoke` runs through the Docker Compose `tools` profile.
-- k6 is limited to 1 VU, 10 iterations, 30 seconds, 5-second graceful stop, and 2-second request timeout.
-- The Grafana dashboard now has five real Prometheus-backed panels.
-- Request-rate, request-count, and p95-latency panels exclude `/metrics` scrape traffic.
-- A `5xx Responses (5m)` stat panel uses the existing HTTP request counter.
-- Prometheus scrape, Grafana datasource, dashboard provisioning, PromQL, and k6 runtime behavior were validated.
+```txt
+PULSEGATE_GATEWAY_BASE_URL
+ADMIN_READ_ONLY_API_KEY
+ADMIN_API_KEY_HEADER
+ADMIN_DASHBOARD_REQUEST_TIMEOUT_MS
+```
 
-Validation before docs finalization:
+Required values:
 
-- 136 test files / 988 tests passed.
-- Typecheck passed.
-- Build passed.
-- Whitespace diff check passed.
-- API Gateway health: `200`.
-- Prometheus readiness: `200`.
-- Prometheus gateway target: `up`.
-- Unmatched route metric aggregation: passed.
-- Raw unmatched paths absent from metric output: passed.
-- k6: 10/10 iterations, 20/20 checks, 0% failures, thresholds passed.
-- Grafana database: `ok`.
-- Grafana Prometheus datasource: `OK`.
-- Five dashboard queries: passed.
-- Provisioned dashboard panel count: 5.
+```txt
+PULSEGATE_GATEWAY_BASE_URL
+ADMIN_READ_ONLY_API_KEY
+```
 
-## Important Observability Interpretation
+Defaults:
 
-- Prometheus metrics and Grafana panels are operational signals only.
-- They are not quota-counting or analytics-persistence sources of truth.
-- `gateway.api_usage_events` remains the source of truth for successful usage and quota counting.
-- `gateway.api_rejected_events` remains the source of truth for rejected/security traffic.
-- The `__unmatched__` label intentionally trades raw-path detail for bounded metric cardinality.
-- k6 is a local bounded smoke check, not a production load-test laboratory.
+```txt
+ADMIN_API_KEY_HEADER=x-admin-api-key
+ADMIN_DASHBOARD_REQUEST_TIMEOUT_MS=3000
+```
+
+The Dashboard must not receive or expose:
+
+```txt
+ADMIN_API_KEY
+NEXT_PUBLIC_ADMIN_API_KEY
+NEXT_PUBLIC_ADMIN_READ_ONLY_API_KEY
+```
+
+The Admin credential must not appear in:
+
+- browser requests to the Gateway
+- HTML
+- client bundles
+- browser local storage
+- browser session storage
+- query strings
+- BFF responses
+- Dashboard logs
+- Docker image configuration
+
+Sprint 61 adds no generic Admin API proxy.
+
+## Runtime Status Contract
+
+The Dashboard Overview may display only safe runtime metadata:
+
+- access mode
+- runtime registry mode
+- registry availability
+- loaded version
+- loaded timestamp
+- registered route count
+- registered route metadata already exposed by the bounded Gateway endpoint
+
+Expected connected response:
+
+```txt
+data.accessMode = read-only
+data.runtime.mode = runtime-registry
+data.runtime.available = true
+```
+
+Normalized Dashboard errors include:
+
+```txt
+ADMIN_DASHBOARD_CONFIG_MISSING
+ADMIN_DASHBOARD_CONFIG_INVALID
+ADMIN_DASHBOARD_UNAUTHORIZED
+ADMIN_DASHBOARD_FORBIDDEN
+ADMIN_DASHBOARD_TIMEOUT
+ADMIN_DASHBOARD_GATEWAY_UNAVAILABLE
+ADMIN_DASHBOARD_UPSTREAM_ERROR
+ADMIN_DASHBOARD_INVALID_RESPONSE
+ADMIN_DASHBOARD_UNAVAILABLE
+```
+
+Safe Gateway `requestId` attribution may be preserved.
+
+Raw exception details and credentials must not be returned.
+
+## Production Runtime
+
+Docker Compose service:
+
+```txt
+admin-dashboard
+```
+
+Container:
+
+```txt
+pulsegate-admin-dashboard
+```
+
+Published port:
+
+```txt
+3003
+```
+
+Docker-internal Gateway origin:
+
+```txt
+http://api-gateway:3000
+```
+
+Runtime requirements:
+
+- Node.js 20
+- production Next.js build
+- non-root `node` user
+- runtime-only read-only credential injection
+- health check against the Dashboard root page
+- no Admin credential baked into the image
+
+## Sprint 61 Validation
+
+Automated validation passed:
+
+- Admin Dashboard:
+  - 5 test files
+  - 22 tests
+- API Gateway:
+  - 136 test files
+  - 988 tests
+- Root typecheck passed.
+- Root production build passed.
+- `docker compose config --quiet` passed.
+- `git diff --check` passed.
+- Browser-facing production source secret audit passed.
+- Dashboard Docker image secret inspection passed.
+
+Runtime validation passed:
+
+- PostgreSQL healthy.
+- Redis healthy.
+- Product Service healthy.
+- API Gateway running on port `3000`.
+- Admin Dashboard healthy on port `3003`.
+- Direct read-only Gateway runtime request returned `HTTP 200`.
+- Dashboard Overview returned `HTTP 200`.
+- Dashboard BFF returned `HTTP 200`.
+- Runtime registry returned `available=true`.
+- Runtime registry returned two loaded routes.
+- Dashboard access mode returned `read-only`.
+- Invalid Dashboard credential returned `HTTP 403`.
+- Invalid credential errors normalized to:
+  - `ADMIN_DASHBOARD_FORBIDDEN`
+- Dashboard container contained:
+  - `ADMIN_READ_ONLY_API_KEY`
+- Dashboard container did not contain:
+  - `ADMIN_API_KEY`
+- Credential leak checks passed for HTML, responses, bundles, logs, and image configuration.
+
+## Known Dependency Note
+
+Next.js `16.2.10` currently resolves a transitive PostCSS version reported by npm audit with moderate findings.
+
+Do not automatically:
+
+- run `npm audit fix --force`
+- downgrade Next.js
+- switch to a canary release
+- add unsupported package overrides
+
+Sprint 61 does not accept or process untrusted CSS input.
+
+Treat this as a documented upstream moderate dependency finding unless an approved stable remediation becomes available.
 
 ## Safety Boundaries
 
-Do not open these without explicit approval:
+Do not open these boundaries without explicit roadmap scope and approval:
 
-- Retention execute command, delete API, or scheduled delete job.
-- Operator-facing `deleteCandidates`.
-- Prisma retention delete execution wiring.
-- Raw event deletion.
-- Quota-source changes.
-- Background execute or external scheduler execution.
-- Admin Dashboard UI before Sprint 61.
-- Developer Portal UI before Sprint 65.
-- OpenTelemetry before Sprint 73.
-- Loki before Sprint 74.
-- Kubernetes before Sprint 71.
-- Billing, marketplace, enterprise SSO/SAML, or multi-tenant organization expansion before roadmap.
+- generic Admin API proxy
+- browser-stored Admin credentials
+- full-access Admin credential in the Dashboard
+- Dashboard mutation controls outside the assigned sprint
+- destructive retention execution
+- retention delete API
+- scheduled retention delete job
+- operator-facing `deleteCandidates`
+- raw event deletion
+- quota source-of-truth changes
+- successful/rejected event source merging
+- unguarded background execute
+- external scheduler execution
+- database-backed administrator or organization expansion
+- Developer Portal before Sprint 65
+- Kubernetes before Sprint 71
+- OpenTelemetry before Sprint 73
+- Loki before Sprint 74
+- billing, marketplace, enterprise SSO/SAML, or unrelated platform scope
+
+Current sources of truth remain:
+
+```txt
+gateway.api_usage_events
+```
+
+for successful usage and quota counting, and:
+
+```txt
+gateway.api_rejected_events
+```
+
+for rejected/security traffic.
+
+Prometheus, Grafana, and rollup tables remain operational or analytical projections, not quota sources of truth.
 
 ## Next Recommended Sprint
 
-Sprint 61 - Admin Dashboard foundation.
+Sprint 62 - Dashboard consumers/API keys/usage plans.
 
-Recommended scope:
+Recommended bounded scope:
 
-- Build a minimal local Admin Dashboard foundation against existing protected Admin APIs.
-- Preserve full-access/read-only authorization and sanitized actor attribution.
-- Keep consumer, API key, route, and usage-plan persistence semantics unchanged.
-- Preserve quota, analytics, scheduler, retention, and raw-event safety boundaries.
-- Defer dashboard feature expansion to Sprints 62-64.
+- add Dashboard views for API consumers
+- add Dashboard views for API keys
+- add Dashboard views for usage plans
+- add Dashboard views for route configuration
+- add only explicitly approved controls
+- preserve full-access/read-only Admin authorization
+- preserve sanitized `x-admin-actor` attribution for mutations
+- preserve current persistence semantics
+- preserve quota source-of-truth behavior
+- preserve successful/rejected event separation
+- preserve scheduler, retention, and raw-event safety boundaries
+
+Sprint 62 must not add:
+
+- generic Admin API proxy
+- browser-stored credentials
+- enterprise IAM
+- unrelated analytics panels
+- scheduler execution expansion
+- retention execution
+- raw-event deletion
 
 ## Fixed Roadmap
 
-Backend Portfolio v1:
+### Backend Portfolio v1
 
-- Sprint 45-60: complete.
-- Backend Portfolio v1 complete; the v1.0.0 Git tag is pending final validation and explicit approval.
+Sprint 45-60 is complete.
 
-Product/Platform Expansion v2:
+- 45 Fail-Closed Error Model
+- 46 Command Dry-Run Service Invocation Wiring Contract
+- 47 Command Dry-Run Runtime Service Invocation
+- 48 Dry-Run Runtime Output Hardening
+- 49 Command Execute Contract Review
+- 50 Command Execute Wiring Preview blocked-by-default
+- 51 Command Execute Runtime Wiring with strict guardrails
+- 52 Rollup Summary API Switch Preview
+- 53 Switch selected summary reads to rollup read model with fallback
+- 54 Background Scheduler Contract/Runner
+- 55 Background Scheduler Runtime Wiring with guardrails
+- 56 Retention Execute Contract Review
+- 57 Retention Execute Preview Hardening/rollback expectation
+- 58 Minimal Admin/RBAC hardening
+- 59 Observability + Grafana/k6 lightweight validation
+- 60 Final polish, docs, demo script, architecture cleanup, release v1.0.0
 
-- 61 Admin Dashboard foundation
+### Product/Platform Expansion v2
+
+- 61 Admin Dashboard foundation - complete
 - 62 Dashboard consumers/API keys/usage plans
 - 63 Dashboard quota/usage/rejected events
 - 64 Dashboard rollup/retention/scheduler panels
@@ -152,16 +348,33 @@ Product/Platform Expansion v2:
 - 79 v2 docs/runbooks/architecture cleanup
 - 80 v2.0.0 release
 
-## Required Docs Checklist at Sprint Finalization
+## Sprint 61 Documentation Checklist
 
-Always audit/update:
+Required Sprint 61 documents:
 
-- README.md
-- docs/architecture/overview.md
-- docs/sdlc/requirements.md
-- docs/project-context/CURRENT_PROGRESS.md
-- docs/project-context/AI_HANDOFF.md
-- docs/project-context/DECISION_LOG.md
+- `README.md`
+- `docs/architecture/overview.md`
+- `docs/sdlc/requirements.md`
+- `docs/project-context/CURRENT_PROGRESS.md`
+- `docs/project-context/AI_HANDOFF.md`
+- `docs/project-context/DECISION_LOG.md`
+- `docs/project-context/decisions/2026-07-10-admin-dashboard-foundation.md`
+- `docs/runbooks/admin-dashboard.md`
+- `docs/runbooks/local-validation.md`
+- `docs/sdlc/sprint-history/sprint-61.md`
+
+## Required Docs Checklist at Future Sprint Finalization
+
+Always audit and update:
+
+- `README.md`
+- `docs/architecture/overview.md`
+- `docs/sdlc/requirements.md`
+- `docs/project-context/CURRENT_PROGRESS.md`
+- `docs/project-context/AI_HANDOFF.md`
+- `docs/project-context/DECISION_LOG.md`
 - relevant runbooks
-- docs/sdlc/sprint-history/sprint-N.md
-- docs/project-context/decisions/YYYY-MM-DD-*.md
+- `docs/sdlc/sprint-history/sprint-N.md`
+- `docs/project-context/decisions/YYYY-MM-DD-*.md`
+
+Do not finalize a sprint after updating only a subset of this recurring documentation set.

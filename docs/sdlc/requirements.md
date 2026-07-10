@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.0.0
+v1.1.0
 
 ## Latest Completed Sprint
 
-Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0
+Sprint 61 - Admin Dashboard foundation
 
 ---
 
@@ -40,7 +40,7 @@ Long-term target:
 
 - API Gateway runtime
 - Admin APIs
-- Admin Dashboard later
+- Admin Dashboard foundation implemented; bounded feature expansion continues in Sprints 62-64
 - Developer Portal later
 - API consumers
 - API keys
@@ -1245,7 +1245,7 @@ Implemented.
 - No per-key Grafana dashboard yet.
 - No quota usage Grafana dashboard yet.
 - Env fallback API keys are not quota-enforced.
-- Admin Dashboard is not implemented yet.
+- The Admin Dashboard foundation is implemented with a server-only read-only BFF boundary.
 - Developer Portal is not implemented yet.
 - Admin auth is still local admin API key based.
 - Minimal full-access/read-only admin authorization exists, but database-backed administrator identities and general platform RBAC are not implemented yet.
@@ -1265,11 +1265,11 @@ Implemented.
 
 Recommended next:
 
-- Begin Sprint 61 Admin Dashboard foundation without changing existing API management safety semantics.
+- Continue with Sprint 62 bounded Dashboard consumers, API keys, usage plans, and route-management functionality.
 - Keep retention execution explicit and blocked from operator-facing deletion.
 - Keep external scheduler runtime and scheduled/background execute blocked.
 - Preserve metrics and rollups as non-quota sources.
-- Keep Sprint 61 limited to the Admin Dashboard foundation defined by the fixed roadmap.
+- Keep Sprint 62 limited to Dashboard consumers, API keys, usage plans, and route-management scope defined by the fixed roadmap.
 
 ## Selected Summary Runtime Rollup Reads
 
@@ -1454,6 +1454,275 @@ Validation:
 - Invalid admin key access returned `403 ADMIN_API_KEY_INVALID`.
 
 Implementation status: Complete in Sprint 58 as bounded Admin/RBAC hardening.
+
+## Sprint 61 - Admin Dashboard foundation
+
+PulseGate shall provide the first product-facing Admin Dashboard foundation against the existing protected Gateway Admin APIs.
+
+### Application requirements
+
+- Add a separate `apps/admin-dashboard` workspace.
+- Use Next.js App Router, React, TypeScript, and plain CSS.
+- Provide a responsive application shell.
+- Provide top-bar and sidebar navigation.
+- Provide Overview, loading, error, and not-found states.
+- Provide placeholders only for functionality assigned to Sprints 62-64.
+- Do not present fake operational, usage, quota, scheduler, retention, or analytics data.
+- Run locally and through Docker Compose on port `3003`.
+- Keep private npm workspace versions at `0.1.0`.
+- Use product/documentation version `v1.1.0`.
+- Leave the existing annotated Git tag `v1.0.0` unchanged.
+
+### Server-only administration boundary
+
+The browser shall not call protected Gateway Admin APIs directly.
+
+The Dashboard server shall use these configuration values:
+
+```txt
+PULSEGATE_GATEWAY_BASE_URL
+ADMIN_READ_ONLY_API_KEY
+ADMIN_API_KEY_HEADER
+ADMIN_DASHBOARD_REQUEST_TIMEOUT_MS
+```
+
+Required values:
+
+```txt
+PULSEGATE_GATEWAY_BASE_URL
+ADMIN_READ_ONLY_API_KEY
+```
+
+Defaults:
+
+```txt
+ADMIN_API_KEY_HEADER=x-admin-api-key
+ADMIN_DASHBOARD_REQUEST_TIMEOUT_MS=3000
+```
+
+Requirements:
+
+- Keep `ADMIN_READ_ONLY_API_KEY` server-side.
+- Do not expose the read-only credential through `NEXT_PUBLIC_*`.
+- Do not store Admin credentials in browser local storage or session storage.
+- Do not pass credentials through query strings.
+- Do not return credentials in BFF responses.
+- Do not write credentials to Dashboard logs.
+- Do not bake Admin credentials into the Docker image.
+- Do not provide full-access `ADMIN_API_KEY` to the Dashboard process or container.
+- Validate the Gateway base URL.
+- Accept only HTTP or HTTPS Gateway origins.
+- Reject Gateway URLs containing credentials, paths, query strings, or fragments.
+- Validate custom Admin header names as valid HTTP token names.
+- Fail closed when required configuration is missing or invalid.
+- Bound Dashboard-to-Gateway request time.
+- Use `cache: no-store`.
+
+### Fixed endpoint requirements
+
+Sprint 61 shall permit only this protected Gateway Admin resource:
+
+```txt
+GET /internal/admin/routes/runtime
+```
+
+The browser-facing Dashboard resource shall be:
+
+```txt
+GET /api/admin/runtime-status
+```
+
+Requirements:
+
+- Do not provide a generic Admin API proxy.
+- Do not accept arbitrary Gateway paths from browser input.
+- Do not accept arbitrary methods from browser input.
+- Do not forward arbitrary headers.
+- Add the configured Admin credential only inside the Dashboard server.
+- Normalize Gateway and configuration failures.
+- Preserve only safe `requestId` attribution.
+- Do not expose raw exceptions or arbitrary upstream payloads.
+
+### Runtime status requirements
+
+The Overview page may display only safe runtime registry information:
+
+- Dashboard access mode
+- runtime registry mode
+- registry availability
+- loaded version
+- loaded timestamp
+- registered route count
+- safe route metadata exposed by the bounded runtime endpoint
+
+The Overview page shall support:
+
+- loading state
+- connected state
+- unavailable state
+- retry action
+
+The browser shall validate BFF success and error payloads before rendering them.
+
+Inconsistent runtime metadata shall be treated as an invalid response.
+
+### Error requirements
+
+The Dashboard boundary shall normalize failures into bounded error categories, including:
+
+```txt
+ADMIN_DASHBOARD_CONFIG_MISSING
+ADMIN_DASHBOARD_CONFIG_INVALID
+ADMIN_DASHBOARD_UNAUTHORIZED
+ADMIN_DASHBOARD_FORBIDDEN
+ADMIN_DASHBOARD_TIMEOUT
+ADMIN_DASHBOARD_GATEWAY_UNAVAILABLE
+ADMIN_DASHBOARD_UPSTREAM_ERROR
+ADMIN_DASHBOARD_INVALID_RESPONSE
+ADMIN_DASHBOARD_UNAVAILABLE
+```
+
+Requirements:
+
+- Missing configuration shall fail closed.
+- Invalid configuration shall fail closed.
+- Missing Gateway Admin credentials shall not be hidden as successful connectivity.
+- Invalid Dashboard credentials shall return a normalized forbidden response.
+- Gateway timeouts shall return a bounded timeout response.
+- Network failures shall return a bounded unavailable response.
+- Unexpected Gateway payloads shall return an invalid-response result.
+- Raw exception stacks and credentials shall not be returned.
+
+### Production runtime requirements
+
+- Provide a multi-stage Docker build.
+- Use Node.js 20 for the production image.
+- Run as the non-root `node` user.
+- Publish Dashboard port `3003`.
+- Use Docker-internal Gateway origin `http://api-gateway:3000`.
+- Inject only the read-only Admin credential at container runtime.
+- Do not inject full-access `ADMIN_API_KEY`.
+- Provide a bounded Dashboard health check.
+- Exclude `.next` output from the Docker build context.
+- Keep credentials absent from Docker image configuration.
+
+### Security requirements
+
+- The browser must not receive the Gateway Admin credential.
+- The browser must not call the protected Gateway endpoint directly.
+- The Dashboard must not expose a generic Admin API forwarding surface.
+- The Dashboard shall default to read-only access.
+- Sprint 61 shall not add Dashboard mutation controls.
+- Existing Gateway full-access/read-only authorization shall remain unchanged.
+- Existing timing-safe credential verification shall remain unchanged.
+- Existing sanitized `x-admin-actor` behavior shall remain unchanged.
+- Existing API consumer, API key, usage-plan, and route persistence semantics shall remain unchanged.
+- Existing quota source-of-truth behavior shall remain unchanged.
+- Successful usage and rejected/security event persistence shall remain separated.
+- Scheduler execution boundaries shall remain unchanged.
+- Retention execution shall remain blocked.
+- Raw-event deletion shall remain blocked.
+
+### Explicit non-goals
+
+Sprint 61 shall not add:
+
+- a generic Admin API proxy
+- Dashboard mutations
+- consumer management UI
+- API key management UI
+- usage-plan management UI
+- route management UI
+- quota and usage analytics UI
+- rejected-event UI
+- rollup operator UI
+- scheduler operator UI
+- retention operator UI
+- administrator accounts
+- database-backed administrator authorization
+- organization or tenant models
+- SSO, OAuth, SAML, or enterprise IAM
+- database migrations
+- quota behavior changes
+- event recorder changes
+- scheduler execution expansion
+- retention execution
+- raw-event deletion
+- Developer Portal functionality
+- Kubernetes
+- OpenTelemetry
+- Loki
+
+### Acceptance criteria
+
+Automated acceptance:
+
+- Admin Dashboard test suite passes.
+- API Gateway test suite passes.
+- Root typecheck passes.
+- Root production build passes.
+- Docker Compose configuration validation passes.
+- Git whitespace diff validation passes.
+- Browser-facing production source secret audit passes.
+- Docker image secret inspection passes.
+
+Runtime acceptance:
+
+- PostgreSQL is healthy.
+- Redis is healthy.
+- Product Service is healthy.
+- API Gateway runs on port `3000`.
+- Admin Dashboard is healthy on port `3003`.
+- Direct read-only Gateway runtime request returns `HTTP 200`.
+- Dashboard Overview returns `HTTP 200`.
+- Dashboard BFF returns `HTTP 200`.
+- Dashboard response reports `accessMode=read-only`.
+- Runtime registry reports `available=true`.
+- Invalid Dashboard credentials return normalized `HTTP 403`.
+- Dashboard container contains `ADMIN_READ_ONLY_API_KEY`.
+- Dashboard container does not contain `ADMIN_API_KEY`.
+- Credentials are absent from HTML, responses, browser bundles, logs, and image configuration.
+
+### Validation baseline
+
+Sprint 61 validation passed:
+
+- Admin Dashboard: 5 test files / 22 tests.
+- API Gateway: 136 test files / 988 tests.
+- Typecheck passed.
+- Production build passed.
+- Docker Compose configuration validation passed.
+- Dashboard runtime and credential-boundary validation passed.
+
+Implementation status: Complete in Sprint 61.
+
+Known dependency note:
+
+- Next.js `16.2.10` currently resolves a transitive PostCSS version reported by npm audit with moderate findings.
+- Do not automatically use `npm audit fix --force`.
+- Do not apply a framework downgrade, unsupported dependency override, or canary release without explicit approval.
+- The Sprint 61 Dashboard does not accept or process untrusted CSS input.
+
+## Sprint 62 - Dashboard consumers/API keys/usage plans
+
+PulseGate shall extend the Sprint 61 Dashboard foundation with bounded views and explicitly approved controls for API consumers, API keys, usage plans, and route configuration.
+
+Sprint 62 must:
+
+- retain fixed server-side BFF resources
+- avoid a generic Admin API proxy
+- preserve read-only access for reads
+- require full-access authorization for approved mutations
+- preserve sanitized `x-admin-actor` audit attribution
+- preserve current persistence semantics
+- preserve quota source-of-truth behavior
+- preserve successful and rejected event separation
+- preserve scheduler and retention safety boundaries
+- preserve the raw-event deletion prohibition
+
+Sprint 62 must not add unrelated analytics, scheduler, retention, enterprise IAM, Developer Portal, Kubernetes, OpenTelemetry, or Loki scope.
+
+Implementation status: Planned for Sprint 62.
 
 ## Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0
 

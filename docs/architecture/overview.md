@@ -6,26 +6,29 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.0.0
+v1.1.0
 
 ## Current Status
 
-Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0 Complete
+Sprint 61 - Admin Dashboard foundation Complete
 
 Current validation:
 
-- 136 test files / 988 tests passed.
-- `npm run typecheck` passed.
-- `npm run build` passed.
+- Admin Dashboard: 5 test files / 22 tests passed.
+- API Gateway: 136 test files / 988 tests passed.
+- Root `npm run typecheck` passed.
+- Root `npm run build` passed.
+- `docker compose config --quiet` passed.
 - `git diff --check` passed.
-- API Gateway health returned `200`.
-- Prometheus readiness returned `200`; the gateway scrape target was `up`.
-- Distinct unmatched 404 paths used one `__unmatched__` metric label and raw paths were absent.
-- Bounded k6 completed 10/10 iterations and 20/20 checks with 0% failures.
-- Grafana database and datasource health checks passed.
-- All five PromQL queries succeeded and the five-panel dashboard was provisioned.
-- No quota source, usage/rejected recorder, scheduler execute, retention execution, raw event deletion, or Admin UI behavior changed.
-
+- PostgreSQL, Redis, Product Service, API Gateway, and Admin Dashboard runtime checks passed.
+- Dashboard Overview returned `HTTP 200`.
+- Dashboard BFF returned `HTTP 200`.
+- Direct read-only Gateway runtime access returned `HTTP 200`.
+- Invalid Dashboard credentials returned normalized `HTTP 403`.
+- Dashboard access mode remained `read-only`.
+- Full-access `ADMIN_API_KEY` was absent from the Dashboard container.
+- Admin credentials were absent from HTML, BFF responses, client bundles, logs, and image configuration.
+- No persistence, quota, event-recorder, scheduler-execution, retention-execution, or raw-event behavior changed.
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
 PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, DB-backed non-destructive retention operator preview hardening, non-destructive rollup schedule preview planning, non-destructive rollup scheduler runner preview planning, non-destructive rollup scheduler execution boundary preview planning, non-destructive rollup scheduler execution wiring review, non-destructive rollup scheduler command dry-run design review, non-destructive rollup scheduler command dry-run invocation contract and readiness review, non-destructive rollup scheduler command dry-run invocation design review, non-destructive rollup scheduler command dry-run service invocation contract review, non-destructive rollup scheduler command dry-run service invocation implementation design, non-destructive rollup scheduler command dry-run service invocation wiring readiness review, non-destructive rollup scheduler command dry-run service invocation fail-closed error model, non-destructive rollup scheduler command dry-run service invocation wiring contract, non-destructive rollup scheduler command dry-run service invocation request mapper design, non-destructive rollup scheduler command dry-run service adapter boundary design, non-destructive rollup scheduler command dry-run service adapter preview output integration, command dry-run runtime service invocation, runtime consistency output, blocked-path runtime tests, non-destructive rollup scheduler command execute contract review, non-destructive command execute readiness review, non-destructive command execute operator output review, non-destructive blocked-by-default command execute wiring preview, selected summary runtime rollup read switching behind explicit flag with raw-summary fallback, and CI/CD.
@@ -34,6 +37,26 @@ PulseGate demonstrates backend engineering around API Gateway routing, dynamic r
 
 ## Current High-Level Architecture
 
+Dashboard administration flow:
+
+    Operator Browser
+      -> Admin Dashboard :3003
+        -> GET /api/admin/runtime-status
+        -> server-only configuration
+        -> fixed read-only Admin API client
+        -> API Gateway :3000
+          -> GET /internal/admin/routes/runtime
+          -> full-access/read-only Admin authorization middleware
+          -> safe runtime registry metadata
+
+Dashboard security properties:
+
+- The browser does not call protected Gateway Admin APIs directly.
+- The browser never receives the Admin credential.
+- The Dashboard uses only `ADMIN_READ_ONLY_API_KEY`.
+- The Dashboard does not receive full-access `ADMIN_API_KEY`.
+- The Dashboard exposes no generic Admin API proxy.
+- Sprint 61 adds no Dashboard mutation path.
 Runtime flow:
 
     Client / API Consumer
@@ -510,7 +533,7 @@ Core:
 - Direct command execute and guarded process-local dry-run runtime paths exist, but no autonomous scheduler loop, external scheduler runtime, scheduled/background execute, or retention execution exists.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
-- Admin Dashboard is not implemented yet.
+- The Admin Dashboard foundation is implemented; consumer, API key, usage-plan, route, analytics, scheduler, and retention feature panels remain assigned to later roadmap sprints.
 - Developer Portal is not implemented yet.
 - Admin authorization remains a local full-access/read-only API key boundary; database-backed administrator identities and general platform RBAC are not implemented yet.
 - Dynamic router supports exact method + exact path matching only.
@@ -529,14 +552,16 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 61 - Admin Dashboard foundation.
+Sprint 62 - Dashboard consumers/API keys/usage plans.
 
 Rationale:
 
-- Sprint 60 completed Backend Portfolio v1 release preparation and reproducible validation.
-- Sprint 61 should establish only the Admin Dashboard foundation against existing protected Admin APIs.
-- The dashboard must preserve full-access/read-only authorization and sanitized actor attribution.
-- Quota, analytics, scheduler, retention, and raw-event safety semantics must remain unchanged.
+- Sprint 61 established the responsive Dashboard shell, server-only credential boundary, fixed BFF resource, runtime status panel, and Docker runtime.
+- Sprint 62 may extend the Dashboard with bounded views and explicitly approved controls for consumers, API keys, usage plans, and route configuration.
+- New Dashboard resources must continue to use fixed server-side BFF endpoints rather than a generic Admin API proxy.
+- Read operations must preserve read-only Admin access.
+- Mutation operations, when explicitly approved, must require full-access Admin authorization and sanitized `x-admin-actor` attribution.
+- Persistence, quota, analytics, scheduler, retention, and raw-event safety semantics must remain unchanged.
 
 ## Selected Summary Runtime Rollup Reads
 
@@ -699,6 +724,7 @@ Safety remains unchanged:
 - no Admin UI behavior changes
 
 Sprint 57 remains preview hardening only. It does not introduce a retention execute command, delete API, scheduled delete job, runtime retention execution path, quota mutation, or raw event deletion.
+
 ## Sprint 56 Retention Execute Contract Review Boundary
 
 Sprint 56 adds a review-only retention execute contract boundary.
@@ -728,6 +754,163 @@ The boundary remains non-destructive:
 - Prisma retention delete repository is not wired into command/API/job execution
 - quota counting remains unchanged
 - raw event deletion remains blocked
+
+## Sprint 61 Admin Dashboard Architecture Boundary
+
+Sprint 61 adds the first PulseGate product-facing Admin Dashboard while preserving the existing Gateway administration and data safety boundaries.
+
+### Application boundary
+
+The Dashboard is a separate workspace:
+
+```txt
+apps/admin-dashboard
+```
+
+Technology:
+
+- Next.js `16.2.10`
+- React `19.2.4`
+- TypeScript
+- App Router
+- plain CSS
+
+Runtime:
+
+- local and Docker port `3003`
+- production Node.js 20 image
+- multi-stage Docker build
+- non-root `node` runtime user
+- Docker-internal Gateway origin `http://api-gateway:3000`
+
+Product/documentation version is `v1.1.0`.
+
+Private npm workspace package versions remain `0.1.0`.
+
+The existing annotated `v1.0.0` Git tag remains unchanged.
+
+### Browser and server boundary
+
+Browser-facing endpoint:
+
+```txt
+GET /api/admin/runtime-status
+```
+
+Server-only Gateway endpoint:
+
+```txt
+GET /internal/admin/routes/runtime
+```
+
+The browser calls only the Dashboard BFF.
+
+The Dashboard server adds the configured Admin header only when calling the fixed Gateway runtime-status endpoint.
+
+No generic Gateway Admin API forwarding route exists.
+
+### Configuration boundary
+
+Required server-only variables:
+
+```txt
+PULSEGATE_GATEWAY_BASE_URL
+ADMIN_READ_ONLY_API_KEY
+```
+
+Optional variables:
+
+```txt
+ADMIN_API_KEY_HEADER
+ADMIN_DASHBOARD_REQUEST_TIMEOUT_MS
+```
+
+Defaults:
+
+```txt
+ADMIN_API_KEY_HEADER=x-admin-api-key
+ADMIN_DASHBOARD_REQUEST_TIMEOUT_MS=3000
+```
+
+The Gateway base URL accepts only an HTTP or HTTPS origin without credentials, path components, query strings, or fragments.
+
+Missing or invalid configuration fails closed.
+
+### Credential boundary
+
+The Dashboard receives:
+
+```txt
+ADMIN_READ_ONLY_API_KEY
+```
+
+The Dashboard must not receive:
+
+```txt
+ADMIN_API_KEY
+```
+
+Admin credentials must remain absent from:
+
+- `NEXT_PUBLIC_*` variables
+- HTML
+- client bundles
+- browser requests to the Gateway
+- browser local storage
+- browser session storage
+- query strings
+- BFF responses
+- logs
+- Docker image configuration
+
+### Runtime response boundary
+
+The Overview panel displays only safe runtime registry metadata:
+
+- access mode
+- runtime registry mode
+- availability
+- loaded version
+- loaded timestamp
+- registered route count
+- safe registered route metadata
+
+Gateway and configuration failures are normalized into bounded Dashboard error responses.
+
+A safe Gateway `requestId` may be preserved.
+
+Raw exception content and credentials are not returned.
+
+### Mutation boundary
+
+Sprint 61 adds no Dashboard mutation controls.
+
+It does not change:
+
+- consumer persistence
+- API key persistence
+- usage-plan persistence
+- route persistence
+- quota enforcement
+- successful usage recording
+- rejected-event recording
+- rollup scheduling
+- retention execution
+- raw-event deletion
+
+### Extension boundary
+
+Sprints 62-64 may extend the Dashboard using explicit fixed BFF resources.
+
+Future Dashboard work must not replace this fixed-resource model with a generic Admin API proxy.
+
+Any approved mutation path must preserve:
+
+- full-access Admin authorization
+- read-only mutation rejection
+- sanitized `x-admin-actor` attribution
+- existing validation and audit behavior
+- explicit roadmap scope
 
 ## Sprint 60 Release Architecture Boundary
 

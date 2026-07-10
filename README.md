@@ -6,11 +6,15 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v1.0.0
+- v1.1.0
 
 Latest completed sprint:
 
-- Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0
+- Sprint 61 - Admin Dashboard foundation
+
+Private npm workspace package versions remain `0.1.0`.
+
+The annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`.
 
 ---
 
@@ -27,6 +31,10 @@ PulseGate currently includes:
 - Grafana
 - Bounded Docker-based k6 smoke validation
 - GitHub Actions CI/CD
+- Admin Dashboard foundation
+- Server-only read-only Admin API boundary
+- Dashboard runtime connectivity status
+- Dashboard Docker Compose runtime on port 3003
 - Dynamic route config
 - Runtime route registry
 - Catch-all dynamic router
@@ -485,6 +493,131 @@ Sprint 58 docs:
 - docs/runbooks/admin-route-management.md
 - docs/sdlc/sprint-history/sprint-58.md
 
+## Sprint 61 Completion
+
+Sprint 61 completed the Admin Dashboard foundation and began the fixed Product/Platform Expansion v2 roadmap.
+
+Product/documentation version:
+
+```txt
+v1.1.0
+```
+
+Private npm workspace versions remain:
+
+```txt
+0.1.0
+```
+
+Delivered:
+
+- Added `apps/admin-dashboard`.
+- Uses Next.js App Router, React, TypeScript, and plain CSS.
+- Added a responsive application shell with top bar and sidebar navigation.
+- Added Overview, loading, error, and not-found states.
+- Added roadmap placeholders for:
+  - Consumers
+  - API Keys
+  - Usage Plans
+  - Routes
+  - Usage Analytics
+  - Rejected Events
+  - Rollups
+  - Scheduler
+  - Retention
+- Added the root `npm run dev:dashboard` command.
+- Reserved Dashboard port `3003`.
+- Added strict server-only Dashboard environment configuration.
+- Added a fixed read-only Gateway Admin API client.
+- Added the browser-facing BFF endpoint:
+  - `GET /api/admin/runtime-status`
+- Added the fixed Gateway request:
+  - `GET /internal/admin/routes/runtime`
+- Added no generic Admin API proxy.
+- Added normalized configuration, authorization, timeout, availability, upstream, and invalid-response errors.
+- Added a runtime connectivity panel showing only safe runtime registry metadata.
+- Added loading, connected, unavailable, and retry states.
+- Added client-safe response contract validation.
+- Added a multi-stage production Dockerfile.
+- Runs the production container as the non-root `node` user.
+- Added the Docker Compose `admin-dashboard` service.
+- Added Dashboard health checking.
+- Added Dashboard environment examples.
+- Added a dedicated Admin Dashboard runbook.
+
+Sprint 61 implementation commits:
+
+- `82926c6 feat(dashboard): add admin dashboard foundation`
+- `9e35b5b feat(dashboard): add secure admin api boundary`
+- `0475e51 feat(dashboard): show gateway runtime status`
+- `12d1148 feat(dashboard): add production runtime wiring`
+
+Automated validation before documentation finalization:
+
+- Admin Dashboard: 5 test files / 22 tests passed.
+- API Gateway: 136 test files / 988 tests passed.
+- Root typecheck passed.
+- Root production build passed.
+- `docker compose config --quiet` passed.
+- `git diff --check` passed.
+- Browser-facing production source secret audit passed.
+- Dashboard Docker image secret inspection passed.
+
+Docker runtime validation passed:
+
+- PostgreSQL healthy.
+- Redis healthy.
+- Product Service healthy.
+- API Gateway running on port `3000`.
+- Admin Dashboard healthy on port `3003`.
+- Direct read-only Gateway runtime request returned `HTTP 200`.
+- Dashboard Overview returned `HTTP 200`.
+- Dashboard BFF returned `HTTP 200`.
+- Runtime registry returned `available=true`.
+- Runtime registry returned two loaded routes.
+- Dashboard access mode returned `read-only`.
+- Invalid Dashboard credentials returned `HTTP 403`.
+- Invalid credential errors were normalized to `ADMIN_DASHBOARD_FORBIDDEN`.
+- The Dashboard container received `ADMIN_READ_ONLY_API_KEY`.
+- The Dashboard container did not receive full-access `ADMIN_API_KEY`.
+- Admin credentials were absent from HTML, BFF responses, client bundles, logs, and Docker image configuration.
+
+Security boundaries preserved:
+
+- No Dashboard mutation controls.
+- No generic Admin API proxy.
+- No full-access Admin credential in the Dashboard.
+- No Admin credential in `NEXT_PUBLIC_*` variables.
+- No Admin credential in browser local storage or session storage.
+- No consumer, API key, usage-plan, or route persistence changes.
+- No quota behavior changes.
+- No successful-usage or rejected-event recorder changes.
+- No scheduler execution expansion.
+- No retention execution.
+- No raw-event deletion.
+- No database migration.
+- No database-backed administrator, organization, tenant, SSO, or enterprise IAM model.
+- No Developer Portal, Kubernetes, OpenTelemetry, or Loki scope.
+
+Known dependency note:
+
+- Next.js `16.2.10` currently resolves a transitive PostCSS version reported by npm audit with moderate findings.
+- Sprint 61 does not use `npm audit fix --force`, a framework downgrade, unsupported overrides, or a canary release.
+- The Dashboard does not accept or process untrusted CSS input.
+
+Sprint 61 documentation:
+
+- `README.md`
+- `docs/architecture/overview.md`
+- `docs/sdlc/requirements.md`
+- `docs/project-context/CURRENT_PROGRESS.md`
+- `docs/project-context/AI_HANDOFF.md`
+- `docs/project-context/DECISION_LOG.md`
+- `docs/project-context/decisions/2026-07-10-admin-dashboard-foundation.md`
+- `docs/runbooks/admin-dashboard.md`
+- `docs/runbooks/local-validation.md`
+- `docs/sdlc/sprint-history/sprint-61.md`
+
 ## Sprint 60 Completion
 
 Sprint 60 completed final polish, documentation, demo flow, architecture cleanup, and v1.0.0 release preparation.
@@ -509,7 +642,7 @@ Preserved boundaries:
 - No destructive retention execution or raw-event deletion.
 - No autonomous background execute or external scheduler execution.
 - No quota source-of-truth change.
-- The `v1.0.0` Git tag remains pending final validation and explicit approval.
+- The annotated `v1.0.0` Git tag was created and pushed after final validation.
 
 ## Sprint 59 Completion
 
@@ -534,18 +667,35 @@ Preserved boundaries:
 
 ## Next Sprint
 
-Sprint 61 - Admin Dashboard foundation.
+Sprint 62 - Dashboard consumers/API keys/usage plans.
 
-Sprint 61 should establish a minimal local Admin Dashboard foundation against the existing protected Admin APIs.
+Sprint 62 may add bounded Dashboard views and explicitly approved controls for:
 
-It should:
+- API consumers
+- API keys
+- usage plans
+- route configuration
 
-- Establish the dashboard application structure and local development flow.
-- Preserve full-access and read-only Admin API authorization.
-- Preserve sanitized admin actor attribution.
-- Reuse existing consumer, API key, usage-plan, route, usage, and rejection contracts.
-- Avoid changing quota sources, scheduler execution, retention execution, or raw-event deletion behavior.
-- Defer broader dashboard feature delivery to Sprints 62-64.
+Sprint 62 must preserve:
+
+- server-only Admin credentials
+- full-access and read-only authorization
+- sanitized `x-admin-actor` attribution
+- current persistence semantics
+- quota source-of-truth behavior
+- successful and rejected event separation
+- scheduler and retention safety boundaries
+- raw-event deletion prohibition
+
+Sprint 62 must not introduce:
+
+- a generic Admin API proxy
+- browser-stored Admin credentials
+- enterprise IAM
+- unrelated analytics panels
+- scheduler execution expansion
+- retention execution
+- raw-event deletion
 
 ## Sprint 57 Completion
 

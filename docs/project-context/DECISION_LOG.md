@@ -2,14 +2,110 @@
 
 ## Current Version
 
-v1.0.0
+v1.1.0
+
+Private npm workspace package versions remain `0.1.0`.
+
+The annotated `v1.0.0` Git tag remains unchanged at the final Sprint 60 documentation commit.
 
 ## Latest Completed Sprint
 
-Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0
+Sprint 61 - Admin Dashboard foundation
 
 ## Latest Decision
 
+### 2026-07-10 - Use a server-only read-only boundary for the Admin Dashboard
+
+Decision:
+
+- Add a separate Next.js App Router workspace at `apps/admin-dashboard`.
+- Run the Dashboard locally and through Docker Compose on port `3003`.
+- Keep protected Gateway Admin credentials inside the Dashboard server runtime.
+- Use only `ADMIN_READ_ONLY_API_KEY` for Sprint 61 Dashboard connectivity.
+- Do not pass full-access `ADMIN_API_KEY` to the Dashboard process or container.
+- Permit only the fixed Gateway endpoint:
+  - `GET /internal/admin/routes/runtime`
+- Expose only the fixed browser-facing BFF endpoint:
+  - `GET /api/admin/runtime-status`
+- Do not add a generic Admin API proxy.
+- Normalize configuration, authorization, timeout, Gateway availability, upstream, and invalid-response failures.
+- Preserve only safe Gateway `requestId` attribution.
+- Validate BFF payloads before displaying runtime metadata.
+- Keep credentials out of HTML, browser requests to the Gateway, bundles, browser storage, logs, responses, and Docker image configuration.
+- Use a multi-stage Node.js 20 production image running as the non-root `node` user.
+- Use product/documentation version `v1.1.0`.
+- Keep private npm workspace versions at `0.1.0`.
+- Leave the existing `v1.0.0` Git tag unchanged.
+
+Reason:
+
+- Sprint 61 begins Product/Platform Expansion v2 and requires a product-facing administration foundation.
+- Calling protected Gateway Admin APIs directly from the browser would expose the shared Admin credential.
+- A fixed server-only BFF keeps the credential outside browser execution and prevents arbitrary Admin endpoint forwarding.
+- Read-only access limits the impact of Dashboard credential exposure or implementation mistakes.
+- A separate workspace and Compose service provide a stable foundation for bounded Dashboard expansion in Sprints 62-64.
+- Existing authorization, persistence, quota, analytics, scheduler, retention, and raw-event boundaries must remain unchanged.
+
+Runtime contract:
+
+- Dashboard Overview may display:
+  - access mode
+  - runtime registry mode
+  - registry availability
+  - loaded version
+  - loaded timestamp
+  - registered route count
+- Missing or invalid Dashboard configuration fails closed.
+- Invalid Dashboard credentials return a normalized forbidden response.
+- The Dashboard Docker image contains no Admin credential configuration.
+- The Dashboard container receives the read-only credential only at runtime.
+- The Dashboard container does not receive the full-access Admin credential.
+
+Validation:
+
+- Admin Dashboard: 5 test files / 22 tests passed.
+- API Gateway: 136 test files / 988 tests passed.
+- Root typecheck passed.
+- Root production build passed.
+- `docker compose config --quiet` passed.
+- `git diff --check` passed.
+- Browser-facing production source secret audit passed.
+- Docker image secret inspection passed.
+- Direct read-only Gateway runtime access returned `HTTP 200`.
+- Dashboard Overview and BFF returned `HTTP 200`.
+- Invalid Dashboard credentials returned `HTTP 403`.
+- Dashboard container health passed on port `3003`.
+- Credential leak checks passed for HTML, BFF responses, client bundles, logs, and image configuration.
+
+Boundaries:
+
+- No Dashboard mutation controls.
+- No generic Admin API proxy.
+- No browser-stored Admin credentials.
+- No consumer, API key, usage-plan, or route persistence changes.
+- No quota behavior changes.
+- No successful-usage or rejected-event recorder changes.
+- No scheduler execution expansion.
+- No retention execution.
+- No raw-event deletion.
+- No database migration.
+- No database-backed administrator, organization, tenant, SSO, or enterprise IAM model.
+- No Developer Portal, Kubernetes, OpenTelemetry, or Loki scope.
+
+Known dependency note:
+
+- Next.js `16.2.10` currently resolves a transitive PostCSS version reported by npm audit with moderate findings.
+- Do not use `npm audit fix --force`, an unsupported override, a framework downgrade, or a canary release without explicit approval.
+- Sprint 61 does not accept or process untrusted CSS input.
+
+References:
+
+- `docs/project-context/decisions/2026-07-10-admin-dashboard-foundation.md`
+- `docs/sdlc/sprint-history/sprint-61.md`
+- `docs/runbooks/admin-dashboard.md`
+- `docs/runbooks/local-validation.md`
+
+---
 ### 2026-07-10 - Use bounded release validation and separate Git/product versioning
 
 Decision:
