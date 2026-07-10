@@ -122,6 +122,20 @@ services:
     depends_on:
       - prometheus
 
+  k6:
+    image: grafana/k6:latest
+    profiles:
+      - tools
+    environment:
+      BASE_URL: "${K6_BASE_URL:-http://api-gateway:3000}"
+    volumes:
+      - ./observability/k6:/scripts:ro
+    depends_on:
+      - api-gateway
+    command:
+      - run
+      - /scripts/api-gateway-smoke.js
+
 volumes:
   pulsegate_postgres_data:
   pulsegate_prometheus_data:

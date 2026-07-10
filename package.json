@@ -12,7 +12,8 @@
   "dev:product": "npm run dev -w apps/product-service",
   "build": "npm run build --workspaces",
   "typecheck": "npm run typecheck --workspaces",
-  "test": "npm run test --workspaces --if-present"
+  "test": "npm run test --workspaces --if-present",
+  "test:k6:smoke": "docker compose --profile tools run --rm k6"
   },
   "keywords": [
     "api-gateway",
