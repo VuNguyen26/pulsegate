@@ -92,6 +92,33 @@ services:
       product-service:
         condition: service_healthy
 
+  admin-dashboard:
+    build:
+      context: .
+      dockerfile: apps/admin-dashboard/Dockerfile
+    container_name: pulsegate-admin-dashboard
+    environment:
+      NODE_ENV: production
+      PULSEGATE_GATEWAY_BASE_URL: "http://api-gateway:3000"
+      ADMIN_API_KEY_HEADER: "${ADMIN_API_KEY_HEADER:-x-admin-api-key}"
+      ADMIN_READ_ONLY_API_KEY: "${ADMIN_READ_ONLY_API_KEY:-}"
+      ADMIN_DASHBOARD_REQUEST_TIMEOUT_MS: "${ADMIN_DASHBOARD_REQUEST_TIMEOUT_MS:-3000}"
+    ports:
+      - "3003:3003"
+    depends_on:
+      - api-gateway
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3003/').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
   prometheus:
     image: prom/prometheus:latest
     container_name: pulsegate-prometheus

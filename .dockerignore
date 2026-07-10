@@ -25,3 +25,5 @@ pnpm-debug.log
 .idea
 
 apps/api-gateway/src/generated/
+.next
+**/.next
