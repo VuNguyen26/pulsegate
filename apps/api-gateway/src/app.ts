@@ -47,6 +47,7 @@ import {
 } from "./routes/admin-api-key.route.js";
 import { createPrismaApiKeyAuthVerifier } from "./api-keys/api-key-auth-verifier.js";
 import { createApiKeyAuthMiddleware } from "./middlewares/api-key-auth.middleware.js";
+import { assertAdminRouteAuthBoundary } from "./middlewares/admin-route-auth-boundary.js";
 import {
   adminConsumerRoute,
   type AdminConsumerRouteOptions,
@@ -113,6 +114,8 @@ export async function buildApiGatewayApp(
   );
 
   registerErrorHandlers(app);
+
+  app.addHook("onRoute", assertAdminRouteAuthBoundary);
 
   const redisClient = getRedisClient();
 

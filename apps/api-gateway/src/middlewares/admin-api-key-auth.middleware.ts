@@ -6,6 +6,17 @@ export type AdminApiKeyAuthOptions = {
   apiKey?: string;
 };
 
+export const ADMIN_API_KEY_AUTH_GUARD = Symbol(
+  "admin-api-key-auth-guard",
+);
+
+export type AdminApiKeyAuthMiddleware = ((
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => Promise<unknown>) & {
+  readonly [ADMIN_API_KEY_AUTH_GUARD]: true;
+};
+
 function getSingleHeaderValue(
   headerValue: string | string[] | undefined,
 ): string | undefined {
@@ -16,14 +27,34 @@ function getSingleHeaderValue(
   return undefined;
 }
 
+export function isAdminApiKeyAuthMiddleware(
+  value: unknown,
+): value is AdminApiKeyAuthMiddleware {
+  return (
+    typeof value === "function" &&
+    (
+      value as {
+        [ADMIN_API_KEY_AUTH_GUARD]?: unknown;
+      }
+    )[ADMIN_API_KEY_AUTH_GUARD] === true
+  );
+}
+
 export function createAdminApiKeyAuthMiddleware(
   options: AdminApiKeyAuthOptions = {},
-) {
-  const headerName = (options.headerName ?? env.ADMIN_API_KEY_HEADER).toLowerCase();
+): AdminApiKeyAuthMiddleware {
+  const headerName = (
+    options.headerName ?? env.ADMIN_API_KEY_HEADER
+  ).toLowerCase();
   const expectedApiKey = options.apiKey ?? env.ADMIN_API_KEY;
 
-  return async (request: FastifyRequest, reply: FastifyReply) => {
-    const providedApiKey = getSingleHeaderValue(request.headers[headerName]);
+  const middleware = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ) => {
+    const providedApiKey = getSingleHeaderValue(
+      request.headers[headerName],
+    );
 
     if (!providedApiKey) {
       return reply.status(401).send({
@@ -47,4 +78,13 @@ export function createAdminApiKeyAuthMiddleware(
 
     return undefined;
   };
+
+  Object.defineProperty(middleware, ADMIN_API_KEY_AUTH_GUARD, {
+    value: true,
+    configurable: false,
+    enumerable: false,
+    writable: false,
+  });
+
+  return middleware as AdminApiKeyAuthMiddleware;
 }
