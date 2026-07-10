@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.60.0
+v1.0.0
 
 ## Current Status
 
-Sprint 59 - Observability + Grafana/k6 lightweight validation Complete
+Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0 Complete
 
 Current validation:
 
@@ -529,14 +529,15 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0.
+Sprint 61 - Admin Dashboard foundation.
 
 Rationale:
 
-- Sprint 59 completed the bounded observability surface needed for a reproducible portfolio demonstration.
-- The next step should consolidate documentation, demo sequencing, naming, and low-risk architecture clarity.
-- Release preparation must preserve quota source-of-truth behavior, usage/rejected separation, scheduler guardrails, retention non-destructive boundaries, and raw event safety.
-- No major runtime feature should be introduced in Sprint 60.
+- Sprint 60 completed Backend Portfolio v1 release preparation and reproducible validation.
+- Sprint 61 should establish only the Admin Dashboard foundation against existing protected Admin APIs.
+- The dashboard must preserve full-access/read-only authorization and sanitized actor attribution.
+- Quota, analytics, scheduler, retention, and raw-event safety semantics must remain unchanged.
+
 ## Selected Summary Runtime Rollup Reads
 
 Sprint 53 adds an explicit runtime-read switch for selected admin summary APIs.
@@ -727,6 +728,17 @@ The boundary remains non-destructive:
 - Prisma retention delete repository is not wired into command/API/job execution
 - quota counting remains unchanged
 - raw event deletion remains blocked
+
+## Sprint 60 Release Architecture Boundary
+
+Sprint 60 adds release and demonstration tooling without changing the production architecture:
+
+- `npm run validate:release` validates tests, typecheck, build, Git diffs, clean-tree state, and `origin/main` synchronization.
+- `npm run demo:runtime` validates the existing Docker Compose Gateway, Prometheus, Grafana, Admin authorization, bounded metrics, and k6 surfaces.
+- The runtime demo does not invoke retention deletion, raw-event deletion, background execute, or external scheduler execution.
+- Prometheus metrics and analytics rollups remain outside quota source-of-truth behavior.
+- Git/product documentation uses `v1.0.0`; private npm workspace packages remain `0.1.0`.
+- No new production service, database model, migration, queue, or autonomous job was added.
 
 ## Sprint 59 Observability Boundary
 

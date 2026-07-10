@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.60.0
+v1.0.0
 
 ## Latest Completed Sprint
 
-Sprint 59 - Observability + Grafana/k6 lightweight validation
+Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0
 
 ---
 
@@ -1265,11 +1265,11 @@ Implemented.
 
 Recommended next:
 
-- Complete Sprint 60 final polish, compact documentation, demo script, architecture cleanup, and v1.0.0 release preparation.
+- Begin Sprint 61 Admin Dashboard foundation without changing existing API management safety semantics.
 - Keep retention execution explicit and blocked from operator-facing deletion.
 - Keep external scheduler runtime and scheduled/background execute blocked.
 - Preserve metrics and rollups as non-quota sources.
-- Add no major runtime feature before the v1.0.0 release checkpoint.
+- Keep Sprint 61 limited to the Admin Dashboard foundation defined by the fixed roadmap.
 
 ## Selected Summary Runtime Rollup Reads
 
@@ -1454,6 +1454,36 @@ Validation:
 - Invalid admin key access returned `403 ADMIN_API_KEY_INVALID`.
 
 Implementation status: Complete in Sprint 58 as bounded Admin/RBAC hardening.
+
+## Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0
+
+PulseGate shall complete Backend Portfolio v1 release preparation without introducing a major runtime feature.
+
+Requirements:
+
+- Provide a repeatable automated release-readiness command.
+- Validate tests, typecheck, build, Git diffs, clean working-tree state, and `origin/main` synchronization.
+- Provide a bounded local runtime demonstration command.
+- Validate Gateway, Prometheus, Grafana, Admin authorization, bounded metric labels, and k6 health behavior.
+- Keep runtime validation non-destructive.
+- Do not invoke retention deletion or raw-event deletion.
+- Do not enable autonomous scheduled/background execute or external scheduler execution.
+- Preserve quota source-of-truth behavior.
+- Preserve successful usage and rejected/security analytics separation.
+- Keep private npm workspace package versions at `0.1.0`.
+- Use `v1.0.0` as the Git and product documentation release version.
+- Create the Git tag only after final documentation, automated validation, runtime validation, repository synchronization, and explicit approval.
+
+Implementation status: Complete in Sprint 60.
+
+Validation baseline:
+
+- 136 test files passed.
+- 988 tests passed.
+- Typecheck and build passed.
+- Release-readiness validation passed on a clean working tree.
+- Runtime demo validation passed.
+- k6 completed 10/10 iterations and 20/20 checks with 0% failures.
 
 ## Sprint 59 - Observability + Grafana/k6 lightweight validation
 

@@ -2,15 +2,44 @@
 
 ## Current Version
 
-- v0.60.0
+- v1.0.0
 
 ## Latest Completed Sprint
 
-- Sprint 59 - Observability + Grafana/k6 lightweight validation
+- Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0
 
-## Latest Implementation Commit Before Docs Finalization
+## Latest Sprint 60 Checkpoint Before Live Docs Finalization
 
-- `c9da0cb feat(observability): refine gateway Grafana dashboard`
+- `d653d9c docs: add sprint 60 release records`
+
+## Sprint 60 Summary
+
+Sprint 60 completes Backend Portfolio v1 release preparation without adding a major runtime feature.
+
+Key outcomes:
+
+- `npm run validate:release` provides repeatable automated release validation.
+- `npm run demo:runtime` provides bounded Docker runtime validation.
+- Gateway, Prometheus, Grafana, Admin authorization, metric cardinality, and k6 checks passed.
+- Scheduler documentation reflects guarded direct command execute and process-local dry-run support.
+- Release notes, Sprint 60 history, and the v1 release-readiness decision record were added.
+- Git/product documentation version is `v1.0.0`.
+- Private npm workspace versions remain `0.1.0`.
+- The Git tag remains pending final validation and explicit approval.
+
+Sprint 60 commits:
+
+- `4fb3c70 chore: add release readiness validation`
+- `5059d61 chore: add bounded runtime demo`
+- `33c05a3 docs: fix scheduler runtime runbook`
+- `d653d9c docs: add sprint 60 release records`
+
+Safety boundaries:
+
+- No destructive retention execution or raw event deletion.
+- No autonomous scheduled/background execute.
+- No external scheduler runtime execution.
+- No Admin Dashboard or Developer Portal was added in Sprint 60.
 
 ## Sprint 59 Summary
 
@@ -83,23 +112,22 @@ Do not open these without explicit approval:
 
 ## Next Recommended Sprint
 
-Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0.
+Sprint 61 - Admin Dashboard foundation.
 
 Recommended scope:
 
-- Compact stale live documentation where practical.
-- Add or refine a reproducible end-to-end demo script.
-- Perform architecture and naming cleanup only where low risk.
-- Run final test/typecheck/build/Docker validation.
-- Prepare v1.0.0 release documentation and tag only after a clean final validation.
-- Do not add a major new runtime feature.
+- Build a minimal local Admin Dashboard foundation against existing protected Admin APIs.
+- Preserve full-access/read-only authorization and sanitized actor attribution.
+- Keep consumer, API key, route, and usage-plan persistence semantics unchanged.
+- Preserve quota, analytics, scheduler, retention, and raw-event safety boundaries.
+- Defer dashboard feature expansion to Sprints 62-64.
 
 ## Fixed Roadmap
 
 Backend Portfolio v1:
 
-- Sprint 45-59: complete.
-- Sprint 60: final polish and v1.0.0 release.
+- Sprint 45-60: complete.
+- Backend Portfolio v1 complete; the v1.0.0 Git tag is pending final validation and explicit approval.
 
 Product/Platform Expansion v2:
 

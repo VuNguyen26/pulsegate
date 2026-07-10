@@ -2,11 +2,48 @@
 
 ## Current Version
 
-v0.60.0
+v1.0.0
 
 ## Latest Completed Sprint
 
-Sprint 59 - Observability + Grafana/k6 lightweight validation
+Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0
+
+## Sprint 60 Completion Summary
+
+Sprint 60 completed Backend Portfolio v1 release preparation without adding a major runtime feature.
+
+Delivered:
+
+- Added `npm run validate:release` for tests, typecheck, build, diff checks, clean-tree verification, and `origin/main` synchronization.
+- Added `npm run demo:runtime` for bounded Docker, Gateway, Prometheus, Grafana, Admin auth, metric-label, and k6 validation.
+- Corrected stale scheduler documentation for guarded direct command execute and process-local dry-run.
+- Added `docs/releases/v1.0.0.md`.
+- Added the Sprint 60 history and v1 release-readiness decision record.
+- Kept private npm workspace versions at `0.1.0`.
+- Prepared Git/product documentation version `v1.0.0`; the Git tag remains pending final validation and explicit approval.
+
+Sprint 60 commits so far:
+
+- `4fb3c70 chore: add release readiness validation`
+- `5059d61 chore: add bounded runtime demo`
+- `33c05a3 docs: fix scheduler runtime runbook`
+- `d653d9c docs: add sprint 60 release records`
+
+Validation:
+
+- 136 test files / 988 tests passed.
+- Typecheck and build passed.
+- Clean release-readiness validation passed.
+- Runtime demo passed Gateway, Prometheus, Grafana, Admin authorization, bounded metric-label, and k6 checks.
+- k6 completed 10/10 iterations and 20/20 checks with 0% failures.
+
+Boundaries preserved:
+
+- No destructive retention execution or raw event deletion.
+- No autonomous scheduled/background execute.
+- No external scheduler runtime execution.
+- No quota source-of-truth change.
+- No Admin Dashboard or Developer Portal was added in Sprint 60.
 
 ## Sprint 59 Completion Summary
 
@@ -61,9 +98,9 @@ Preserved boundaries:
 
 ## Next Sprint
 
-Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0.
+Sprint 61 - Admin Dashboard foundation.
 
-Sprint 60 must remain a polish/release sprint and must not add a large new feature.
+Sprint 61 must remain limited to the Admin Dashboard foundation defined by the fixed roadmap.
 
 ## Fixed Roadmap
 

@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.60.0
+- v1.0.0
 
 Latest completed sprint:
 
-- Sprint 59 - Observability + Grafana/k6 lightweight validation
+- Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0
 
 ---
 
@@ -390,13 +390,14 @@ Latest decision record:
 
 ## Recommended Next Sprint
 
-Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0.
+Sprint 61 - Admin Dashboard foundation.
 
 Reason:
 
-- Sprint 59 completed bounded metric-label hardening, Grafana dashboard refinement, and reproducible k6 validation.
-- Sprint 60 should focus on compact documentation, demo flow, low-risk architecture cleanup, final validation, and release preparation.
-- Sprint 60 must not add a major runtime feature or weaken quota, scheduler, retention, or raw-event safety boundaries.
+- Sprint 60 completed Backend Portfolio v1 release preparation and bounded demo validation.
+- The next step is a minimal Admin Dashboard foundation against existing protected Admin APIs.
+- Sprint 61 must preserve authorization, persistence, quota, scheduler, retention, and raw-event safety boundaries.
+
 ## Sprint 55 Completion
 
 Sprint 55 completed Background Scheduler Runtime Wiring with guardrails.
@@ -484,6 +485,32 @@ Sprint 58 docs:
 - docs/runbooks/admin-route-management.md
 - docs/sdlc/sprint-history/sprint-58.md
 
+## Sprint 60 Completion
+
+Sprint 60 completed final polish, documentation, demo flow, architecture cleanup, and v1.0.0 release preparation.
+
+Implemented:
+
+- Added `npm run validate:release` for tests, typecheck, build, Git diff checks, clean-tree verification, and `origin/main` synchronization.
+- Added `npm run demo:runtime` for bounded Docker runtime validation.
+- Validated Gateway, Prometheus, Grafana, Admin authorization, bounded metric labels, and k6 health behavior.
+- Corrected scheduler runtime documentation.
+- Added v1.0.0 release notes, Sprint 60 history, and the release-readiness decision record.
+- Updated the recurring live documentation set for Sprint 60 completion and Sprint 61 handoff.
+
+Validation baseline:
+
+- 136 test files / 988 tests passed.
+- Typecheck and build passed.
+- Runtime demo completed 10/10 k6 iterations and 20/20 checks with 0% failures.
+
+Preserved boundaries:
+
+- No destructive retention execution or raw-event deletion.
+- No autonomous background execute or external scheduler execution.
+- No quota source-of-truth change.
+- The `v1.0.0` Git tag remains pending final validation and explicit approval.
+
 ## Sprint 59 Completion
 
 Sprint 59 completed Observability + Grafana/k6 lightweight validation.
@@ -507,19 +534,18 @@ Preserved boundaries:
 
 ## Next Sprint
 
-Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0.
+Sprint 61 - Admin Dashboard foundation.
 
-Sprint 60 should remain a final polish and release-preparation sprint.
+Sprint 61 should establish a minimal local Admin Dashboard foundation against the existing protected Admin APIs.
 
-It should focus on:
+It should:
 
-- compact and accurate live documentation
-- a reproducible end-to-end demo script
-- low-risk architecture and naming cleanup
-- final automated and Docker runtime validation
-- v1.0.0 release notes and tag preparation
-
-It must preserve quota correctness, successful/rejected traffic separation, scheduler guardrails, retention non-destructive boundaries, and raw event safety. It must not add a major runtime feature, Admin UI, Developer Portal, billing, marketplace, OpenTelemetry, Loki, Kubernetes, or unrelated product scope.
+- Establish the dashboard application structure and local development flow.
+- Preserve full-access and read-only Admin API authorization.
+- Preserve sanitized admin actor attribution.
+- Reuse existing consumer, API key, usage-plan, route, usage, and rejection contracts.
+- Avoid changing quota sources, scheduler execution, retention execution, or raw-event deletion behavior.
+- Defer broader dashboard feature delivery to Sprints 62-64.
 
 ## Sprint 57 Completion
 

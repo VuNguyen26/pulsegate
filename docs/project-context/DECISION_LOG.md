@@ -2,13 +2,44 @@
 
 ## Current Version
 
-v0.60.0
+v1.0.0
 
 ## Latest Completed Sprint
 
-Sprint 59 - Observability + Grafana/k6 lightweight validation
+Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0
 
 ## Latest Decision
+
+### 2026-07-10 - Use bounded release validation and separate Git/product versioning
+
+Decision:
+
+- Use `v1.0.0` as the Git and product documentation release version.
+- Keep private npm workspace versions at `0.1.0`.
+- Do not publish npm packages as part of Sprint 60.
+- Use `npm run validate:release` for automated release-readiness validation.
+- Use `npm run demo:runtime` for bounded Docker runtime demonstration.
+- Require final documentation, automated validation, runtime validation, repository synchronization, and explicit approval before creating the Git tag.
+- Keep the runtime demo non-destructive.
+- Do not invoke retention deletion, raw-event deletion, autonomous background execute, or external scheduler execution.
+- Preserve Prometheus metrics and analytics rollups as non-quota sources.
+- Keep Sprint 60 limited to release preparation, documentation, demo flow, and low-risk cleanup.
+
+Validation:
+
+- 136 test files / 988 tests passed.
+- Typecheck and build passed.
+- Clean release-readiness validation passed.
+- Gateway, Prometheus, Grafana, Admin authorization, bounded metric-label, and k6 runtime checks passed.
+- k6 completed 10/10 iterations and 20/20 checks with 0% failures.
+
+References:
+
+- docs/project-context/decisions/2026-07-10-v1-release-readiness.md
+- docs/releases/v1.0.0.md
+- docs/sdlc/sprint-history/sprint-60.md
+
+---
 
 ### 2026-07-10 - Keep observability bounded and separate from business sources of truth
 
