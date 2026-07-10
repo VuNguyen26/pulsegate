@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.58.0
+v0.59.0
 
 ## Latest Completed Sprint
 
-Sprint 57 - Retention Execute Preview Hardening/rollback expectation
+Sprint 58 - Minimal Admin/RBAC hardening
 
 ---
 
@@ -1399,3 +1399,45 @@ Validation:
 - Docker/PostgreSQL runtime validation is not required unless a new DB runtime path, migration, destructive delete path, quota path, scheduled job, or raw event deletion path is introduced.
 
 Implementation status: Complete in Sprint 57 as non-destructive preview hardening.
+
+## Sprint 58 - Minimal Admin/RBAC hardening
+
+PulseGate shall harden internal administration authentication and provide a minimal read/write authorization boundary without introducing a full admin identity platform.
+
+Acceptance criteria:
+
+- The exact `/internal/admin` route and all `/internal/admin/*` routes require marked admin API key authentication middleware.
+- Application startup fails closed when a protected admin route is registered without the required middleware.
+- Existing full-access `ADMIN_API_KEY` behavior remains compatible.
+- Optional `ADMIN_READ_ONLY_API_KEY` configuration is supported.
+- A read-only key may call `GET`, `HEAD`, and `OPTIONS`.
+- A read-only key may not call `POST`, `PUT`, `PATCH`, or `DELETE`.
+- Read-only mutation attempts return `403 ADMIN_API_KEY_READ_ONLY`.
+- Invalid keys continue to return `403 ADMIN_API_KEY_INVALID`.
+- Missing keys continue to return `401 ADMIN_API_KEY_MISSING`.
+- Full-access and read-only keys must not be identical.
+- Admin key verification uses the existing timing-safe API key hashing verifier rather than direct raw string equality.
+- Admin actor attribution is centralized across API consumer, managed API key, route configuration, and usage plan mutations.
+- Missing, duplicated, blank, oversized, or unsafe actor attribution falls back consistently.
+- Actor attribution remains audit metadata rather than authenticated identity.
+- Docker Compose and `.env.example` expose the optional read-only configuration.
+- Existing deployments without a read-only key preserve full-access-only behavior.
+- No Admin UI is added.
+- No database-backed admin user, role, organization, or tenant model is added.
+- No database migration is added.
+- No quota, retention, rollup scheduler, or raw event deletion behavior changes.
+
+Validation:
+
+- 136 test files / 987 tests passed.
+- Typecheck passed.
+- Build passed.
+- Whitespace diff check passed.
+- Docker/PostgreSQL runtime validation passed.
+- Runtime health returned `200`.
+- Read-only admin `GET` access returned `200`.
+- Read-only admin mutation returned `403 ADMIN_API_KEY_READ_ONLY`.
+- Full-access admin mutation reached payload validation with `400 API_CONSUMER_INVALID`.
+- Invalid admin key access returned `403 ADMIN_API_KEY_INVALID`.
+
+Implementation status: Complete in Sprint 58 as bounded Admin/RBAC hardening.

@@ -6,45 +6,25 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.58.0
+v0.59.0
 
 ## Current Status
 
-Sprint 57 - Retention Execute Preview Hardening/rollback expectation Complete
+Sprint 58 - Minimal Admin/RBAC hardening Complete
 
 Current validation:
 
-- 105 test files passed
-- 773 tests passed
-- npm run typecheck passed
-- npm run build passed
-- Docker/PostgreSQL runtime validation was not required for Sprint 49 because no runtime execute path, DB read, rollup persistence, migration, quota path, or raw event deletion was introduced
-- Scheduler preview exposes commandExecuteContractReview for command:execute requests
-- Scheduler preview exposes commandExecuteReadinessReview with planned request count, planned sources, planned granularity, and execute guardrail requirements
-- Scheduler preview exposes commandExecuteOperatorOutputReview with confirmation requirement, blocked reason, readiness status, contract status, persistence scope, rollback expectation, source-scoped planned requests, safety flags, no quota mutation, and no raw event deletion
-- Scheduler preview exposes commandExecuteWiringPreview with blocked-by-default command execute wiring state, planned source-scoped executions, guardrails, safety flags, and all runtime permissions false
-- Command execute remains blocked with backfill-execution-not-wired
-- No scheduled/background job, process-local execution, external scheduler execution, execute backfill, raw event read, rollup persistence, quota counting change, summary API switch, retention delete, or raw event deletion was introduced
----
-## Architecture Scope
-
-This document describes the current architecture only.
-
-Detailed sprint history lives in:
-
-- docs/sdlc/sprint-history/
-
-Manual validation commands live in:
-
-- docs/runbooks/
-
-Long decision records live in:
-
-- docs/project-context/decisions/
-
----
-
-## Product Goal
+- 136 test files / 987 tests passed.
+- `npm run typecheck` passed.
+- `npm run build` passed.
+- `git diff --check` passed.
+- Docker/PostgreSQL runtime validation passed for the read-only admin access boundary.
+- API Gateway health returned `200`.
+- Read-only admin `GET` access returned `200`.
+- Read-only admin mutation returned `403 ADMIN_API_KEY_READ_ONLY`.
+- Full-access admin mutation passed authentication and reached payload validation.
+- Invalid admin credentials remained rejected with `403 ADMIN_API_KEY_INVALID`.
+- No database migration, quota behavior change, retention execution path, rollup scheduler change, raw event deletion, or Admin UI expansion was introduced.
 
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
@@ -602,6 +582,59 @@ Still blocked:
 - raw event deletion
 - retention execution
 - Admin UI expansion
+
+## Sprint 58 Minimal Admin/RBAC Hardening Boundary
+
+Sprint 58 adds a bounded administration authorization layer without introducing a full identity or enterprise IAM platform.
+
+Admin route registration boundary:
+
+- The exact `/internal/admin` route and every `/internal/admin/*` descendant must register marked admin API key authentication middleware.
+- Application startup fails when a protected admin route is registered without that middleware.
+- Similar but unrelated paths such as `/internal/administrator` are not implicitly classified as admin routes.
+- This boundary protects future route additions from accidentally omitting admin authentication.
+
+Minimal role boundary:
+
+- `ADMIN_API_KEY` remains the full-access local administration credential.
+- `ADMIN_READ_ONLY_API_KEY` is optional and disabled when blank or absent.
+- The read-only credential may call only `GET`, `HEAD`, and `OPTIONS`.
+- Read-only mutation attempts return `403 ADMIN_API_KEY_READ_ONLY`.
+- Full-access and read-only credentials must be different; identical configuration fails during middleware creation.
+
+Secret verification:
+
+- Admin credentials are no longer compared directly with raw string equality.
+- Configured keys are hashed once when the middleware is created.
+- Request keys are verified through the existing `verifyApiKeyHash` helper.
+- `verifyApiKeyHash` uses SHA-256 and Node.js `timingSafeEqual`.
+- Prefix-like, suffix-extended, and different-length invalid keys remain rejected.
+
+Actor attribution:
+
+- Admin mutation routes use a shared `getAdminActor` helper.
+- `x-admin-actor` is trimmed and limited to 64 characters.
+- Allowed attribution characters are letters, digits, `.`, `_`, `:`, `@`, and `-`.
+- Missing, duplicated, blank, unsafe, or oversized values fall back to `admin-api-key`.
+- Actor attribution remains audit metadata and is not treated as an authenticated principal.
+
+Runtime configuration:
+
+- Docker Compose exposes `ADMIN_API_KEY_HEADER`, `ADMIN_API_KEY`, and optional `ADMIN_READ_ONLY_API_KEY`.
+- `.env.example` documents the optional read-only credential.
+- Existing deployments that do not configure `ADMIN_READ_ONLY_API_KEY` preserve the previous full-access-only behavior.
+
+Scope remains intentionally narrow:
+
+- no Admin Dashboard UI
+- no database-backed admin user or role tables
+- no organization or multi-tenant authorization model
+- no database migration
+- no API management persistence contract change
+- no quota counting change
+- no analytics rollup scheduler change
+- no retention execution
+- no raw event deletion
 
 ## Sprint 57 Retention Execute Preview Hardening Boundary
 

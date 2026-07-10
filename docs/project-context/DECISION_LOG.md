@@ -1009,6 +1009,37 @@ Detailed record:
 
 ---
 
+### 2026-07-10 - Use a bounded full-access/read-only admin authorization boundary
+
+Decision:
+
+- Fail application startup when an exact `/internal/admin` route or descendant is registered without marked admin authentication middleware.
+- Preserve `ADMIN_API_KEY` as the full-access administration credential.
+- Support optional `ADMIN_READ_ONLY_API_KEY` access for `GET`, `HEAD`, and `OPTIONS`.
+- Reject read-only mutations with `ADMIN_API_KEY_READ_ONLY`.
+- Verify configured administration credentials through the existing timing-safe API key hashing helper.
+- Normalize `x-admin-actor` as audit attribution metadata with a safe fallback.
+
+Reason:
+
+- Future admin routes must fail closed when authentication is accidentally omitted.
+- A minimal read/write split improves operational safety without introducing database-backed enterprise IAM.
+- Timing-safe verification avoids direct raw secret equality checks.
+- Centralized actor attribution keeps audit fields consistent while avoiding false claims of authenticated user identity.
+
+Boundaries:
+
+- No Admin UI.
+- No database-backed administrator, organization, tenant, or general role model.
+- No migration.
+- No quota, retention, scheduler, or raw event deletion behavior changes.
+
+Detailed record:
+
+- docs/project-context/decisions/2026-07-10-minimal-admin-rbac-hardening.md
+
+---
+
 ## Historical Decisions
 
 See:

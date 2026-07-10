@@ -2,55 +2,88 @@
 
 ## Current Version
 
-- v0.58.0
+- v0.59.0
 
 ## Latest Completed Sprint
 
-- Sprint 57 - Retention Execute Preview Hardening/rollback expectation
+- Sprint 58 - Minimal Admin/RBAC hardening
 
 ## Latest Commit on origin/main
 
-- `d635573 feat(gateway): propagate retention execute review through service preview`
+- `c7087cc feat(gateway): use timing-safe admin key verification`
 
-## Sprint 57 Summary
+## Sprint 58 Summary
 
-Sprint 57 hardened the retention execute preview boundary without enabling destructive retention execution.
+Sprint 58 hardened the internal administration boundary without introducing a full admin identity or enterprise RBAC platform.
 
 Completed:
 
-- Added `executeContractReview.expectations`.
-- Locked candidate recheck, rollback, and audit output expectations.
-- Propagated expectations through execution preview, service preview, and operator preview.
-- Documented command output visibility for retention execution preview and operator preview.
-- Added fail-closed candidate recheck preparation output.
-- Surfaced `preparedOperationErrors` in service summary and operator summary output.
+- Added fail-fast protected-route registration enforcement for `/internal/admin` and descendants.
+- Added marked middleware detection so future admin routes cannot silently omit authentication.
+- Centralized actor attribution across admin mutation routes.
+- Sanitized `x-admin-actor` with bounded length and an audit-safe character set.
+- Added optional read-only admin access.
+- Limited read-only access to `GET`, `HEAD`, and `OPTIONS`.
+- Added explicit `403 ADMIN_API_KEY_READ_ONLY` behavior.
+- Preserved the existing full-access admin key contract.
+- Added configuration validation preventing identical full-access/read-only credentials.
+- Replaced raw admin key equality checks with the existing timing-safe hash verifier.
+- Added Docker Compose and `.env.example` support.
 
-Important safety context:
+Important interpretation:
 
-- There is still no retention execute command.
-- There is still no retention delete API.
-- There is still no scheduled retention delete job.
-- Operator-facing flows still do not call `deleteCandidates`.
-- Prisma retention delete execution remains unwired.
-- Raw events are not deleted.
-- Quota counting is unchanged.
-- Admin UI is unchanged.
+- `x-admin-actor` is attribution metadata only.
+- It must not be described as a verified administrator identity.
+- `ADMIN_READ_ONLY_API_KEY` is a minimal two-level authorization boundary, not a general role system.
+- Absence of `ADMIN_READ_ONLY_API_KEY` preserves prior full-access-only behavior.
 
-Latest Sprint 57 commits:
+Sprint 58 commits:
 
-- `8e066c9 feat(gateway): harden retention execute review expectations`
-- `ec538c5 test(gateway): lock retention execute expectation propagation`
-- `68e9181 test(gateway): document retention execute expectation output`
-- `7fff7eb feat(gateway): fail closed retention recheck preparation`
-- `a89f0b3 feat(gateway): surface retention preparation errors`
+- `fef7202 feat(gateway): enforce admin route auth boundary`
+- `bf428c3 feat(gateway): normalize admin actor attribution`
+- `16941ca feat(gateway): add read-only admin access`
+- `c7087cc feat(gateway): use timing-safe admin key verification`
 
 Validation before docs finalization:
 
-- Full tests passed: 133 test files / 961 tests.
+- Full tests passed: 136 test files / 987 tests.
 - Typecheck passed.
 - Build passed.
 - `git diff --check` passed.
-- Docker/PostgreSQL runtime validation was not required because Sprint 57 was preview/model/output/test hardening only.
+- Docker/PostgreSQL runtime validation passed.
+- Read-only reads were allowed.
+- Read-only writes were blocked.
+- Full-access writes passed authentication.
+- Invalid credentials remained blocked.
+
+## Safety Boundaries
+
+Do not open these without explicit approval:
+
+- Retention execute command.
+- Retention delete API.
+- Scheduled retention delete job.
+- Operator-facing `deleteCandidates`.
+- Prisma retention delete repository wired into command/API/job execution.
+- Quota mutation.
+- Raw event deletion.
+- Admin Dashboard UI before Sprint 61.
+- Developer Portal UI before Sprint 65.
+- Database-backed enterprise IAM, billing, marketplace, Kafka, Kubernetes, or multi-tenant organization expansion before roadmap.
+
+## Next Recommended Sprint
+
+Sprint 59 - Observability + Grafana/k6 lightweight validation.
+
+Recommended scope:
+
+- Validate existing Prometheus metrics and labels.
+- Add or refine a small practical Grafana dashboard using existing signals.
+- Add bounded k6 smoke/load checks.
+- Document reproducible local observability validation.
+- Avoid a broad monitoring-platform rewrite.
+- Preserve quota, usage/rejection event separation, retention safety, and scheduler boundaries.
+
 ## Sprint 56 Summary
 
 Sprint 56 added review-only retention execute contract output.

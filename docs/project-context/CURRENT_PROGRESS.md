@@ -2,56 +2,65 @@
 
 ## Current Version
 
-v0.58.0
+v0.59.0
 
 ## Latest Completed Sprint
 
-Sprint 57 - Retention Execute Preview Hardening/rollback expectation
+Sprint 58 - Minimal Admin/RBAC hardening
 
-## Sprint 57 Completion Summary
+## Sprint 58 Completion Summary
 
-Sprint 57 completed Retention Execute Preview Hardening/rollback expectation.
+Sprint 58 completed bounded Admin/RBAC hardening for internal administration APIs.
 
 Delivered:
 
-- `executeContractReview.expectations` with candidate recheck, rollback, and audit output expectation details.
-- Propagation of expectation details through retention execution preview, service preview, and operator preview.
-- Command usage/output test coverage for expectation visibility.
-- Fail-closed candidate recheck preparation handling.
-- `preparedOperationErrors` in service summary and operator summary output.
+- Fail-fast registration enforcement for the exact `/internal/admin` route and all descendants.
+- Shared marked admin API key authentication middleware detection.
+- Centralized and sanitized `x-admin-actor` attribution.
+- Optional read-only admin API key support.
+- Read-only access limited to `GET`, `HEAD`, and `OPTIONS`.
+- Explicit `ADMIN_API_KEY_READ_ONLY` mutation rejection.
+- Startup rejection for identical full-access and read-only credentials.
+- Timing-safe verification through the existing API key hashing helper.
+- Docker Compose and `.env.example` configuration support.
+- Unit, integration, regression, and Docker runtime validation.
 
-Preserved safety boundaries:
+Preserved boundaries:
 
-- No retention execute command.
-- No delete API.
-- No scheduled retention delete job.
-- No operator-facing `deleteCandidates` call.
-- No destructive Prisma retention delete execution wiring.
+- `x-admin-actor` remains audit attribution rather than authenticated identity.
+- No Admin Dashboard UI.
+- No database-backed administrator or role model.
+- No database migration.
+- No quota behavior changes.
+- No analytics rollup scheduler changes.
+- No retention execution.
 - No raw event deletion.
-- No quota mutation.
-- No Admin UI changes.
 
-Sprint 57 commits:
+Sprint 58 commits:
 
-- `8e066c9 feat(gateway): harden retention execute review expectations`
-- `ec538c5 test(gateway): lock retention execute expectation propagation`
-- `68e9181 test(gateway): document retention execute expectation output`
-- `7fff7eb feat(gateway): fail closed retention recheck preparation`
-- `a89f0b3 feat(gateway): surface retention preparation errors`
+- `fef7202 feat(gateway): enforce admin route auth boundary`
+- `bf428c3 feat(gateway): normalize admin actor attribution`
+- `16941ca feat(gateway): add read-only admin access`
+- `c7087cc feat(gateway): use timing-safe admin key verification`
 
 Validation before docs finalization:
 
-- `npm run test`: 133 test files / 961 tests passed.
+- `npm run test`: 136 test files / 987 tests passed.
 - `npm run typecheck`: passed.
 - `npm run build`: passed.
 - `git diff --check`: passed.
-- Docker/PostgreSQL runtime validation was not required because Sprint 57 did not add a new DB runtime path, migration, destructive delete path, quota path, scheduled job, or raw event deletion path.
+- Docker/PostgreSQL runtime validation passed.
+- Health and read-only admin reads returned `200`.
+- Read-only mutation returned `403 ADMIN_API_KEY_READ_ONLY`.
+- Full-access mutation passed auth and reached payload validation.
+- Invalid admin credentials remained rejected.
 
 ## Next Sprint
 
-Sprint 58 - Minimal Admin/RBAC hardening.
+Sprint 59 - Observability + Grafana/k6 lightweight validation.
 
-Sprint 58 should remain bounded to Admin/RBAC hardening and should not change retention execution, rollup scheduler runtime, quota counting, raw event deletion, or Admin UI beyond the explicit Sprint 58 scope.
+Sprint 59 should remain a lightweight portfolio validation sprint focused on existing observability signals, practical Grafana panels, and bounded k6 checks. It should not expand into a new monitoring platform, alter quota correctness, open retention execution, add raw event deletion, or introduce broad product/UI scope.
+
 ## Sprint 56 Completion Summary
 
 Sprint 56 added a review-only analytics retention execute contract boundary.

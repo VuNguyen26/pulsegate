@@ -1,4 +1,4 @@
-﻿# Admin Route Management Runbook
+# Admin Route Management Runbook
 
 This runbook contains manual commands for validating PulseGate internal/admin route management APIs.
 
@@ -10,16 +10,88 @@ Current local admin header:
 x-admin-api-key
 ```
 
-Current local admin key:
+Current local full-access key:
 
 ```txt
 local-admin-key
 ```
 
-Optional actor header:
+Optional read-only configuration:
+
+```txt
+ADMIN_READ_ONLY_API_KEY=<separate-read-only-key>
+```
+
+When `ADMIN_READ_ONLY_API_KEY` is absent or blank, the existing full-access-only behavior is preserved.
+
+Access matrix:
+
+| Credential | GET / HEAD / OPTIONS | POST / PUT / PATCH / DELETE |
+| --- | --- | --- |
+| `ADMIN_API_KEY` | Allowed | Allowed |
+| `ADMIN_READ_ONLY_API_KEY` | Allowed | `403 ADMIN_API_KEY_READ_ONLY` |
+| Missing key | `401 ADMIN_API_KEY_MISSING` | `401 ADMIN_API_KEY_MISSING` |
+| Invalid key | `403 ADMIN_API_KEY_INVALID` | `403 ADMIN_API_KEY_INVALID` |
+
+The full-access and read-only values must be different. Identical configuration causes admin middleware creation to fail.
+
+Admin credentials are verified through the API key hashing helper and Node.js timing-safe comparison rather than direct raw secret equality.
+
+Optional actor attribution header:
 
 ```txt
 x-admin-actor
+```
+
+Actor attribution rules:
+
+- Leading and trailing whitespace is removed.
+- Maximum length is 64 characters.
+- The first character must be a letter or digit.
+- Remaining characters may contain letters, digits, `.`, `_`, `:`, `@`, or `-`.
+- Missing, blank, duplicated, oversized, or unsafe values fall back to `admin-api-key`.
+- The header is audit attribution metadata and must not be treated as cryptographically authenticated administrator identity.
+
+Full-access read example:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/internal/admin/routes `
+  -Headers @{
+    "x-admin-api-key" = "local-admin-key"
+  } |
+  ConvertTo-Json -Depth 10
+```
+
+Read-only read example:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/internal/admin/routes `
+  -Headers @{
+    "x-admin-api-key" = "<read-only-key>"
+  } |
+  ConvertTo-Json -Depth 10
+```
+
+Read-only mutation rejection example:
+
+```powershell
+try {
+  Invoke-RestMethod http://localhost:3000/internal/admin/consumers `
+    -Method POST `
+    -Headers @{
+      "x-admin-api-key" = "<read-only-key>"
+      "content-type" = "application/json"
+    } `
+    -Body "{}"
+} catch {
+  $_.ErrorDetails.Message
+}
+```
+
+Expected error code:
+
+```txt
+ADMIN_API_KEY_READ_ONLY
 ```
 
 ## List Route Configs

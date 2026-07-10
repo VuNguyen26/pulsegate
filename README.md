@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.58.0
+- v0.59.0
 
 Latest completed sprint:
 
-- Sprint 57 - Retention Execute Preview Hardening/rollback expectation
+- Sprint 58 - Minimal Admin/RBAC hardening
 
 ---
 
@@ -413,6 +413,87 @@ Final Sprint 55 validation passed:
 - typecheck
 - build
 - Docker/PostgreSQL runtime validation
+
+## Sprint 58 Completion
+
+Sprint 58 completed Minimal Admin/RBAC hardening.
+
+Implemented:
+
+- Fail-fast admin route registration enforcement for the exact `/internal/admin` path and all `/internal/admin/*` descendants.
+- Marked admin authentication middleware that can be recognized by the route-registration boundary.
+- Centralized admin actor attribution for consumer, API key, route configuration, and usage plan mutations.
+- Trimmed and validated `x-admin-actor` values with a maximum length of 64 characters and a restricted audit-safe character set.
+- Consistent `admin-api-key` fallback when actor attribution is missing, duplicated, blank, too long, or unsafe.
+- Optional `ADMIN_READ_ONLY_API_KEY` configuration.
+- Existing `ADMIN_API_KEY` behavior preserved as full-access administration.
+- Read-only admin access limited to `GET`, `HEAD`, and `OPTIONS`.
+- Read-only mutation attempts rejected with `403 ADMIN_API_KEY_READ_ONLY`.
+- Startup failure when full-access and read-only admin keys are identical.
+- Timing-safe admin key verification through the existing SHA-256 API key hashing and `timingSafeEqual` implementation.
+- Docker Compose and `.env.example` wiring for optional read-only admin access.
+- Focused and regression tests for route protection, actor attribution, role boundaries, configuration, prefix-like keys, and different-length invalid keys.
+
+Important boundaries:
+
+- `x-admin-actor` is sanitized audit attribution metadata; it is not a cryptographically authenticated user identity.
+- No Admin Dashboard UI was added.
+- No user, organization, tenant, database-backed role, or enterprise IAM model was added.
+- No database schema or migration was added.
+- No API consumer, managed API key, route configuration, or usage plan persistence contract was changed.
+- No quota counting behavior changed.
+- No analytics rollup scheduler behavior changed.
+- No retention execution path was opened.
+- No raw event deletion was introduced.
+
+Sprint 58 commits:
+
+- `fef7202 feat(gateway): enforce admin route auth boundary`
+- `bf428c3 feat(gateway): normalize admin actor attribution`
+- `16941ca feat(gateway): add read-only admin access`
+- `c7087cc feat(gateway): use timing-safe admin key verification`
+
+Final Sprint 58 code validation before docs finalization:
+
+- `npm run test` passed: 136 test files / 987 tests.
+- `npm run typecheck` passed.
+- `npm run build` passed.
+- `git diff --check` passed.
+- Docker/PostgreSQL runtime validation passed.
+- API Gateway health returned `200`.
+- A read-only key successfully called an admin `GET` endpoint with status `200`.
+- A read-only mutation was rejected with `403 ADMIN_API_KEY_READ_ONLY`.
+- A full-access mutation passed authentication and reached payload validation with `400 API_CONSUMER_INVALID`.
+- An invalid key remained rejected with `403 ADMIN_API_KEY_INVALID`.
+- The runtime validation did not create an admin consumer because the full-access mutation intentionally used an invalid empty payload.
+
+Sprint 58 docs:
+
+- README.md
+- docs/architecture/overview.md
+- docs/sdlc/requirements.md
+- docs/project-context/CURRENT_PROGRESS.md
+- docs/project-context/AI_HANDOFF.md
+- docs/project-context/DECISION_LOG.md
+- docs/project-context/decisions/2026-07-10-minimal-admin-rbac-hardening.md
+- docs/runbooks/admin-route-management.md
+- docs/sdlc/sprint-history/sprint-58.md
+
+## Next Sprint
+
+Sprint 59 - Observability + Grafana/k6 lightweight validation.
+
+Sprint 59 should remain a lightweight portfolio validation sprint focused on existing Prometheus signals, practical Grafana panels, and bounded k6 checks.
+
+It must preserve:
+
+- quota correctness
+- successful usage and rejected event separation
+- retention safety boundaries
+- rollup scheduler safety boundaries
+- the current non-destructive raw event policy
+
+It should not expand into a broad monitoring-platform rewrite, Admin UI work, billing, marketplace, multi-tenancy, or unrelated product scope.
 
 ## Sprint 57 Completion
 
