@@ -1,9 +1,11 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
+
 import { env } from "../config/env.js";
 
 export type AdminApiKeyAuthOptions = {
   headerName?: string;
   apiKey?: string;
+  readOnlyApiKey?: string;
 };
 
 export const ADMIN_API_KEY_AUTH_GUARD = Symbol(
@@ -16,6 +18,12 @@ export type AdminApiKeyAuthMiddleware = ((
 ) => Promise<unknown>) & {
   readonly [ADMIN_API_KEY_AUTH_GUARD]: true;
 };
+
+const READ_ONLY_ADMIN_METHODS = new Set([
+  "GET",
+  "HEAD",
+  "OPTIONS",
+]);
 
 function getSingleHeaderValue(
   headerValue: string | string[] | undefined,
@@ -47,6 +55,16 @@ export function createAdminApiKeyAuthMiddleware(
     options.headerName ?? env.ADMIN_API_KEY_HEADER
   ).toLowerCase();
   const expectedApiKey = options.apiKey ?? env.ADMIN_API_KEY;
+  const configuredReadOnlyApiKey =
+    options.readOnlyApiKey ?? env.ADMIN_READ_ONLY_API_KEY;
+  const readOnlyApiKey =
+    configuredReadOnlyApiKey?.trim() || undefined;
+
+  if (readOnlyApiKey === expectedApiKey) {
+    throw new Error(
+      "Admin full-access and read-only API keys must be different",
+    );
+  }
 
   const middleware = async (
     request: FastifyRequest,
@@ -66,17 +84,35 @@ export function createAdminApiKeyAuthMiddleware(
       });
     }
 
-    if (providedApiKey !== expectedApiKey) {
+    if (providedApiKey === expectedApiKey) {
+      return undefined;
+    }
+
+    if (readOnlyApiKey && providedApiKey === readOnlyApiKey) {
+      if (
+        READ_ONLY_ADMIN_METHODS.has(
+          request.method.toUpperCase(),
+        )
+      ) {
+        return undefined;
+      }
+
       return reply.status(403).send({
         error: {
-          code: "ADMIN_API_KEY_INVALID",
-          message: "Admin API key is invalid",
+          code: "ADMIN_API_KEY_READ_ONLY",
+          message: "Admin API key is read-only",
           requestId: request.id,
         },
       });
     }
 
-    return undefined;
+    return reply.status(403).send({
+      error: {
+        code: "ADMIN_API_KEY_INVALID",
+        message: "Admin API key is invalid",
+        requestId: request.id,
+      },
+    });
   };
 
   Object.defineProperty(middleware, ADMIN_API_KEY_AUTH_GUARD, {

@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { readCsvEnv, readNumberEnv, readStringEnv } from "./env.js";
+import {
+  readCsvEnv,
+  readNumberEnv,
+  readOptionalStringEnv,
+  readStringEnv,
+} from "./env.js";
 
 const TEST_NUMBER_ENV = "TEST_NUMBER_ENV";
 const TEST_CSV_ENV = "TEST_CSV_ENV";
@@ -12,6 +17,7 @@ afterEach(() => {
   delete process.env[TEST_STRING_ENV];
   delete process.env.ADMIN_API_KEY_HEADER;
   delete process.env.ADMIN_API_KEY;
+  delete process.env.ADMIN_READ_ONLY_API_KEY;
 
   vi.resetModules();
 });
@@ -128,10 +134,35 @@ describe("readStringEnv", () => {
   });
 });
 
+describe("readOptionalStringEnv", () => {
+  it("should return undefined when the env value is missing", () => {
+    expect(
+      readOptionalStringEnv("MISSING_OPTIONAL_STRING_ENV"),
+    ).toBeUndefined();
+  });
+
+  it("should return undefined when the env value is blank", () => {
+    process.env[TEST_STRING_ENV] = "   ";
+
+    expect(
+      readOptionalStringEnv(TEST_STRING_ENV),
+    ).toBeUndefined();
+  });
+
+  it("should trim and return a configured value", () => {
+    process.env[TEST_STRING_ENV] = "  read-only-key  ";
+
+    expect(
+      readOptionalStringEnv(TEST_STRING_ENV),
+    ).toBe("read-only-key");
+  });
+});
+
 describe("env", () => {
   it("should expose default admin API key configuration", async () => {
     delete process.env.ADMIN_API_KEY_HEADER;
     delete process.env.ADMIN_API_KEY;
+    delete process.env.ADMIN_READ_ONLY_API_KEY;
 
     vi.resetModules();
 
@@ -139,11 +170,13 @@ describe("env", () => {
 
     expect(env.ADMIN_API_KEY_HEADER).toBe("x-admin-api-key");
     expect(env.ADMIN_API_KEY).toBe("local-admin-key");
+    expect(env.ADMIN_READ_ONLY_API_KEY).toBeUndefined();
   });
 
   it("should expose custom admin API key configuration", async () => {
     process.env.ADMIN_API_KEY_HEADER = "x-custom-admin-key";
     process.env.ADMIN_API_KEY = "custom-admin-key";
+    process.env.ADMIN_READ_ONLY_API_KEY = "custom-read-only-key";
 
     vi.resetModules();
 
@@ -151,5 +184,6 @@ describe("env", () => {
 
     expect(env.ADMIN_API_KEY_HEADER).toBe("x-custom-admin-key");
     expect(env.ADMIN_API_KEY).toBe("custom-admin-key");
+    expect(env.ADMIN_READ_ONLY_API_KEY).toBe("custom-read-only-key");
   });
 });

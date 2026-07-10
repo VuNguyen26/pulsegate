@@ -49,6 +49,19 @@ export function readStringEnv(name: string, fallback: string): string {
   return value;
 }
 
+export function readOptionalStringEnv(
+  name: string,
+): string | undefined {
+  const rawValue = process.env[name];
+
+  if (!rawValue) {
+    return undefined;
+  }
+
+  const value = rawValue.trim();
+
+  return value.length > 0 ? value : undefined;
+}
 export const env = {
   PORT: readNumberEnv("PORT", 3000),
   HOST: readStringEnv("HOST", "0.0.0.0"),
@@ -68,6 +81,9 @@ export const env = {
     "x-admin-api-key"
   ),
   ADMIN_API_KEY: readStringEnv("ADMIN_API_KEY", "local-admin-key"),
+  ADMIN_READ_ONLY_API_KEY: readOptionalStringEnv(
+    "ADMIN_READ_ONLY_API_KEY"
+  ),
   JWT_SECRET: readStringEnv(
     "JWT_SECRET",
     "local-dev-jwt-secret-change-me"
