@@ -5,13 +5,14 @@ import {
   getReplyHeaderValue,
   getMetricsRouteLabel,
   registerMetricsMiddleware,
+  UNMATCHED_ROUTE_LABEL,
 } from "./metrics.middleware.js";
 
 describe("metrics middleware", () => {
-  it("should extract route label from route options", async () => {
+  it("should extract the bounded route template from route options", async () => {
     const app = Fastify({ logger: false });
 
-    app.get("/health", async (request) => {
+    app.get("/items/:itemId", async (request) => {
       return {
         route: getMetricsRouteLabel(request),
       };
@@ -19,13 +20,41 @@ describe("metrics middleware", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/health?debug=true",
+      url: "/items/item-123?debug=true",
     });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
-      route: "/health",
+      route: "/items/:itemId",
     });
+  });
+
+  it("should collapse unmatched request paths into one bounded route label", async () => {
+    const app = Fastify({ logger: false });
+    const metrics = createHttpMetrics();
+
+    registerMetricsMiddleware(app, metrics);
+
+    const firstResponse = await app.inject({
+      method: "GET",
+      url: "/missing/resources/123?debug=true",
+    });
+
+    const secondResponse = await app.inject({
+      method: "GET",
+      url: "/missing/resources/456",
+    });
+
+    expect(firstResponse.statusCode).toBe(404);
+    expect(secondResponse.statusCode).toBe(404);
+
+    const output = await metrics.getMetricsText();
+
+    expect(output).toContain(
+      `http_requests_total{method="GET",route="${UNMATCHED_ROUTE_LABEL}",status_code="404"} 2`,
+    );
+    expect(output).not.toContain("/missing/resources/123");
+    expect(output).not.toContain("/missing/resources/456");
   });
 
   it("should read reply header values", async () => {

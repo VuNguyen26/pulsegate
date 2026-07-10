@@ -4,6 +4,8 @@ import type { HttpMetrics } from "../observability/metrics.js";
 
 const CACHE_HEADER = "x-cache";
 
+export const UNMATCHED_ROUTE_LABEL = "__unmatched__";
+
 declare module "fastify" {
   interface FastifyRequest {
     metricsStartedAt?: bigint;
@@ -28,15 +30,8 @@ function calculateDurationMs(startedAt: bigint): number {
   return Number(process.hrtime.bigint() - startedAt) / 1_000_000;
 }
 
-function getRequestPath(request: FastifyRequest): string {
-  const rawUrl = request.raw.url ?? request.url;
-  const path = rawUrl.split("?")[0];
-
-  return path || request.url;
-}
-
 export function getMetricsRouteLabel(request: FastifyRequest): string {
-  return request.routeOptions.url ?? getRequestPath(request);
+  return request.routeOptions.url ?? UNMATCHED_ROUTE_LABEL;
 }
 
 export function getReplyHeaderValue(
