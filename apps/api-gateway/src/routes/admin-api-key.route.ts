@@ -1,4 +1,5 @@
-﻿import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance } from "fastify";
+import { getAdminActor } from "../middlewares/admin-actor.js";
 
 import { gatewayPrisma } from "../database/gateway-prisma.js";
 import { createAdminApiKeyAuthMiddleware } from "../middlewares/admin-api-key-auth.middleware.js";
@@ -45,24 +46,6 @@ function getErrorMessage(error: unknown): string {
   }
 
   return "Invalid API key";
-}
-
-function getAdminActor(request: FastifyRequest): string {
-  const actorHeader = request.headers["x-admin-actor"];
-
-  if (Array.isArray(actorHeader)) {
-    const firstActor = actorHeader[0]?.trim();
-
-    return firstActor && firstActor.length > 0 ? firstActor : "admin-api-key";
-  }
-
-  if (typeof actorHeader === "string") {
-    const actor = actorHeader.trim();
-
-    return actor.length > 0 ? actor : "admin-api-key";
-  }
-
-  return "admin-api-key";
 }
 
 export async function adminApiKeyRoute(
