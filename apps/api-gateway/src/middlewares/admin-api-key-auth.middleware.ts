@@ -1,5 +1,9 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
+import {
+  hashApiKey,
+  verifyApiKeyHash,
+} from "../api-keys/api-key-hashing.js";
 import { env } from "../config/env.js";
 
 export type AdminApiKeyAuthOptions = {
@@ -59,8 +63,15 @@ export function createAdminApiKeyAuthMiddleware(
     options.readOnlyApiKey ?? env.ADMIN_READ_ONLY_API_KEY;
   const readOnlyApiKey =
     configuredReadOnlyApiKey?.trim() || undefined;
+  const expectedApiKeyHash = hashApiKey(expectedApiKey);
+  const readOnlyApiKeyHash = readOnlyApiKey
+    ? hashApiKey(readOnlyApiKey)
+    : undefined;
 
-  if (readOnlyApiKey === expectedApiKey) {
+  if (
+    readOnlyApiKey &&
+    verifyApiKeyHash(readOnlyApiKey, expectedApiKeyHash)
+  ) {
     throw new Error(
       "Admin full-access and read-only API keys must be different",
     );
@@ -84,11 +95,21 @@ export function createAdminApiKeyAuthMiddleware(
       });
     }
 
-    if (providedApiKey === expectedApiKey) {
+    const hasComparableApiKey =
+      providedApiKey.trim().length > 0;
+
+    if (
+      hasComparableApiKey &&
+      verifyApiKeyHash(providedApiKey, expectedApiKeyHash)
+    ) {
       return undefined;
     }
 
-    if (readOnlyApiKey && providedApiKey === readOnlyApiKey) {
+    if (
+      hasComparableApiKey &&
+      readOnlyApiKeyHash &&
+      verifyApiKeyHash(providedApiKey, readOnlyApiKeyHash)
+    ) {
       if (
         READ_ONLY_ADMIN_METHODS.has(
           request.method.toUpperCase(),

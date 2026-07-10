@@ -191,6 +191,33 @@ describe("createAdminApiKeyAuthMiddleware", () => {
     }
   });
 
+  it("should reject different-length and prefix-like admin API keys", async () => {
+    const invalidApiKeys = [
+      "full-access",
+      "full-access-key-extra",
+      "read-only",
+      "read-only-key-extra",
+    ];
+
+    for (const apiKey of invalidApiKeys) {
+      const response = await app.inject({
+        method: "GET",
+        url: "/internal/admin/resource",
+        headers: {
+          "x-admin-api-key": apiKey,
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toMatchObject({
+        error: {
+          code: "ADMIN_API_KEY_INVALID",
+          message: "Admin API key is invalid",
+          requestId: expect.any(String),
+        },
+      });
+    }
+  });
   it("should reject identical full-access and read-only keys", () => {
     expect(() =>
       createAdminApiKeyAuthMiddleware({
