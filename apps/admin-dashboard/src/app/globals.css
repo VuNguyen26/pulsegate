@@ -610,3 +610,164 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+/* Sprint 62 read-only route registry view */
+.route-registry-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.route-summary-item {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #dbe4ee;
+  border-radius: 0.9rem;
+  background: #ffffff;
+}
+
+.route-summary-item strong {
+  font-size: 1.65rem;
+}
+
+.route-summary-item span,
+.route-name-cell small,
+.route-downstream-cell small,
+.route-audit-cell small,
+.route-policy-count span {
+  color: #64748b;
+}
+
+.route-name-cell,
+.route-downstream-cell,
+.route-audit-cell,
+.route-policy-count {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.route-downstream-cell code {
+  max-width: 30rem;
+  overflow-wrap: anywhere;
+}
+
+.route-status-pill {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.route-status-pill[data-status="enabled"] {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.route-status-pill[data-status="disabled"] {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.route-section-header,
+.route-runtime-header,
+.route-detail {
+  display: grid;
+  gap: 1rem;
+}
+
+.route-picker {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.route-picker label {
+  font-weight: 700;
+}
+
+.route-picker select {
+  width: min(100%, 42rem);
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+}
+
+.route-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0;
+}
+
+.route-detail-grid div {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+}
+
+.route-detail-grid dt,
+.route-runtime-facts dt {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.route-detail-grid dd,
+.route-runtime-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.route-read-only-note {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-left: 0.25rem solid #0f766e;
+  background: #f0fdfa;
+}
+
+.route-runtime-section {
+  padding-top: 0.5rem;
+  border-top: 1px solid #dbe4ee;
+}
+
+.route-runtime-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0;
+}
+
+.route-runtime-facts div {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+}
+
+@media (max-width: 1100px) {
+  .route-registry-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .route-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .route-registry-summary,
+  .route-detail-grid,
+  .route-runtime-facts {
+    grid-template-columns: 1fr;
+  }
+}
