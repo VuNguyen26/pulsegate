@@ -2,134 +2,127 @@
 
 ## Current Version
 
-- v0.59.0
+- v0.60.0
 
 ## Latest Completed Sprint
 
-- Sprint 58 - Minimal Admin/RBAC hardening
+- Sprint 59 - Observability + Grafana/k6 lightweight validation
 
-## Latest Commit on origin/main
+## Latest Implementation Commit Before Docs Finalization
 
-- `c7087cc feat(gateway): use timing-safe admin key verification`
+- `c9da0cb feat(observability): refine gateway Grafana dashboard`
 
-## Sprint 58 Summary
+## Sprint 59 Summary
 
-Sprint 58 hardened the internal administration boundary without introducing a full admin identity or enterprise RBAC platform.
+Sprint 59 completed a lightweight observability hardening and reproducible demo-validation pass.
 
-Completed:
+Implementation commits:
 
-- Added fail-fast protected-route registration enforcement for `/internal/admin` and descendants.
-- Added marked middleware detection so future admin routes cannot silently omit authentication.
-- Centralized actor attribution across admin mutation routes.
-- Sanitized `x-admin-actor` with bounded length and an audit-safe character set.
-- Added optional read-only admin access.
-- Limited read-only access to `GET`, `HEAD`, and `OPTIONS`.
-- Added explicit `403 ADMIN_API_KEY_READ_ONLY` behavior.
-- Preserved the existing full-access admin key contract.
-- Added configuration validation preventing identical full-access/read-only credentials.
-- Replaced raw admin key equality checks with the existing timing-safe hash verifier.
-- Added Docker Compose and `.env.example` support.
-
-Important interpretation:
-
-- `x-admin-actor` is attribution metadata only.
-- It must not be described as a verified administrator identity.
-- `ADMIN_READ_ONLY_API_KEY` is a minimal two-level authorization boundary, not a general role system.
-- Absence of `ADMIN_READ_ONLY_API_KEY` preserves prior full-access-only behavior.
-
-Sprint 58 commits:
-
-- `fef7202 feat(gateway): enforce admin route auth boundary`
-- `bf428c3 feat(gateway): normalize admin actor attribution`
-- `16941ca feat(gateway): add read-only admin access`
-- `c7087cc feat(gateway): use timing-safe admin key verification`
-
-Validation before docs finalization:
-
-- Full tests passed: 136 test files / 987 tests.
-- Typecheck passed.
-- Build passed.
-- `git diff --check` passed.
-- Docker/PostgreSQL runtime validation passed.
-- Read-only reads were allowed.
-- Read-only writes were blocked.
-- Full-access writes passed authentication.
-- Invalid credentials remained blocked.
-
-## Safety Boundaries
-
-Do not open these without explicit approval:
-
-- Retention execute command.
-- Retention delete API.
-- Scheduled retention delete job.
-- Operator-facing `deleteCandidates`.
-- Prisma retention delete repository wired into command/API/job execution.
-- Quota mutation.
-- Raw event deletion.
-- Admin Dashboard UI before Sprint 61.
-- Developer Portal UI before Sprint 65.
-- Database-backed enterprise IAM, billing, marketplace, Kafka, Kubernetes, or multi-tenant organization expansion before roadmap.
-
-## Next Recommended Sprint
-
-Sprint 59 - Observability + Grafana/k6 lightweight validation.
-
-Recommended scope:
-
-- Validate existing Prometheus metrics and labels.
-- Add or refine a small practical Grafana dashboard using existing signals.
-- Add bounded k6 smoke/load checks.
-- Document reproducible local observability validation.
-- Avoid a broad monitoring-platform rewrite.
-- Preserve quota, usage/rejection event separation, retention safety, and scheduler boundaries.
-
-## Sprint 56 Summary
-
-Sprint 56 added review-only retention execute contract output.
+- `ec09747 fix(gateway): bound unmatched metrics route labels`
+- `3f5c428 test(observability): add bounded k6 gateway smoke`
+- `c9da0cb feat(observability): refine gateway Grafana dashboard`
 
 Key outcomes:
 
-- `executeContractReview` exists as a retention execute contract model.
-- Execution preview includes `executeContractReview`.
-- Retention execution service preview includes `executeContractReview`.
-- Operator preview includes `executeContractReview`.
-- Command usage/output tests document review-only behavior.
-- Destructive retention execution remains blocked.
+- Matched requests continue to use bounded Fastify route templates in Prometheus labels.
+- Unmatched requests use `route="__unmatched__"` instead of raw request paths.
+- Existing metric names remain unchanged:
+  - `http_requests_total`
+  - `http_request_duration_seconds`
+  - `http_response_cache_total`
+- Existing labels remain bounded to method, route template/fixed unmatched value, status code, and allowlisted cache status.
+- `npm run test:k6:smoke` runs through the Docker Compose `tools` profile.
+- k6 is limited to 1 VU, 10 iterations, 30 seconds, 5-second graceful stop, and 2-second request timeout.
+- The Grafana dashboard now has five real Prometheus-backed panels.
+- Request-rate, request-count, and p95-latency panels exclude `/metrics` scrape traffic.
+- A `5xx Responses (5m)` stat panel uses the existing HTTP request counter.
+- Prometheus scrape, Grafana datasource, dashboard provisioning, PromQL, and k6 runtime behavior were validated.
 
-Validation:
+Validation before docs finalization:
 
-- 133 test files / 956 tests passed.
+- 136 test files / 988 tests passed.
 - Typecheck passed.
 - Build passed.
-- Docker/PostgreSQL runtime validation was not required because no new DB runtime path, migration, destructive delete execution, quota path, scheduled job, or raw event deletion path was added.
+- Whitespace diff check passed.
+- API Gateway health: `200`.
+- Prometheus readiness: `200`.
+- Prometheus gateway target: `up`.
+- Unmatched route metric aggregation: passed.
+- Raw unmatched paths absent from metric output: passed.
+- k6: 10/10 iterations, 20/20 checks, 0% failures, thresholds passed.
+- Grafana database: `ok`.
+- Grafana Prometheus datasource: `OK`.
+- Five dashboard queries: passed.
+- Provisioned dashboard panel count: 5.
+
+## Important Observability Interpretation
+
+- Prometheus metrics and Grafana panels are operational signals only.
+- They are not quota-counting or analytics-persistence sources of truth.
+- `gateway.api_usage_events` remains the source of truth for successful usage and quota counting.
+- `gateway.api_rejected_events` remains the source of truth for rejected/security traffic.
+- The `__unmatched__` label intentionally trades raw-path detail for bounded metric cardinality.
+- k6 is a local bounded smoke check, not a production load-test laboratory.
 
 ## Safety Boundaries
 
 Do not open these without explicit approval:
 
-- Retention execute command.
-- Retention delete API.
-- Scheduled retention delete job.
+- Retention execute command, delete API, or scheduled delete job.
 - Operator-facing `deleteCandidates`.
-- Prisma retention delete repository wired into command/API/job execution.
-- Quota mutation.
+- Prisma retention delete execution wiring.
 - Raw event deletion.
+- Quota-source changes.
+- Background execute or external scheduler execution.
 - Admin Dashboard UI before Sprint 61.
 - Developer Portal UI before Sprint 65.
-- Billing/marketplace/Kafka/K8s/multitenant org expansion before roadmap.
+- OpenTelemetry before Sprint 73.
+- Loki before Sprint 74.
+- Kubernetes before Sprint 71.
+- Billing, marketplace, enterprise SSO/SAML, or multi-tenant organization expansion before roadmap.
 
 ## Next Recommended Sprint
 
-Sprint 58 - Minimal Admin/RBAC hardening.
+Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0.
 
 Recommended scope:
 
-- Harden rollback expectation output.
-- Harden audit output expectation.
-- Harden candidate recheck expectation.
-- Keep execute review-only unless explicitly approved.
-- Keep all destructive retention execution blocked.
+- Compact stale live documentation where practical.
+- Add or refine a reproducible end-to-end demo script.
+- Perform architecture and naming cleanup only where low risk.
+- Run final test/typecheck/build/Docker validation.
+- Prepare v1.0.0 release documentation and tag only after a clean final validation.
+- Do not add a major new runtime feature.
+
+## Fixed Roadmap
+
+Backend Portfolio v1:
+
+- Sprint 45-59: complete.
+- Sprint 60: final polish and v1.0.0 release.
+
+Product/Platform Expansion v2:
+
+- 61 Admin Dashboard foundation
+- 62 Dashboard consumers/API keys/usage plans
+- 63 Dashboard quota/usage/rejected events
+- 64 Dashboard rollup/retention/scheduler panels
+- 65 Developer Portal foundation
+- 66 Developer Portal API docs/key self-service foundation
+- 67 Host-based routing
+- 68 Weighted upstream routing
+- 69 Service discovery foundation
+- 70 Service discovery health/failover
+- 71 Kubernetes foundation
+- 72 Kubernetes runtime validation/docs
+- 73 OpenTelemetry foundation
+- 74 Loki foundation
+- 75 Grafana observability integration
+- 76 Platform RBAC/security hardening
+- 77 UI state/responsive polish
+- 78 E2E demo and bounded k6 validation
+- 79 v2 docs/runbooks/architecture cleanup
+- 80 v2.0.0 release
 
 ## Required Docs Checklist at Sprint Finalization
 
