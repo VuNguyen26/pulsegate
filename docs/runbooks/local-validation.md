@@ -1,4 +1,4 @@
-﻿# Local Validation Runbook
+# Local Validation Runbook
 
 This runbook contains the main local validation commands for PulseGate.
 
@@ -109,3 +109,29 @@ Product list returned
 ```powershell
 docker compose down
 ```
+
+## Observability and Bounded k6
+
+Run the bounded health smoke:
+
+```powershell
+npm run test:k6:smoke
+```
+
+Validate the local observability runtime:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/health
+Invoke-RestMethod http://localhost:9090/-/ready
+Invoke-RestMethod http://localhost:3002/api/health
+```
+
+For unmatched-route cardinality checks, Prometheus target inspection, Grafana datasource/dashboard checks, all five PromQL queries, and k6 guardrails, follow:
+
+- `docs/runbooks/observability-validation.md`
+
+Important boundary:
+
+- Metrics and dashboards are operational signals.
+- `gateway.api_usage_events` remains the successful-usage and quota-counting source of truth.
+- `gateway.api_rejected_events` remains the rejected/security traffic source of truth.

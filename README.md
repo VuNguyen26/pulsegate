@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v0.59.0
+- v0.60.0
 
 Latest completed sprint:
 
-- Sprint 58 - Minimal Admin/RBAC hardening
+- Sprint 59 - Observability + Grafana/k6 lightweight validation
 
 ---
 
@@ -25,6 +25,7 @@ PulseGate currently includes:
 - Redis
 - Prometheus
 - Grafana
+- Bounded Docker-based k6 smoke validation
 - GitHub Actions CI/CD
 - Dynamic route config
 - Runtime route registry
@@ -93,12 +94,16 @@ PulseGate currently includes:
 
 Latest validation:
 
-- 126 test files passed
-- 923 tests passed
+- 136 test files / 988 tests passed
 - npm run typecheck passed
 - npm run build passed
 - git diff --check passed
-- Docker/PostgreSQL runtime validation was not required for Sprint 54 because the sprint only added DB-free background scheduler contract, runner plan, operator output, command-output exposure, usage text, and tests.
+- API Gateway health returned 200
+- Prometheus readiness returned 200 and the gateway scrape target was up
+- Unmatched 404 paths were aggregated under `route="__unmatched__"` without raw-path labels
+- Bounded k6 smoke completed 10/10 iterations and 20/20 checks with 0% failures
+- Grafana database and Prometheus datasource health checks passed
+- All five dashboard PromQL queries and dashboard provisioning checks passed
 ---
 
 ## Tech Stack
@@ -160,7 +165,9 @@ Current gateway capabilities:
 - Analytics retention repository safety primitives
 - Analytics retention execution service orchestration preview
 - Structured access logs
-- Prometheus metrics
+- Prometheus metrics with bounded matched-route templates and fixed `__unmatched__` fallback
+- Provisioned five-panel Grafana gateway dashboard
+- Bounded Docker-based k6 health smoke
 
 Current internal/admin capabilities:
 
@@ -265,16 +272,12 @@ Analytics retention behavior:
 - The existing execution preview command remains DB-free and still reports deleteImplementationAvailable=false.
 - No retention execute command is implemented yet.
 
-Current analytics limitation:
+Current analytics limitations:
 
-- Usage and rejected summary APIs are still event-based at runtime.
-- Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
-- Rollup schedule and scheduler preview commands exist; direct command dry-run service invocation is wired and validated; command execute contract/readiness/operator-output/wiring preview is implemented; but no scheduled/background rollup job or execute runtime is implemented yet.
-- Retention operator preview command exists, but destructive retention execution is still unavailable.
-- Retention Prisma delete repository exists but is not wired to any operator-facing execute command, API, or job.
-- No retention execute command is implemented yet.
-- No retention delete job is implemented yet.
-
+- Selected consumer usage, API key usage, and rejected summary APIs can opt into bounded rollup reads with raw-summary fallback; default behavior remains raw-event summary.
+- Direct command execute and guarded process-local dry-run runtime paths exist, but external scheduler runtime execution, scheduled/background execute, and an autonomous scheduler loop remain unavailable.
+- Retention operator preview exists, but no retention execute command, delete API, scheduled delete job, operator-facing `deleteCandidates`, or raw event deletion path exists.
+- Prometheus, Grafana, and rollup tables are not quota-counting sources of truth.
 ---
 
 ## Useful Commands
@@ -288,6 +291,7 @@ Run automated validation:
     npm run test
     npm run typecheck
     npm run build
+    npm run test:k6:smoke
     git status
 
 Start Docker stack:
@@ -362,10 +366,12 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-52.md
+- docs/sdlc/sprint-history/sprint-59.md
 
-Latest analytics runbooks:
+Latest observability and analytics runbooks:
 
+- docs/runbooks/observability-validation.md
+- docs/runbooks/local-validation.md
 - docs/runbooks/analytics-rollup-backfill.md
 - docs/runbooks/analytics-rollup-schedule-preview.md
 - docs/runbooks/analytics-rollup-scheduler-preview.md
@@ -378,20 +384,19 @@ Latest analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-09-rollup-summary-api-switch-preview.md
+- docs/project-context/decisions/2026-07-10-observability-grafana-k6-lightweight-validation.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 55 - Background Scheduler Runtime Wiring with guardrails
+Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0.
 
 Reason:
 
-- Sprint 54 made the background scheduler contract, runner plan, operator output, and command JSON boundary explicit without starting a scheduled job.
-- The next safe step is runtime wiring with strict guardrails only after preserving direct command dry-run/execute semantics and keeping process-local/external-scheduler execution separately controlled.
-- Runtime wiring must keep no quota counting mutation, no raw event deletion, no retention execution, source separation, bounded buckets, operator output, and Docker/PostgreSQL validation.
-
+- Sprint 59 completed bounded metric-label hardening, Grafana dashboard refinement, and reproducible k6 validation.
+- Sprint 60 should focus on compact documentation, demo flow, low-risk architecture cleanup, final validation, and release preparation.
+- Sprint 60 must not add a major runtime feature or weaken quota, scheduler, retention, or raw-event safety boundaries.
 ## Sprint 55 Completion
 
 Sprint 55 completed Background Scheduler Runtime Wiring with guardrails.
@@ -479,21 +484,42 @@ Sprint 58 docs:
 - docs/runbooks/admin-route-management.md
 - docs/sdlc/sprint-history/sprint-58.md
 
+## Sprint 59 Completion
+
+Sprint 59 completed Observability + Grafana/k6 lightweight validation.
+
+Implemented:
+
+- Fixed unmatched request metric labels to use `__unmatched__`.
+- Preserved bounded Fastify route templates for matched requests.
+- Added `npm run test:k6:smoke` through the Docker Compose `tools` profile.
+- Bounded k6 to 1 VU, 10 iterations, a 30-second maximum duration, a 5-second graceful stop, and a 2-second request timeout.
+- Excluded `/metrics` scrape traffic from general request and latency dashboard panels.
+- Added a five-minute 5xx stat panel.
+- Validated Prometheus target health, Grafana datasource health, all five PromQL queries, dashboard provisioning, and bounded k6 runtime behavior.
+
+Preserved boundaries:
+
+- Metrics and dashboards are not quota sources of truth.
+- Successful and rejected event persistence remains separated.
+- No quota, recorder, scheduler execute, retention execution, or raw event deletion behavior changed.
+- No Admin UI, Developer Portal, OpenTelemetry, Loki, Kubernetes, billing, marketplace, or organization model was added.
+
 ## Next Sprint
 
-Sprint 59 - Observability + Grafana/k6 lightweight validation.
+Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0.
 
-Sprint 59 should remain a lightweight portfolio validation sprint focused on existing Prometheus signals, practical Grafana panels, and bounded k6 checks.
+Sprint 60 should remain a final polish and release-preparation sprint.
 
-It must preserve:
+It should focus on:
 
-- quota correctness
-- successful usage and rejected event separation
-- retention safety boundaries
-- rollup scheduler safety boundaries
-- the current non-destructive raw event policy
+- compact and accurate live documentation
+- a reproducible end-to-end demo script
+- low-risk architecture and naming cleanup
+- final automated and Docker runtime validation
+- v1.0.0 release notes and tag preparation
 
-It should not expand into a broad monitoring-platform rewrite, Admin UI work, billing, marketplace, multi-tenancy, or unrelated product scope.
+It must preserve quota correctness, successful/rejected traffic separation, scheduler guardrails, retention non-destructive boundaries, and raw event safety. It must not add a major runtime feature, Admin UI, Developer Portal, billing, marketplace, OpenTelemetry, Loki, Kubernetes, or unrelated product scope.
 
 ## Sprint 57 Completion
 

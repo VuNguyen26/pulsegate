@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.59.0
+v0.60.0
 
 ## Latest Completed Sprint
 
-Sprint 58 - Minimal Admin/RBAC hardening
+Sprint 59 - Observability + Grafana/k6 lightweight validation
 
 ---
 
@@ -1154,8 +1154,8 @@ Implemented.
 
 Current result:
 
-- 105 test files passed
-- 773 tests passed
+- 136 test files passed
+- 988 tests passed
 
 Validation:
 
@@ -1183,13 +1183,14 @@ Implemented.
 
 Latest validation:
 
-- Sprint 51 final automated validation passed with 110 test files and 812 tests.
-- npm run typecheck passed.
-- npm run build passed.
-- Docker/PostgreSQL runtime validation was not required for Sprint 50 because the sprint only added DB-free command execute wiring preview model/output/usage documentation and tests.
-- Command execute remained blocked with backfill-execution-not-wired.
-- Scheduler preview exposed commandExecuteContractReview, commandExecuteReadinessReview, commandExecuteOperatorOutputReview, and commandExecuteWiringPreview for command:execute.
-- Scheduler output preserved no scheduled jobs, no execute runtime, no service execute invocation, no event reads, no rollup persistence, no quota mutation, and no raw event deletion.
+- Docker Compose configuration passed with the optional `tools` profile.
+- API Gateway health returned `200`.
+- Prometheus readiness returned `200`.
+- The `pulsegate-api-gateway` Prometheus target was `up`.
+- Grafana database health was `ok`.
+- The Grafana Prometheus datasource reported `OK`.
+- The provisioned dashboard contained five panels.
+- Bounded k6 smoke completed 10/10 iterations with all thresholds passing.
 
 Status:
 
@@ -1198,11 +1199,28 @@ Implemented.
 ---
 ### NFR-005 Observability
 
-Current signals include request IDs, structured logs, Prometheus metrics, Grafana dashboard, usage event tables, rejected event tables, usage summary APIs, usage event listing API, quota observability APIs, rejected event APIs, rollup persistence foundations, rollup read API, retention dry-run candidate previews, retention execution guard previews, retention repository safety tests, and retention execution service preview tests, retention operator preview command tests, retention operator preview fail-fast/usage contract tests, and rollup schedule preview command tests, scheduler runner contract tests, scheduler execution decision tests, scheduler preview args tests, scheduler preview command tests, and scheduler preview safety contract tests, scheduler preview args contract tests, scheduler execution blocked reason tests, and scheduler execution wiring review tests, scheduler command dry-run design review tests, scheduler command dry-run invocation contract tests, scheduler command dry-run readiness tests, scheduler command dry-run invocation design review tests, scheduler command dry-run service invocation contract review tests, scheduler command dry-run service invocation implementation design tests, scheduler command dry-run service invocation wiring readiness review tests, scheduler command dry-run service invocation fail-closed error model tests, scheduler command dry-run service invocation wiring contract tests, scheduler command dry-run wiring contract command output tests, scheduler command dry-run backfill request mapper tests, scheduler command dry-run request mapper design tests, scheduler command dry-run service adapter boundary design tests, scheduler command dry-run service adapter contract tests, scheduler command dry-run adapter preview output tests, scheduler command dry-run runtime service invocation tests, runtime consistency output tests, blocked runtime path tests, automatic dry-run boundary tests, scheduler dry-run runtime failure output tests, runtime factory failure output tests, runtime output field visibility tests, scheduler command execute contract review tests, scheduler command execute readiness review tests, scheduler command execute operator output review tests, command execute wiring preview tests, command execute blocked-path tests, command execute command output tests, and command execute usage text tests.
+Required behavior:
+
+- Expose request IDs and structured access logs.
+- Expose `http_requests_total`, `http_request_duration_seconds`, and cache-outcome metrics where applicable.
+- Use route templates for matched request labels.
+- Collapse unmatched request labels to `__unmatched__`.
+- Do not use request IDs, secrets, raw unmatched paths, actor values, timestamps, or free-form error messages as Prometheus labels.
+- Provision a real Prometheus datasource and compact Grafana gateway dashboard.
+- Exclude `/metrics` scrape traffic from general HTTP request and latency panels.
+- Provide a bounded, reproducible k6 health smoke through Docker Compose.
+- Keep Prometheus, Grafana, and rollup tables outside quota source-of-truth behavior.
+- Preserve successful usage and rejected/security traffic separation.
+
+Current result:
+
+- Five provisioned Grafana panels.
+- Bounded k6 smoke: 1 VU, 10 iterations, 30-second maximum duration, 5-second graceful stop, 2-second request timeout.
+- Prometheus target, Grafana datasource, PromQL, dashboard provisioning, and k6 runtime validation passed.
 
 Status:
 
-Implemented as foundation.
+Implemented as a lightweight local observability foundation.
 
 ---
 
@@ -1218,13 +1236,11 @@ Implemented.
 
 ## Important Current Limitations
 
-- Usage summary APIs still read raw events.
-- Rejected summary APIs still read raw events.
-- Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
+- Summary APIs default to raw-event reads; selected bounded usage and rejected summaries may opt into rollup reads with raw-summary fallback.
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
-- Rollup schedule and scheduler preview commands exist, direct command dry-run runtime service invocation is wired and validated, and command execute contract/readiness/operator output/wiring preview is implemented, but no scheduled/background rollup job, process-local scheduler, external scheduler, or execute runtime exists yet.
+- Direct command execute and guarded process-local dry-run runtime paths exist, but no autonomous scheduler loop, external scheduler runtime, or scheduled/background execute path exists.
 - No per-consumer Grafana dashboard yet.
 - No per-key Grafana dashboard yet.
 - No quota usage Grafana dashboard yet.
@@ -1232,7 +1248,7 @@ Implemented.
 - Admin Dashboard is not implemented yet.
 - Developer Portal is not implemented yet.
 - Admin auth is still local admin API key based.
-- Admin RBAC is not implemented yet.
+- Minimal full-access/read-only admin authorization exists, but database-backed administrator identities and general platform RBAC are not implemented yet.
 - Dynamic router supports exact method + exact path matching only.
 - Path parameters are not implemented yet.
 - Wildcard upstream path forwarding is not implemented yet.
@@ -1249,14 +1265,11 @@ Implemented.
 
 Recommended next:
 
-- Wire command execute runtime only behind strict guardrails, explicit operator confirmation, and Docker/PostgreSQL runtime validation.
-- Keep retention execution explicit, limited, and blocked from operator-facing delete until approved.
-- Switch selected long-range analytics reads to rollups later after explicit design.
-- Add Grafana panels for quota, usage, rejected traffic, rollups, and retention dry-run candidates later.
-- Add Admin Dashboard later.
-- Add Developer Portal later.
-- Add service discovery later.
-- Add Kubernetes/cloud deployment later.
+- Complete Sprint 60 final polish, compact documentation, demo script, architecture cleanup, and v1.0.0 release preparation.
+- Keep retention execution explicit and blocked from operator-facing deletion.
+- Keep external scheduler runtime and scheduled/background execute blocked.
+- Preserve metrics and rollups as non-quota sources.
+- Add no major runtime feature before the v1.0.0 release checkpoint.
 
 ## Selected Summary Runtime Rollup Reads
 
@@ -1297,7 +1310,7 @@ Required behavior:
 - Treat command trigger as direct-CLI-owned, not background-runner-owned.
 - Allow background preview output only when scheduler contract and runner plan are ready.
 - Keep process-local and external-scheduler dry-run/execute runtime invocation blocked.
-- Expose ackgroundScheduler in scheduler preview command JSON as operator-visible contract output.
+- Expose backgroundScheduler in scheduler preview command JSON as operator-visible contract output.
 - Keep disabled and invalid background plans blocked without preview plans.
 - Keep all background safety flags non-destructive.
 
@@ -1441,3 +1454,33 @@ Validation:
 - Invalid admin key access returned `403 ADMIN_API_KEY_INVALID`.
 
 Implementation status: Complete in Sprint 58 as bounded Admin/RBAC hardening.
+
+## Sprint 59 - Observability + Grafana/k6 lightweight validation
+
+PulseGate shall provide a bounded and reproducible local observability validation surface without changing API management business semantics.
+
+Acceptance criteria:
+
+- Matched requests use route templates in Prometheus route labels.
+- Unmatched requests use `__unmatched__`.
+- Raw unmatched paths are absent from metric labels.
+- Existing request count, request duration, and cache outcome metric families remain available.
+- Prometheus scrapes the API Gateway successfully.
+- Grafana uses the provisioned Prometheus datasource.
+- The gateway dashboard contains five real PromQL-backed panels.
+- General request and latency panels exclude `/metrics`.
+- A bounded Docker-based k6 health smoke is available through `npm run test:k6:smoke`.
+- k6 uses 1 VU, 10 iterations, a 30-second maximum duration, a 5-second graceful stop, and 2-second request timeouts.
+- Metrics, dashboards, and rollup tables remain outside quota source-of-truth behavior.
+- Successful and rejected event sources remain separated.
+- No Admin UI, OpenTelemetry, Loki, Kubernetes, retention execution, raw event deletion, external scheduler runtime, or background execute is introduced.
+
+Validation:
+
+- 136 test files / 988 tests passed.
+- Typecheck passed.
+- Build passed.
+- Whitespace diff check passed.
+- API Gateway, Prometheus, Grafana datasource, PromQL, dashboard provisioning, unmatched cardinality, and bounded k6 runtime checks passed.
+
+Implementation status: Complete in Sprint 59.

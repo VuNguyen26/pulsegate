@@ -6,25 +6,25 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v0.59.0
+v0.60.0
 
 ## Current Status
 
-Sprint 58 - Minimal Admin/RBAC hardening Complete
+Sprint 59 - Observability + Grafana/k6 lightweight validation Complete
 
 Current validation:
 
-- 136 test files / 987 tests passed.
+- 136 test files / 988 tests passed.
 - `npm run typecheck` passed.
 - `npm run build` passed.
 - `git diff --check` passed.
-- Docker/PostgreSQL runtime validation passed for the read-only admin access boundary.
 - API Gateway health returned `200`.
-- Read-only admin `GET` access returned `200`.
-- Read-only admin mutation returned `403 ADMIN_API_KEY_READ_ONLY`.
-- Full-access admin mutation passed authentication and reached payload validation.
-- Invalid admin credentials remained rejected with `403 ADMIN_API_KEY_INVALID`.
-- No database migration, quota behavior change, retention execution path, rollup scheduler change, raw event deletion, or Admin UI expansion was introduced.
+- Prometheus readiness returned `200`; the gateway scrape target was `up`.
+- Distinct unmatched 404 paths used one `__unmatched__` metric label and raw paths were absent.
+- Bounded k6 completed 10/10 iterations and 20/20 checks with 0% failures.
+- Grafana database and datasource health checks passed.
+- All five PromQL queries succeeded and the five-panel dashboard was provisioned.
+- No quota source, usage/rejected recorder, scheduler execute, retention execution, raw event deletion, or Admin UI behavior changed.
 
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
@@ -150,6 +150,7 @@ Docker Compose services:
 - redis
 - prometheus
 - grafana
+- k6 under the optional `tools` profile
 
 Ports:
 
@@ -159,6 +160,46 @@ Ports:
 - PostgreSQL -> 5432
 - Redis -> 6379
 - Prometheus -> 9090
+
+---
+
+## Observability Architecture
+
+Runtime signal flow:
+
+    API Gateway request
+      -> request ID and structured access log
+      -> `http_requests_total`
+      -> `http_request_duration_seconds`
+      -> optional `http_response_cache_total`
+      -> Prometheus scrape on `/metrics`
+      -> provisioned Grafana datasource and dashboard
+
+Metric label boundaries:
+
+- Matched requests use Fastify route templates.
+- Unmatched requests use the fixed `__unmatched__` route label.
+- Request IDs, API keys, admin actor values, raw unmatched paths, timestamps, and free-form error messages are not metric labels.
+- Cache outcomes remain allowlisted to `HIT`, `MISS`, and `BYPASS`.
+
+Dashboard boundary:
+
+- The gateway dashboard contains request rate, request count by route, p95 latency by route, cache outcomes, and five-minute 5xx responses.
+- General request and latency panels exclude Prometheus `/metrics` scrape traffic.
+- Panels use existing Prometheus metrics and do not create new business semantics.
+
+Validation boundary:
+
+- `npm run test:k6:smoke` runs a bounded `GET /health` smoke through the Docker Compose `tools` profile.
+- The smoke is limited to 1 VU, 10 iterations, 30 seconds, a 5-second graceful stop, and 2-second request timeouts.
+- This is a local portfolio/demo smoke check, not a production load-test platform.
+
+Source-of-truth boundary:
+
+- Prometheus and Grafana are operational signals only.
+- `gateway.api_usage_events` remains the source of truth for successful usage analytics and quota counting.
+- `gateway.api_rejected_events` remains the source of truth for rejected/security traffic.
+- Rollup tables and metrics are not used for quota enforcement.
 
 ---
 
@@ -208,7 +249,7 @@ API Gateway currently handles:
 - Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
 - Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, Prisma delete repository foundation, execution service preview, summary model, candidate count loader, candidate-read preview composition, operator preview output, DB-backed operator preview command, and operator preview fail-fast CLI hardening.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected event, quota, and rollup APIs.
-- Structured access logs and Prometheus metrics.
+- Structured access logs, bounded Prometheus metric labels, provisioned Grafana panels, and bounded Docker-based k6 smoke validation.
 
 ---
 
@@ -462,18 +503,16 @@ Core:
 
 ## Current Limitations
 
-- Usage summary APIs still read raw events.
-- Rejected summary APIs still read raw events.
-- Rollup read endpoint exists, but summary APIs have not switched to rollup reads.
+- Summary APIs default to raw-event reads; selected bounded consumer usage, API key usage, and rejected summaries may opt into rollup reads with raw-summary fallback.
 - Retention execution has repository-level, service-level, and operator preview safety foundations, but no operator-facing execute command yet.
 - Retention Prisma delete repository is not wired to any operator-facing execute command, API, scheduled job, or quota path yet.
 - No retention delete job is implemented yet.
-- Rollup schedule and scheduler preview commands exist, direct command dry-run runtime service invocation is wired and validated, and command execute contract/readiness/operator output/wiring preview is implemented, and Sprint 54 background scheduler contract/runner output exists, but no scheduled/background rollup job, process-local runner loop, external scheduler runtime, or retention execution exists yet.
+- Direct command execute and guarded process-local dry-run runtime paths exist, but no autonomous scheduler loop, external scheduler runtime, scheduled/background execute, or retention execution exists.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
 - Admin Dashboard is not implemented yet.
 - Developer Portal is not implemented yet.
-- Stronger admin auth and RBAC are not implemented yet.
+- Admin authorization remains a local full-access/read-only API key boundary; database-backed administrator identities and general platform RBAC are not implemented yet.
 - Dynamic router supports exact method + exact path matching only.
 - Path parameters are not implemented yet.
 - Wildcard upstream mapping is not implemented yet.
@@ -482,7 +521,7 @@ Core:
 - Service discovery is not implemented yet.
 - OpenTelemetry tracing is not implemented yet.
 - Loki centralized logging is not implemented yet.
-- k6 load testing is not implemented yet.
+- Only bounded local k6 health smoke validation is implemented; a production-scale load-test platform is not.
 - Kafka and RabbitMQ are not implemented yet.
 - Kubernetes and cloud deployment are planned for later.
 
@@ -490,15 +529,14 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 51 - Command Execute Runtime Wiring with strict guardrails
+Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0.
 
 Rationale:
 
-- Sprint 50 completed a blocked-by-default command execute wiring preview while preserving all execute runtime safety boundaries.
-- The next architecture step should only wire command execute behind explicit operator confirmation, event-limit guardrail, max-bucket bound, bounded bucket count, source separation, rollback expectation, operator output, and Docker/PostgreSQL runtime validation.
-- Process-local or external scheduler execution should remain blocked until background execution semantics and runtime validation are designed.
-- Delete execution should remain unavailable until command/API semantics, runtime validation, rollback expectations, and operator controls are explicitly designed.
-
+- Sprint 59 completed the bounded observability surface needed for a reproducible portfolio demonstration.
+- The next step should consolidate documentation, demo sequencing, naming, and low-risk architecture clarity.
+- Release preparation must preserve quota source-of-truth behavior, usage/rejected separation, scheduler guardrails, retention non-destructive boundaries, and raw event safety.
+- No major runtime feature should be introduced in Sprint 60.
 ## Selected Summary Runtime Rollup Reads
 
 Sprint 53 adds an explicit runtime-read switch for selected admin summary APIs.
@@ -547,10 +585,10 @@ Sprint 54 adds an explicit background scheduler contract/runner boundary without
 
 Current background scheduler behavior:
 
-- ackgroundScheduler is exposed in scheduler preview command JSON as operator-visible contract data.
+- backgroundScheduler is exposed in scheduler preview command JSON as operator-visible contract data.
 - command trigger remains owned by the direct CLI runtime path.
 - process-local and external-scheduler preview can produce background preview contract output when the scheduler plan is ready.
-- process-local and external-scheduler dry-run/execute remain runtime-blocked with ackground-runtime-execution-not-wired.
+- process-local and external-scheduler dry-run/execute remain runtime-blocked with background-runtime-execution-not-wired.
 - Disabled or invalid background runner plans are blocked without preview plans.
 - Background scheduler output reports safety flags for no scheduled job creation, no backfill service invocation, no backfill execution, no event reads, no rollup persistence, no quota counting change, no raw event deletion, and no retention execution.
 - Direct command dry-run and execute behavior from previous sprints remains separate and unchanged.
@@ -689,3 +727,18 @@ The boundary remains non-destructive:
 - Prisma retention delete repository is not wired into command/API/job execution
 - quota counting remains unchanged
 - raw event deletion remains blocked
+
+## Sprint 59 Observability Boundary
+
+Sprint 59 keeps observability lightweight and reproducible:
+
+- bounded matched and unmatched route labels
+- existing Prometheus metric families only
+- provisioned five-panel Grafana gateway dashboard
+- bounded Docker-based k6 health smoke
+- no quota-source changes
+- no event-recorder changes
+- no scheduler execute expansion
+- no retention execution
+- no raw event deletion
+- no OpenTelemetry, Loki, Kubernetes, or Admin UI scope

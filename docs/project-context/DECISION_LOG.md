@@ -1,3 +1,42 @@
+# Decision Log
+
+## Current Version
+
+v0.60.0
+
+## Latest Completed Sprint
+
+Sprint 59 - Observability + Grafana/k6 lightweight validation
+
+## Latest Decision
+
+### 2026-07-10 - Keep observability bounded and separate from business sources of truth
+
+Decision:
+
+- Preserve the existing Prometheus metric families.
+- Use Fastify route templates for matched requests and `__unmatched__` for unmatched requests.
+- Exclude raw unmatched paths and other unbounded or sensitive values from metric labels.
+- Reuse the provisioned Prometheus datasource and keep a compact five-panel Grafana gateway dashboard.
+- Exclude `/metrics` scrape traffic from general HTTP request and latency panels.
+- Add a bounded Docker-based k6 `GET /health` smoke through the optional `tools` profile.
+- Keep Prometheus, Grafana, metrics, and rollup tables outside quota source-of-truth behavior.
+- Preserve successful usage and rejected/security traffic separation.
+- Do not add OpenTelemetry, Loki, Admin UI, Kubernetes, retention execution, raw event deletion, external scheduler runtime, or background execute in Sprint 59.
+
+Validation:
+
+- 136 test files / 988 tests passed.
+- Typecheck and build passed.
+- Prometheus target health, unmatched route cardinality, bounded k6, Grafana datasource, PromQL, and dashboard provisioning checks passed.
+
+References:
+
+- docs/project-context/decisions/2026-07-10-observability-grafana-k6-lightweight-validation.md
+- docs/sdlc/sprint-history/sprint-59.md
+- docs/runbooks/observability-validation.md
+
+---
 ### 2026-07-09 - Analytics retention execute preview hardening remains non-destructive
 
 Decision:
@@ -27,7 +66,7 @@ Docs:
 - docs/project-context/decisions/2026-07-09-analytics-retention-execute-preview-hardening.md
 - docs/sdlc/sprint-history/sprint-57.md
 
-# Decision Log
+## Historical Decision Index
 
 ### 2026-07-09 - Analytics retention execute contract review remains review-only
 
@@ -86,10 +125,10 @@ Sprint 55 - Background Scheduler Runtime Wiring with guardrails
 Decision:
 
 - Add DB-free background scheduler contract, runner plan, and operator output models.
-- Expose ackgroundScheduler in scheduler preview command JSON output.
+- Expose backgroundScheduler in scheduler preview command JSON output.
 - Keep command trigger owned by direct CLI runtime semantics.
 - Allow process-local and external-scheduler preview contract output only.
-- Keep process-local and external-scheduler dry-run/execute runtime invocation blocked with ackground-runtime-execution-not-wired.
+- Keep process-local and external-scheduler dry-run/execute runtime invocation blocked with background-runtime-execution-not-wired.
 - Keep direct command dry-run and execute behavior unchanged.
 - Do not create scheduled/background jobs, invoke backfill service from background triggers, read events, persist rollups, affect quota counting, delete raw events, or run retention execution.
 
@@ -299,7 +338,9 @@ Rationale:
 
 Detailed record:
 
-- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-invocation-wiring-contract.md### 2026-07-08 - Rollup scheduler command dry-run service invocation fail-closed errors remain model-only
+- docs/project-context/decisions/2026-07-08-analytics-rollup-scheduler-command-dry-run-service-invocation-wiring-contract.md
+
+### 2026-07-08 - Rollup scheduler command dry-run service invocation fail-closed errors remain model-only
 
 Decision:
 
