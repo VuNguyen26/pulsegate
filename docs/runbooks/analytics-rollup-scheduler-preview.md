@@ -8,9 +8,9 @@ The command can run in three safe operator-visible modes:
 
 - Default preview: plans scheduler dry-run backfill request contracts without invoking the backfill service.
 - Direct command dry-run with --event-limit: invokes AnalyticsRollupBackfillService.runBackfill in dry-run mode only and prints source-separated dryRunServiceInvocationResults.
-- Blocked review paths: dry-run without event-limit, process-local dry-run, external scheduler dry-run, and execute mode remain blocked. Execute mode exposes command execute contract/readiness/operator output review and blocked-by-default command execute wiring preview.
+- Guarded runtime paths: direct command dry-run requires an event limit; direct command execute requires confirmation, an event limit, bounded buckets, runner readiness, and an open runtime gate. Process-local dry-run is supported. External scheduler runtime and process-local, external, or background execute remain blocked.
 
-It is not a scheduler job and does not execute rollup work.
+It is not an autonomous scheduler job. Direct CLI execute is available only through strict command-only guardrails; scheduled, background, process-local, and external execute remain closed.
 
 ---
 
@@ -154,7 +154,7 @@ Expected result:
 Safety expectations:
 
 - No scheduled/background job is created.
-- Execute mode is not wired.
+- Direct command execute is wired only behind confirmation, event-limit, max-bucket, runner-readiness, and runtime-gate guardrails.
 - No raw events are read through service dry-run.
 - No rollups are persisted through service dry-run.
 - No quota counting changes.
@@ -207,7 +207,7 @@ Expected result:
 
 ---
 
-## Blocked Execute Example
+## Blocked Execute Without Confirmation Example
 
     cd E:\pulsegate
 
@@ -215,37 +215,14 @@ Expected result:
 
 Expected result:
 
-- executionDecision.status is blocked.
-- executionDecision.allowed is false.
-- executionDecision.blockedReason is backfill-execution-not-wired.
-- executionDecision.boundary.requestedMode is execute.
-- executionDecision.boundary.allowedMode is preview.
-- executionDecision.boundary.backfillServiceInvocationWired is false.
-- executionDecision.boundary.backfillExecutionWired is false.
-- executionDecision.wiringReview.runtimeConsistency.status is blocked-or-review-only.
-- executionDecision.wiringReview.commandExecuteContractReview.status is review-required-before-execute-wiring.
-- executionDecision.wiringReview.commandExecuteReadinessReview.status is not-ready.
-- executionDecision.wiringReview.commandExecuteReadinessReview.reason is backfill-execution-not-wired.
-- executionDecision.wiringReview.commandExecuteOperatorOutputReview.status is operator-output-review-required-before-execute-wiring.
-- executionDecision.wiringReview.commandExecuteWiringPreview.status is execute-wiring-preview-blocked.
-- executionDecision.wiringReview.commandExecuteWiringPreview.currentWiringState is blocked-not-wired.
-- executionDecision.wiringReview.commandExecuteWiringPreview.confirmationState is not-confirmed.
-- executionDecision.wiringReview.commandExecuteWiringPreview.sourceScopedPlannedExecutions contains source-scoped execute requests with willInvokeBackfillService=false, willExecuteBackfill=false, willReadEvents=false, and willPersistRollups=false.
-- executionDecision.wiringReview.commandExecuteWiringPreview.executeRuntimeCurrentlyAllowed is false.
-- executionDecision.wiringReview.commandExecuteWiringPreview.backfillExecutionWired is false.
-- executionDecision.wiringReview.commandExecuteOperatorOutputReview.confirmationRequirement is explicit-operator-confirmation.
-- executionDecision.wiringReview.commandExecuteOperatorOutputReview.persistenceScope is rollup-tables-only.
-- executionDecision.wiringReview.commandExecuteOperatorOutputReview.rollbackExpectation is bounded-idempotent-rollup-upsert-or-fail-closed-before-execution.
-- executionDecision.wiringReview.commandExecuteOperatorOutputReview.sourceScopedPlannedRequests contains source-scoped planned requests with willInvokeBackfillService=false, willReadEvents=false, and willPersistRollups=false.
-- executionDecision.wiringReview.commandExecuteOperatorOutputReview.quotaCountingChangeAllowed is false.
-- executionDecision.wiringReview.commandExecuteOperatorOutputReview.rawEventDeletionAllowed is false.
-- dryRunServiceInvocationResults is not present.
+- The execution decision is blocked.
+- Runtime invocation is not allowed because explicit execute confirmation is absent.
 - No backfill service is invoked.
-- No execute backfill occurs.
-- No events are read.
+- No raw events are read.
 - No rollups are persisted.
-- No quota counting changes.
+- Quota counting is unchanged.
 - No raw events are deleted.
+- Add `--confirm-execute true` only for an intentional bounded direct CLI execute validation.
 
 ---
 ## Disabled Preview Example
@@ -306,11 +283,11 @@ Review these fields before trusting scheduler preview output:
 
 Do not treat this command as proof that rollups were rebuilt. Command dry-run invokes the backfill service only in dry-run mode and does not execute backfill.
 
-Do not treat blocked dry-run/execute/process-local/external-scheduler decisions as failures. They are expected unless their exact runtime wiring has been explicitly designed.
+Do not treat fail-closed decisions as unexpected failures. Dry-run without an event limit, execute without confirmation, and unsupported external or background runtime paths are intentionally blocked.
 
-Do not wire execute mode beyond command-only strict guardrails until explicit operator confirmation, event-limit guardrail, max-bucket bound, bounded bucket count, source separation, rollback expectation, operator output, and Docker/PostgreSQL runtime validation are implemented and reviewed.
+Do not expand execute beyond the existing direct command-only strict guardrails. Process-local execute, external scheduler execute, and scheduled/background execute remain closed.
 
-Do not wire process-local or external-scheduler execution until automatic execution semantics are explicitly designed.
+Do not expand beyond the supported process-local dry-run path. Process-local execute, external-scheduler execution, and scheduled/background execute remain closed until their semantics are explicitly designed.
 
 ---
 ## Related Files
@@ -394,18 +371,18 @@ Boundary:
 
 ## Sprint 54 Background Scheduler Output Boundary
 
-Sprint 54 adds ackgroundScheduler to scheduler preview command JSON output.
+Sprint 54 adds `backgroundScheduler` to scheduler preview command JSON output.
 
 Operator expectations:
 
-- ackgroundScheduler is contract/output data only.
+- `backgroundScheduler` is contract/output data only.
 - command trigger reports direct CLI runtime ownership.
 - process-local and external-scheduler preview can report background preview readiness.
-- process-local and external-scheduler dry-run/execute remain blocked with ackground-runtime-execution-not-wired.
+- Unsupported background runtime paths remain blocked with `background-runtime-execution-not-wired`.
 - Disabled or invalid background runner plans do not expose a preview plan.
 - The output must keep scheduled job creation, backfill service invocation, backfill execution, event reads, rollup persistence, quota mutation, raw event deletion, and retention execution disabled.
 
-Do not treat ackgroundScheduler.summary.ready=true as proof that a background job ran. It only means the preview contract is ready.
+Do not treat `backgroundScheduler.summary.ready=true` as proof that a background job ran. It only means the preview contract is ready.
 
 ## Sprint 55 Process-local Dry-run Runtime Invocation
 
@@ -414,7 +391,7 @@ Sprint 55 adds a guarded direct CLI process-local dry-run runtime path.
 Example:
 
 ```powershell
-$env:DATABASE_URL = "postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=public"
+$env:DATABASE_URL = "postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
 
 npm run analytics:rollup:scheduler-preview --workspace api-gateway -- `
   --enabled true `
