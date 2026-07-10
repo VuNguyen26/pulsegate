@@ -13,7 +13,8 @@
   "build": "npm run build --workspaces",
   "typecheck": "npm run typecheck --workspaces",
   "test": "npm run test --workspaces --if-present",
-  "test:k6:smoke": "docker compose --profile tools run --rm k6"
+  "test:k6:smoke": "docker compose --profile tools run --rm k6",
+  "validate:release": "node scripts/release-readiness.mjs"
   },
   "keywords": [
     "api-gateway",
