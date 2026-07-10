@@ -14,7 +14,11 @@ type PlannedSectionPageProps = {
 
 export function generateStaticParams() {
   return dashboardNavigation
-    .filter((item) => item.href !== "/")
+    .filter(
+      (item) =>
+        item.href !== "/" &&
+        item.href !== "/consumers",
+    )
     .map((item) => ({
       section: item.href.slice(1),
     }));

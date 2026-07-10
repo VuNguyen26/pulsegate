@@ -307,3 +307,96 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+/* Sprint 62 consumer registry read view */
+.admin-resource-table-wrap {
+  overflow-x: auto;
+  padding: 0;
+}
+
+.admin-resource-table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+}
+
+.admin-resource-table caption {
+  padding: 1rem 1.25rem;
+  text-align: left;
+  font-weight: 700;
+}
+
+.admin-resource-table th,
+.admin-resource-table td {
+  padding: 0.9rem 1.25rem;
+  border-top: 1px solid #dbe4ee;
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-resource-table th {
+  color: #475569;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.admin-resource-table code {
+  white-space: nowrap;
+}
+
+.consumer-registry-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.consumer-summary-item {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #dbe4ee;
+  border-radius: 0.9rem;
+  background: #ffffff;
+}
+
+.consumer-summary-item strong {
+  font-size: 1.65rem;
+}
+
+.consumer-summary-item span,
+.consumer-name-cell span,
+.consumer-audit-cell small {
+  color: #64748b;
+}
+
+.consumer-name-cell,
+.consumer-audit-cell {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.consumer-status-pill {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.consumer-status-pill[data-status="active"] {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.consumer-status-pill[data-status="disabled"] {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+@media (max-width: 720px) {
+  .consumer-registry-summary {
+    grid-template-columns: 1fr;
+  }
+}
