@@ -6,11 +6,11 @@ PulseGate is being built toward a product-like API Gateway and API Management Pl
 
 Current version:
 
-- v1.1.0
+- v1.2.0
 
 Latest completed sprint:
 
-- Sprint 61 - Admin Dashboard foundation
+- Sprint 62 - Dashboard consumers/API keys/usage plans
 
 Private npm workspace package versions remain `0.1.0`.
 
@@ -35,6 +35,10 @@ PulseGate currently includes:
 - Server-only read-only Admin API boundary
 - Dashboard runtime connectivity status
 - Dashboard Docker Compose runtime on port 3003
+- Dashboard consumer registry read view
+- Dashboard consumer-scoped API key metadata view
+- Dashboard usage plan read view
+- Dashboard persisted/runtime route registry read view
 - Dynamic route config
 - Runtime route registry
 - Catch-all dynamic router
@@ -102,16 +106,15 @@ PulseGate currently includes:
 
 Latest validation:
 
-- 136 test files / 988 tests passed
+- Admin Dashboard: 21 test files / 110 tests passed
+- API Gateway: 136 test files / 988 tests passed
 - npm run typecheck passed
 - npm run build passed
-- git diff --check passed
-- API Gateway health returned 200
-- Prometheus readiness returned 200 and the gateway scrape target was up
-- Unmatched 404 paths were aggregated under `route="__unmatched__"` without raw-path labels
-- Bounded k6 smoke completed 10/10 iterations and 20/20 checks with 0% failures
-- Grafana database and Prometheus datasource health checks passed
-- All five dashboard PromQL queries and dashboard provisioning checks passed
+- docker compose config --quiet passed
+- git diff checks passed
+- Sprint 62 runtime parity and read-only security checks passed
+- Successful runtime mutation count remained zero
+
 ---
 
 ## Tech Stack
@@ -374,7 +377,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-59.md
+- docs/sdlc/sprint-history/sprint-62.md
 
 Latest observability and analytics runbooks:
 
@@ -392,19 +395,19 @@ Latest observability and analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-10-observability-grafana-k6-lightweight-validation.md
+- docs/project-context/decisions/2026-07-10-dashboard-resource-read-views.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 61 - Admin Dashboard foundation.
+Sprint 63 - Dashboard quota/usage/rejected events.
 
 Reason:
 
-- Sprint 60 completed Backend Portfolio v1 release preparation and bounded demo validation.
-- The next step is a minimal Admin Dashboard foundation against existing protected Admin APIs.
-- Sprint 61 must preserve authorization, persistence, quota, scheduler, retention, and raw-event safety boundaries.
+- Sprint 62 completed the bounded read-only administration views for consumers, consumer-scoped API keys, usage plans, and route registries.
+- The fixed roadmap assigns quota, successful usage, and rejected-event Dashboard panels to Sprint 63.
+- Sprint 63 should reuse the fixed BFF and shared resource-state foundations without changing quota or event persistence semantics.
 
 ## Sprint 55 Completion
 
@@ -492,6 +495,89 @@ Sprint 58 docs:
 - docs/project-context/decisions/2026-07-10-minimal-admin-rbac-hardening.md
 - docs/runbooks/admin-route-management.md
 - docs/sdlc/sprint-history/sprint-58.md
+
+## Sprint 62 Completion
+
+Sprint 62 completed Dashboard consumers/API keys/usage plans as bounded read-only resource views and also completed the route registry read view that was part of the fixed sprint scope.
+
+Product/documentation version:
+
+```txt
+v1.2.0
+```
+
+Private npm workspace package versions remain:
+
+```txt
+0.1.0
+```
+
+The existing annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 62 does not create a new Git tag.
+
+Delivered:
+
+- Added shared loading, empty, error, retry, and table primitives for bounded Dashboard resources.
+- Added `/consumers` with a fixed consumer list/detail read boundary.
+- Added `/api-keys` with consumer-scoped API key metadata only.
+- Added `/usage-plans` with bounded list/detail views.
+- Added `/routes` with persisted route configuration and runtime registry displayed as separate resources.
+- Added fixed GET-only Dashboard BFF endpoints for each resource.
+- Kept `cache: no-store` and strict browser/server DTO validation.
+- Preserved missing-resource mappings and list/detail identity checks.
+- Kept raw issued API key material out of Dashboard responses and rendering.
+- Added no create, update, revoke, delete, assign, or reload controls.
+
+Sprint 62 implementation commits:
+
+- `7b7c3a0 feat(dashboard): add admin resource view foundation`
+- `710d331 feat(dashboard): add consumer registry read view`
+- `5b0dda3 feat(dashboard): add consumer api key read view`
+- `b4cd8b1 feat(dashboard): add usage plan read view`
+- `05e9443 feat(dashboard): add route registry read view`
+
+Validation before documentation finalization:
+
+- Admin Dashboard: 21 test files / 110 tests passed.
+- API Gateway: 136 test files / 988 tests passed.
+- Root typecheck passed.
+- Root production build passed.
+- `docker compose config --quiet` passed.
+- Working and staged diff checks passed.
+- Runtime list/detail parity checks passed for consumers, usage plans, and persisted routes.
+- Consumer-scoped API key identity checks passed without raw key exposure.
+- Persisted and runtime route registry parity checks passed.
+- Missing-resource mappings returned bounded `404` responses.
+- Dashboard mutation methods returned `405`.
+- Read-only Gateway route reload returned `403 ADMIN_API_KEY_READ_ONLY`.
+- Successful runtime mutation count remained zero.
+- Full-access Admin credentials were absent from the Dashboard runtime.
+- Runtime credential leakage checks passed.
+
+Security and behavior boundaries preserved:
+
+- No generic Admin API proxy.
+- No browser-stored Admin credential.
+- No full-access `ADMIN_API_KEY` in the Dashboard.
+- No API consumer, API key, usage-plan, or route persistence change.
+- No quota source-of-truth change.
+- No successful-usage or rejected-event recorder change.
+- No scheduler execution expansion.
+- No retention execution.
+- No raw-event deletion.
+- No database migration.
+- No enterprise IAM, Developer Portal, Kubernetes, OpenTelemetry, or Loki scope.
+
+Sprint 62 documentation:
+
+- `README.md`
+- `docs/architecture/overview.md`
+- `docs/sdlc/requirements.md`
+- `docs/project-context/CURRENT_PROGRESS.md`
+- `docs/project-context/AI_HANDOFF.md`
+- `docs/project-context/DECISION_LOG.md`
+- `docs/runbooks/admin-dashboard.md`
+- `docs/sdlc/sprint-history/sprint-62.md`
+- `docs/project-context/decisions/2026-07-10-dashboard-resource-read-views.md`
 
 ## Sprint 61 Completion
 
@@ -667,35 +753,26 @@ Preserved boundaries:
 
 ## Next Sprint
 
-Sprint 62 - Dashboard consumers/API keys/usage plans.
+Sprint 63 - Dashboard quota/usage/rejected events.
 
-Sprint 62 may add bounded Dashboard views and explicitly approved controls for:
+Sprint 63 should add bounded read-only operator views for:
 
-- API consumers
-- API keys
-- usage plans
-- route configuration
+- consumer and API key usage summaries
+- API key quota state
+- usage plan usage summary
+- successful usage event investigation
+- rejected event summary and bounded drilldown
 
-Sprint 62 must preserve:
+Sprint 63 must preserve:
 
-- server-only Admin credentials
-- full-access and read-only authorization
-- sanitized `x-admin-actor` attribution
-- current persistence semantics
-- quota source-of-truth behavior
-- successful and rejected event separation
-- scheduler and retention safety boundaries
-- raw-event deletion prohibition
-
-Sprint 62 must not introduce:
-
-- a generic Admin API proxy
-- browser-stored Admin credentials
-- enterprise IAM
-- unrelated analytics panels
-- scheduler execution expansion
-- retention execution
-- raw-event deletion
+- fixed server-only BFF resources
+- read-only Admin credentials for reads
+- strict bounded query and response validation
+- `gateway.api_usage_events` as the quota-counting source of truth
+- separation between successful usage and rejected/security events
+- no generic proxy
+- no scheduler or retention execution expansion
+- no raw-event deletion
 
 ## Sprint 57 Completion
 

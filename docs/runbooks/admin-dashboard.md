@@ -1,6 +1,6 @@
 # Admin Dashboard Runbook
 
-This runbook documents local setup and validation for the PulseGate Admin Dashboard introduced in Sprint 61.
+This runbook documents local setup and validation for the PulseGate Admin Dashboard introduced in Sprint 61 and extended with bounded resource read views in Sprint 62.
 
 ## Runtime Ports
 
@@ -325,15 +325,18 @@ docker compose config --quiet
 git diff --check
 ```
 
-Current Sprint 61 baseline:
+Current Sprint 62 baseline:
 
 ```txt
-Admin Dashboard: 5 test files / 22 tests
+Admin Dashboard: 21 test files / 110 tests
 API Gateway: 136 test files / 988 tests
 Typecheck: passed
 Build: passed
 Compose config: passed
+Runtime mutation count: 0
 ```
+
+
 
 ## Health and Logs
 
@@ -385,7 +388,7 @@ Check:
 
 The credential was rejected or does not have access to the requested Admin resource.
 
-Sprint 61 expects the read-only credential to access:
+The original runtime-status flow expects the read-only credential to access:
 
 ```txt
 GET /internal/admin/routes/runtime
@@ -456,3 +459,94 @@ This runbook must not be used to introduce:
 - retention execution
 - raw-event deletion
 - database-backed administrator or organization models
+
+## Sprint 62 Resource Read Views
+
+Sprint 62 extends the Dashboard with bounded read-only resources. The server-only credential and fixed-resource model from Sprint 61 remain unchanged.
+
+### Pages
+
+```txt
+http://localhost:3003/consumers
+http://localhost:3003/api-keys
+http://localhost:3003/usage-plans
+http://localhost:3003/routes
+```
+
+### Dashboard BFF resources
+
+```txt
+GET /api/admin/consumers
+GET /api/admin/consumers/:consumerId
+GET /api/admin/consumers/:consumerId/api-keys
+GET /api/admin/usage-plans
+GET /api/admin/usage-plans/:usagePlanId
+GET /api/admin/routes
+GET /api/admin/routes/:routeId
+GET /api/admin/routes/runtime
+```
+
+These routes are fixed, GET-only, and no-store. Browser input cannot select arbitrary Gateway paths, methods, hosts, or headers.
+
+### Quick validation
+
+```powershell
+Invoke-WebRequest `
+  -UseBasicParsing `
+  http://localhost:3003/consumers
+
+Invoke-RestMethod `
+  http://localhost:3003/api/admin/consumers |
+  ConvertTo-Json -Depth 20
+
+Invoke-WebRequest `
+  -UseBasicParsing `
+  http://localhost:3003/api-keys
+
+Invoke-RestMethod `
+  http://localhost:3003/api/admin/usage-plans |
+  ConvertTo-Json -Depth 20
+
+Invoke-RestMethod `
+  http://localhost:3003/api/admin/routes |
+  ConvertTo-Json -Depth 30
+
+Invoke-RestMethod `
+  http://localhost:3003/api/admin/routes/runtime |
+  ConvertTo-Json -Depth 30
+```
+
+### Expected read-only behavior
+
+- Consumer list/detail responses contain safe consumer metadata.
+- API key responses are scoped to the selected consumer.
+- API key responses contain metadata and prefixes only, never raw issued keys.
+- Usage-plan list/detail responses preserve identity and quota metadata.
+- Persisted route configuration and runtime route registry are displayed separately.
+- Missing resources map to bounded `404` responses.
+- Unsupported BFF mutation methods return `405`.
+- Gateway mutations attempted with the read-only key return `403 ADMIN_API_KEY_READ_ONLY`.
+
+### Current validation baseline
+
+```txt
+Admin Dashboard: 21 test files / 110 tests
+API Gateway: 136 test files / 988 tests
+Typecheck: passed
+Build: passed
+Compose config: passed
+Runtime mutation count: 0
+```
+
+### Forbidden behavior
+
+Do not:
+
+- add a generic Admin API proxy
+- forward arbitrary browser-selected paths or methods
+- provide full-access `ADMIN_API_KEY` to the Dashboard
+- expose Admin credentials in browser data or logs
+- render or store raw issued API keys
+- add create, update, revoke, assign, delete, or reload controls without a separate approved checkpoint
+- treat route downstream URLs as proxy targets
+- change quota counting, event recording, scheduler execution, retention execution, or raw-event deletion behavior

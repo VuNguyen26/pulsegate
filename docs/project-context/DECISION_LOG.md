@@ -2,7 +2,7 @@
 
 ## Current Version
 
-v1.1.0
+v1.2.0
 
 Private npm workspace package versions remain `0.1.0`.
 
@@ -10,9 +10,58 @@ The annotated `v1.0.0` Git tag remains unchanged at the final Sprint 60 document
 
 ## Latest Completed Sprint
 
-Sprint 61 - Admin Dashboard foundation
+Sprint 62 - Dashboard consumers/API keys/usage plans
 
 ## Latest Decision
+
+### 2026-07-10 - Extend the Dashboard with fixed read-only resource boundaries
+
+Decision:
+
+- Add bounded Dashboard read views for consumers, consumer-scoped API key metadata, usage plans, persisted route configuration, and runtime route state.
+- Reuse shared loading, empty, error, retry, and table primitives.
+- Keep every browser-facing resource as an explicit GET-only BFF route.
+- Keep `ADMIN_READ_ONLY_API_KEY` server-only.
+- Keep full-access `ADMIN_API_KEY` out of the Dashboard.
+- Keep persisted route configuration separate from runtime registry state.
+- Expose safe API key metadata only; never expose raw issued key material.
+- Add no create, update, revoke, assign, delete, or reload controls.
+- Use product/documentation version `v1.2.0`.
+- Keep private npm workspace versions at `0.1.0`.
+- Keep the existing annotated `v1.0.0` tag unchanged.
+
+Reason:
+
+- The fixed Sprint 62 roadmap requires product-facing administration views without expanding mutation risk.
+- Explicit BFF resources preserve the Sprint 61 credential boundary and prevent arbitrary Admin API forwarding.
+- Consumer scoping and strict DTO validation reduce accidental cross-resource exposure.
+- Separating persisted and runtime route data avoids presenting runtime state as editable configuration.
+- Read-only scope preserves current persistence, quota, analytics, scheduler, retention, and raw-event behavior.
+
+Consequences:
+
+- Operators can inspect core API management resources from the Dashboard.
+- Mutation workflows remain deferred until separately designed and explicitly approved.
+- Sprint 63 can reuse the same fixed-resource pattern for quota, usage, and rejected-event panels.
+- No database migration, Gateway backend contract change, quota change, or runtime mutation is introduced.
+
+Validation:
+
+- Admin Dashboard: 21 test files / 110 tests passed.
+- API Gateway: 136 test files / 988 tests passed.
+- Typecheck, build, Compose config, and diff checks passed.
+- Runtime BFF/direct Gateway parity checks passed.
+- Missing-resource and mutation-method boundaries passed.
+- Credential leakage checks passed.
+- Successful runtime mutation count remained zero.
+
+References:
+
+- `docs/project-context/decisions/2026-07-10-dashboard-resource-read-views.md`
+- `docs/sdlc/sprint-history/sprint-62.md`
+- `docs/runbooks/admin-dashboard.md`
+
+---
 
 ### 2026-07-10 - Use a server-only read-only boundary for the Admin Dashboard
 

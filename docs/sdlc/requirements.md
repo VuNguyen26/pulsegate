@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.1.0
+v1.2.0
 
 ## Latest Completed Sprint
 
-Sprint 61 - Admin Dashboard foundation
+Sprint 62 - Dashboard consumers/API keys/usage plans
 
 ---
 
@@ -40,7 +40,7 @@ Long-term target:
 
 - API Gateway runtime
 - Admin APIs
-- Admin Dashboard foundation implemented; bounded feature expansion continues in Sprints 62-64
+- Admin Dashboard foundation and core resource read views implemented; analytics panel expansion continues in Sprints 63-64
 - Developer Portal later
 - API consumers
 - API keys
@@ -1154,8 +1154,8 @@ Implemented.
 
 Current result:
 
-- 136 test files passed
-- 988 tests passed
+- Admin Dashboard: 21 test files / 110 tests passed.
+- API Gateway: 136 test files / 988 tests passed.
 
 Validation:
 
@@ -1245,7 +1245,7 @@ Implemented.
 - No per-key Grafana dashboard yet.
 - No quota usage Grafana dashboard yet.
 - Env fallback API keys are not quota-enforced.
-- The Admin Dashboard foundation is implemented with a server-only read-only BFF boundary.
+- The Admin Dashboard includes bounded read-only consumers, consumer-scoped API keys, usage plans, and persisted/runtime route views behind fixed server-only BFF resources.
 - Developer Portal is not implemented yet.
 - Admin auth is still local admin API key based.
 - Minimal full-access/read-only admin authorization exists, but database-backed administrator identities and general platform RBAC are not implemented yet.
@@ -1265,11 +1265,13 @@ Implemented.
 
 Recommended next:
 
-- Continue with Sprint 62 bounded Dashboard consumers, API keys, usage plans, and route-management functionality.
+- Continue with Sprint 63 bounded Dashboard quota, usage, and rejected-event views.
+- Reuse fixed read-only BFF resources and shared resource states.
+- Keep `gateway.api_usage_events` as the quota-counting source of truth.
+- Keep successful usage and rejected/security event stores separate.
 - Keep retention execution explicit and blocked from operator-facing deletion.
 - Keep external scheduler runtime and scheduled/background execute blocked.
 - Preserve metrics and rollups as non-quota sources.
-- Keep Sprint 62 limited to Dashboard consumers, API keys, usage plans, and route-management scope defined by the fixed roadmap.
 
 ## Selected Summary Runtime Rollup Reads
 
@@ -1705,24 +1707,95 @@ Known dependency note:
 
 ## Sprint 62 - Dashboard consumers/API keys/usage plans
 
-PulseGate shall extend the Sprint 61 Dashboard foundation with bounded views and explicitly approved controls for API consumers, API keys, usage plans, and route configuration.
+PulseGate shall provide bounded read-only Dashboard views for API consumers, consumer-scoped API key metadata, usage plans, persisted route configuration, and the runtime route registry.
 
-Sprint 62 must:
+### Product and version requirements
 
-- retain fixed server-side BFF resources
-- avoid a generic Admin API proxy
-- preserve read-only access for reads
-- require full-access authorization for approved mutations
-- preserve sanitized `x-admin-actor` audit attribution
-- preserve current persistence semantics
-- preserve quota source-of-truth behavior
-- preserve successful and rejected event separation
-- preserve scheduler and retention safety boundaries
-- preserve the raw-event deletion prohibition
+- Product/documentation version is `v1.2.0`.
+- Private npm workspace versions remain `0.1.0`.
+- Existing annotated Git tag `v1.0.0` remains unchanged.
+- Sprint 62 does not create or push a new tag.
 
-Sprint 62 must not add unrelated analytics, scheduler, retention, enterprise IAM, Developer Portal, Kubernetes, OpenTelemetry, or Loki scope.
+### Shared resource requirements
 
-Implementation status: Planned for Sprint 62.
+- Reuse fixed server-side BFF routes.
+- Use GET-only browser-facing resource endpoints.
+- Use only the server-side read-only Admin credential.
+- Use `cache: no-store`.
+- Bound resource list sizes.
+- Validate all success and error payloads before rendering.
+- Validate list/detail identity consistency.
+- Provide loading, empty, error, retry, and accessible table states.
+- Reject arbitrary Gateway path, method, host, or header selection.
+- Do not provide a generic Admin API proxy.
+
+### Consumer requirements
+
+- Provide `/consumers`.
+- Read the fixed consumer list and detail Gateway resources.
+- Render safe consumer identity, status, description, and audit metadata.
+- Map missing consumers to a bounded not-found response.
+- Do not create, update, deactivate, or delete consumers.
+
+### API key requirements
+
+- Provide `/api-keys`.
+- Require a selected consumer before loading API keys.
+- Read only the fixed consumer-scoped API key resource.
+- Render safe metadata only.
+- Do not expose raw issued key material.
+- Do not issue, revoke, or assign usage plans.
+
+### Usage plan requirements
+
+- Provide `/usage-plans`.
+- Read the fixed usage-plan list and detail resources.
+- Render quota window, quota limit, enabled state, description, and audit metadata.
+- Do not create or update usage plans.
+- Do not change quota enforcement or quota source-of-truth behavior.
+
+### Route requirements
+
+- Provide `/routes`.
+- Read persisted route configuration separately from runtime registry state.
+- Render bounded route policy data.
+- Do not create, update, delete, or reload routes.
+- Do not use downstream URLs as arbitrary proxy targets.
+
+### Security and safety requirements
+
+- Full-access `ADMIN_API_KEY` must remain absent from the Dashboard.
+- Admin credentials must remain absent from HTML, BFF responses, client bundles, browser storage, query strings, logs, and image configuration.
+- Browser-facing mutation methods must remain unavailable.
+- Read-only Gateway mutation attempts must remain rejected.
+- API consumer, API key, usage-plan, and route persistence semantics must remain unchanged.
+- `gateway.api_usage_events` must remain the quota-counting source of truth.
+- Successful usage and rejected/security event persistence must remain separate.
+- Scheduler execution, retention execution, and raw-event deletion boundaries must remain unchanged.
+- No database migration is allowed for this Dashboard-only sprint.
+
+### Validation baseline
+
+- Admin Dashboard: 21 test files / 110 tests passed.
+- API Gateway: 136 test files / 988 tests passed.
+- Root typecheck passed.
+- Root production build passed.
+- Docker Compose configuration validation passed.
+- Runtime BFF/direct Gateway parity passed for all added resources.
+- Missing-resource mappings passed.
+- Mutation-method rejection passed.
+- Credential-boundary and leakage checks passed.
+- Successful runtime mutation count was zero.
+
+Implementation status: Complete in Sprint 62.
+
+## Sprint 63 - Dashboard quota/usage/rejected events
+
+Sprint 63 shall add bounded read-only Dashboard panels for quota state, successful usage analytics, usage event investigation, and rejected-event investigation.
+
+Sprint 63 must preserve raw successful usage events as the quota-counting source of truth, maintain successful/rejected event separation, use fixed BFF resources, and avoid scheduler execution, retention execution, or raw-event deletion.
+
+Implementation status: Planned for Sprint 63.
 
 ## Sprint 60 - Final polish, docs, demo script, architecture cleanup, release v1.0.0
 

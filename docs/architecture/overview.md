@@ -6,29 +6,25 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.1.0
+v1.2.0
 
 ## Current Status
 
-Sprint 61 - Admin Dashboard foundation Complete
+Sprint 62 - Dashboard consumers/API keys/usage plans Complete
 
 Current validation:
 
-- Admin Dashboard: 5 test files / 22 tests passed.
+- Admin Dashboard: 21 test files / 110 tests passed.
 - API Gateway: 136 test files / 988 tests passed.
-- Root `npm run typecheck` passed.
-- Root `npm run build` passed.
-- `docker compose config --quiet` passed.
-- `git diff --check` passed.
-- PostgreSQL, Redis, Product Service, API Gateway, and Admin Dashboard runtime checks passed.
-- Dashboard Overview returned `HTTP 200`.
-- Dashboard BFF returned `HTTP 200`.
-- Direct read-only Gateway runtime access returned `HTTP 200`.
-- Invalid Dashboard credentials returned normalized `HTTP 403`.
-- Dashboard access mode remained `read-only`.
-- Full-access `ADMIN_API_KEY` was absent from the Dashboard container.
-- Admin credentials were absent from HTML, BFF responses, client bundles, logs, and image configuration.
+- Root typecheck and build passed.
+- Docker Compose configuration passed.
+- Working and staged diff checks passed.
+- Runtime parity passed for consumers, consumer-scoped API keys, usage plans, persisted routes, and runtime routes.
+- Missing-resource and mutation-method boundaries passed.
+- Full-access Admin credentials remained absent from the Dashboard.
+- Successful runtime mutation count remained zero.
 - No persistence, quota, event-recorder, scheduler-execution, retention-execution, or raw-event behavior changed.
+
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
 PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, DB-backed non-destructive retention operator preview hardening, non-destructive rollup schedule preview planning, non-destructive rollup scheduler runner preview planning, non-destructive rollup scheduler execution boundary preview planning, non-destructive rollup scheduler execution wiring review, non-destructive rollup scheduler command dry-run design review, non-destructive rollup scheduler command dry-run invocation contract and readiness review, non-destructive rollup scheduler command dry-run invocation design review, non-destructive rollup scheduler command dry-run service invocation contract review, non-destructive rollup scheduler command dry-run service invocation implementation design, non-destructive rollup scheduler command dry-run service invocation wiring readiness review, non-destructive rollup scheduler command dry-run service invocation fail-closed error model, non-destructive rollup scheduler command dry-run service invocation wiring contract, non-destructive rollup scheduler command dry-run service invocation request mapper design, non-destructive rollup scheduler command dry-run service adapter boundary design, non-destructive rollup scheduler command dry-run service adapter preview output integration, command dry-run runtime service invocation, runtime consistency output, blocked-path runtime tests, non-destructive rollup scheduler command execute contract review, non-destructive command execute readiness review, non-destructive command execute operator output review, non-destructive blocked-by-default command execute wiring preview, selected summary runtime rollup read switching behind explicit flag with raw-summary fallback, and CI/CD.
@@ -168,6 +164,7 @@ Rollup tables, retention dry-run, and retention repository primitives are not us
 Docker Compose services:
 
 - api-gateway
+- admin-dashboard
 - product-service
 - postgres
 - redis
@@ -533,7 +530,7 @@ Core:
 - Direct command execute and guarded process-local dry-run runtime paths exist, but no autonomous scheduler loop, external scheduler runtime, scheduled/background execute, or retention execution exists.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
-- The Admin Dashboard foundation is implemented; consumer, API key, usage-plan, route, analytics, scheduler, and retention feature panels remain assigned to later roadmap sprints.
+- The Admin Dashboard now includes read-only consumers, consumer-scoped API keys, usage plans, and persisted/runtime routes; quota, usage, rejected-event, rollup, scheduler, and retention panels remain assigned to Sprints 63-64.
 - Developer Portal is not implemented yet.
 - Admin authorization remains a local full-access/read-only API key boundary; database-backed administrator identities and general platform RBAC are not implemented yet.
 - Dynamic router supports exact method + exact path matching only.
@@ -552,16 +549,15 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 62 - Dashboard consumers/API keys/usage plans.
+Sprint 63 - Dashboard quota/usage/rejected events.
 
 Rationale:
 
-- Sprint 61 established the responsive Dashboard shell, server-only credential boundary, fixed BFF resource, runtime status panel, and Docker runtime.
-- Sprint 62 may extend the Dashboard with bounded views and explicitly approved controls for consumers, API keys, usage plans, and route configuration.
-- New Dashboard resources must continue to use fixed server-side BFF endpoints rather than a generic Admin API proxy.
-- Read operations must preserve read-only Admin access.
-- Mutation operations, when explicitly approved, must require full-access Admin authorization and sanitized `x-admin-actor` attribution.
-- Persistence, quota, analytics, scheduler, retention, and raw-event safety semantics must remain unchanged.
+- Sprint 62 established reusable bounded resource states and fixed read-only BFF resources.
+- Sprint 63 should apply the same pattern to quota state, successful usage analytics, usage event investigation, and rejected-event investigation.
+- `gateway.api_usage_events` must remain the quota-counting source of truth.
+- Successful usage and rejected/security event data must remain separate.
+- Scheduler execution, retention execution, and raw-event deletion remain outside scope.
 
 ## Selected Summary Runtime Rollup Reads
 
@@ -754,6 +750,100 @@ The boundary remains non-destructive:
 - Prisma retention delete repository is not wired into command/API/job execution
 - quota counting remains unchanged
 - raw event deletion remains blocked
+
+## Sprint 62 Dashboard Resource Read Boundary
+
+Sprint 62 extends the Dashboard through explicit fixed read resources. It does not introduce a generic proxy or a mutation-capable administration client.
+
+### Browser pages
+
+```txt
+/consumers
+/api-keys
+/usage-plans
+/routes
+```
+
+### Fixed Dashboard BFF resources
+
+```txt
+GET /api/admin/consumers
+GET /api/admin/consumers/:consumerId
+GET /api/admin/consumers/:consumerId/api-keys
+GET /api/admin/usage-plans
+GET /api/admin/usage-plans/:usagePlanId
+GET /api/admin/routes
+GET /api/admin/routes/:routeId
+GET /api/admin/routes/runtime
+```
+
+### Fixed Gateway resources
+
+```txt
+GET /internal/admin/consumers
+GET /internal/admin/consumers/:consumerId
+GET /internal/admin/consumers/:consumerId/api-keys
+GET /internal/admin/usage-plans
+GET /internal/admin/usage-plans/:usagePlanId
+GET /internal/admin/routes
+GET /internal/admin/routes/:routeId
+GET /internal/admin/routes/runtime
+```
+
+### Shared read-resource flow
+
+```txt
+Operator Browser
+  -> fixed Dashboard page
+  -> fixed GET-only Dashboard BFF route
+  -> server-only read-resource boundary
+  -> ADMIN_READ_ONLY_API_KEY
+  -> fixed Gateway Admin GET endpoint
+  -> strict bounded DTO validation
+  -> no-store response
+```
+
+Shared UI states include loading, empty, error, retry, and bounded table rendering. Browser and server contracts reject invalid identities, malformed payloads, inconsistent list/detail data, and unbounded resource arrays.
+
+### Resource boundaries
+
+Consumers:
+
+- list and detail data remain read-only
+- missing consumers map to bounded not-found responses
+- no create, update, deactivate, or delete controls
+
+API keys:
+
+- listing is scoped to one selected consumer
+- only safe metadata such as prefix, status, expiry, use timestamps, and usage-plan identity is rendered
+- raw issued key material is never returned or stored by the Dashboard
+- no issue, revoke, or usage-plan assignment controls
+
+Usage plans:
+
+- list and detail views display quota window, quota limit, enabled state, description, and audit metadata
+- the Dashboard does not create or update plans
+- the Dashboard does not change quota enforcement
+
+Routes:
+
+- persisted route configuration and runtime registry are separate resources
+- route policies are validated and rendered as bounded data
+- the Dashboard does not create, update, delete, reload, or proxy to downstream URLs
+
+### Security boundary
+
+- Only `ADMIN_READ_ONLY_API_KEY` is available to the Dashboard server.
+- Full-access `ADMIN_API_KEY` is absent from the Dashboard process and container.
+- Browser code receives no Admin credential.
+- Browser input cannot select arbitrary Gateway methods, paths, hosts, or headers.
+- Dashboard BFF mutation methods are unavailable.
+- Gateway read-only mutation attempts remain rejected with `ADMIN_API_KEY_READ_ONLY`.
+
+### Preserved platform behavior
+
+Sprint 62 changes Dashboard reads only. It does not change API management persistence, quota counting, event recording, rollup behavior, scheduler execution, retention execution, raw-event deletion, or database schema.
 
 ## Sprint 61 Admin Dashboard Architecture Boundary
 
