@@ -22,8 +22,8 @@ export default function OverviewPage() {
           <p>Understand the role of PulseGate in front of downstream APIs.</p>
         </article>
         <article>
-          <h2>Safe foundation</h2>
-          <p>No authentication, billing, database, or Admin API integration.</p>
+          <h2>API-key foundation</h2>
+          <p>Review the future workflow without creating or exposing a key.</p>
         </article>
         <article>
           <h2>API documentation</h2>

@@ -48,7 +48,20 @@ describe("Developer Portal foundation", () => {
     expect(apiDocs).toContain(
       "Runtime management and administrative operations are excluded",
     );
-    expect(render(<ApiKeysPage />)).toContain("not available in Sprint 65");
+    const apiKeys = render(<ApiKeysPage />);
+
+    expect(apiKeys).toContain("API-key self-service foundation");
+    expect(apiKeys).toContain("No key will be created");
+    expect(apiKeys).toContain("No public developer identity exists");
+    expect(apiKeys).toContain(
+      "No developer-to-consumer ownership mapping exists",
+    );
+    expect(apiKeys).toContain(
+      "No browser-safe API-key self-service endpoint exists",
+    );
+    expect(apiKeys).not.toContain("Create API key");
+    expect(apiKeys).not.toContain("<form");
+    expect(apiKeys).not.toContain("pgk_live_");
   });
 
   it("provides loading and not-found boundaries", () => {
@@ -69,6 +82,7 @@ describe("Developer Portal foundation", () => {
       "/api/admin/",
       "localStorage",
       "sessionStorage",
+      "pgk_live_",
     ]) {
       expect(source).not.toContain(forbidden);
     }

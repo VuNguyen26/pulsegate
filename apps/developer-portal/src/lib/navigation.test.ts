@@ -12,9 +12,9 @@ describe("portalNavigation", () => {
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 
-  it("publishes API docs while keeping API keys planned", () => {
+  it("publishes both Sprint 66 foundation routes", () => {
     expect(findPortalNavigationItem("/api-docs")?.status).toBe("available");
-    expect(findPortalNavigationItem("/api-keys")?.status).toBe("planned");
+    expect(findPortalNavigationItem("/api-keys")?.status).toBe("available");
   });
 
   it("does not expose an Admin route", () => {

@@ -304,3 +304,156 @@ footer { padding: 2rem 5vw; border-top: 1px solid #dbe4ee; background: white; }
     padding: 1.15rem;
   }
 }
+/* Sprint 66 API-key self-service foundation */
+.key-page {
+  padding-top: 3.5rem;
+}
+
+.key-hero {
+  max-width: 860px;
+}
+
+.key-hero > p:not(.eyebrow) {
+  max-width: 760px;
+  color: #475569;
+  font-size: 1.05rem;
+}
+
+.status-badge-warning {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.key-boundary-panel {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+  gap: 1.5rem;
+  margin: 2.5rem 0;
+  padding: 1.5rem;
+  border: 1px solid #f59e0b;
+  border-radius: .9rem;
+  background: #fffbeb;
+}
+
+.key-boundary-panel h2,
+.key-section h2,
+.key-next-step h2 {
+  margin: 0 0 .75rem;
+  font-size: clamp(1.45rem, 3vw, 2.1rem);
+  line-height: 1.2;
+}
+
+.capability-list,
+.contract-gap-list,
+.security-guidance-list {
+  display: grid;
+  gap: .7rem;
+  margin: 0;
+}
+
+.key-content-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.key-section {
+  margin-bottom: 1.5rem;
+  padding: 1.6rem;
+  border: 1px solid #dbe4ee;
+  border-radius: .9rem;
+  background: white;
+}
+
+.empty-key-state {
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  border: 1px dashed #94a3b8;
+  border-radius: .75rem;
+  color: #475569;
+  background: #f8fafc;
+}
+
+.empty-key-state strong {
+  color: #172033;
+}
+
+.empty-key-state p {
+  margin-bottom: 0;
+}
+
+.workflow-steps {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: workflow-step;
+}
+
+.workflow-steps li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  padding: 1rem;
+  border-radius: .75rem;
+  background: #f8fafc;
+}
+
+.workflow-steps li > span {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: #4338ca;
+  font-weight: 700;
+}
+
+.workflow-steps h3 {
+  margin: 0;
+}
+
+.workflow-steps p {
+  margin: .25rem 0 0;
+  color: #475569;
+}
+
+.security-guidance-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0;
+  list-style: none;
+}
+
+.security-guidance-list li {
+  padding: 1rem;
+  border-left: 4px solid #4f46e5;
+  background: #f8fafc;
+}
+
+.key-next-step {
+  padding: 1.5rem;
+  border: 1px solid #c7d2fe;
+  border-radius: .9rem;
+  background: #eef2ff;
+}
+
+.key-next-step p {
+  margin-bottom: 0;
+}
+
+@media (max-width: 760px) {
+  .key-boundary-panel,
+  .key-content-grid,
+  .security-guidance-list {
+    grid-template-columns: 1fr;
+  }
+
+  .key-section,
+  .key-boundary-panel,
+  .key-next-step {
+    padding: 1.15rem;
+  }
+}

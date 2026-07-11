@@ -27,8 +27,8 @@ export const portalNavigation: readonly PortalNavigationItem[] = [
   {
     href: "/api-keys",
     label: "API keys",
-    description: "Self-service foundation planned for Sprint 66.",
-    status: "planned",
+    description: "Non-operational API-key self-service foundation.",
+    status: "available",
   },
 ];
 
