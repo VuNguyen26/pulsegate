@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  buildRouteRowKey,
+  formatRouteRequestHost,
+} from "../lib/route-host";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -63,7 +67,7 @@ const persistedColumns:
       render: (route) => (
         <div className="route-name-cell">
           <strong>
-            {route.method} {route.gatewayPath}
+            {route.method} {route.gatewayPath}{" Â· "}{formatRouteRequestHost(route.requestHost)}
           </strong>
           <code>{route.id}</code>
           <small>{route.serviceName}</small>
@@ -133,7 +137,7 @@ const runtimeColumns:
       header: "Loaded route",
       render: (route) => (
         <strong>
-          {route.method} {route.gatewayPath}
+          {route.method} {route.gatewayPath}{" Â· "}{formatRouteRequestHost(route.requestHost)}
         </strong>
       ),
     },
@@ -223,7 +227,7 @@ export function PersistedRouteDetail({
           Persisted configuration
         </p>
         <h2 id="route-detail-title">
-          {route.method} {route.gatewayPath}
+          {route.method} {route.gatewayPath}{" Â· "}{formatRouteRequestHost(route.requestHost)}
         </h2>
         <p>
           Database-backed route configuration. This is
@@ -405,7 +409,7 @@ export function RouteRuntimeSnapshotView({
           columns={runtimeColumns}
           rows={snapshot.routes}
           getRowKey={(route) =>
-            `${route.method}:${route.gatewayPath}`
+            buildRouteRowKey(route)
           }
         />
       )}
@@ -634,7 +638,7 @@ export function RouteRegistryPanel() {
                     key={route.id}
                     value={route.id}
                   >
-                    {route.method} {route.gatewayPath}
+                    {route.method} {route.gatewayPath}{" Â· "}{formatRouteRequestHost(route.requestHost)}
                   </option>
                 ))}
               </select>

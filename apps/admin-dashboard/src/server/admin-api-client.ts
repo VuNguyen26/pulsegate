@@ -1,4 +1,7 @@
 import type {
+  RouteRequestHost,
+} from "../lib/route-host";
+import type {
   DashboardAdminApiConfig,
 } from "./admin-api-config";
 
@@ -14,6 +17,7 @@ export type AdminRuntimeStatus = {
   routes: Array<{
     method: string;
     gatewayPath: string;
+    requestHost?: RouteRequestHost;
     serviceName: string;
   }>;
 };

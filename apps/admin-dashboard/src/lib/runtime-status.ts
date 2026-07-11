@@ -1,9 +1,14 @@
+import {
+  isOptionalRouteRequestHost,
+  type RouteRequestHost,
+} from "./route-host";
 ﻿export const DASHBOARD_RUNTIME_STATUS_PATH =
   "/api/admin/runtime-status";
 
 export type DashboardRuntimeRoute = {
   method: string;
   gatewayPath: string;
+  requestHost?: RouteRequestHost;
   serviceName: string;
 };
 
@@ -71,6 +76,7 @@ function isRuntimeRoute(
     isRecord(value) &&
     typeof value.method === "string" &&
     typeof value.gatewayPath === "string" &&
+    isOptionalRouteRequestHost(value.requestHost) &&
     typeof value.serviceName === "string"
   );
 }

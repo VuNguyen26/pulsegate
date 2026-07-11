@@ -1,4 +1,8 @@
 import {
+  isOptionalRouteRequestHost,
+  type RouteRequestHost,
+} from "./route-host";
+import {
   loadDashboardAdminResource,
 } from "./admin-resource";
 import {
@@ -62,6 +66,7 @@ export type DashboardPersistedRoute = {
   id: string;
   serviceName: string;
   gatewayPath: string;
+  requestHost?: RouteRequestHost;
   downstreamUrl: string;
   method: DashboardRouteMethod;
   enabled: boolean;
@@ -78,6 +83,7 @@ export type DashboardPersistedRoute = {
 export type DashboardRuntimeRoute = {
   method: DashboardRouteMethod;
   gatewayPath: string;
+  requestHost?: RouteRequestHost;
   serviceName: string;
 };
 
@@ -474,6 +480,7 @@ export function isDashboardPersistedRoute(
       256,
     ) &&
     isGatewayPath(value.gatewayPath) &&
+    isOptionalRouteRequestHost(value.requestHost) &&
     isSafeDownstreamUrl(value.downstreamUrl) &&
     isDashboardRouteMethod(value.method) &&
     typeof value.enabled === "boolean" &&
@@ -509,6 +516,7 @@ export function isDashboardRuntimeRoute(
     isRecord(value) &&
     isDashboardRouteMethod(value.method) &&
     isGatewayPath(value.gatewayPath) &&
+    isOptionalRouteRequestHost(value.requestHost) &&
     isNonEmptyBoundedString(
       value.serviceName,
       256,
