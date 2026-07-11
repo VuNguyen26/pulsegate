@@ -1146,3 +1146,48 @@ This separation prevents the public Portal from reusing privileged Admin Dashboa
 
 Sprint 66 may add bounded API documentation and API-key self-service foundation/mock behavior. It must not silently expose `/internal/admin/*`, reuse Admin credentials, or convert placeholders into fake production capabilities.
 <!-- SPRINT-65-ARCHITECTURE-END -->
+
+<!-- SPRINT-66-ARCHITECTURE-START -->
+## Sprint 66 - Developer Portal documentation and key-foundation boundaries
+
+Sprint 66 preserves the public Portal as a static, unprivileged application while adding real developer-facing content.
+
+### API documentation architecture
+
+The `/api-docs` route is a statically generated curated reference. It is based on verified runtime configuration, middleware, handlers, and tests rather than a generated specification.
+
+Current documented public-facing contracts:
+
+- `GET /health`
+- `GET /api/product-service/health`
+- `GET /api/products`
+
+The protected product route requires the configured API-key header, currently `x-api-key`, and an `Authorization: Bearer` token. The reference documents request correlation, cache status, route rate limiting, quota rejection, and downstream error envelopes.
+
+The reference deliberately excludes:
+
+- `/internal/admin/*`
+- Admin Dashboard `/api/admin/*` BFF routes
+- Dynamic route-registry inventory not explicitly published as a public contract
+- API-key lifecycle management
+- Invented OpenAPI schemas or downstream response bodies
+
+No OpenAPI renderer, documentation dependency, backend route, environment variable, or runtime service was added.
+
+### API-key foundation architecture
+
+The `/api-keys` route is a static non-operational foundation. It exposes no forms, buttons, inputs, client mutation code, fetch calls, credential storage, or generated secrets.
+
+Real self-service remains blocked because the platform currently has:
+
+- No public developer identity.
+- No developer-to-consumer ownership mapping.
+- No browser-safe public API-key lifecycle endpoint.
+- Only privileged administrative key-management routes.
+
+Any future activation requires explicit developer authentication, ownership authorization, mutation protection, one-time secret handling, and audit attribution. The Portal must not reuse Admin credentials or privileged Admin APIs.
+
+### Runtime impact
+
+Sprint 66 changes only statically generated Portal pages, navigation metadata, CSS, and tests. The existing Developer Portal image and Compose service on port `3004` remain unchanged. No Gateway, Product Service, database, Redis, migration, billing, marketplace, or host-routing behavior changed.
+<!-- SPRINT-66-ARCHITECTURE-END -->

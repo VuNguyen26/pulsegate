@@ -1952,3 +1952,45 @@ Implementation status: Complete in Sprint 59.
 - Protected tag `v1.0.0` remains unchanged.
 - Sprint 66 is the next fixed-roadmap sprint.
 <!-- SPRINT-65-REQUIREMENTS-END -->
+
+<!-- SPRINT-66-REQUIREMENTS-START -->
+## Sprint 66 acceptance - Developer Portal API docs and API-key foundation
+
+### API documentation acceptance
+
+- `/api-docs` is no longer a placeholder.
+- The page documents only verified public-facing contracts.
+- Authentication guidance matches the current Gateway route policy.
+- Request ID, cache, rate-limit, quota, and downstream error guidance matches source and tests.
+- Unsupported or downstream-owned success schemas are not invented.
+- Internal Admin routes, Admin Dashboard BFF routes, and unpublished dynamic routes are excluded.
+- No OpenAPI or documentation-renderer dependency is added.
+
+### API-key foundation acceptance
+
+- `/api-keys` presents a bounded non-operational foundation.
+- The page explicitly states that it is not connected and that no key will be created.
+- The page explains the missing developer identity and ownership contracts.
+- No key creation, listing, revocation, rotation, fake issuance, fake account, or fake usage state exists.
+- No form, button, input, fetch call, client mutation, browser credential storage, or real-looking API key exists.
+- Existing privileged API-key management remains private.
+
+### Security and scope acceptance
+
+- No Admin credential is added to Developer Portal source, environment, bundle, HTML, logs, or images.
+- No `/internal/admin/*` or `/api/admin/*` call is added.
+- No generic proxy or backend mutation is added.
+- No database migration, dependency, environment variable, billing, marketplace, host routing, weighted routing, service discovery, Kubernetes, OpenTelemetry, Loki, or enterprise IAM scope is added.
+
+### Validation and version acceptance
+
+- Admin Dashboard, API Gateway, and Developer Portal tests pass.
+- Root typecheck and build pass.
+- Compose configuration and Developer Portal image build pass.
+- Portal health, four public routes, and a static asset pass runtime validation.
+- Product/documentation version is `v1.6.0`.
+- Private npm workspace versions remain `0.1.0`.
+- Protected tag `v1.0.0` remains unchanged.
+- No Sprint 66 Git tag is created.
+- Next sprint is Sprint 67 - Host-based routing foundation.
+<!-- SPRINT-66-REQUIREMENTS-END -->

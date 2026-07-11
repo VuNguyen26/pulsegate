@@ -1377,3 +1377,32 @@ Consequences:
 - Any future key-management capability requires an explicit public authentication and ownership boundary; it cannot reuse Admin API keys.
 - Workspace versions remain private `0.1.0`; documentation version advances to `v1.5.0`.
 <!-- SPRINT-65-DECISION-END -->
+
+<!-- SPRINT-66-DECISION-START -->
+## 2026-07-11 - Sprint 66 keeps API docs curated and API-key self-service non-operational
+
+Decision:
+
+- Publish `/api-docs` as a static curated reference derived from verified Gateway source and tests.
+- Document only the current public-facing health and product contracts.
+- Do not create an OpenAPI file or add a documentation-renderer dependency without a canonical contract pipeline.
+- Publish `/api-keys` as a clearly labeled non-operational foundation.
+- Do not connect the Portal to privileged Admin key-management routes.
+- Require public developer identity, consumer ownership, browser-safe authorization, mutation protection, one-time secret handling, and audit attribution before any real self-service lifecycle is added.
+
+Rationale:
+
+- The repository has no tracked canonical OpenAPI specification.
+- Dynamic and privileged route inventories are not automatically public contracts.
+- Existing API keys belong to API consumers, but there is no public developer identity or ownership mapping.
+- Exposing Admin routes would bypass the security boundary established between the public Portal and operator tooling.
+- Static pages satisfy Sprint 66 developer-experience goals without inventing backend capabilities.
+
+Consequences:
+
+- API documentation remains bounded to verified contracts and must be updated when public contracts change.
+- API-key self-service remains unavailable until a later explicitly approved authentication and ownership design.
+- Sprint 66 adds no backend route, migration, environment variable, dependency, billing, marketplace, or routing behavior.
+- Product/documentation version advances to `v1.6.0`; private npm versions and protected tag `v1.0.0` remain unchanged.
+- Sprint 67 proceeds to host-based routing foundation.
+<!-- SPRINT-66-DECISION-END -->

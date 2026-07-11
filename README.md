@@ -1,9 +1,9 @@
 # PulseGate
 
 <!-- pulsegate:sprint-64:start -->
-## Current release — v1.5.0
+## Current release - v1.6.0
 
-**Latest completed sprint:** Sprint 65 — Developer Portal foundation.
+**Latest completed sprint:** Sprint 66 - Developer Portal API docs and API-key self-service foundation.
 
 The Admin Dashboard now provides three read-only operator views:
 
@@ -980,3 +980,49 @@ Validation completed:
 
 Sprint 66 remains responsible for Developer Portal API documentation and API-key self-service foundation/mock boundaries. Sprint 65 does not implement authentication, account creation, API-key issuance, billing, organizations, or backend integration.
 <!-- SPRINT-65-END -->
+
+<!-- SPRINT-66-START -->
+## Sprint 66 - Developer Portal API docs and API-key self-service foundation
+
+Sprint 66 turns the two Developer Portal placeholders into bounded, honest, static-first foundations.
+
+Delivered API documentation scope:
+
+- Replaced `/api-docs` with a static curated reference derived from verified Gateway source and tests.
+- Documented `GET /health`, `GET /api/product-service/health`, and `GET /api/products`.
+- Documented the current `x-api-key` and bearer-token expectations for the protected product route.
+- Documented request IDs, cache headers, rate-limit headers, quota rejection, and downstream error behavior.
+- Kept downstream-owned success payloads unfrozen when no canonical public schema exists.
+- Did not add OpenAPI, Swagger, MDX, a documentation generator, or a new dependency.
+- Did not publish dynamic route-registry entries or privileged management endpoints as public API contracts.
+
+Delivered API-key foundation scope:
+
+- Replaced `/api-keys` with a non-operational foundation page.
+- Documented the future identity, ownership, one-time issuance, secret storage, and lifecycle stages.
+- Added explicit current-state labels: foundation, not connected, and no key will be created.
+- Added security guidance and a no-connected-account state.
+- Did not add developer authentication, sessions, ownership mapping, issue/list/revoke/rotate APIs, fake keys, fake accounts, browser persistence, or Admin integration.
+
+Implementation commits:
+
+- `4e00f79` - `feat(portal): add api documentation foundation`
+- `64e1123` - `feat(portal): add api key self-service foundation`
+
+Validation:
+
+- Admin Dashboard: 52 test files / 237 tests.
+- API Gateway: 140 test files / 1000 tests.
+- Developer Portal: 2 test files / 7 tests.
+- Root release-readiness validation, typecheck, and build passed.
+- Docker Compose configuration passed.
+- Developer Portal image build passed.
+- `/`, `/getting-started`, `/api-docs`, and `/api-keys` returned HTTP 200.
+- A Next.js static JavaScript asset returned HTTP 200.
+- The Portal container became healthy.
+- Rendered HTML and production source contained no privileged Admin credentials, Admin endpoint paths, browser credential storage, fetch integration, or real-looking API key.
+
+Product/documentation version advances to `v1.6.0`. Private npm workspace versions remain `0.1.0`. No Git tag is created, and protected tag `v1.0.0` remains unchanged.
+
+Next sprint: Sprint 67 - Host-based routing foundation.
+<!-- SPRINT-66-END -->

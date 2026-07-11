@@ -223,3 +223,39 @@ Validate these URLs:
 
 Expected result: HTTP 200 for every route and a `healthy` container status. Portal HTML must not expose Admin credential names or Admin endpoint paths.
 <!-- SPRINT-65-LOCAL-VALIDATION-END -->
+
+<!-- SPRINT-66-LOCAL-VALIDATION-START -->
+## Sprint 66 Developer Portal validation
+
+Run the clean release validation first:
+
+```powershell
+npm.cmd run validate:release
+```
+
+Validate the Portal image and runtime:
+
+```powershell
+docker compose config --quiet
+docker compose build developer-portal
+docker compose up -d developer-portal
+docker compose ps developer-portal
+```
+
+Validate these URLs:
+
+- `http://127.0.0.1:3004/`
+- `http://127.0.0.1:3004/getting-started`
+- `http://127.0.0.1:3004/api-docs`
+- `http://127.0.0.1:3004/api-keys`
+
+Expected results:
+
+- Every route returns HTTP 200.
+- A referenced `/_next/static/*.js` asset returns HTTP 200.
+- The Developer Portal container reports `healthy`.
+- `/api-docs` includes `/api/product-service/health`, `/api/products`, `API_KEY_MISSING`, `JWT_TOKEN_MISSING`, and `DOWNSTREAM_TIMEOUT`.
+- `/api-keys` includes `Not connected`, `No key will be created`, and `No connected API-key account`.
+- Rendered HTML does not contain Admin credential names, Admin endpoint paths, or a real-looking `pgk_live_` key.
+- Production Portal source does not add forms, mutation controls, fetch integration, browser credential storage, or privileged Admin integration for API-key self-service.
+<!-- SPRINT-66-LOCAL-VALIDATION-END -->
