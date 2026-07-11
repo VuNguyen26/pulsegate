@@ -20,7 +20,8 @@ export function generateStaticParams() {
         item.href !== "/consumers" &&
         item.href !== "/api-keys" &&
         item.href !== "/usage-plans" &&
-        item.href !== "/routes",
+        item.href !== "/routes" &&
+        item.href !== "/usage-analytics",
     )
     .map((item) => ({
       section: item.href.slice(1),
