@@ -4,12 +4,12 @@ export default function OverviewPage() {
   return (
     <section className="page-stack">
       <div className="hero">
-        <p className="eyebrow">Sprint 65</p>
+        <p className="eyebrow">Sprint 66</p>
         <h1>Build against PulseGate with a clear public boundary.</h1>
         <p>
-          This foundation introduces the developer-facing experience
-          without exposing Admin credentials, internal routes, or fake
-          account and API-key behavior.
+          The Developer Portal now includes bounded public API documentation
+          without exposing privileged management operations, credentials, or
+          fake account and API-key behavior.
         </p>
         <Link className="primary-link" href="/getting-started">
           Explore getting started
@@ -26,8 +26,8 @@ export default function OverviewPage() {
           <p>No authentication, billing, database, or Admin API integration.</p>
         </article>
         <article>
-          <h2>Next milestone</h2>
-          <p>API documentation and API-key self-service foundations arrive in Sprint 66.</p>
+          <h2>API documentation</h2>
+          <p>Review verified public routes, authentication, headers, and errors.</p>
         </article>
       </div>
     </section>

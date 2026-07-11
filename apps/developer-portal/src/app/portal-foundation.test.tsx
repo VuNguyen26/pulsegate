@@ -29,15 +29,25 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe("Developer Portal foundation", () => {
-  it("renders real Sprint 65 overview and getting-started content", () => {
-    expect(render(<OverviewPage />)).toContain("Sprint 65");
+  it("renders real Sprint 66 overview and existing getting-started content", () => {
+    expect(render(<OverviewPage />)).toContain("Sprint 66");
     expect(render(<GettingStartedPage />)).toContain(
       "does not create developer accounts",
     );
   });
 
-  it("keeps Sprint 66 areas honest placeholders", () => {
-    expect(render(<ApiDocsPage />)).toContain("Planned for Sprint 66");
+  it("publishes bounded API docs while API-key self-service stays planned", () => {
+    const apiDocs = render(<ApiDocsPage />);
+
+    expect(apiDocs).toContain("Public API documentation foundation");
+    expect(apiDocs).toContain("/api/product-service/health");
+    expect(apiDocs).toContain("/api/products");
+    expect(apiDocs).toContain("x-api-key");
+    expect(apiDocs).toContain("JWT_TOKEN_MISSING");
+    expect(apiDocs).toContain("DOWNSTREAM_TIMEOUT");
+    expect(apiDocs).toContain(
+      "Runtime management and administrative operations are excluded",
+    );
     expect(render(<ApiKeysPage />)).toContain("not available in Sprint 65");
   });
 

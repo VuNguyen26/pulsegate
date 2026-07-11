@@ -21,8 +21,8 @@ export const portalNavigation: readonly PortalNavigationItem[] = [
   {
     href: "/api-docs",
     label: "API docs",
-    description: "API documentation planned for Sprint 66.",
-    status: "planned",
+    description: "Verified public API documentation foundation.",
+    status: "available",
   },
   {
     href: "/api-keys",

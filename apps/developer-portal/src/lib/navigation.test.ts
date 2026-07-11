@@ -12,8 +12,8 @@ describe("portalNavigation", () => {
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 
-  it("keeps Sprint 66 areas explicitly planned", () => {
-    expect(findPortalNavigationItem("/api-docs")?.status).toBe("planned");
+  it("publishes API docs while keeping API keys planned", () => {
+    expect(findPortalNavigationItem("/api-docs")?.status).toBe("available");
     expect(findPortalNavigationItem("/api-keys")?.status).toBe("planned");
   });
 

@@ -23,3 +23,284 @@ footer { padding: 2rem 5vw; border-top: 1px solid #dbe4ee; background: white; }
   .card-grid { grid-template-columns: 1fr; }
   .page-stack { padding: 3rem 0; }
 }
+/* Sprint 66 API documentation foundation */
+.docs-page {
+  padding-top: 3.5rem;
+}
+
+.docs-hero {
+  max-width: 860px;
+}
+
+.docs-hero > p:not(.eyebrow) {
+  max-width: 760px;
+  color: #475569;
+  font-size: 1.05rem;
+}
+
+.docs-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  margin-top: 1.5rem;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: .35rem .65rem;
+  border-radius: 999px;
+  color: #3730a3;
+  background: #e0e7ff;
+  font-size: .85rem;
+  font-weight: 700;
+}
+
+.status-badge-muted {
+  color: #475569;
+  background: #e2e8f0;
+}
+
+.boundary-note {
+  margin: 2.5rem 0;
+  padding: 1.5rem;
+  border: 1px solid #c7d2fe;
+  border-radius: .9rem;
+  background: #eef2ff;
+}
+
+.boundary-note h2 {
+  margin-top: 0;
+}
+
+.docs-layout {
+  display: grid;
+  grid-template-columns: minmax(190px, 250px) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+.docs-toc {
+  position: sticky;
+  top: 1rem;
+  padding: 1.2rem;
+  border: 1px solid #dbe4ee;
+  border-radius: .9rem;
+  background: white;
+}
+
+.docs-toc h2 {
+  margin: 0 0 .75rem;
+  font-size: 1rem;
+}
+
+.docs-toc ul {
+  display: grid;
+  gap: .55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-toc a {
+  color: #4338ca;
+  text-decoration: none;
+}
+
+.docs-toc a:hover,
+.docs-toc a:focus-visible {
+  text-decoration: underline;
+}
+
+.endpoint-stack {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.docs-section,
+.endpoint-card {
+  padding: 1.6rem;
+  border: 1px solid #dbe4ee;
+  border-radius: .9rem;
+  background: white;
+  scroll-margin-top: 1rem;
+}
+
+.section-kicker {
+  margin: 0 0 .25rem;
+  color: #4f46e5;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.docs-section h2,
+.endpoint-card h2 {
+  margin: 0 0 .75rem;
+  font-size: clamp(1.5rem, 3vw, 2.15rem);
+  line-height: 1.2;
+}
+
+.endpoint-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.endpoint-contract {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.method-badge {
+  padding: .3rem .55rem;
+  border-radius: .4rem;
+  color: #166534;
+  background: #dcfce7;
+  font-size: .8rem;
+  font-weight: 800;
+}
+
+.endpoint-path {
+  overflow-wrap: anywhere;
+  padding: .3rem .55rem;
+  border-radius: .4rem;
+  color: #334155;
+  background: #f1f5f9;
+}
+
+.endpoint-detail-grid,
+.definition-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.endpoint-detail-grid section,
+.definition-grid > div {
+  padding: 1rem;
+  border-radius: .75rem;
+  background: #f8fafc;
+}
+
+.endpoint-detail-grid h3 {
+  margin-top: 0;
+}
+
+.definition-grid {
+  margin-bottom: 0;
+}
+
+.definition-grid dt {
+  font-weight: 700;
+}
+
+.definition-grid dd {
+  margin: .35rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.code-example {
+  margin: 1.5rem 0;
+}
+
+.code-example h3 {
+  margin-bottom: .5rem;
+}
+
+.code-example pre {
+  margin: 0;
+  overflow-x: auto;
+  padding: 1rem;
+  border-radius: .75rem;
+  color: #e2e8f0;
+  background: #0f172a;
+}
+
+.code-example code {
+  font: .9rem/1.65 Consolas, "Courier New", monospace;
+}
+
+.contract-note {
+  padding: .9rem 1rem;
+  border-left: 4px solid #94a3b8;
+  color: #475569;
+  background: #f8fafc;
+}
+
+.header-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.header-chip-list li {
+  padding: .3rem .55rem;
+  border: 1px solid #dbe4ee;
+  border-radius: .45rem;
+  background: #f8fafc;
+}
+
+.error-table-wrapper {
+  overflow-x: auto;
+  margin-top: 1.5rem;
+}
+
+.error-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.error-table th,
+.error-table td {
+  padding: .75rem;
+  border-bottom: 1px solid #dbe4ee;
+  text-align: left;
+  vertical-align: top;
+}
+
+.error-table th {
+  color: #334155;
+  background: #f8fafc;
+}
+
+@media (max-width: 860px) {
+  .docs-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-toc {
+    position: static;
+  }
+
+  .endpoint-heading {
+    display: grid;
+  }
+
+  .endpoint-contract {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 620px) {
+  .endpoint-detail-grid,
+  .definition-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-section,
+  .endpoint-card,
+  .boundary-note {
+    padding: 1.15rem;
+  }
+}
