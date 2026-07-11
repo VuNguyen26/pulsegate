@@ -89,16 +89,31 @@ function clientError(
   };
 }
 
-export async function fetchAdminReadResource<T>(
+function isAllowedAdminReadUrl(
   config: DashboardAdminApiConfig,
-  resource: AdminGatewayReadResource,
+  url: URL,
+): boolean {
+  const baseUrl = new URL(config.gatewayBaseUrl);
+
+  return (
+    url.origin === baseUrl.origin &&
+    url.username.length === 0 &&
+    url.password.length === 0 &&
+    url.hash.length === 0 &&
+    url.pathname.startsWith("/internal/admin/")
+  );
+}
+
+export async function fetchAdminReadUrl<T>(
+  config: DashboardAdminApiConfig,
+  url: URL,
   validateData: (value: unknown) => value is T,
   fetchImplementation: FetchImplementation = fetch,
 ): Promise<AdminReadResourceClientResult<T>> {
-  if (!isAdminGatewayReadResource(resource)) {
+  if (!isAllowedAdminReadUrl(config, url)) {
     return clientError(
       "ADMIN_DASHBOARD_INVALID_RESPONSE",
-      "The requested Dashboard resource is not allowlisted.",
+      "The requested Dashboard URL is not allowlisted.",
       null,
       null,
     );
@@ -112,10 +127,7 @@ export async function fetchAdminReadResource<T>(
 
   try {
     const response = await fetchImplementation(
-      new URL(
-        ADMIN_GATEWAY_READ_RESOURCE_PATHS[resource],
-        config.gatewayBaseUrl,
-      ),
+      url,
       {
         method: "GET",
         headers: {
@@ -212,6 +224,31 @@ export async function fetchAdminReadResource<T>(
   }
 }
 
+export async function fetchAdminReadResource<T>(
+  config: DashboardAdminApiConfig,
+  resource: AdminGatewayReadResource,
+  validateData: (value: unknown) => value is T,
+  fetchImplementation: FetchImplementation = fetch,
+): Promise<AdminReadResourceClientResult<T>> {
+  if (!isAdminGatewayReadResource(resource)) {
+    return clientError(
+      "ADMIN_DASHBOARD_INVALID_RESPONSE",
+      "The requested Dashboard resource is not allowlisted.",
+      null,
+      null,
+    );
+  }
+
+  return fetchAdminReadUrl(
+    config,
+    new URL(
+      ADMIN_GATEWAY_READ_RESOURCE_PATHS[resource],
+      config.gatewayBaseUrl,
+    ),
+    validateData,
+    fetchImplementation,
+  );
+}
 export type AdminReadResourceServerResult<T> =
   | Extract<
       DashboardAdminApiConfigResult,

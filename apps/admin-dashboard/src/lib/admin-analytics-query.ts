@@ -693,6 +693,21 @@ export function serializeDashboardAnalyticsQuery(
   mode: DashboardAnalyticsQueryMode,
   query: DashboardAnalyticsQuery,
 ): DashboardAnalyticsQuerySerializationResult {
+  const allowedKeys = ALLOWED_QUERY_KEYS[mode];
+
+  for (const key of Object.keys(query)) {
+    if (!allowedKeys.has(key)) {
+      return {
+        ok: false,
+        error: {
+          code: "ADMIN_DASHBOARD_INVALID_QUERY",
+          field: key,
+          message: `${key} is not supported for ${mode}.`,
+        },
+      };
+    }
+  }
+
   const rawParams = new URLSearchParams();
 
   for (const key of SERIALIZATION_KEY_ORDER) {

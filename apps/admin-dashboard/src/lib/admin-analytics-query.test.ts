@@ -229,6 +229,37 @@ describe("serializeDashboardAnalyticsQuery", () => {
     });
   });
 
+  it("rejects runtime properties outside the mode allowlist", () => {
+    const offsetResult =
+      serializeDashboardAnalyticsQuery(
+        "usage-events",
+        {
+          offset: 20,
+        } as never,
+      );
+
+    const rollupResult =
+      serializeDashboardAnalyticsQuery(
+        "usage-summary",
+        {
+          rollupSummaryRuntimeRead: true,
+        } as never,
+      );
+
+    expect(offsetResult).toMatchObject({
+      ok: false,
+      error: {
+        field: "offset",
+      },
+    });
+
+    expect(rollupResult).toMatchObject({
+      ok: false,
+      error: {
+        field: "rollupSummaryRuntimeRead",
+      },
+    });
+  });
   it("adds the bounded default event limit", () => {
     const result = serializeDashboardAnalyticsQuery(
       "rejected-events",
