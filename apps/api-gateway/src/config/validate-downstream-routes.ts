@@ -1,4 +1,9 @@
 import type { DownstreamRouteConfig, HttpMethod } from "./downstream-routes.js";
+import { normalizeConfiguredRequestHost } from "./request-host.js";
+import {
+  buildRouteIdentityKey,
+  formatRouteIdentityLabel,
+} from "./route-identity.js";
 
 const SUPPORTED_HTTP_METHODS = new Set<HttpMethod>([
   "GET",
@@ -67,6 +72,28 @@ function validateHeaderTransformPolicy(
 function validateRoute(route: DownstreamRouteConfig, index: number): string[] {
   const routeLabel = `route[${index}] ${route.method} ${route.gatewayPath}`;
   const errors: string[] = [];
+
+  if (route.requestHost !== undefined) {
+    try {
+      const normalizedRequestHost = normalizeConfiguredRequestHost(
+        route.requestHost,
+      );
+
+      if (normalizedRequestHost !== route.requestHost) {
+        errors.push(
+          `${routeLabel} requestHost must be canonical: ${normalizedRequestHost}`,
+        );
+      }
+    } catch (error) {
+      errors.push(
+        `${routeLabel} ${
+          error instanceof Error
+            ? error.message
+            : "requestHost is invalid"
+        }`,
+      );
+    }
+  }
 
   if (!route.serviceName.trim()) {
     errors.push(`${routeLabel} serviceName is required`);
@@ -146,10 +173,12 @@ export function validateDownstreamRoutes<T extends readonly DownstreamRouteConfi
   const routeKeys = new Set<string>();
 
   for (const [index, route] of routes.entries()) {
-    const routeKey = `${route.method}:${route.gatewayPath}`;
+    const routeKey = buildRouteIdentityKey(route);
 
     if (routeKeys.has(routeKey)) {
-      errors.push(`Duplicate downstream route config: ${routeKey}`);
+      errors.push(
+        `Duplicate downstream route config: ${formatRouteIdentityLabel(route)}`,
+      );
     }
 
     routeKeys.add(routeKey);

@@ -5,6 +5,7 @@ import { validateDownstreamRoutes } from "./validate-downstream-routes.js";
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export type DownstreamRouteConfig = {
+  requestHost?: string;
   serviceName: string;
   gatewayPath: string;
   downstreamUrl: string;

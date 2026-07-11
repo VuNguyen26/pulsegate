@@ -26,6 +26,7 @@ export type RouteRuntimeRegistry = {
   findRoute: (
     method: HttpMethod,
     gatewayPath: string,
+    requestHost?: string,
   ) => DownstreamRouteConfig | null;
 };
 
@@ -98,14 +99,21 @@ export function createRouteRuntimeRegistry(
       };
     },
 
-    findRoute(method, gatewayPath) {
-      const route =
+    findRoute(method, gatewayPath, requestHost) {
+      const findMatch = (candidateHost: string | undefined) =>
         currentSnapshot.routes.find(
-          (candidate) =>
-            candidate.method === method && candidate.gatewayPath === gatewayPath,
+          (route) =>
+            route.method === method &&
+            route.gatewayPath === gatewayPath &&
+            route.requestHost === candidateHost,
         ) ?? null;
 
-      return route ? cloneRouteConfigs([route])[0] : null;
+      const matchedRoute =
+        requestHost === undefined
+          ? findMatch(undefined)
+          : findMatch(requestHost) ?? findMatch(undefined);
+
+      return matchedRoute ? structuredClone(matchedRoute) : null;
     },
   };
 }
