@@ -38,6 +38,10 @@ import {
   type AdminAnalyticsRollupRouteOptions,
 } from "./routes/admin-analytics-rollup.route.js";
 import {
+  adminAnalyticsSchedulerPreviewRoute,
+  type AdminAnalyticsSchedulerPreviewRouteOptions,
+} from "./routes/admin-analytics-scheduler-preview.route.js";
+import {
   adminUsagePlanRoute,
   type AdminUsagePlanRouteOptions,
 } from "./routes/admin-usage-plan.route.js";
@@ -78,6 +82,7 @@ type BuildApiGatewayAppOptions = {
   apiUsageManagement?: AdminApiUsageRouteOptions;
   apiRejectionManagement?: AdminApiRejectionRouteOptions;
   analyticsRollupManagement?: AdminAnalyticsRollupRouteOptions;
+  analyticsSchedulerPreviewManagement?: AdminAnalyticsSchedulerPreviewRouteOptions;
   usagePlanManagement?: AdminUsagePlanRouteOptions;
   routeRuntimeRegistry?: RouteRuntimeRegistry;
 };
@@ -193,6 +198,11 @@ export async function buildApiGatewayApp(
     ...(options.analyticsRollupManagement ?? {}),
   };
 
+  const analyticsSchedulerPreviewManagementOptions:
+    AdminAnalyticsSchedulerPreviewRouteOptions = {
+      ...(options.analyticsSchedulerPreviewManagement ?? {}),
+    };
+
   const usagePlanManagementOptions: AdminUsagePlanRouteOptions = {
     ...(options.usagePlanManagement ?? {}),
   };
@@ -205,6 +215,10 @@ export async function buildApiGatewayApp(
   await app.register(adminApiUsageRoute, apiUsageManagementOptions);
   await app.register(adminApiRejectionRoute, apiRejectionManagementOptions);
   await app.register(adminAnalyticsRollupRoute, analyticsRollupManagementOptions);
+  await app.register(
+    adminAnalyticsSchedulerPreviewRoute,
+    analyticsSchedulerPreviewManagementOptions,
+  );
   await app.register(adminUsagePlanRoute, usagePlanManagementOptions);
   await app.register(downstreamProxyRoute, downstreamProxyOptions);
 
