@@ -21,7 +21,8 @@ export function generateStaticParams() {
         item.href !== "/api-keys" &&
         item.href !== "/usage-plans" &&
         item.href !== "/routes" &&
-        item.href !== "/usage-analytics",
+        item.href !== "/usage-analytics" &&
+        item.href !== "/rejected-events",
     )
     .map((item) => ({
       section: item.href.slice(1),

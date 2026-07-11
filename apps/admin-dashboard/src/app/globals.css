@@ -1053,3 +1053,56 @@ a {
 .analytics-result-heading code {
   overflow-wrap: anywhere;
 }
+/* Sprint 63 rejected events panel */
+.analytics-breakdown-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns:
+    repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+}
+
+.analytics-breakdown-card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid #dbe3ec;
+  border-radius: 0.85rem;
+  background: #f8fafc;
+}
+
+.analytics-breakdown-card h3,
+.analytics-breakdown-card p {
+  margin: 0;
+}
+
+.analytics-breakdown-card ul {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.analytics-breakdown-card li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.analytics-breakdown-card code {
+  overflow-wrap: anywhere;
+}
+
+.rejection-reason-pill {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 15rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.78rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
