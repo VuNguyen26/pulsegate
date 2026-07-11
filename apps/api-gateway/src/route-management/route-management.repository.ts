@@ -16,6 +16,8 @@ function mapRouteConfigDataToPrismaInput(
   return {
     serviceName: data.serviceName,
     gatewayPath: data.gatewayPath,
+
+    requestHost: data.requestHost ?? null,
     downstreamUrl: data.downstreamUrl,
     method: data.method as GatewayRouteMethod,
     enabled: data.enabled,
@@ -88,11 +90,16 @@ export function createPrismaRouteManagementRepository(
       return route as RouteConfigReadModel | null;
     },
 
-    findRouteByMethodAndGatewayPath: async (method, gatewayPath) => {
+    findRouteByMethodAndGatewayPath: async (
+      method,
+      gatewayPath,
+      requestHost,
+    ) => {
       const route = await prisma.gatewayRoute.findFirst({
         where: {
           method: method as GatewayRouteMethod,
           gatewayPath,
+          requestHost: requestHost ?? null,
           deletedAt: null,
         },
       });

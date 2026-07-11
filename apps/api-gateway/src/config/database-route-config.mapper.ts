@@ -7,6 +7,7 @@ import { validateDownstreamRoutes } from "./validate-downstream-routes.js";
 export type DatabaseGatewayRouteRecord = {
   serviceName: string;
   gatewayPath: string;
+  requestHost?: string | null;
   downstreamUrl: string;
   method: HttpMethod;
   enabled: boolean;
@@ -107,6 +108,9 @@ export function mapGatewayRouteRecordToDownstreamRouteConfig(
   record: DatabaseGatewayRouteRecord,
 ): DownstreamRouteConfig {
   return {
+    ...(record.requestHost
+      ? { requestHost: record.requestHost }
+      : {}),
     serviceName: record.serviceName,
     gatewayPath: record.gatewayPath,
     downstreamUrl: record.downstreamUrl,

@@ -89,12 +89,14 @@ function createTestRepository(
     }),
 
     findRouteByMethodAndGatewayPath: vi.fn(
-      async (method, gatewayPath) => {
+      async (method, gatewayPath, requestHost) => {
         return (
           storedRoutes.find(
             (route) =>
               route.method === method &&
               route.gatewayPath === gatewayPath &&
+              (route.requestHost ?? null) ===
+                (requestHost ?? null) &&
               !route.deletedAt,
           ) ?? null
         );
@@ -106,6 +108,8 @@ function createTestRepository(
         id: `route_${storedRoutes.length + 1}`,
         serviceName: data.serviceName,
         gatewayPath: data.gatewayPath,
+
+        requestHost: data.requestHost ?? null,
         downstreamUrl: data.downstreamUrl,
         method: data.method,
         enabled: data.enabled,
@@ -152,6 +156,8 @@ function createTestRepository(
         id,
         serviceName: data.serviceName,
         gatewayPath: data.gatewayPath,
+
+        requestHost: data.requestHost ?? null,
         downstreamUrl: data.downstreamUrl,
         method: data.method,
         enabled: data.enabled,
@@ -951,4 +957,80 @@ it("should reject runtime route registry status request when admin API key is mi
     },
   });
 });
+
+  it("should persist and reload a canonical host route beside a path-only route", async () => {
+    const payload = {
+      serviceName: "host-product-service",
+      gatewayPath: "/api/products",
+      requestHost: "Api.Example.COM.",
+      downstreamUrl:
+        "http://host-product-service:3001/products",
+      method: "GET",
+    };
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/internal/admin/routes",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+      payload,
+    });
+
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toMatchObject({
+      data: {
+        gatewayPath: "/api/products",
+        requestHost: "api.example.com",
+        method: "GET",
+      },
+    });
+
+    const duplicate = await app.inject({
+      method: "POST",
+      url: "/internal/admin/routes",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+      payload: {
+        ...payload,
+        requestHost: "api.example.com",
+      },
+    });
+
+    expect(duplicate.statusCode).toBe(409);
+
+    const reload = await app.inject({
+      method: "POST",
+      url: "/internal/admin/routes/reload",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+    });
+
+    expect(reload.statusCode).toBe(200);
+
+    const runtime = await app.inject({
+      method: "GET",
+      url: "/internal/admin/routes/runtime",
+      headers: {
+        "x-admin-api-key": "test-admin-key",
+      },
+    });
+
+    expect(runtime.statusCode).toBe(200);
+    expect(runtime.json()).toMatchObject({
+      data: {
+        routes: expect.arrayContaining([
+          {
+            method: "GET",
+            gatewayPath: "/api/products",
+            requestHost: "api.example.com",
+            serviceName: "host-product-service",
+          },
+        ]),
+      },
+    });
+  });
+
 });

@@ -2,6 +2,9 @@ import type {
   DownstreamRouteConfig,
   HttpMethod,
 } from "../config/downstream-routes.js";
+import {
+  normalizeConfiguredRequestHost,
+} from "../config/request-host.js";
 import { validateDownstreamRoutes } from "../config/validate-downstream-routes.js";
 import type {
   RouteConfigCreateData,
@@ -61,6 +64,20 @@ function readRequiredString(
   }
 
   return trimmedValue;
+}
+
+function readOptionalRequestHost(
+  value: unknown,
+): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
+    throw new Error("requestHost must be a string or null");
+  }
+
+  return normalizeConfiguredRequestHost(value);
 }
 
 function readHttpMethod(value: unknown): HttpMethod {
@@ -172,6 +189,7 @@ function mapRouteConfigReadModelToRequestBody(
   return {
     serviceName: route.serviceName,
     gatewayPath: route.gatewayPath,
+    requestHost: route.requestHost ?? null,
     downstreamUrl: route.downstreamUrl,
     method: route.method,
     enabled: route.enabled,
@@ -306,8 +324,10 @@ export function mapRouteConfigCreateRequestToDownstreamRouteConfig(
     policies.responseTransform,
   );
   const retry = getOptionalObject("policies.retry", policies.retry);
+  const requestHost = readOptionalRequestHost(route.requestHost);
 
   const routeConfig: DownstreamRouteConfig = {
+    ...(requestHost ? { requestHost } : {}),
     serviceName: readRequiredString("serviceName", route.serviceName),
     gatewayPath: readRequiredString("gatewayPath", route.gatewayPath),
     downstreamUrl: readRequiredString("downstreamUrl", route.downstreamUrl),
@@ -427,6 +447,7 @@ export function mapRouteConfigCreateRequestToCreateData(
   return {
     serviceName: routeConfig.serviceName,
     gatewayPath: routeConfig.gatewayPath,
+    requestHost: routeConfig.requestHost ?? null,
     downstreamUrl: routeConfig.downstreamUrl,
     method: routeConfig.method,
     enabled: readOptionalBoolean("enabled", route.enabled, true),
@@ -472,6 +493,7 @@ export function mapRouteConfigReadModelToResponse(
     id: route.id,
     serviceName: route.serviceName,
     gatewayPath: route.gatewayPath,
+    requestHost: route.requestHost ?? null,
     downstreamUrl: route.downstreamUrl,
     method: route.method,
     enabled: route.enabled,

@@ -35,6 +35,7 @@ model GatewayRoute {
   id            String             @id @default(cuid())
   serviceName   String             @map("service_name")
   gatewayPath   String             @map("gateway_path")
+  requestHost   String?            @map("request_host")
   downstreamUrl String             @map("downstream_url")
   method        GatewayRouteMethod
   enabled       Boolean            @default(true)

@@ -15,6 +15,7 @@ export type RouteConfigReadModel = DatabaseGatewayRouteRecord & {
 export type RouteConfigCreateData = {
   serviceName: string;
   gatewayPath: string;
+  requestHost?: string | null;
   downstreamUrl: string;
   method: HttpMethod;
   enabled: boolean;
@@ -49,6 +50,7 @@ export type RouteManagementRepository = {
   findRouteByMethodAndGatewayPath: (
     method: HttpMethod,
     gatewayPath: string,
+    requestHost?: string | null,
   ) => Promise<RouteConfigReadModel | null>;
   createRoute: (data: RouteConfigCreateData) => Promise<RouteConfigReadModel>;
   updateRoute: (
@@ -65,6 +67,7 @@ export type RouteConfigResponse = {
   id: string;
   serviceName: string;
   gatewayPath: string;
+  requestHost: string | null;
   downstreamUrl: string;
   method: HttpMethod;
   enabled: boolean;

@@ -41,6 +41,7 @@ async function upsertActiveGatewayRoute(route: SeedGatewayRouteInput) {
     where: {
       method: route.method,
       gatewayPath: route.gatewayPath,
+      requestHost: null,
       deletedAt: null,
     },
   });
@@ -52,6 +53,8 @@ async function upsertActiveGatewayRoute(route: SeedGatewayRouteInput) {
       },
       data: {
         ...route,
+
+        requestHost: null,
         updatedBy: "seed",
         deletedAt: null,
         deletedBy: null,
@@ -62,6 +65,8 @@ async function upsertActiveGatewayRoute(route: SeedGatewayRouteInput) {
   return prisma.gatewayRoute.create({
     data: {
       ...route,
+
+      requestHost: null,
       createdBy: "seed",
       updatedBy: "seed",
       deletedAt: null,

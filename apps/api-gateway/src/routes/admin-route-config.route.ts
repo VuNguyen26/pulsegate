@@ -88,6 +88,7 @@ export async function adminRouteConfigRoute(
           routes: snapshot.routes.map((route) => ({
             method: route.method,
             gatewayPath: route.gatewayPath,
+            requestHost: route.requestHost ?? null,
             serviceName: route.serviceName,
           })),
         },
@@ -143,6 +144,7 @@ export async function adminRouteConfigRoute(
       const existingRoute = await repository.findRouteByMethodAndGatewayPath(
         createData.method,
         createData.gatewayPath,
+        createData.requestHost ?? null,
       );
 
       if (existingRoute) {
@@ -205,6 +207,7 @@ export async function adminRouteConfigRoute(
             routes: validatedRouteConfigs.map((route) => ({
               method: route.method,
               gatewayPath: route.gatewayPath,
+              requestHost: route.requestHost ?? null,
               serviceName: route.serviceName,
             })),
           },
@@ -261,6 +264,7 @@ export async function adminRouteConfigRoute(
       const conflictingRoute = await repository.findRouteByMethodAndGatewayPath(
         updateData.method,
         updateData.gatewayPath,
+        updateData.requestHost ?? null,
       );
 
       if (conflictingRoute && conflictingRoute.id !== existingRoute.id) {
