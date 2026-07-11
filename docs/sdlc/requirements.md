@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.2.0
+v1.3.0
 
 ## Latest Completed Sprint
 
-Sprint 62 - Dashboard consumers/API keys/usage plans
+Sprint 63 - Dashboard quota/usage/rejected events
 
 ---
 
@@ -40,7 +40,7 @@ Long-term target:
 
 - API Gateway runtime
 - Admin APIs
-- Admin Dashboard foundation and core resource read views implemented; analytics panel expansion continues in Sprints 63-64
+- Admin Dashboard foundation, core resource reads, quota state, successful usage analytics, and rejected-event investigation implemented; rollup/scheduler/retention panel expansion continues in Sprint 64
 - Developer Portal later
 - API consumers
 - API keys
@@ -1136,6 +1136,48 @@ Current behavior:
 - Runtime execute must not delete raw events.
 - process-local execute, external scheduler execute, and scheduled/background execute remain unwired.
 
+### FR-063 Dashboard Quota, Usage, and Rejected Event Views
+
+PulseGate shall provide bounded read-only Dashboard views for quota state, successful usage analytics, and rejected/security event investigation.
+
+Required pages:
+
+- `/usage-analytics`
+- `/rejected-events`
+
+Required fixed Dashboard BFF resources:
+
+- `GET /api/admin/usage/consumers/:consumerId/summary`
+- `GET /api/admin/usage/api-keys/:apiKeyId/summary`
+- `GET /api/admin/api-keys/:apiKeyId/quota`
+- `GET /api/admin/usage-plans/:usagePlanId/usage-summary`
+- `GET /api/admin/usage/events`
+- `GET /api/admin/api-rejections/summary`
+- `GET /api/admin/api-rejections/events`
+
+Required behavior:
+
+- Use only `ADMIN_READ_ONLY_API_KEY` inside the Dashboard server.
+- Keep full-access `ADMIN_API_KEY` out of the Dashboard.
+- Reject arbitrary methods, hosts, paths, headers, unknown query keys, duplicate query keys, offset pagination, and rollup runtime flags.
+- Bound date windows to 31 days.
+- Default event pages to 20 rows and cap them at 100 rows.
+- Use opaque cursor navigation in the UI.
+- Validate exact server and browser DTOs.
+- Keep successful usage and rejected/security event stores separate.
+- Remove rejected-event metadata before the BFF/browser DTO and never render raw metadata.
+- Provide loading, empty, error, retry, filter, summary, table, and cursor-navigation states.
+- Add no mutation controls.
+- Add no generic Admin API proxy.
+- Preserve `gateway.api_usage_events` as the quota-counting source of truth.
+- Do not change Gateway persistence, event recorders, quotas, rollups, scheduler execution, retention execution, or raw-event deletion.
+
+Status:
+
+Implemented in Sprint 63.
+
+---
+
 ## Current Non-Functional Requirements
 
 ### NFR-001 Type Safety
@@ -1154,7 +1196,7 @@ Implemented.
 
 Current result:
 
-- Admin Dashboard: 21 test files / 110 tests passed.
+- Admin Dashboard: 38 test files / 200 tests passed.
 - API Gateway: 136 test files / 988 tests passed.
 
 Validation:
@@ -1245,7 +1287,7 @@ Implemented.
 - No per-key Grafana dashboard yet.
 - No quota usage Grafana dashboard yet.
 - Env fallback API keys are not quota-enforced.
-- The Admin Dashboard includes bounded read-only consumers, consumer-scoped API keys, usage plans, and persisted/runtime route views behind fixed server-only BFF resources.
+- The Admin Dashboard includes bounded read-only consumers, consumer-scoped API keys, usage plans, persisted/runtime routes, quota state, successful usage analytics, and rejected-event investigation behind fixed server-only BFF resources.
 - Developer Portal is not implemented yet.
 - Admin auth is still local admin API key based.
 - Minimal full-access/read-only admin authorization exists, but database-backed administrator identities and general platform RBAC are not implemented yet.
@@ -1265,13 +1307,14 @@ Implemented.
 
 Recommended next:
 
-- Continue with Sprint 63 bounded Dashboard quota, usage, and rejected-event views.
-- Reuse fixed read-only BFF resources and shared resource states.
+- Continue with Sprint 64 bounded Dashboard rollup, scheduler, and retention views.
+- Reuse fixed GET-only BFF resources, bounded query contracts, strict DTO validation, and shared resource states.
+- Keep scheduler execution observational unless explicitly approved by a later roadmap item.
+- Keep retention execution and operator-facing deletion blocked.
 - Keep `gateway.api_usage_events` as the quota-counting source of truth.
 - Keep successful usage and rejected/security event stores separate.
-- Keep retention execution explicit and blocked from operator-facing deletion.
-- Keep external scheduler runtime and scheduled/background execute blocked.
-- Preserve metrics and rollups as non-quota sources.
+- Keep metrics and rollups outside quota enforcement.
+- Preserve the Sprint 80 `v2.0.0` release target.
 
 ## Selected Summary Runtime Rollup Reads
 

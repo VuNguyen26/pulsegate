@@ -288,3 +288,38 @@ Background scheduler contract/output remains DB-free and does not read usage eve
 Sprint 55 does not change this feature path.
 
 The sprint only opens a guarded direct CLI `process-local` + `dry-run` scheduler runtime path for analytics rollup service invocation. It does not add scheduled/background jobs, external scheduler execution, execute mode expansion, quota mutation, raw event deletion, or retention execution.
+
+## Sprint 63 Dashboard Usage Analytics
+
+Product/documentation version: `v1.3.0`.
+
+Dashboard page:
+
+```txt
+http://localhost:3003/usage-analytics
+```
+
+The page provides:
+
+- consumer usage summary lookup
+- API key usage summary lookup
+- API key quota state lookup
+- usage-plan current-window summary lookup
+- successful usage event investigation
+
+Dashboard filter rules:
+
+- maximum date range: 31 days
+- default event limit: 20
+- maximum event limit: 100
+- cursor navigation only
+- no offset
+- no rollup summary flags
+- unknown and duplicate keys fail closed
+
+Data semantics:
+
+- Successful usage reads remain backed by existing Gateway Admin endpoints.
+- `gateway.api_usage_events` remains the quota-counting source of truth.
+- Rejected/security events are not included in successful usage totals.
+- The Dashboard adds no mutation or persistence behavior.

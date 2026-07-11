@@ -1,4 +1,4 @@
-﻿# Usage Plans and Quotas Runbook
+# Usage Plans and Quotas Runbook
 
 ## Purpose
 
@@ -400,3 +400,21 @@ Check:
 - API usage recorder wrote to gateway.api_usage_events.
 - The API key ID in the quota state endpoint matches the runtime key.
 - The quota window is the current UTC day.
+
+## Sprint 63 Dashboard Quota Inspection
+
+Product/documentation version: `v1.3.0`.
+
+The `/usage-analytics` page adds read-only lookups for:
+
+- one API key quota state
+- one usage-plan current-window summary
+
+The Dashboard displays the Gateway-provided quota contract. It does not recalculate quota, assign plans, update plans, revoke keys, or mutate usage.
+
+Source-of-truth rules remain unchanged:
+
+- `gateway.api_usage_events` is the quota-counting source.
+- Disabled/no-plan behavior remains owned by the Gateway.
+- Prometheus, Grafana, and analytics rollups are not quota-counting sources.
+- Rejected events remain separate from successful usage.

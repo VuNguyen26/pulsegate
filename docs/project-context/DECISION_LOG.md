@@ -2,7 +2,7 @@
 
 ## Current Version
 
-v1.2.0
+v1.3.0
 
 Private npm workspace package versions remain `0.1.0`.
 
@@ -10,9 +10,59 @@ The annotated `v1.0.0` Git tag remains unchanged at the final Sprint 60 document
 
 ## Latest Completed Sprint
 
-Sprint 62 - Dashboard consumers/API keys/usage plans
+Sprint 63 - Dashboard quota/usage/rejected events
 
 ## Latest Decision
+
+### 2026-07-11 - Extend the Dashboard with bounded quota, usage, and rejected-event reads
+
+Decision:
+
+- Add dedicated `/usage-analytics` and `/rejected-events` pages.
+- Add seven explicit GET-only BFF resources for successful usage summaries/events, quota state, usage-plan summary, rejected summary, and rejected events.
+- Reuse only the server-side `ADMIN_READ_ONLY_API_KEY`.
+- Enforce same-origin fixed `/internal/admin/` URLs.
+- Reject arbitrary methods, paths, hosts, headers, unknown/duplicate keys, offset pagination, and rollup runtime flags.
+- Bound date ranges to 31 days, event limits to 100, and Dashboard cursor navigation to opaque cursors.
+- Keep successful usage and rejected/security events as separate DTOs and pages.
+- Validate and remove rejected-event metadata before BFF/browser output.
+- Add no mutation controls and no generic Admin API proxy.
+- Use product/documentation version `v1.3.0`.
+- Keep private npm workspace versions at `0.1.0`.
+- Keep the protected annotated `v1.0.0` tag unchanged.
+
+Reason:
+
+- Sprint 63 requires operator-visible quota and event investigation without widening the administration credential or mutation boundary.
+- Fixed resources and strict DTOs preserve the Dashboard security model established in Sprints 61-62.
+- Cursor-only UI navigation and bounded filters keep event investigation predictable.
+- Removing rejected-event metadata prevents arbitrary upstream JSON from entering the browser rendering contract.
+- Separate successful/rejected models preserve quota and security semantics.
+
+Consequences:
+
+- Operators can inspect quota, successful usage, and rejected traffic from the Dashboard.
+- Offset pagination and rollup runtime switching remain Gateway capabilities but are not exposed by the Dashboard.
+- `gateway.api_usage_events` remains the quota-counting source of truth.
+- No Gateway persistence, migration, scheduler execution, retention execution, or raw-event deletion behavior changes.
+
+Validation:
+
+- Admin Dashboard: 38 test files / 200 tests passed.
+- API Gateway: 136 test files / 988 tests passed.
+- Root tests, typecheck, build, Compose config, and diff checks passed.
+- Next.js build exposed both pages and seven fixed BFF resources.
+
+References:
+
+- `docs/project-context/decisions/2026-07-11-dashboard-quota-usage-rejected-events.md`
+- `docs/sdlc/sprint-history/sprint-63.md`
+- `docs/runbooks/admin-dashboard.md`
+- `docs/runbooks/api-usage-analytics.md`
+- `docs/runbooks/api-rejected-events.md`
+- `docs/runbooks/usage-plans-and-quotas.md`
+
+---
 
 ### 2026-07-10 - Extend the Dashboard with fixed read-only resource boundaries
 

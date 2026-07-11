@@ -328,7 +328,7 @@ git diff --check
 Current Sprint 62 baseline:
 
 ```txt
-Admin Dashboard: 21 test files / 110 tests
+Admin Dashboard: 38 test files / 200 tests
 API Gateway: 136 test files / 988 tests
 Typecheck: passed
 Build: passed
@@ -530,7 +530,7 @@ Invoke-RestMethod `
 ### Current validation baseline
 
 ```txt
-Admin Dashboard: 21 test files / 110 tests
+Admin Dashboard: 38 test files / 200 tests
 API Gateway: 136 test files / 988 tests
 Typecheck: passed
 Build: passed
@@ -550,3 +550,47 @@ Do not:
 - add create, update, revoke, assign, delete, or reload controls without a separate approved checkpoint
 - treat route downstream URLs as proxy targets
 - change quota counting, event recording, scheduler execution, retention execution, or raw-event deletion behavior
+
+## Sprint 63 Quota, Usage, and Rejected-Event Views
+
+Product/documentation version: `v1.3.0`.
+
+New pages:
+
+```txt
+http://localhost:3003/usage-analytics
+http://localhost:3003/rejected-events
+```
+
+Fixed Dashboard BFF resources:
+
+```txt
+GET /api/admin/usage/consumers/:consumerId/summary
+GET /api/admin/usage/api-keys/:apiKeyId/summary
+GET /api/admin/api-keys/:apiKeyId/quota
+GET /api/admin/usage-plans/:usagePlanId/usage-summary
+GET /api/admin/usage/events
+GET /api/admin/api-rejections/summary
+GET /api/admin/api-rejections/events
+```
+
+Operational behavior:
+
+- All resources are GET-only and no-store.
+- The server uses only `ADMIN_READ_ONLY_API_KEY`.
+- Event pages default to 20 rows and allow at most 100.
+- Date ranges are bounded to 31 days.
+- Dashboard navigation uses opaque cursors, not offset.
+- Unknown/duplicate keys, offset, and rollup flags are rejected.
+- Successful usage and rejected/security events are separate.
+- Rejected-event raw metadata is never rendered.
+- No create, update, assign, revoke, reload, delete, scheduler execute, or retention execute control exists.
+
+Validation:
+
+```powershell
+npm.cmd test
+npm.cmd run typecheck
+npm.cmd run build
+docker compose config --quiet
+```

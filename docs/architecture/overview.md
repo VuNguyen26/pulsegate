@@ -6,15 +6,15 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.2.0
+v1.3.0
 
 ## Current Status
 
-Sprint 62 - Dashboard consumers/API keys/usage plans Complete
+Sprint 63 - Dashboard quota/usage/rejected events Complete
 
 Current validation:
 
-- Admin Dashboard: 21 test files / 110 tests passed.
+- Admin Dashboard: 38 test files / 200 tests passed.
 - API Gateway: 136 test files / 988 tests passed.
 - Root typecheck and build passed.
 - Docker Compose configuration passed.
@@ -37,13 +37,19 @@ Dashboard administration flow:
 
     Operator Browser
       -> Admin Dashboard :3003
-        -> GET /api/admin/runtime-status
+        -> fixed GET-only BFF resources
+          -> /api/admin/runtime-status
+          -> /api/admin/consumers and scoped API-key metadata
+          -> /api/admin/usage-plans
+          -> /api/admin/routes and runtime registry
+          -> /api/admin/usage/* successful usage and quota reads
+          -> /api/admin/api-rejections/* rejected/security reads
         -> server-only configuration
-        -> fixed read-only Admin API client
+        -> fixed read-only Admin API clients
         -> API Gateway :3000
-          -> GET /internal/admin/routes/runtime
+          -> fixed /internal/admin GET resources
           -> full-access/read-only Admin authorization middleware
-          -> safe runtime registry metadata
+          -> bounded response contracts
 
 Dashboard security properties:
 
@@ -52,7 +58,7 @@ Dashboard security properties:
 - The Dashboard uses only `ADMIN_READ_ONLY_API_KEY`.
 - The Dashboard does not receive full-access `ADMIN_API_KEY`.
 - The Dashboard exposes no generic Admin API proxy.
-- Sprint 61 adds no Dashboard mutation path.
+- Sprint 63 adds no Dashboard mutation path.
 Runtime flow:
 
     Client / API Consumer
@@ -530,7 +536,7 @@ Core:
 - Direct command execute and guarded process-local dry-run runtime paths exist, but no autonomous scheduler loop, external scheduler runtime, scheduled/background execute, or retention execution exists.
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
-- The Admin Dashboard now includes read-only consumers, consumer-scoped API keys, usage plans, and persisted/runtime routes; quota, usage, rejected-event, rollup, scheduler, and retention panels remain assigned to Sprints 63-64.
+- The Admin Dashboard now includes read-only consumers, consumer-scoped API keys, usage plans, persisted/runtime routes, quota state, successful usage analytics, and rejected-event investigation; rollup, scheduler, and retention panels remain assigned to Sprint 64.
 - Developer Portal is not implemented yet.
 - Admin authorization remains a local full-access/read-only API key boundary; database-backed administrator identities and general platform RBAC are not implemented yet.
 - Dynamic router supports exact method + exact path matching only.
@@ -549,15 +555,15 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 63 - Dashboard quota/usage/rejected events.
+Sprint 64 - Dashboard rollup/retention/scheduler panels.
 
 Rationale:
 
-- Sprint 62 established reusable bounded resource states and fixed read-only BFF resources.
-- Sprint 63 should apply the same pattern to quota state, successful usage analytics, usage event investigation, and rejected-event investigation.
-- `gateway.api_usage_events` must remain the quota-counting source of truth.
-- Successful usage and rejected/security event data must remain separate.
-- Scheduler execution, retention execution, and raw-event deletion remain outside scope.
+- Sprint 63 established bounded analytics filters, cursor navigation, strict DTO validation, and fixed same-origin Admin read URLs.
+- Sprint 64 should reuse those boundaries for rollup, scheduler, and retention inspection.
+- Scheduler and retention views must remain observational unless a later roadmap item explicitly approves execution.
+- Quota counting must remain based on raw successful usage events.
+- Raw-event deletion must remain blocked.
 
 ## Selected Summary Runtime Rollup Reads
 
@@ -750,6 +756,66 @@ The boundary remains non-destructive:
 - Prisma retention delete repository is not wired into command/API/job execution
 - quota counting remains unchanged
 - raw event deletion remains blocked
+
+## Sprint 63 Dashboard Analytics Read Boundary
+
+Sprint 63 extends the Dashboard with bounded quota, successful usage, and rejected-event reads. It does not change Gateway persistence, quota enforcement, event recording, rollup behavior, scheduler execution, retention execution, or database schema.
+
+### Browser pages
+
+```txt
+/usage-analytics
+/rejected-events
+```
+
+### Fixed Dashboard BFF resources
+
+```txt
+GET /api/admin/usage/consumers/:consumerId/summary
+GET /api/admin/usage/api-keys/:apiKeyId/summary
+GET /api/admin/api-keys/:apiKeyId/quota
+GET /api/admin/usage-plans/:usagePlanId/usage-summary
+GET /api/admin/usage/events
+GET /api/admin/api-rejections/summary
+GET /api/admin/api-rejections/events
+```
+
+### Fixed Gateway resources
+
+```txt
+GET /internal/admin/usage/consumers/:consumerId/summary
+GET /internal/admin/usage/api-keys/:apiKeyId/summary
+GET /internal/admin/api-keys/:apiKeyId/quota
+GET /internal/admin/usage-plans/:usagePlanId/usage-summary
+GET /internal/admin/usage/events
+GET /internal/admin/api-rejections/summary
+GET /internal/admin/api-rejections/events
+```
+
+### Query boundary
+
+- Unknown and duplicate query keys fail closed.
+- Date windows are bounded to at most 31 days.
+- Event pages default to 20 rows and allow at most 100 rows.
+- The Dashboard exposes opaque cursor navigation only.
+- Offset pagination is not exposed.
+- Rollup summary flags are not exposed.
+- IDs, methods, status codes, cache states, rejection reasons, route paths, and cursors are allowlisted and bounded.
+
+### Response boundary
+
+- Browser and server DTOs validate exact keys, safe identities, timestamps, pagination state, and summary consistency.
+- Successful usage and rejected/security events use separate DTOs and pages.
+- Rejected-event metadata is accepted only at the upstream validation boundary, checked for sensitive fields, removed before the BFF result, and never rendered.
+- Errors are normalized and responses use `cache-control: no-store`.
+- The browser never receives an Admin credential.
+
+### Source-of-truth boundary
+
+- `gateway.api_usage_events` remains the source of truth for successful usage analytics and quota counting.
+- `gateway.api_rejected_events` remains the source of truth for rejected/security traffic.
+- The Dashboard does not merge those datasets.
+- Rollups and metrics remain outside quota enforcement.
 
 ## Sprint 62 Dashboard Resource Read Boundary
 

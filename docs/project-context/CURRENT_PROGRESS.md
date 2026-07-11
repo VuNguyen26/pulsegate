@@ -1,93 +1,141 @@
 # Current Progress
 
+## Project
+
+PulseGate - High-Traffic API Gateway & Observability Platform
+
 ## Current Version
 
-- Product/documentation version: `v1.2.0`
-- Private npm workspace versions: `0.1.0`
-- Existing annotated Git tag: `v1.0.0`
-- `v1.0.0` remains at `407d03678674219e7228b15f0cd7a23074493f31`
-- No Sprint 62 tag is created
+v1.3.0
+
+Private npm workspace package versions remain `0.1.0`.
+
+The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`.
 
 ## Latest Completed Sprint
 
-Sprint 62 - Dashboard consumers/API keys/usage plans
+Sprint 63 - Dashboard quota/usage/rejected events
 
-## Sprint 62 Completion Summary
+## Latest Implementation Commit Before Documentation Finalization
 
-Sprint 62 converted the Sprint 61 Dashboard placeholders for core API management resources into bounded read-only operator views.
+- `d9823e76baf7a0c38e192482ee8ff15f5ed6d5d9`
+- `feat(dashboard): add rejected events page`
 
-Delivered:
+Sprint 63 implementation commits:
 
-- Shared resource loading, empty, error, retry, and table primitives.
-- Fixed browser/server resource contracts with strict validation.
-- Consumer list/detail view at `/consumers`.
-- Consumer-scoped API key metadata view at `/api-keys`.
-- Usage plan list/detail view at `/usage-plans`.
-- Persisted route configuration and runtime registry view at `/routes`.
-- GET-only, no-store Dashboard BFF endpoints.
-- Server-only read-only Gateway access.
-- Safe metadata rendering without raw API key material.
-- Explicit separation between persisted route configuration and runtime registry state.
+- `8bf27a2 feat(dashboard): add analytics read foundation`
+- `9a26de8 feat(dashboard): add successful usage read boundary`
+- `d6a0c38 feat(dashboard): add usage analytics page`
+- `ab550d0 feat(dashboard): add rejected events read boundary`
+- `d9823e7 feat(dashboard): add rejected events page`
 
-Implementation commits:
+## Sprint 63 Product State
 
-- `7b7c3a0 feat(dashboard): add admin resource view foundation`
-- `710d331 feat(dashboard): add consumer registry read view`
-- `5b0dda3 feat(dashboard): add consumer api key read view`
-- `b4cd8b1 feat(dashboard): add usage plan read view`
-- `05e9443 feat(dashboard): add route registry read view`
-
-Latest implementation commit before documentation finalization:
+Implemented Dashboard pages:
 
 ```txt
-05e94437d7809c0aacae533bde18b0326ace2dc4
+/
+/consumers
+/api-keys
+/usage-plans
+/routes
+/usage-analytics
+/rejected-events
 ```
+
+Remaining roadmap placeholders:
+
+```txt
+/rollups
+/scheduler
+/retention
+```
+
+Sprint 63 browser-facing fixed resources:
+
+```txt
+GET /api/admin/usage/consumers/:consumerId/summary
+GET /api/admin/usage/api-keys/:apiKeyId/summary
+GET /api/admin/api-keys/:apiKeyId/quota
+GET /api/admin/usage-plans/:usagePlanId/usage-summary
+GET /api/admin/usage/events
+GET /api/admin/api-rejections/summary
+GET /api/admin/api-rejections/events
+```
+
+## Delivered Behavior
+
+- Consumer usage summary lookup with bounded filters.
+- API key usage summary lookup with bounded filters.
+- API key quota state lookup.
+- Usage-plan current-window summary lookup.
+- Successful usage event investigation.
+- Rejected request summary with reason/status breakdowns.
+- Rejected event investigation.
+- Shared summary-grid, analytics-filter, and cursor-navigation components.
+- Default event limit 20 and maximum limit 100.
+- Maximum date range 31 days.
+- Cursor-only navigation in the Dashboard UI.
+- Unknown, duplicate, offset, and rollup-flag query keys fail closed.
+- Same-origin fixed Admin URL enforcement.
+- `cache: no-store` browser and server requests.
+- Exact browser/server DTO validation.
+- Rejected-event metadata removed before the BFF/browser DTO.
+- No Dashboard mutation controls.
 
 ## Validation
 
-Automated validation:
-
-- Admin Dashboard: 21 test files / 110 tests passed.
+- Admin Dashboard: 38 test files / 200 tests passed.
 - API Gateway: 136 test files / 988 tests passed.
+- Root workspace tests passed.
 - Root typecheck passed.
-- Root build passed.
+- Root production build passed.
 - Docker Compose configuration passed.
-- Working and staged diff checks passed.
+- Diff checks passed.
+- Next.js build exposed both new pages and seven new dynamic BFF resources.
+- Docker/PostgreSQL runtime validation was not required because Sprint 63 introduced no Gateway implementation, database query, schema migration, persistence path, container configuration, quota behavior, scheduler execution, retention execution, or raw-event deletion path.
 
-Runtime validation across the resource checkpoints:
-
-- Dashboard pages and fixed BFF resources returned successful responses.
-- BFF and direct Gateway resource identities matched.
-- Consumer-scoped API key results stayed within the selected consumer.
-- Raw API key material was absent.
-- Usage-plan list/detail identity parity passed.
-- Persisted route list/detail parity passed.
-- Runtime route snapshot parity passed.
-- Persisted and runtime route resources remained distinct.
-- Missing resources mapped to bounded `404` responses.
-- Dashboard mutation methods returned `405`.
-- Read-only Gateway route reload returned `403 ADMIN_API_KEY_READ_ONLY`.
-- Registries remained unchanged.
-- Successful runtime mutation count was zero.
-- Full-access Admin key was absent from the Dashboard.
-- Credential leakage checks passed.
-
-## Preserved Boundaries
+## Safety Boundaries
 
 - No generic Admin API proxy.
 - No browser-stored Admin credential.
-- No Dashboard mutation controls.
-- No consumer, API key, usage-plan, or route persistence changes.
-- No quota source-of-truth changes.
-- No successful/rejected event recorder changes.
+- No full-access Admin key in the Dashboard runtime.
+- `ADMIN_READ_ONLY_API_KEY` stays server-side.
+- No raw issued API key exposure.
+- No raw rejected-event metadata rendering.
+- No quota-counting source change.
+- No successful/rejected event source merging.
+- No rollup runtime flag exposure in the Dashboard.
 - No scheduler execution expansion.
-- No retention execution.
+- No retention execute command or operator delete path.
 - No raw-event deletion.
 - No database migration.
-- No database-backed administrator, organization, tenant, or enterprise IAM model.
-- No Developer Portal, Kubernetes, OpenTelemetry, or Loki scope.
+- No new dependency.
+- No enterprise IAM or organization model.
+- No Developer Portal before Sprint 65.
+- No Kubernetes before Sprint 71.
+- No OpenTelemetry before Sprint 73.
+- No Loki before Sprint 74.
+- `v2.0.0` remains reserved for Sprint 80.
+
+## Next Sprint
+
+Sprint 64 - Dashboard rollup/retention/scheduler panels
+
+Expected direction:
+
+- Add bounded read-only rollup inspection.
+- Add scheduler preview/runtime-state inspection without widening execution.
+- Add retention dry-run and non-destructive preview inspection.
+- Reuse fixed same-origin GET-only BFF routes.
+- Preserve current scheduler and retention safety flags.
+- Do not add retention deletion.
+- Do not create autonomous or external scheduler execution.
+- Do not change quota counting.
 
 ## Documentation
+
+Sprint 63 documentation set:
 
 - `README.md`
 - `docs/architecture/overview.md`
@@ -96,22 +144,11 @@ Runtime validation across the resource checkpoints:
 - `docs/project-context/AI_HANDOFF.md`
 - `docs/project-context/DECISION_LOG.md`
 - `docs/runbooks/admin-dashboard.md`
-- `docs/sdlc/sprint-history/sprint-62.md`
-- `docs/project-context/decisions/2026-07-10-dashboard-resource-read-views.md`
-
-## Next Sprint
-
-Sprint 63 - Dashboard quota/usage/rejected events
-
-Recommended scope:
-
-- Consumer and API key usage summaries.
-- API key quota state.
-- Usage plan usage summary.
-- Successful usage event investigation.
-- Rejected event summary and bounded drilldown.
-- Fixed read-only BFF routes only unless mutation scope receives explicit approval.
-- Preserve raw-event quota counting and successful/rejected source separation.
+- `docs/runbooks/api-usage-analytics.md`
+- `docs/runbooks/api-rejected-events.md`
+- `docs/runbooks/usage-plans-and-quotas.md`
+- `docs/sdlc/sprint-history/sprint-63.md`
+- `docs/project-context/decisions/2026-07-11-dashboard-quota-usage-rejected-events.md`
 
 ## Fixed Roadmap
 
@@ -124,7 +161,7 @@ Recommended scope:
 
 - 61 Admin Dashboard foundation - complete
 - 62 Dashboard consumers/API keys/usage plans - complete
-- 63 Dashboard quota/usage/rejected events
+- 63 Dashboard quota/usage/rejected events - complete
 - 64 Dashboard rollup/retention/scheduler panels
 - 65 Developer Portal foundation
 - 66 Developer Portal API docs/key self-service foundation

@@ -335,3 +335,30 @@ Background scheduler contract/output remains DB-free and does not read rejected 
 Sprint 55 does not change this feature path.
 
 The sprint only opens a guarded direct CLI `process-local` + `dry-run` scheduler runtime path for analytics rollup service invocation. It does not add scheduled/background jobs, external scheduler execution, execute mode expansion, quota mutation, raw event deletion, or retention execution.
+
+## Sprint 63 Dashboard Rejected-Event Investigation
+
+Product/documentation version: `v1.3.0`.
+
+Dashboard page:
+
+```txt
+http://localhost:3003/rejected-events
+```
+
+The page provides:
+
+- total rejected request summary
+- breakdown by rejection reason
+- breakdown by status code
+- bounded rejected event listing
+- shared filters and opaque cursor navigation
+
+Safety:
+
+- Successful usage and rejected/security events remain separate.
+- Offset and rollup flags are not exposed.
+- Date ranges are bounded to 31 days.
+- Event limit defaults to 20 and is capped at 100.
+- Upstream metadata is validated, checked for sensitive fields, removed before the Dashboard DTO, and never rendered.
+- No mutation, deletion, or retention execution control exists.
