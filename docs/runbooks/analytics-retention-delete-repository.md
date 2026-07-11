@@ -114,3 +114,9 @@ Do not use this repository from runtime summary APIs.
 Do not use this repository from rollup backfill.
 
 Do not merge usage and rejected event delete paths.
+
+<!-- pulsegate:sprint-64-dashboard-visibility:start -->
+## Sprint 64 Dashboard visibility
+
+The Admin Dashboard now exposes read-only /rollups, /scheduler, and /retention operator views. These views do not open scheduler execution or retention deletion. Use docs/runbooks/admin-dashboard-analytics-operations.md for endpoint, safety, and troubleshooting guidance.
+<!-- pulsegate:sprint-64-dashboard-visibility:end -->

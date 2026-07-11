@@ -1093,3 +1093,15 @@ Sprint 59 keeps observability lightweight and reproducible:
 - no retention execution
 - no raw event deletion
 - no OpenTelemetry, Loki, Kubernetes, or Admin UI scope
+
+<!-- pulsegate:sprint-64:start -->
+## Sprint 64 â€” Admin analytics operations read model
+
+Sprint 64 extends the Admin Dashboard with three source-separated, read-only analytics operations paths:
+
+1. **Rollup inspection:** browser â†’ Dashboard BFF GET /api/admin/analytics/rollups â†’ Gateway GET /internal/admin/analytics/rollups â†’ existing rollup read service/repositories.
+2. **Scheduler preview:** browser â†’ Dashboard BFF GET /api/admin/analytics/scheduler-preview â†’ Gateway pure preview builder. The path does not start jobs, resolve runtime factories, invoke adapters, or execute backfill.
+3. **Retention preview:** browser â†’ Dashboard BFF GET /api/admin/analytics/retention-preview â†’ Gateway fixed dry-run service â†’ existing candidate-count repository. The path imports no delete repository and performs no retention execution.
+
+All three Dashboard DTO boundaries use strict allowlists and fail closed on extra or unsafe fields. Browser-supplied execution, deletion, scheduler, or policy controls are rejected.
+<!-- pulsegate:sprint-64:end -->

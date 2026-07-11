@@ -203,3 +203,9 @@ Sprint 54 does not change rollup read APIs or selected summary runtime reads.
 Sprint 55 does not change this feature path.
 
 The sprint only opens a guarded direct CLI `process-local` + `dry-run` scheduler runtime path for analytics rollup service invocation. It does not add scheduled/background jobs, external scheduler execution, execute mode expansion, quota mutation, raw event deletion, or retention execution.
+
+<!-- pulsegate:sprint-64-dashboard-visibility:start -->
+## Sprint 64 Dashboard visibility
+
+The Admin Dashboard now exposes read-only /rollups, /scheduler, and /retention operator views. These views do not open scheduler execution or retention deletion. Use docs/runbooks/admin-dashboard-analytics-operations.md for endpoint, safety, and troubleshooting guidance.
+<!-- pulsegate:sprint-64-dashboard-visibility:end -->

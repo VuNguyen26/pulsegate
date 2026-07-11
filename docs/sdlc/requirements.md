@@ -1899,3 +1899,16 @@ Validation:
 - API Gateway, Prometheus, Grafana datasource, PromQL, dashboard provisioning, unmatched cardinality, and bounded k6 runtime checks passed.
 
 Implementation status: Complete in Sprint 59.
+
+<!-- pulsegate:sprint-64:start -->
+## Sprint 64 acceptance â€” read-only analytics operations
+
+- The operator can inspect bounded persisted usage and rejected rollups.
+- Rollup query parameters are allowlisted, duplicate-safe, source-aware, and bounded to at most 744 buckets and a Dashboard result limit of 100.
+- The operator can inspect a fixed scheduler preview, but cannot start, stop, dry-run, execute, or otherwise invoke scheduler runtime behavior.
+- The scheduler preview must report that scheduled-job creation, runtime adapter invocation, runtime factory resolution, backfill service invocation, and backfill execution are closed.
+- The operator can inspect usage and rejected-event retention candidate counts under a fixed 90-day dry-run policy.
+- The retention preview must never import the retention delete repository, execute retention, or allow raw-event deletion.
+- All new browser-facing resources use same-origin BFF GET routes, no-store fetching, server-only Admin API credentials, strict DTO validation, safe error mapping, loading/error states, and no mutation controls.
+- Rollups remain derived analytics only and are never quota, billing, authentication, or audit truth.
+<!-- pulsegate:sprint-64:end -->

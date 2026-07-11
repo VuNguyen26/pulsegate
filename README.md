@@ -1,5 +1,19 @@
 # PulseGate
 
+<!-- pulsegate:sprint-64:start -->
+## Current release â€” v1.4.0
+
+**Latest completed sprint:** Sprint 64 â€” Dashboard rollup/retention/scheduler panels.
+
+The Admin Dashboard now provides three read-only operator views:
+
+- /rollups inspects bounded persisted usage and rejected-request rollups.
+- /scheduler evaluates a fixed observational scheduler preview while runtime invocation remains closed.
+- /retention reads fixed 90-day dry-run candidate counts without importing deletion infrastructure or executing retention.
+
+The Dashboard uses fixed same-origin BFF GET routes and server-only Admin API credentials. Rollups remain derived analytics and never replace raw-event quota, billing, authentication, or audit truth.
+<!-- pulsegate:sprint-64:end -->
+
 High-Traffic API Gateway & Observability Platform.
 
 PulseGate is being built toward a product-like API Gateway and API Management Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.

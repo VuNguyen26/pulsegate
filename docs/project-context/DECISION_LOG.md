@@ -1331,3 +1331,23 @@ Validation:
 - Typecheck passed.
 - Build passed.
 - Docker/PostgreSQL runtime validation passed with 7 migrations applied and 2 source-separated `service-dry-run-invoked` results.
+
+<!-- pulsegate:sprint-64:start -->
+## 2026-07-11 â€” Sprint 64 analytics operations remain observational
+
+**Decision:** expose rollup inspection, scheduler preview, and retention preview as read-only Admin Dashboard resources.
+
+**Rationale:**
+
+- Operators need visibility into persisted rollups, scheduler contract state, and retention candidate counts.
+- Operational visibility must not silently open runtime execution or deletion paths.
+- Fixed server-owned scheduler and retention inputs prevent browser-controlled execution semantics.
+- Strict DTO boundaries prevent secrets or unsafe state from crossing the Dashboard BFF.
+
+**Consequences:**
+
+- Scheduler preview is pure contract output and reports runtime invocation closed.
+- Retention preview uses the existing dry-run candidate-count repository only.
+- No delete repository, execution service, scheduled job, backfill adapter, or mutation route is introduced.
+- Rollups remain derived analytics and cannot become quota, billing, authentication, or audit truth.
+<!-- pulsegate:sprint-64:end -->

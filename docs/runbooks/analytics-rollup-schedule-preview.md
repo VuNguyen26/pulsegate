@@ -141,3 +141,9 @@ Do not treat this command as proof that rollups were rebuilt. It does not read e
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-runner.ts
 - apps/api-gateway/src/analytics/analytics-rollup-scheduler-preview.command.ts
 - apps/api-gateway/package.json
+
+<!-- pulsegate:sprint-64-dashboard-visibility:start -->
+## Sprint 64 Dashboard visibility
+
+The Admin Dashboard now exposes read-only /rollups, /scheduler, and /retention operator views. These views do not open scheduler execution or retention deletion. Use docs/runbooks/admin-dashboard-analytics-operations.md for endpoint, safety, and troubleshooting guidance.
+<!-- pulsegate:sprint-64-dashboard-visibility:end -->

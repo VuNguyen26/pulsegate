@@ -280,3 +280,9 @@ Safety remains unchanged:
 - no operator-facing `deleteCandidates`
 - no raw event deletion
 - no quota mutation
+
+<!-- pulsegate:sprint-64-dashboard-visibility:start -->
+## Sprint 64 Dashboard visibility
+
+The Admin Dashboard now exposes read-only /rollups, /scheduler, and /retention operator views. These views do not open scheduler execution or retention deletion. Use docs/runbooks/admin-dashboard-analytics-operations.md for endpoint, safety, and troubleshooting guidance.
+<!-- pulsegate:sprint-64-dashboard-visibility:end -->
