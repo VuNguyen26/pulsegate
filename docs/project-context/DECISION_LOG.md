@@ -1351,3 +1351,29 @@ Validation:
 - No delete repository, execution service, scheduled job, backfill adapter, or mutation route is introduced.
 - Rollups remain derived analytics and cannot become quota, billing, authentication, or audit truth.
 <!-- pulsegate:sprint-64:end -->
+
+<!-- SPRINT-65-DECISION-START -->
+## 2026-07-11 — Sprint 65 Developer Portal remains public, static-first, and unprivileged
+
+Decision:
+
+- Create a separate `apps/developer-portal` Next.js application rather than extending the Admin Dashboard.
+- Expose the Portal on port `3004`.
+- Keep Sprint 65 pages statically generated and backend-free.
+- Treat `/api-docs` and `/api-keys` as explicit Sprint 66 placeholders.
+- Prohibit Admin credentials, `/internal/admin/*`, Admin Dashboard BFF routes, and browser credential/session storage in Portal production source.
+- Add Docker/Compose runtime wiring without adding Gateway, database, Redis, or Admin runtime dependencies.
+
+Rationale:
+
+- A public developer experience must not inherit privileged operator boundaries.
+- Honest placeholders preserve roadmap intent without representing fake functionality.
+- A separate workspace and container establish the deployment boundary required for later Portal capabilities.
+- Static-first scope minimizes risk before authentication and API-key ownership models are designed.
+
+Consequences:
+
+- Sprint 66 must design bounded API documentation and API-key self-service foundation/mock behavior.
+- Any future key-management capability requires an explicit public authentication and ownership boundary; it cannot reuse Admin API keys.
+- Workspace versions remain private `0.1.0`; documentation version advances to `v1.5.0`.
+<!-- SPRINT-65-DECISION-END -->

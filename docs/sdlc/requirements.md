@@ -41,7 +41,7 @@ Long-term target:
 - API Gateway runtime
 - Admin APIs
 - Admin Dashboard foundation, core resource reads, quota state, successful usage analytics, and rejected-event investigation implemented; rollup/scheduler/retention panel expansion continues in Sprint 64
-- Developer Portal later
+- Developer Portal foundation implemented in Sprint 65; API documentation and API-key self-service foundation/mock remain assigned to Sprint 66
 - API consumers
 - API keys
 - Usage plans
@@ -1288,7 +1288,7 @@ Implemented.
 - No quota usage Grafana dashboard yet.
 - Env fallback API keys are not quota-enforced.
 - The Admin Dashboard includes bounded read-only consumers, consumer-scoped API keys, usage plans, persisted/runtime routes, quota state, successful usage analytics, and rejected-event investigation behind fixed server-only BFF resources.
-- Developer Portal is not implemented yet.
+- Developer Portal foundation is implemented; authentication, account/session flows, API-key issuance, billing, and backend integration are not implemented.
 - Admin auth is still local admin API key based.
 - Minimal full-access/read-only admin authorization exists, but database-backed administrator identities and general platform RBAC are not implemented yet.
 - Dynamic router supports exact method + exact path matching only.
@@ -1912,3 +1912,43 @@ Implementation status: Complete in Sprint 59.
 - All new browser-facing resources use same-origin BFF GET routes, no-store fetching, server-only Admin API credentials, strict DTO validation, safe error mapping, loading/error states, and no mutation controls.
 - Rollups remain derived analytics only and are never quota, billing, authentication, or audit truth.
 <!-- pulsegate:sprint-64:end -->
+
+<!-- SPRINT-65-REQUIREMENTS-START -->
+## Sprint 65 acceptance — Developer Portal foundation
+
+### Functional acceptance
+
+- A separate `apps/developer-portal` npm workspace exists.
+- The Portal exposes `/`, `/getting-started`, `/api-docs`, and `/api-keys`.
+- The overview and getting-started pages contain real foundation content.
+- API documentation and API-key pages clearly identify Sprint 66 scope and do not pretend that unsupported capabilities exist.
+- Loading, error, and not-found boundaries exist.
+- The root workspace exposes `npm run dev:portal`.
+- Docker Compose exposes the Portal on port `3004` with a health check.
+
+### Security and scope acceptance
+
+- The Portal does not consume `ADMIN_API_KEY` or `ADMIN_READ_ONLY_API_KEY`.
+- The Portal does not call `/internal/admin/*` or the Admin Dashboard `/api/admin/*` BFF routes.
+- The Portal does not persist session or credential state in `localStorage` or `sessionStorage`.
+- Sprint 65 does not add authentication, registration, account ownership, API-key generation/revocation, billing, organizations, marketplace behavior, or backend redesign.
+- No fake account, fake session, fake key, or fake usage data is presented as a working product capability.
+
+### Validation acceptance
+
+- Portal unit/foundation tests pass.
+- Existing Admin Dashboard and API Gateway suites remain green.
+- Root typecheck and build pass.
+- Compose configuration validates.
+- Developer Portal and Admin Dashboard container images build.
+- The Portal container becomes healthy.
+- All four public routes and at least one static JavaScript asset return HTTP 200.
+- Rendered HTML does not expose privileged Admin identifiers or paths.
+
+### Release acceptance
+
+- Product/documentation version advances to `v1.5.0`.
+- Private npm workspace versions remain `0.1.0`.
+- Protected tag `v1.0.0` remains unchanged.
+- Sprint 66 is the next fixed-roadmap sprint.
+<!-- SPRINT-65-REQUIREMENTS-END -->

@@ -1,9 +1,9 @@
 # PulseGate
 
 <!-- pulsegate:sprint-64:start -->
-## Current release â€” v1.4.0
+## Current release — v1.5.0
 
-**Latest completed sprint:** Sprint 64 â€” Dashboard rollup/retention/scheduler panels.
+**Latest completed sprint:** Sprint 65 — Developer Portal foundation.
 
 The Admin Dashboard now provides three read-only operator views:
 
@@ -950,3 +950,33 @@ Sprint 56 docs:
 
 - docs/sdlc/sprint-history/sprint-56.md
 - docs/project-context/decisions/2026-07-09-analytics-retention-execute-contract-review.md
+
+<!-- SPRINT-65-START -->
+## Sprint 65 — Developer Portal foundation
+
+Sprint 65 adds the first public-facing Developer Portal application without opening any account, credential, billing, or backend-management surface.
+
+Delivered scope:
+
+- Added the private npm workspace `apps/developer-portal` using Next.js 16.2.10, React 19.2.4, TypeScript, Vitest, and plain CSS.
+- Added the public routes `/`, `/getting-started`, `/api-docs`, and `/api-keys`.
+- Kept `/api-docs` and `/api-keys` as explicit Sprint 66 placeholders rather than fake implementations.
+- Added loading, error, and not-found boundaries.
+- Added navigation and foundation tests, including a production-source guard against Admin credentials, Admin endpoints, and browser storage.
+- Added a production Docker image and Docker Compose service on port `3004`.
+- Added the root `dev:portal` command.
+- Preserved the private `0.1.0` npm workspace versions and the protected `v1.0.0` release tag.
+
+Validation completed:
+
+- Admin Dashboard: 52 test files / 237 tests.
+- API Gateway: 140 test files / 1000 tests.
+- Developer Portal: 2 test files / 7 tests.
+- Root typecheck and production build passed.
+- Developer Portal and Admin Dashboard Docker images built successfully.
+- Developer Portal returned HTTP 200 for all four public routes and a Next.js static asset.
+- The Compose health check reported `healthy`.
+- Rendered Portal HTML did not expose Admin credentials or Admin endpoint paths.
+
+Sprint 66 remains responsible for Developer Portal API documentation and API-key self-service foundation/mock boundaries. Sprint 65 does not implement authentication, account creation, API-key issuance, billing, organizations, or backend integration.
+<!-- SPRINT-65-END -->

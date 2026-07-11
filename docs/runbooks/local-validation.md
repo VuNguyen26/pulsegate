@@ -199,3 +199,27 @@ Important boundary:
 - Metrics and dashboards are operational signals.
 - `gateway.api_usage_events` remains the successful-usage and quota-counting source of truth.
 - `gateway.api_rejected_events` remains the rejected/security traffic source of truth.
+
+<!-- SPRINT-65-LOCAL-VALIDATION-START -->
+## Developer Portal validation
+
+```powershell
+npm.cmd run test -w apps/developer-portal
+npm.cmd run typecheck -w apps/developer-portal
+npm.cmd run build -w apps/developer-portal
+
+docker compose config --quiet
+docker compose build developer-portal admin-dashboard
+docker compose up -d developer-portal
+docker compose ps developer-portal
+```
+
+Validate these URLs:
+
+- `http://127.0.0.1:3004/`
+- `http://127.0.0.1:3004/getting-started`
+- `http://127.0.0.1:3004/api-docs`
+- `http://127.0.0.1:3004/api-keys`
+
+Expected result: HTTP 200 for every route and a `healthy` container status. Portal HTML must not expose Admin credential names or Admin endpoint paths.
+<!-- SPRINT-65-LOCAL-VALIDATION-END -->

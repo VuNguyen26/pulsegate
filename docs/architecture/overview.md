@@ -537,7 +537,7 @@ Core:
 - Disabled usage plans currently skip quota enforcement.
 - Env fallback API keys are not quota-enforced.
 - The Admin Dashboard now includes read-only consumers, consumer-scoped API keys, usage plans, persisted/runtime routes, quota state, successful usage analytics, and rejected-event investigation; rollup, scheduler, and retention panels remain assigned to Sprint 64.
-- Developer Portal is not implemented yet.
+- Developer Portal foundation is implemented as a public static-first application; API documentation and API-key self-service boundaries remain assigned to Sprint 66.
 - Admin authorization remains a local full-access/read-only API key boundary; database-backed administrator identities and general platform RBAC are not implemented yet.
 - Dynamic router supports exact method + exact path matching only.
 - Path parameters are not implemented yet.
@@ -1105,3 +1105,44 @@ Sprint 64 extends the Admin Dashboard with three source-separated, read-only ana
 
 All three Dashboard DTO boundaries use strict allowlists and fail closed on extra or unsafe fields. Browser-supplied execution, deletion, scheduler, or policy controls are rejected.
 <!-- pulsegate:sprint-64:end -->
+
+<!-- SPRINT-65-ARCHITECTURE-START -->
+## Sprint 65 — Developer Portal application boundary
+
+Sprint 65 introduces `apps/developer-portal` as a separate public application boundary.
+
+### Runtime topology
+
+- Framework: Next.js 16.2.10 with React 19.2.4 and TypeScript.
+- Local development command: `npm run dev:portal`.
+- Local and container port: `3004`.
+- Docker Compose service: `developer-portal`.
+- Production runtime uses a dedicated multi-stage Dockerfile.
+- The application currently has no database, Redis, Gateway, Product Service, or Admin Dashboard dependency.
+- No environment variable carries Admin credentials or internal Admin route configuration into the Portal.
+
+### Route boundary
+
+- `/` — public Portal overview.
+- `/getting-started` — current public onboarding boundary and supported-scope explanation.
+- `/api-docs` — honest Sprint 66 placeholder.
+- `/api-keys` — honest Sprint 66 placeholder.
+- `loading.tsx`, `error.tsx`, and `not-found.tsx` provide application boundaries.
+
+All Sprint 65 pages are statically generated. No Portal BFF route, public account model, session, credential issuance path, billing surface, or organization model is introduced.
+
+### Security boundary
+
+Portal tests recursively inspect production source and reject:
+
+- Admin API-key environment names.
+- Internal Admin endpoint paths.
+- Admin Dashboard BFF paths.
+- `localStorage` or `sessionStorage` credential/session persistence.
+
+This separation prevents the public Portal from reusing privileged Admin Dashboard boundaries.
+
+### Next architecture step
+
+Sprint 66 may add bounded API documentation and API-key self-service foundation/mock behavior. It must not silently expose `/internal/admin/*`, reuse Admin credentials, or convert placeholders into fake production capabilities.
+<!-- SPRINT-65-ARCHITECTURE-END -->
