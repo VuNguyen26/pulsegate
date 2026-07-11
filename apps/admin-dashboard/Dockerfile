@@ -6,6 +6,7 @@ COPY package.json package-lock.json ./
 COPY apps/admin-dashboard/package.json ./apps/admin-dashboard/package.json
 COPY apps/api-gateway/package.json ./apps/api-gateway/package.json
 COPY apps/product-service/package.json ./apps/product-service/package.json
+COPY apps/developer-portal/package.json ./apps/developer-portal/package.json
 
 RUN npm ci
 

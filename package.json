@@ -11,6 +11,7 @@
   "dev:gateway": "npm run dev -w apps/api-gateway",
   "dev:product": "npm run dev -w apps/product-service",
   "dev:dashboard": "npm run dev -w apps/admin-dashboard",
+  "dev:portal": "npm run dev -w apps/developer-portal",
   "build": "npm run build --workspaces",
   "typecheck": "npm run typecheck --workspaces",
   "test": "npm run test --workspaces --if-present",

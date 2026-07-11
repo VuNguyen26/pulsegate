@@ -119,6 +119,21 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+  developer-portal:
+    build:
+      context: .
+      dockerfile: apps/developer-portal/Dockerfile
+    container_name: pulsegate-developer-portal
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3004:3004"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3004/').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
   prometheus:
     image: prom/prometheus:latest
     container_name: pulsegate-prometheus
