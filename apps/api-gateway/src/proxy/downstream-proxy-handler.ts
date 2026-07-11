@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   FastifyReply,
   FastifyRequest,
   HookHandlerDoneFunction,
@@ -35,6 +35,9 @@ import {
   shouldRetryStatus,
 } from "../policies/retry.policy.js";
 import { createDownstreamTimeout } from "../policies/timeout.policy.js";
+import {
+  buildConfiguredRoutePolicyPath,
+} from "../config/route-identity.js";
 import type { RouteRuntimeRegistry } from "../runtime/route-runtime-registry.js";
 
 export { buildResponseCacheKey };
@@ -518,7 +521,7 @@ export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
 
     const rateLimit = resolveRouteRateLimitPolicy({
       policy: routePolicies.rateLimit,
-      routePath: runtimeRouteConfig.gatewayPath,
+      routePath: buildConfiguredRoutePolicyPath(runtimeRouteConfig),
       identityType: "api-key",
       store: options.rateLimitStore,
     });
@@ -612,7 +615,7 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
 
     const cacheKey = buildResponseCacheKey(
       routeConfig.method,
-      routeConfig.gatewayPath,
+      buildConfiguredRoutePolicyPath(routeConfig),
     );
 
     const transformedResponseHeaders = applyResponseHeaderTransform(

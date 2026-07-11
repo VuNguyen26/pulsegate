@@ -20,7 +20,11 @@ import {
 } from "../proxy/downstream-proxy-handler.js";
 import { RedisRateLimitStore } from "../rate-limit/redis-rate-limit-store.js";
 import { getRedisClient } from "../redis/redis-client.js";
-import type { RouteRuntimeRegistry } from "../runtime/route-runtime-registry.js";
+import { parseRequestHostHeader } from "../config/request-host.js";
+import {
+  createRouteRuntimeRegistry,
+  type RouteRuntimeRegistry,
+} from "../runtime/route-runtime-registry.js";
 
 export { buildResponseCacheKey };
 
@@ -55,18 +59,61 @@ function getRequestPath(request: FastifyRequest): string {
   return new URL(request.url, "http://pulsegate.local").pathname;
 }
 
+function resolveRequestHost(
+  request: FastifyRequest,
+): string | null {
+  const parsedHost = parseRequestHostHeader(
+    request.headers.host,
+  );
+
+  return parsedHost.ok ? parsedHost.requestHost : null;
+}
+
+function resolveRouteConfigForRequest(
+  routeRuntimeRegistry: RouteRuntimeRegistry,
+  request: FastifyRequest,
+  gatewayPath: string,
+): DownstreamRouteConfig | null {
+  const method = request.method.toUpperCase();
+
+  if (!isSupportedHttpMethod(method)) {
+    return null;
+  }
+
+  const requestHost = resolveRequestHost(request);
+
+  if (requestHost === null) {
+    return null;
+  }
+
+  return routeRuntimeRegistry.findRoute(
+    method,
+    gatewayPath,
+    requestHost,
+  );
+}
+
+function createFixedRouteConfigResolver(
+  routeRuntimeRegistry: RouteRuntimeRegistry,
+  gatewayPath: string,
+): DownstreamRouteConfigResolver {
+  return (request) =>
+    resolveRouteConfigForRequest(
+      routeRuntimeRegistry,
+      request,
+      gatewayPath,
+    );
+}
+
 function createDynamicRouteConfigResolver(
   routeRuntimeRegistry: RouteRuntimeRegistry,
 ): DownstreamRouteConfigResolver {
-  return (request) => {
-    const method = request.method.toUpperCase();
-
-    if (!isSupportedHttpMethod(method)) {
-      return null;
-    }
-
-    return routeRuntimeRegistry.findRoute(method, getRequestPath(request));
-  };
+  return (request) =>
+    resolveRouteConfigForRequest(
+      routeRuntimeRegistry,
+      request,
+      getRequestPath(request),
+    );
 }
 
 export async function downstreamProxyRoute(
@@ -78,14 +125,38 @@ export async function downstreamProxyRoute(
   const rateLimitStore =
     options.rateLimitStore ?? new RedisRateLimitStore(getRedisClient());
 
+  const effectiveRouteRuntimeRegistry =
+    options.routeRuntimeRegistry ??
+    createRouteRuntimeRegistry({
+      initialRoutes: routeConfigs,
+    });
+
+  const registeredFastifyRouteKeys = new Set<string>();
+
   for (const registeredRouteConfig of routeConfigs) {
+    const fastifyRouteKey = JSON.stringify([
+      registeredRouteConfig.method,
+      registeredRouteConfig.gatewayPath,
+    ]);
+
+    if (registeredFastifyRouteKeys.has(fastifyRouteKey)) {
+      continue;
+    }
+
+    registeredFastifyRouteKeys.add(fastifyRouteKey);
+
+    const routeConfigResolver =
+      createFixedRouteConfigResolver(
+        effectiveRouteRuntimeRegistry,
+        registeredRouteConfig.gatewayPath,
+      );
+
     app.route({
       method: registeredRouteConfig.method,
       url: registeredRouteConfig.gatewayPath,
       preHandler: [
         createRuntimePolicyPreHandler({
-          registeredRouteConfig,
-          routeRuntimeRegistry: options.routeRuntimeRegistry,
+          routeConfigResolver,
           rateLimitStore,
           apiKeyAuthMiddleware: options.apiKeyAuthMiddleware,
           usageQuotaChecker: options.usageQuotaChecker,
@@ -93,8 +164,7 @@ export async function downstreamProxyRoute(
         }),
       ],
       handler: createDownstreamProxyHandler({
-        registeredRouteConfig,
-        routeRuntimeRegistry: options.routeRuntimeRegistry,
+        routeConfigResolver,
         responseCacheStore: options.responseCacheStore,
         responseCacheTtlSeconds: options.responseCacheTtlSeconds,
         usageRecorder: options.usageRecorder,
