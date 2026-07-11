@@ -1988,9 +1988,23 @@ Implementation status: Complete in Sprint 59.
 - Root typecheck and build pass.
 - Compose configuration and Developer Portal image build pass.
 - Portal health, four public routes, and a static asset pass runtime validation.
-- Product/documentation version is `v1.6.0`.
+- Product/documentation version is `v1.7.0`.
 - Private npm workspace versions remain `0.1.0`.
 - Protected tag `v1.0.0` remains unchanged.
 - No Sprint 66 Git tag is created.
 - Next sprint is Sprint 67 - Host-based routing foundation.
 <!-- SPRINT-66-REQUIREMENTS-END -->
+
+## Sprint 67 acceptance requirements
+
+1. The Gateway shall accept an optional exact `requestHost` route condition.
+2. Configured hosts shall be normalized and reject wildcard, suffix, regex, malformed, unsafe, or oversized values.
+3. Host-specific routes shall take precedence over path-only routes for the same method/path.
+4. Valid unknown hosts may use path-only fallback; missing or malformed host input shall fail closed.
+5. Forwarded host headers shall not influence routing.
+6. Cache and route-level rate-limit state shall be isolated by configured host.
+7. Persistence and Admin APIs shall create, update, clear, reload, and read host conditions.
+8. The database shall allow path-only and multiple exact-host routes to coexist on one method/path.
+9. The Dashboard shall validate and display host conditions and use host-aware row identity.
+10. Existing path-only behavior, quota enforcement, policy flow, and protected `v1.0.0` tag shall remain compatible.
+11. Weighted routing, discovery, failover, wildcard hosts, and host analytics dimensions shall remain out of scope.

@@ -1191,3 +1191,15 @@ Any future activation requires explicit developer authentication, ownership auth
 
 Sprint 66 changes only statically generated Portal pages, navigation metadata, CSS, and tests. The existing Developer Portal image and Compose service on port `3004` remain unchanged. No Gateway, Product Service, database, Redis, migration, billing, marketplace, or host-routing behavior changed.
 <!-- SPRINT-66-ARCHITECTURE-END -->
+
+## Host-based routing foundation (Sprint 67)
+
+The runtime registry resolves requests using method, pathname, and normalized direct Host identity. Exact host-specific matches win before path-only fallback. A valid unknown host may use the path-only route; missing or malformed host input does not.
+
+Fastify proxy trust remains disabled. `X-Forwarded-Host` and `Forwarded` do not participate in route selection. Configured hosts are bounded canonical values and never become downstream URLs.
+
+Fastify registration remains deduplicated by method and path. Host selection occurs inside the shared resolver, preserving one authentication, quota, rate-limit, cache, transform, retry, timeout, analytics, and metrics pipeline.
+
+Persistence uses nullable `gateway_routes.request_host`. Null means path-only. The legacy database uniqueness on method and gateway path was removed because Sprint 67 identity includes host-or-null. Active and disabled non-deleted records reserve identity; soft-deleted records release it. Admin conflict checks enforce the application-level identity contract.
+
+Cache and route-level rate-limit keys include configured host identity. Analytics remains method/path based, so host-specific routes sharing a method/path intentionally aggregate together.

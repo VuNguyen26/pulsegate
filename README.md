@@ -1,7 +1,7 @@
 # PulseGate
 
 <!-- pulsegate:sprint-64:start -->
-## Current release - v1.6.0
+## Current release - v1.7.0
 
 **Latest completed sprint:** Sprint 66 - Developer Portal API docs and API-key self-service foundation.
 
@@ -1026,3 +1026,23 @@ Product/documentation version advances to `v1.6.0`. Private npm workspace versio
 
 Next sprint: Sprint 67 - Host-based routing foundation.
 <!-- SPRINT-66-END -->
+
+## Sprint 67 â€” Host-based routing foundation
+
+PulseGate now supports exact normalized request-host route conditions while preserving path-only routes as explicit fallbacks.
+
+- Route identity is `requestHost | null + method + gatewayPath`.
+- Host-specific routes take precedence over path-only fallback.
+- Valid unknown hosts may use path-only fallback.
+- Missing or malformed Host input fails closed.
+- Forwarded host headers are ignored.
+- Cache and route-level rate-limit state are isolated by configured host.
+- Nullable `gateway_routes.request_host` persistence supports Admin create, update, clear, reload, and read workflows.
+- The legacy method/path database uniqueness was removed so path-only and multiple exact-host routes may coexist.
+- The Admin Dashboard displays host-specific versus path-only routes and uses host-aware row identity.
+- Analytics remains method/path based in Sprint 67.
+- Weighted routing, service discovery, failover, wildcard hosts, TLS/DNS, and host analytics remain out of scope.
+
+Current product/documentation version: **v1.7.0**. Private npm workspace versions remain **0.1.0**.
+
+Next planned sprint: **Sprint 68 â€” Weighted routing foundation**.

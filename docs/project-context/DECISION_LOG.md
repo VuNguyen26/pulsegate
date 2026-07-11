@@ -1406,3 +1406,18 @@ Consequences:
 - Product/documentation version advances to `v1.6.0`; private npm versions and protected tag `v1.0.0` remain unchanged.
 - Sprint 67 proceeds to host-based routing foundation.
 <!-- SPRINT-66-DECISION-END -->
+
+## Sprint 67 host-routing decisions
+
+- Use optional runtime `requestHost?: string` and persisted/API `requestHost: string | null`.
+- Use exact normalized host matching only.
+- Resolve host-specific routes before path-only fallback.
+- Fail closed for missing or malformed direct Host input.
+- Keep proxy trust disabled and ignore forwarded host headers.
+- Keep one shared proxy/policy pipeline.
+- Define route identity as host-or-null plus method and gateway path.
+- Remove the legacy database uniqueness on method and gateway path because it conflicts with host-aware identity.
+- Let disabled non-deleted routes reserve identity and soft deletion release it.
+- Enforce identity conflicts in the Admin repository/API boundary for Sprint 67.
+- Include configured host identity in cache and route-level rate-limit keys.
+- Defer analytics host attribution because it requires a wider raw-event, rollup, API, and Dashboard dimension migration.
