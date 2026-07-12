@@ -389,3 +389,29 @@ Validated marker:
 SPRINT_70_RUNTIME_FAILOVER=PASSED
 ```
 <!-- SPRINT-70-LOCAL-VALIDATION-END -->
+
+<!-- SPRINT-71-LOCAL-VALIDATION-START -->
+## Sprint 71 Kubernetes static validation
+
+Sprint 71 adds Kubernetes artifacts without replacing the Docker Compose validation workflow.
+
+Static validation:
+
+```powershell
+kubectl kustomize deploy/kubernetes/base
+kubectl kustomize deploy/kubernetes/overlays/local
+kubectl kustomize deploy/kubernetes/overlays/local/applications
+```
+
+Expected counts:
+
+- base: 13 resources
+- local bootstrap: 10 resources
+- local applications: 13 resources
+
+The static check must reject default public exposure, privileged containers, Kubernetes API/RBAC additions, and `latest` application images.
+
+Cluster apply, image loading, rollout, port-forward, restart, termination, and cleanup validation remain Sprint 72 work.
+
+See `docs/runbooks/kubernetes-local.md`.
+<!-- SPRINT-71-LOCAL-VALIDATION-END -->

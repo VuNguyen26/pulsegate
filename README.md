@@ -2,23 +2,25 @@
 
 High-Traffic API Gateway & Observability Platform.
 
-## Current product/documentation version - v1.10.0
+## Current product/documentation version - v1.11.0
 
-**Latest completed sprint:** Sprint 70 - Service discovery health/failover hardening.
+**Latest completed sprint:** Sprint 71 - Kubernetes foundation.
 
 Current validation baseline:
 
-- API Gateway: 153 test files / 1110 tests passed.
 - Admin Dashboard: 53 test files / 244 tests passed.
+- API Gateway: 155 test files / 1140 tests passed.
 - Developer Portal: 2 test files / 7 tests passed.
-- Root tests, typecheck, production build, Prisma validation, Compose validation, and Git diff checks passed.
-- PostgreSQL migration, Admin/runtime discovery validation, and Dashboard BFF/runtime validation passed.
+- Root release validation, typecheck, production builds, Prisma validation, Compose validation, and Git diff checks passed.
+- Production backend Docker image builds passed.
+- Product Service and API Gateway migration commands passed against temporary PostgreSQL with 1 public migration and 11 Gateway migrations.
+- Kustomize rendered 13 base resources, 10 local bootstrap resources, and 13 local application resources.
 
 Private npm workspace versions remain `0.1.0`.
 
-The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 70 creates no Git tag.
+The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 71 creates no Git tag.
 
-Next planned sprint: **Sprint 71 - Kubernetes foundation**.
+Next planned sprint: **Sprint 72 - Kubernetes runtime validation and deployment documentation**.
 
 ---
 ## Current Status
@@ -1199,3 +1201,59 @@ Product/documentation version: **v1.10.0**.
 
 Next planned sprint: **Sprint 71 - Kubernetes foundation**.
 <!-- SPRINT-70-README-END -->
+
+<!-- SPRINT-71-README-START -->
+## Sprint 71 - Kubernetes foundation
+
+Sprint 71 adds a bounded Kubernetes manifest and deployment foundation for local/development use. It does not claim a successful cluster deployment; cluster runtime validation remains assigned to Sprint 72.
+
+Delivered:
+
+- Added `deploy/kubernetes/base` and `deploy/kubernetes/overlays/local` using Kustomize.
+- Added the `pulsegate` namespace.
+- Added one-replica Deployments and ClusterIP Services for API Gateway, Product Service, Admin Dashboard, and Developer Portal.
+- Added ConfigMaps plus Secret references without committing production secrets.
+- Added HTTP startup, readiness, and liveness probes using the existing application endpoints.
+- Disabled automatic service-account token mounting for application workloads.
+- Added non-root application security contexts, `RuntimeDefault` seccomp, no privilege escalation, and dropped Linux capabilities.
+- Added local-only PostgreSQL 16 and Redis 7 composition using `emptyDir`.
+- Added an explicit migration Job that runs Product Service migrations before API Gateway migrations.
+- Split local bootstrap resources from application resources so migration completion can precede application rollout.
+- Hardened API Gateway and Product Service production entrypoints, multi-stage Dockerfiles, non-root runtime images, compiled JavaScript startup, Prisma runtime packaging, and graceful `SIGINT`/`SIGTERM` shutdown.
+- Added Product Service `db:migrate:deploy`.
+
+Operational boundaries:
+
+- Application replicas remain `1`.
+- Gateway service-instance health remains process-local and therefore per pod.
+- Kubernetes Services provide stable DNS only; the applications do not call the Kubernetes API for discovery.
+- There is no Ingress, NodePort, LoadBalancer, ServiceAccount, RBAC, PVC, StatefulSet, Helm, service mesh, cloud-vendor dependency, or GitOps controller.
+- Local generated Secrets are explicit development placeholders, not production secret management.
+- PostgreSQL and Redis data is ephemeral.
+- Resource requests/limits and read-only root filesystems remain deferred until Sprint 72 runtime evidence.
+- Docker Compose remains supported and unchanged as the existing local workflow.
+- No application routing, authentication, quota, cache, transform, analytics, metrics, or retry semantics changed.
+- No npm package version changed and no Sprint 71 Git tag was created.
+
+Implementation commits:
+
+- `81f9a3f69c96b52c0489988e939706bd2671f6e0` - backend deployment entrypoints.
+- `e77494ab9356ac5ba297a158e1e9150fe35c99fc` - Kubernetes manifest foundation.
+- `5c8e50a8eb68a75cc50f84bfc2a831cd0c2d7e41` - core application manifests.
+- `c171135e1d413e6d90d76aed7d83e279a12b8504` - local dependency composition.
+
+Validation:
+
+- `npm.cmd run validate:release` passed.
+- Both production backend Docker images built.
+- Product Service migration runtime applied 1 migration.
+- API Gateway migration runtime applied 11 migrations.
+- Base Kustomize render: 13 resources.
+- Local bootstrap render: 10 resources.
+- Local applications render: 13 resources.
+- No cluster resources were applied in Sprint 71.
+
+Product/documentation version: **v1.11.0**.
+
+Next planned sprint: **Sprint 72 - Kubernetes runtime validation and deployment documentation**.
+<!-- SPRINT-71-README-END -->

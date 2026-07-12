@@ -1,71 +1,70 @@
 # Current Progress
 
-## Canonical state after Sprint 70
+## Canonical state after Sprint 71
 
-- Product/documentation version: `v1.10.0`.
+- Product/documentation version: `v1.11.0`.
 - Private npm workspace versions: `0.1.0`.
-- Latest completed sprint: **Sprint 70 - Service discovery health/failover hardening**.
-- Latest implementation commit before documentation finalization: `fdf38fadee069cbcf96c8e501b21306cfb73cb2f`.
+- Latest completed sprint: **Sprint 71 - Kubernetes foundation**.
+- Latest implementation commit before documentation finalization: `c171135e1d413e6d90d76aed7d83e279a12b8504`.
 - Protected annotated tag `v1.0.0` remains unchanged at `407d03678674219e7228b15f0cd7a23074493f31`.
-- Sprint 70 creates no Git tag.
-- Next sprint: **Sprint 71 - Kubernetes foundation**.
+- Sprint 71 creates no Git tag.
+- Next sprint: **Sprint 72 - Kubernetes runtime validation and deployment documentation**.
 
-## Sprint 70 implementation commits
+## Sprint 71 implementation commits
 
-- `8b2acec1e42242893d638145437581e34ddece89` - `feat(gateway): add service instance health contract`
-- `42faa85e322b4dcb3af632cb649101aa924f5420` - `feat(gateway): add health-aware target selection`
-- `fdf38fadee069cbcf96c8e501b21306cfb73cb2f` - `feat(gateway): fail over unhealthy service instances`
+- `81f9a3f69c96b52c0489988e939706bd2671f6e0` - `feat(runtime): harden backend deployment entrypoints`
+- `e77494ab9356ac5ba297a158e1e9150fe35c99fc` - `feat(kubernetes): add deployment manifest foundation`
+- `5c8e50a8eb68a75cc50f84bfc2a831cd0c2d7e41` - `feat(kubernetes): add core application manifests`
+- `c171135e1d413e6d90d76aed7d83e279a12b8504` - `feat(kubernetes): add local dependency composition`
 
 ## Delivered behavior
 
-- Bounded process-local service-instance health registry.
-- Maximum 512 health entries.
-- Healthy, cooldown, and computed probe behavior.
-- Two-failure threshold and 30-second cooldown.
-- Network, timeout, and downstream 5xx failure classification.
-- HTTP responses below 500 reset health.
-- Health-aware direct and weighted discovery selection.
-- Per-request exclusion of qualifying failed instances.
-- GET-only failover through the existing retry budget.
-- Seven retry attempts and eight total executions maximum.
-- Fail-closed behavior when no eligible target remains.
-- Legacy direct and weighted compatibility.
-- Reload preservation, initialization, pruning, and invalid-reload safety.
-- No raw instance URL in client errors or metric labels.
+- Kustomize base plus local bootstrap and local application overlays.
+- `pulsegate` namespace.
+- One-replica Deployments and ClusterIP Services for the four applications.
+- ConfigMap and Secret-reference boundaries.
+- Existing HTTP endpoints used for startup, readiness, and liveness probes.
+- Disabled service-account token mounting.
+- Non-root application containers with `RuntimeDefault` seccomp, no privilege escalation, and dropped capabilities.
+- Local-only PostgreSQL 16 and Redis 7 with ephemeral `emptyDir`.
+- Explicit ordered migration Job.
+- Production backend multi-stage Docker images.
+- Compiled JavaScript production startup.
+- Gateway Prisma runtime client copied into `dist`.
+- Product Service migration deploy script.
+- Graceful backend `SIGINT` and `SIGTERM` handling.
 
 ## Validation baseline
 
+- Admin Dashboard: 53 test files / 244 tests.
 - API Gateway: 155 test files / 1140 tests.
-- Targeted failover coverage: 41 tests.
-- API Gateway typecheck and build passed.
-- Docker Compose configuration passed.
-- Eleven Gateway migrations with none pending.
-- Active persisted routes with `retry_attempts > 7`: 0.
-- Gateway and Product Service images rebuilt.
-- Discovery metadata JSONB roundtrip passed.
-- Two qualifying failures produced client HTTP 200 through failover.
-- Cooldown exclusion prevented more requests to the failed instance.
-- No eligible target returned HTTP 503 without a downstream call.
-- Raw instance URL disclosure check passed.
-- Soft deletion, runtime removal, and database retention passed.
-- Working tree remained clean and HEAD matched `origin/main`.
+- Developer Portal: 2 test files / 7 tests.
+- Root release validation passed.
+- API Gateway and Product Service production images built.
+- Product Service migration runtime applied 1 migration.
+- API Gateway migration runtime applied 11 migrations.
+- Base render: 13 resources.
+- Local bootstrap render: 10 resources.
+- Local applications render: 13 resources.
+- Twelve Kubernetes source files are tracked.
+- No Kubernetes resources were applied.
 
 ## Preserved boundaries
 
-- No active background polling.
-- No heartbeat, lease, registration, deregistration, or TTL.
-- No distributed or persisted health state.
-- No external registry, Consul, Eureka, DNS SRV, Kubernetes API, or cloud discovery.
-- No general circuit breaker, service mesh, or outlier-ejection platform.
-- No non-GET replay.
-- No client-selected target, sticky routing, or arbitrary reverse proxy.
-- No unbounded per-instance metrics.
-- No Dashboard health controls.
-- No Developer Portal route management.
-- No migration, dependency, environment variable, permanent service, or permanent port.
-- No Kubernetes, OpenTelemetry, Loki, billing, marketplace, or enterprise IAM work.
+- Docker Compose remains unchanged and supported.
+- No Kubernetes API discovery.
+- No Ingress, NodePort, LoadBalancer, public database, or public Redis.
+- No ServiceAccount or RBAC.
+- No PVC, StatefulSet, or durability claim.
+- No Helm, GitOps, cloud-specific platform, or service mesh.
+- No production secret-management claim.
+- No resource requests/limits without measurement.
+- Gateway health remains process-local and per pod.
+- One Gateway replica avoids a false distributed-health claim.
+- Host routing, weighted routing, service discovery, retry, authentication, quota, cache, transforms, analytics, metrics, and access logs remain unchanged.
+- No OpenTelemetry, Loki, billing, marketplace, or enterprise IAM.
 - No npm package version bump.
-- No Sprint 70 Git tag.
+- No Sprint 71 Git tag.
 
 ## Fixed roadmap
 
@@ -79,8 +78,8 @@
 - Sprint 68 - Weighted routing foundation - complete.
 - Sprint 69 - Service discovery foundation - complete.
 - Sprint 70 - Service discovery health/failover hardening - complete.
-- Sprint 71 - Kubernetes foundation - next.
-- Sprint 72 - Kubernetes runtime validation and deployment docs.
+- Sprint 71 - Kubernetes foundation - complete.
+- Sprint 72 - Kubernetes runtime validation and deployment documentation - next.
 - Sprint 73 - OpenTelemetry tracing foundation.
 - Sprint 74 - Loki logging foundation.
 - Sprint 75 - Grafana observability integration.

@@ -2,7 +2,7 @@
 
 ## Current Version
 
-v1.10.0
+v1.11.0
 
 Private npm workspace package versions remain `0.1.0`.
 
@@ -10,9 +10,50 @@ The annotated `v1.0.0` Git tag remains unchanged at the final Sprint 60 document
 
 ## Latest Completed Sprint
 
-Sprint 70 - Service discovery health/failover hardening
+Sprint 71 - Kubernetes foundation
 
 ## Latest Decision
+
+<!-- SPRINT-71-DECISION-LOG-START -->
+### 2026-07-12 - Use a bounded Kustomize foundation for local Kubernetes deployment
+
+Decision:
+
+- Use the Kustomize version embedded in `kubectl`.
+- Separate reusable application resources from the local bootstrap composition.
+- Keep application Services internal with one replica per application.
+- Use ConfigMaps for non-secret configuration and Secret references for credentials.
+- Keep Admin Dashboard access read-only and keep the Developer Portal unprivileged.
+- Use one explicit migration Job rather than per-replica migration init containers.
+- Keep local PostgreSQL and Redis ephemeral and internal.
+- Harden backend production images and graceful shutdown before Kubernetes use.
+- Keep Kubernetes Services separate from PulseGate configured service discovery.
+- Keep Gateway health process-local and per pod.
+- Defer cluster apply and runtime claims to Sprint 72.
+
+Reason:
+
+- Sprint 71 needs reviewable deployment artifacts without claiming unvalidated cluster behavior.
+- Separating bootstrap and application resources preserves explicit migration ownership.
+- One replica prevents a false distributed-health or high-availability claim.
+- Internal Services and strict secret boundaries preserve current security assumptions.
+- Kustomize is already available through `kubectl`, so no extra deployment dependency is required.
+
+Consequences:
+
+- Sprint 72 must provide cluster, image-load, rollout, DNS, HTTP, termination, restart, and resource evidence.
+- Production secret management, persistence, ingress, autoscaling, and high availability remain unimplemented.
+- Docker Compose remains the established validated local runtime.
+- No routing, quota, analytics, retry, or service-discovery behavior changes.
+- Product/documentation version advances to `v1.11.0`.
+- Private npm versions and protected tag `v1.0.0` remain unchanged.
+
+Detailed record:
+
+- `docs/project-context/decisions/2026-07-12-kubernetes-foundation.md`
+- `docs/sdlc/sprint-history/sprint-71.md`
+- `docs/runbooks/kubernetes-local.md`
+<!-- SPRINT-71-DECISION-LOG-END -->
 
 ### 2026-07-11 - Extend the Dashboard with bounded quota, usage, and rejected-event reads
 

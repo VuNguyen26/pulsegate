@@ -209,3 +209,19 @@ This evidence does not prove health checks or failover; those remain Sprint 70 s
 
 Sprint 70 runtime evidence proved JSONB roundtrip, two qualifying failures, client HTTP 200 failover, cooldown exclusion, HTTP 503 with no eligible target, no raw URL disclosure, soft deletion, runtime removal, and clean Git state.
 <!-- SPRINT-70-SERVICE-DISCOVERY-RUNBOOK-END -->
+
+<!-- SPRINT-71-SERVICE-DISCOVERY-START -->
+## Kubernetes pod boundary
+
+Sprint 71 does not convert Kubernetes into the PulseGate service-discovery control plane.
+
+- Kubernetes Services provide stable internal DNS only.
+- PulseGate does not read Pods, Services, Endpoints, or EndpointSlices.
+- Route-owned `serviceName` and `serviceInstances` remain the configured discovery source.
+- The Gateway health registry remains process-local.
+- One Gateway pod owns one independent health view.
+- Restarting a Gateway pod resets its health state.
+- Multiple Gateway replicas would not share cooldown or failure counters.
+- Sprint 71 therefore keeps one Gateway replica and makes no distributed failover or high-availability claim.
+- Sprint 72 must validate pod restart and health-reset behavior before changing the replica contract.
+<!-- SPRINT-71-SERVICE-DISCOVERY-END -->

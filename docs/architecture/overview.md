@@ -6,21 +6,23 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.10.0
+v1.11.0
 
 ## Current Status
 
-Sprint 70 - Service discovery health/failover hardening Complete
+Sprint 71 - Kubernetes foundation Complete
 
 Current validation:
 
-- API Gateway: 147 test files / 1059 tests passed.
-- Admin Dashboard: 53 test files / 243 tests passed.
+- Admin Dashboard: 53 test files / 244 tests passed.
+- API Gateway: 155 test files / 1140 tests passed.
 - Developer Portal: 2 test files / 7 tests passed.
-- Root tests, typecheck, production build, Prisma validation, Compose validation, and Git diff checks passed.
-- PostgreSQL migration and bounded weighted-routing runtime validation passed.
+- Root release validation, typecheck, production builds, Prisma validation, Compose validation, and Git diff checks passed.
+- Backend production images and both migration commands passed.
+- Kustomize rendered base, local bootstrap, and local application targets.
 - Private npm workspace versions remain 0.1.0.
-- Protected annotated tag v1.0.0 remains unchanged.PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
+- Protected annotated tag v1.0.0 remains unchanged.
+PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
 PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, DB-backed non-destructive retention operator preview hardening, non-destructive rollup schedule preview planning, non-destructive rollup scheduler runner preview planning, non-destructive rollup scheduler execution boundary preview planning, non-destructive rollup scheduler execution wiring review, non-destructive rollup scheduler command dry-run design review, non-destructive rollup scheduler command dry-run invocation contract and readiness review, non-destructive rollup scheduler command dry-run invocation design review, non-destructive rollup scheduler command dry-run service invocation contract review, non-destructive rollup scheduler command dry-run service invocation implementation design, non-destructive rollup scheduler command dry-run service invocation wiring readiness review, non-destructive rollup scheduler command dry-run service invocation fail-closed error model, non-destructive rollup scheduler command dry-run service invocation wiring contract, non-destructive rollup scheduler command dry-run service invocation request mapper design, non-destructive rollup scheduler command dry-run service adapter boundary design, non-destructive rollup scheduler command dry-run service adapter preview output integration, command dry-run runtime service invocation, runtime consistency output, blocked-path runtime tests, non-destructive rollup scheduler command execute contract review, non-destructive command execute readiness review, non-destructive command execute operator output review, non-destructive blocked-by-default command execute wiring preview, selected summary runtime rollup read switching behind explicit flag with raw-summary fallback, and CI/CD.
 
@@ -1449,3 +1451,123 @@ Legacy routes:
 - Dashboard health controls
 - Developer Portal route management
 <!-- SPRINT-70-ARCHITECTURE-END -->
+
+<!-- SPRINT-71-ARCHITECTURE-START -->
+## Kubernetes deployment foundation (Sprint 71)
+
+### Artifact layout
+
+```text
+deploy/kubernetes/
+  base/
+    namespace.yaml
+    product-service.yaml
+    api-gateway.yaml
+    admin-dashboard.yaml
+    developer-portal.yaml
+    kustomization.yaml
+  overlays/local/
+    namespace.yaml
+    postgres.yaml
+    redis.yaml
+    migration-job.yaml
+    kustomization.yaml
+    applications/
+      kustomization.yaml
+```
+
+The repository uses the Kustomize version embedded in `kubectl`. Helm, Terraform, GitOps controllers, and cloud-specific deployment systems are outside Sprint 71.
+
+### Deployment topology
+
+Base application resources:
+
+```text
+Admin Dashboard :3003 â”€â”€server-onlyâ”€â”€> API Gateway :3000
+Developer Portal :3004
+API Gateway :3000 â”€â”€> Product Service :3001
+API Gateway â”€â”€> PostgreSQL / Redis
+Product Service â”€â”€> PostgreSQL
+```
+
+Each application has:
+
+- one Deployment replica
+- one ClusterIP Service
+- one application ConfigMap
+- explicit Secret references where required
+- HTTP startup, readiness, and liveness probes
+- disabled service-account token mounting
+- non-root UID/GID 1000
+- `RuntimeDefault` seccomp
+- no privilege escalation
+- all Linux capabilities dropped
+
+No application Service is exposed through Ingress, NodePort, or LoadBalancer.
+
+### Configuration and secret ownership
+
+ConfigMaps contain non-secret runtime configuration such as ports, hosts, internal service URLs, timeouts, headers, issuer/audience values, and bounded rate-limit values.
+
+Secret references are separated by workload:
+
+- API Gateway: database URL, public API keys, full-access Admin key, read-only Admin key, and JWT secret.
+- Product Service: database URL.
+- Admin Dashboard: read-only Admin key only.
+- Developer Portal: no privileged secret.
+- Local PostgreSQL: local-only development password.
+
+The local overlay uses explicit `local-development-*` placeholders. Kubernetes Secret encoding is not treated as production secret management.
+
+### Local dependency and migration boundary
+
+The local bootstrap overlay contains:
+
+- PostgreSQL 16 Deployment and ClusterIP Service
+- Redis 7 Deployment and ClusterIP Service
+- ephemeral `emptyDir` data
+- four generated local-only Secrets
+- one migration Job
+
+Migration order:
+
+```text
+Product Service prisma migrate deploy
+  -> API Gateway prisma migrate deploy
+  -> completion container
+```
+
+Migrations are not executed from every application replica or application init container.
+
+The local applications overlay is rendered separately so an operator can wait for the migration Job before applying application workloads.
+
+### Health and service discovery boundary
+
+Kubernetes Services provide internal DNS names only. PulseGate does not query the Kubernetes API and does not derive dynamic route instances from Endpoint or EndpointSlice resources.
+
+Gateway service-instance health remains process-local:
+
+```text
+one Gateway pod
+  -> one in-memory health registry
+```
+
+A pod restart resets that registry. Scaling the Gateway above one replica would create independent health views and requires explicit Sprint 72 validation before any high-availability claim.
+
+### Runtime boundary
+
+Sprint 71 validates manifests statically and validates production images and migration commands with Docker/PostgreSQL. It does not apply resources to a Kubernetes cluster.
+
+Deferred to Sprint 72:
+
+- cluster creation/context selection
+- local image loading
+- apply/rollout validation
+- Service DNS validation
+- port-forward and HTTP validation
+- graceful termination under Kubernetes
+- pod restart behavior
+- per-pod health reset behavior
+- resource measurements and requests/limits
+- rollback, troubleshooting, and cleanup evidence
+<!-- SPRINT-71-ARCHITECTURE-END -->

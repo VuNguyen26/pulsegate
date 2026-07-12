@@ -2139,3 +2139,51 @@ Product/documentation version: `v1.10.0`.
 
 Next sprint: Sprint 71 - Kubernetes foundation.
 <!-- SPRINT-70-REQUIREMENTS-END -->
+
+<!-- SPRINT-71-REQUIREMENTS-START -->
+## Sprint 71 acceptance requirements
+
+### Functional requirements
+
+1. PulseGate shall provide a Kustomize base and a bounded local/development overlay.
+2. The base shall define the `pulsegate` namespace and the four existing application workloads.
+3. Each application shall use one Deployment replica and one ClusterIP Service.
+4. Services shall target the existing application ports: 3000, 3001, 3003, and 3004.
+5. Application probes shall use the existing safe endpoints: `/health` for backend services and `/` for the web applications.
+6. Configuration shall be split between ConfigMaps and Secret references.
+7. The Admin Dashboard shall receive only the read-only Admin credential.
+8. The Developer Portal shall receive no Admin or database secret.
+9. Application pods shall not receive Kubernetes service-account tokens.
+10. Application containers shall run non-root with bounded security contexts.
+11. The local overlay shall provide PostgreSQL 16 and Redis 7 as internal-only ephemeral dependencies.
+12. Database migration ownership shall use one explicit Job, with Product Service migration before API Gateway migration.
+13. The bootstrap overlay and application overlay shall remain separately renderable.
+14. Backend production images shall run compiled JavaScript as the non-root `node` user.
+15. Backend servers shall close Fastify resources on `SIGINT` and `SIGTERM`.
+
+### Safety requirements
+
+1. No production secret shall be committed.
+2. No Ingress, NodePort, LoadBalancer, host networking, host PID, hostPath, privileged container, cluster-admin binding, or unnecessary RBAC shall be added.
+3. No Kubernetes API service discovery shall be introduced.
+4. No service mesh, cloud-vendor dependency, Helm chart, GitOps controller, OpenTelemetry, Loki, billing, marketplace, or enterprise IAM scope shall be introduced.
+5. PostgreSQL and Redis shall not claim durability in the local overlay.
+6. Resource requests/limits shall not be invented without runtime evidence.
+7. `readOnlyRootFilesystem` shall not be asserted without runtime evidence.
+8. Docker Compose development shall remain supported.
+9. Existing host routing, weighted routing, configured service discovery, process-local health, GET-only retry, non-GET no-replay, authentication, quota, rate limit, cache, transform, analytics, metrics, and access-log behavior shall remain unchanged.
+10. Sprint 71 shall create no Git tag and shall not change private npm package versions.
+
+### Validation requirements
+
+1. Root release validation shall pass.
+2. API Gateway and Product Service production Docker image builds shall pass.
+3. Product Service and API Gateway migration commands shall pass against PostgreSQL.
+4. Base, local bootstrap, and local applications Kustomize targets shall render successfully.
+5. Rendered resources shall contain no default public exposure or privileged/RBAC resources.
+6. Working and staged diff checks shall pass.
+7. Protected tag `v1.0.0` shall remain unchanged.
+8. `HEAD`, `main`, `origin/main`, and `origin/HEAD` shall be synchronized.
+9. The final working tree shall be clean.
+10. Actual Kubernetes apply and runtime validation shall remain deferred to Sprint 72.
+<!-- SPRINT-71-REQUIREMENTS-END -->
