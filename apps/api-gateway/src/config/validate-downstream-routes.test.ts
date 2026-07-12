@@ -184,4 +184,145 @@ describe("validateDownstreamRoutes", () => {
       /policies.retry.retryOnStatuses contains invalid HTTP status: 600/,
     );
   });
+  it("should accept bounded relative weighted upstreams", () => {
+    const route = createValidRoute({
+      weightedUpstreams: [
+        {
+          downstreamUrl: "http://product-service:3001/products",
+          weight: 1,
+        },
+        {
+          downstreamUrl: "http://product-service-v2:3001/products",
+          weight: 3,
+        },
+      ],
+    });
+
+    expect(validateDownstreamRoutes([route])).toEqual([route]);
+  });
+
+  it("should reject weighted upstream count outside the bounded range", () => {
+    expect(() =>
+      validateDownstreamRoutes([
+        createValidRoute({
+          weightedUpstreams: [],
+        }),
+      ]),
+    ).toThrow(/must contain at least 2 upstreams/);
+
+    const tooManyUpstreams = Array.from(
+      {
+        length: 9,
+      },
+      (_, index) => ({
+        downstreamUrl:
+          index === 0
+            ? "http://product-service:3001/products"
+            : `http://product-service-${index}:3001/products`,
+        weight: 1,
+      }),
+    );
+
+    expect(() =>
+      validateDownstreamRoutes([
+        createValidRoute({
+          weightedUpstreams: tooManyUpstreams,
+        }),
+      ]),
+    ).toThrow(/must contain at most 8 upstreams/);
+  });
+
+  it("should reject invalid weighted upstream weights", () => {
+    for (const invalidWeight of [
+      0,
+      -1,
+      1.5,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      1001,
+    ]) {
+      expect(() =>
+        validateDownstreamRoutes([
+          createValidRoute({
+            weightedUpstreams: [
+              {
+                downstreamUrl:
+                  "http://product-service:3001/products",
+                weight: 1,
+              },
+              {
+                downstreamUrl:
+                  "http://product-service-v2:3001/products",
+                weight: invalidWeight,
+              },
+            ],
+          }),
+        ]),
+      ).toThrow(/weight must be an integer between 1 and 1000/);
+    }
+  });
+
+  it("should reject duplicate weighted targets and a missing primary target", () => {
+    expect(() =>
+      validateDownstreamRoutes([
+        createValidRoute({
+          weightedUpstreams: [
+            {
+              downstreamUrl:
+                "http://product-service:3001/products",
+              weight: 1,
+            },
+            {
+              downstreamUrl:
+                "http://product-service:3001/products",
+              weight: 2,
+            },
+          ],
+        }),
+      ]),
+    ).toThrow(/contains duplicate downstreamUrl/);
+
+    expect(() =>
+      validateDownstreamRoutes([
+        createValidRoute({
+          weightedUpstreams: [
+            {
+              downstreamUrl:
+                "http://product-service-v2:3001/products",
+              weight: 1,
+            },
+            {
+              downstreamUrl:
+                "http://product-service-v3:3001/products",
+              weight: 1,
+            },
+          ],
+        }),
+      ]),
+    ).toThrow(
+      /downstreamUrl must appear exactly once in weightedUpstreams/,
+    );
+  });
+
+  it("should reject an invalid weighted downstream URL", () => {
+    expect(() =>
+      validateDownstreamRoutes([
+        createValidRoute({
+          weightedUpstreams: [
+            {
+              downstreamUrl:
+                "http://product-service:3001/products",
+              weight: 1,
+            },
+            {
+              downstreamUrl: "ftp://product-service/products",
+              weight: 1,
+            },
+          ],
+        }),
+      ]),
+    ).toThrow(
+      /weightedUpstreams\[1\] downstreamUrl must use http or https/,
+    );
+  });
 });

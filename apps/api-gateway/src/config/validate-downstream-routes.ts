@@ -27,6 +27,105 @@ function isValidHttpHeaderName(headerName: string): boolean {
   return HTTP_HEADER_NAME_PATTERN.test(headerName);
 }
 
+const MIN_WEIGHTED_UPSTREAM_COUNT = 2;
+const MAX_WEIGHTED_UPSTREAM_COUNT = 8;
+const MAX_WEIGHTED_UPSTREAM_WEIGHT = 1000;
+
+function validateWeightedUpstreams(
+  routeLabel: string,
+  route: DownstreamRouteConfig,
+): string[] {
+  const errors: string[] = [];
+  const weightedUpstreams = route.weightedUpstreams;
+
+  if (weightedUpstreams === undefined) {
+    return errors;
+  }
+
+  if (!Array.isArray(weightedUpstreams)) {
+    errors.push(`${routeLabel} weightedUpstreams must be an array`);
+    return errors;
+  }
+
+  if (weightedUpstreams.length < MIN_WEIGHTED_UPSTREAM_COUNT) {
+    errors.push(
+      `${routeLabel} weightedUpstreams must contain at least ${MIN_WEIGHTED_UPSTREAM_COUNT} upstreams`,
+    );
+  }
+
+  if (weightedUpstreams.length > MAX_WEIGHTED_UPSTREAM_COUNT) {
+    errors.push(
+      `${routeLabel} weightedUpstreams must contain at most ${MAX_WEIGHTED_UPSTREAM_COUNT} upstreams`,
+    );
+  }
+
+  const downstreamUrls = new Set<string>();
+  let primaryDownstreamUrlCount = 0;
+
+  for (const [index, upstream] of weightedUpstreams.entries()) {
+    const upstreamLabel = `${routeLabel} weightedUpstreams[${index}]`;
+
+    if (
+      typeof upstream !== "object" ||
+      upstream === null ||
+      Array.isArray(upstream)
+    ) {
+      errors.push(`${upstreamLabel} must be an object`);
+      continue;
+    }
+
+    const downstreamUrl = (
+      upstream as {
+        downstreamUrl?: unknown;
+      }
+    ).downstreamUrl;
+
+    const weight = (
+      upstream as {
+        weight?: unknown;
+      }
+    ).weight;
+
+    if (typeof downstreamUrl !== "string") {
+      errors.push(`${upstreamLabel} downstreamUrl must be a string`);
+    } else {
+      errors.push(
+        ...validateDownstreamUrl(upstreamLabel, downstreamUrl),
+      );
+
+      if (downstreamUrls.has(downstreamUrl)) {
+        errors.push(
+          `${routeLabel} weightedUpstreams contains duplicate downstreamUrl: ${downstreamUrl}`,
+        );
+      }
+
+      downstreamUrls.add(downstreamUrl);
+
+      if (downstreamUrl === route.downstreamUrl) {
+        primaryDownstreamUrlCount += 1;
+      }
+    }
+
+    if (
+      !Number.isInteger(weight) ||
+      (weight as number) < 1 ||
+      (weight as number) > MAX_WEIGHTED_UPSTREAM_WEIGHT
+    ) {
+      errors.push(
+        `${upstreamLabel} weight must be an integer between 1 and ${MAX_WEIGHTED_UPSTREAM_WEIGHT}`,
+      );
+    }
+  }
+
+  if (primaryDownstreamUrlCount !== 1) {
+    errors.push(
+      `${routeLabel} downstreamUrl must appear exactly once in weightedUpstreams`,
+    );
+  }
+
+  return errors;
+}
+
 function validateDownstreamUrl(routeLabel: string, downstreamUrl: string): string[] {
   const errors: string[] = [];
 
@@ -108,6 +207,7 @@ function validateRoute(route: DownstreamRouteConfig, index: number): string[] {
   }
 
   errors.push(...validateDownstreamUrl(routeLabel, route.downstreamUrl));
+  errors.push(...validateWeightedUpstreams(routeLabel, route));
 
   if (route.policies.timeout.enabled && !isPositiveInteger(route.policies.timeout.timeoutMs)) {
     errors.push(`${routeLabel} policies.timeout.timeoutMs must be a positive integer`);

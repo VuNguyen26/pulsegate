@@ -4,11 +4,17 @@ import { validateDownstreamRoutes } from "./validate-downstream-routes.js";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+export type WeightedUpstream = {
+  downstreamUrl: string;
+  weight: number;
+};
+
 export type DownstreamRouteConfig = {
   requestHost?: string;
   serviceName: string;
   gatewayPath: string;
   downstreamUrl: string;
+  weightedUpstreams?: readonly WeightedUpstream[];
   method: HttpMethod;
   policies: RoutePolicies;
 };
