@@ -1,6 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { getAdminActor } from "../middlewares/admin-actor.js";
-import { mapGatewayRouteRecordsToDownstreamRouteConfigs } from "../config/database-route-config.mapper.js";
+import {
+  mapGatewayRouteRecordsToDownstreamRouteConfigs,
+  type DatabaseGatewayRouteRecord,
+} from "../config/database-route-config.mapper.js";
+import {
+  buildServiceDiscoverySnapshot,
+} from "../config/service-discovery.js";
 import { gatewayPrisma } from "../database/gateway-prisma.js";
 import { createAdminApiKeyAuthMiddleware } from "../middlewares/admin-api-key-auth.middleware.js";
 import {
@@ -9,7 +15,12 @@ import {
   mapRouteConfigUpdateRequestToUpdateData,
 } from "../route-management/route-management.mapper.js";
 import { createPrismaRouteManagementRepository } from "../route-management/route-management.repository.js";
-import type { RouteManagementRepository } from "../route-management/route-management.types.js";
+import type {
+  RouteConfigCreateData,
+  RouteConfigReadModel,
+  RouteConfigUpdateData,
+  RouteManagementRepository,
+} from "../route-management/route-management.types.js";
 import type { RouteRuntimeRegistry } from "../runtime/route-runtime-registry.js";
 
 export type AdminRouteConfigRouteOptions = {
@@ -29,6 +40,44 @@ function getErrorMessage(error: unknown): string {
   }
 
   return "Invalid route config";
+}
+
+function validateAdminRouteCandidateSet(options: {
+  persistedRoutes:
+    readonly RouteConfigReadModel[];
+  candidate:
+    | RouteConfigCreateData
+    | RouteConfigUpdateData;
+  replacedRouteId?: string;
+}): void {
+  const activeRouteRecords:
+    DatabaseGatewayRouteRecord[] =
+    options.persistedRoutes
+      .filter(
+        (route) =>
+          route.id !==
+          options.replacedRouteId,
+      )
+      .filter(
+        (route) =>
+          route.enabled &&
+          !route.deletedAt,
+      );
+
+  if (options.candidate.enabled) {
+    activeRouteRecords.push(
+      options.candidate,
+    );
+  }
+
+  const routeConfigs =
+    mapGatewayRouteRecordsToDownstreamRouteConfigs(
+      activeRouteRecords,
+    );
+
+  buildServiceDiscoverySnapshot(
+    routeConfigs,
+  );
 }
 
 export async function adminRouteConfigRoute(
@@ -158,6 +207,27 @@ export async function adminRouteConfigRoute(
         });
       }
 
+      const persistedRoutes =
+        await repository.listRoutes();
+
+      try {
+        validateAdminRouteCandidateSet({
+          persistedRoutes,
+          candidate: createData,
+        });
+      } catch (error) {
+        return reply.status(400).send({
+          error: {
+            code: "ROUTE_CONFIG_INVALID",
+            message:
+              "Route config is invalid",
+            details:
+              getErrorMessage(error),
+            requestId: request.id,
+          },
+        });
+      }
+
       const actor = getAdminActor(request);
       const createdRoute = await repository.createRoute({
         ...createData,
@@ -273,6 +343,29 @@ export async function adminRouteConfigRoute(
             code: "ROUTE_CONFIG_ALREADY_EXISTS",
             message:
               "Route config already exists for this method and gateway path",
+            requestId: request.id,
+          },
+        });
+      }
+
+      const persistedRoutes =
+        await repository.listRoutes();
+
+      try {
+        validateAdminRouteCandidateSet({
+          persistedRoutes,
+          candidate: updateData,
+          replacedRouteId:
+            existingRoute.id,
+        });
+      } catch (error) {
+        return reply.status(400).send({
+          error: {
+            code: "ROUTE_CONFIG_INVALID",
+            message:
+              "Route config is invalid",
+            details:
+              getErrorMessage(error),
             requestId: request.id,
           },
         });

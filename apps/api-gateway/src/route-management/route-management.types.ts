@@ -1,6 +1,7 @@
 import type { DatabaseGatewayRouteRecord } from "../config/database-route-config.mapper.js";
 import type {
   HttpMethod,
+  ServiceInstance,
   WeightedUpstream,
 } from "../config/downstream-routes.js";
 
@@ -21,6 +22,7 @@ export type RouteConfigCreateData = {
   requestHost?: string | null;
   downstreamUrl: string;
   weightedUpstreams: WeightedUpstream[] | null;
+  serviceInstances: ServiceInstance[] | null;
   method: HttpMethod;
   enabled: boolean;
   priority: number;
@@ -74,6 +76,7 @@ export type RouteConfigResponse = {
   requestHost: string | null;
   downstreamUrl: string;
   weightedUpstreams: WeightedUpstream[] | null;
+  serviceInstances: ServiceInstance[] | null;
   method: HttpMethod;
   enabled: boolean;
   priority: number;

@@ -127,10 +127,10 @@ export function validateServiceInstanceBaseUrl(
   return value;
 }
 
-function readServiceInstances(
+export function mapOptionalServiceInstances(
   value: unknown,
 ): readonly ServiceInstance[] | undefined {
-  if (value === undefined) {
+  if (value === undefined || value === null) {
     return undefined;
   }
 
@@ -228,7 +228,7 @@ function haveEqualBaseUrls(
 function validateDiscoveryRoute(
   route: ServiceDiscoveryRouteConfig,
 ): ServiceDiscoveryServiceSnapshot | null {
-  const instances = readServiceInstances(
+  const instances = mapOptionalServiceInstances(
     route.serviceInstances,
   );
 

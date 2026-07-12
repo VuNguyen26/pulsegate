@@ -23,6 +23,10 @@ function mapRouteConfigDataToPrismaInput(
       data.weightedUpstreams === null
         ? Prisma.DbNull
         : (data.weightedUpstreams as Prisma.InputJsonValue),
+    serviceInstances:
+      data.serviceInstances === null
+        ? Prisma.DbNull
+        : (data.serviceInstances as Prisma.InputJsonValue),
     method: data.method as GatewayRouteMethod,
     enabled: data.enabled,
     priority: data.priority,

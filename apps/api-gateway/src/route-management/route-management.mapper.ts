@@ -1,6 +1,10 @@
 import {
   mapOptionalWeightedUpstreams as mapPersistedWeightedUpstreams,
 } from "../config/database-route-config.mapper.js";
+import {
+  buildServiceDiscoverySnapshot,
+  mapOptionalServiceInstances,
+} from "../config/service-discovery.js";
 import type {
   DownstreamRouteConfig,
   HttpMethod,
@@ -238,6 +242,12 @@ function mapRouteConfigReadModelToRequestBody(
         "weightedUpstreams",
         route.weightedUpstreams,
       ) ?? null,
+    serviceInstances:
+      mapOptionalServiceInstances(
+        route.serviceInstances,
+      )?.map((instance) => ({
+        ...instance,
+      })) ?? null,
     method: route.method,
     enabled: route.enabled,
     priority: route.priority,
@@ -376,6 +386,11 @@ export function mapRouteConfigCreateRequestToDownstreamRouteConfig(
     route.weightedUpstreams,
   );
 
+  const serviceInstances =
+    mapOptionalServiceInstances(
+      route.serviceInstances,
+    );
+
   const routeConfig: DownstreamRouteConfig = {
     ...(requestHost ? { requestHost } : {}),
     serviceName: readRequiredString("serviceName", route.serviceName),
@@ -383,6 +398,9 @@ export function mapRouteConfigCreateRequestToDownstreamRouteConfig(
     downstreamUrl: readRequiredString("downstreamUrl", route.downstreamUrl),
     ...(weightedUpstreams
       ? { weightedUpstreams }
+      : {}),
+    ...(serviceInstances
+      ? { serviceInstances }
       : {}),
     method: readHttpMethod(route.method),
     policies: {
@@ -488,7 +506,14 @@ export function mapRouteConfigCreateRequestToDownstreamRouteConfig(
     },
   };
 
-  return validateDownstreamRoutes([routeConfig])[0];
+  const validatedRoute =
+    validateDownstreamRoutes([routeConfig])[0];
+
+  buildServiceDiscoverySnapshot([
+    validatedRoute,
+  ]);
+
+  return validatedRoute;
 }
 
 export function mapRouteConfigCreateRequestToCreateData(
@@ -505,6 +530,11 @@ export function mapRouteConfigCreateRequestToCreateData(
     weightedUpstreams: routeConfig.weightedUpstreams
       ? routeConfig.weightedUpstreams.map((upstream) => ({
           ...upstream,
+        }))
+      : null,
+    serviceInstances: routeConfig.serviceInstances
+      ? routeConfig.serviceInstances.map((instance) => ({
+          ...instance,
         }))
       : null,
     method: routeConfig.method,
@@ -558,6 +588,12 @@ export function mapRouteConfigReadModelToResponse(
         "weightedUpstreams",
         route.weightedUpstreams,
       ) ?? null,
+    serviceInstances:
+      mapOptionalServiceInstances(
+        route.serviceInstances,
+      )?.map((instance) => ({
+        ...instance,
+      })) ?? null,
     method: route.method,
     enabled: route.enabled,
     priority: route.priority,

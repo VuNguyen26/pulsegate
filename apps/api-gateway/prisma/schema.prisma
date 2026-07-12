@@ -38,6 +38,7 @@ model GatewayRoute {
   requestHost   String?            @map("request_host")
   downstreamUrl     String @map("downstream_url")
   weightedUpstreams Json?  @map("weighted_upstreams")
+  serviceInstances  Json?  @map("service_instances")
   method        GatewayRouteMethod
   enabled       Boolean            @default(true)
   priority      Int                @default(100)

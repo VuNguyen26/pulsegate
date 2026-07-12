@@ -3,6 +3,7 @@ import type {
   HttpMethod,
   WeightedUpstream,
 } from "./downstream-routes.js";
+import { mapOptionalServiceInstances } from "./service-discovery.js";
 import { validateDownstreamRoutes } from "./validate-downstream-routes.js";
 
 export type DatabaseGatewayRouteRecord = {
@@ -11,6 +12,7 @@ export type DatabaseGatewayRouteRecord = {
   requestHost?: string | null;
   downstreamUrl: string;
   weightedUpstreams?: unknown;
+  serviceInstances?: unknown;
   method: HttpMethod;
   enabled: boolean;
   priority: number;
@@ -154,6 +156,11 @@ export function mapGatewayRouteRecordToDownstreamRouteConfig(
     record.weightedUpstreams,
   );
 
+  const serviceInstances =
+    mapOptionalServiceInstances(
+      record.serviceInstances,
+    );
+
   return {
     ...(record.requestHost
       ? { requestHost: record.requestHost }
@@ -163,6 +170,9 @@ export function mapGatewayRouteRecordToDownstreamRouteConfig(
     downstreamUrl: record.downstreamUrl,
     ...(weightedUpstreams
       ? { weightedUpstreams }
+      : {}),
+    ...(serviceInstances
+      ? { serviceInstances }
       : {}),
     method: record.method,
     policies: {

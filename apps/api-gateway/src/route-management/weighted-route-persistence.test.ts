@@ -50,6 +50,7 @@ function createData(
     downstreamUrl:
       "http://product-service-a:3001/products",
     weightedUpstreams: null,
+    serviceInstances: null,
     method: "GET",
     enabled: true,
     priority: 100,
@@ -104,6 +105,7 @@ function createRecord(
     requestHost: data.requestHost,
     downstreamUrl: data.downstreamUrl,
     weightedUpstreams: data.weightedUpstreams,
+    serviceInstances: data.serviceInstances,
     method: data.method,
     enabled: data.enabled,
     priority: data.priority,

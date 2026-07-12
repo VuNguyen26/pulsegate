@@ -111,6 +111,8 @@ function createTestRepository(
 
         requestHost: data.requestHost ?? null,
         downstreamUrl: data.downstreamUrl,
+        weightedUpstreams: data.weightedUpstreams,
+        serviceInstances: data.serviceInstances,
         method: data.method,
         enabled: data.enabled,
         priority: data.priority,
@@ -159,6 +161,8 @@ function createTestRepository(
 
         requestHost: data.requestHost ?? null,
         downstreamUrl: data.downstreamUrl,
+        weightedUpstreams: data.weightedUpstreams,
+        serviceInstances: data.serviceInstances,
         method: data.method,
         enabled: data.enabled,
         priority: data.priority,
