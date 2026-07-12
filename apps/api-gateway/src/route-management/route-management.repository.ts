@@ -1,7 +1,7 @@
-import type {
-  GatewayRouteMethod,
+import {
   Prisma,
-  PrismaClient,
+  type GatewayRouteMethod,
+  type PrismaClient,
 } from "../generated/prisma/index.js";
 import type {
   RouteConfigCreateData,
@@ -19,6 +19,10 @@ function mapRouteConfigDataToPrismaInput(
 
     requestHost: data.requestHost ?? null,
     downstreamUrl: data.downstreamUrl,
+    weightedUpstreams:
+      data.weightedUpstreams === null
+        ? Prisma.DbNull
+        : (data.weightedUpstreams as Prisma.InputJsonValue),
     method: data.method as GatewayRouteMethod,
     enabled: data.enabled,
     priority: data.priority,

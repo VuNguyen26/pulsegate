@@ -1,6 +1,10 @@
+import {
+  mapOptionalWeightedUpstreams as mapPersistedWeightedUpstreams,
+} from "../config/database-route-config.mapper.js";
 import type {
   DownstreamRouteConfig,
   HttpMethod,
+  WeightedUpstream,
 } from "../config/downstream-routes.js";
 import {
   normalizeConfiguredRequestHost,
@@ -122,6 +126,44 @@ function readOptionalInteger(
   return value;
 }
 
+function readRequiredInteger(
+  fieldName: string,
+  value: unknown,
+): number {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    throw new Error(`${fieldName} must be an integer`);
+  }
+
+  return value;
+}
+
+function mapRequestWeightedUpstreams(
+  value: unknown,
+): WeightedUpstream[] | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("weightedUpstreams must be an array");
+  }
+
+  return value.map((item, index) => {
+    const fieldName = `weightedUpstreams[${index}]`;
+    const upstream = requirePlainObject(fieldName, item);
+
+    return {
+      downstreamUrl: readRequiredString(
+        `${fieldName}.downstreamUrl`,
+        upstream.downstreamUrl,
+      ),
+      weight: readRequiredInteger(
+        `${fieldName}.weight`,
+        upstream.weight,
+      ),
+    };
+  });
+}
 function mapHeaderMap(
   fieldName: string,
   value: unknown,
@@ -191,6 +233,11 @@ function mapRouteConfigReadModelToRequestBody(
     gatewayPath: route.gatewayPath,
     requestHost: route.requestHost ?? null,
     downstreamUrl: route.downstreamUrl,
+    weightedUpstreams:
+      mapPersistedWeightedUpstreams(
+        "weightedUpstreams",
+        route.weightedUpstreams,
+      ) ?? null,
     method: route.method,
     enabled: route.enabled,
     priority: route.priority,
@@ -325,12 +372,18 @@ export function mapRouteConfigCreateRequestToDownstreamRouteConfig(
   );
   const retry = getOptionalObject("policies.retry", policies.retry);
   const requestHost = readOptionalRequestHost(route.requestHost);
+  const weightedUpstreams = mapRequestWeightedUpstreams(
+    route.weightedUpstreams,
+  );
 
   const routeConfig: DownstreamRouteConfig = {
     ...(requestHost ? { requestHost } : {}),
     serviceName: readRequiredString("serviceName", route.serviceName),
     gatewayPath: readRequiredString("gatewayPath", route.gatewayPath),
     downstreamUrl: readRequiredString("downstreamUrl", route.downstreamUrl),
+    ...(weightedUpstreams
+      ? { weightedUpstreams }
+      : {}),
     method: readHttpMethod(route.method),
     policies: {
       auth: {
@@ -449,6 +502,11 @@ export function mapRouteConfigCreateRequestToCreateData(
     gatewayPath: routeConfig.gatewayPath,
     requestHost: routeConfig.requestHost ?? null,
     downstreamUrl: routeConfig.downstreamUrl,
+    weightedUpstreams: routeConfig.weightedUpstreams
+      ? routeConfig.weightedUpstreams.map((upstream) => ({
+          ...upstream,
+        }))
+      : null,
     method: routeConfig.method,
     enabled: readOptionalBoolean("enabled", route.enabled, true),
     priority: readOptionalInteger("priority", route.priority, 100),
@@ -495,6 +553,11 @@ export function mapRouteConfigReadModelToResponse(
     gatewayPath: route.gatewayPath,
     requestHost: route.requestHost ?? null,
     downstreamUrl: route.downstreamUrl,
+    weightedUpstreams:
+      mapPersistedWeightedUpstreams(
+        "weightedUpstreams",
+        route.weightedUpstreams,
+      ) ?? null,
     method: route.method,
     enabled: route.enabled,
     priority: route.priority,

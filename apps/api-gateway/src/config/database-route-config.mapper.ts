@@ -1,6 +1,7 @@
 import type {
   DownstreamRouteConfig,
   HttpMethod,
+  WeightedUpstream,
 } from "./downstream-routes.js";
 import { validateDownstreamRoutes } from "./validate-downstream-routes.js";
 
@@ -9,6 +10,7 @@ export type DatabaseGatewayRouteRecord = {
   gatewayPath: string;
   requestHost?: string | null;
   downstreamUrl: string;
+  weightedUpstreams?: unknown;
   method: HttpMethod;
   enabled: boolean;
   priority: number;
@@ -44,6 +46,46 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+export function mapOptionalWeightedUpstreams(
+  fieldName: string,
+  value: unknown,
+): WeightedUpstream[] | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error(`${fieldName} must be an array`);
+  }
+
+  return value.map((item, index) => {
+    const itemFieldName = `${fieldName}[${index}]`;
+
+    if (!isPlainObject(item)) {
+      throw new Error(`${itemFieldName} must be an object`);
+    }
+
+    if (typeof item.downstreamUrl !== "string") {
+      throw new Error(
+        `${itemFieldName}.downstreamUrl must be a string`,
+      );
+    }
+
+    if (
+      typeof item.weight !== "number" ||
+      !Number.isInteger(item.weight)
+    ) {
+      throw new Error(
+        `${itemFieldName}.weight must be an integer`,
+      );
+    }
+
+    return {
+      downstreamUrl: item.downstreamUrl,
+      weight: item.weight,
+    };
+  });
+}
 function mapOptionalHeaderMap(
   fieldName: string,
   value: unknown,
@@ -107,6 +149,11 @@ function mapRetryOnStatuses(value: unknown): number[] {
 export function mapGatewayRouteRecordToDownstreamRouteConfig(
   record: DatabaseGatewayRouteRecord,
 ): DownstreamRouteConfig {
+  const weightedUpstreams = mapOptionalWeightedUpstreams(
+    "weightedUpstreams",
+    record.weightedUpstreams,
+  );
+
   return {
     ...(record.requestHost
       ? { requestHost: record.requestHost }
@@ -114,6 +161,9 @@ export function mapGatewayRouteRecordToDownstreamRouteConfig(
     serviceName: record.serviceName,
     gatewayPath: record.gatewayPath,
     downstreamUrl: record.downstreamUrl,
+    ...(weightedUpstreams
+      ? { weightedUpstreams }
+      : {}),
     method: record.method,
     policies: {
       auth: {
