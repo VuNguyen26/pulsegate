@@ -23,6 +23,12 @@ const validRoute = {
   gatewayPath: "/api/products",
   downstreamUrl:
     "http://product-service:3001/products",
+  serviceInstances: [
+    {
+      baseUrl:
+        "http://product-service:3001",
+    },
+  ],
   method: "GET",
   enabled: true,
   priority: 100,

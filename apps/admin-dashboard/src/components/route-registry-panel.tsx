@@ -70,6 +70,17 @@ function formatRouteUpstreamMode(
     : "Single upstream";
 }
 
+function formatRouteDiscoveryMode(
+  route: DashboardPersistedRoute,
+): string {
+  const instanceCount =
+    route.serviceInstances?.length ?? 0;
+
+  return instanceCount > 0
+    ? `Service discovery (${instanceCount} instances)`
+    : "Static upstream";
+}
+
 const persistedColumns:
   readonly AdminResourceColumn<DashboardPersistedRoute>[] = [
     {
@@ -92,6 +103,7 @@ const persistedColumns:
         <div className="route-downstream-cell">
           <code>{route.downstreamUrl}</code>
           <small>{formatRouteUpstreamMode(route)}</small>
+          <small>{formatRouteDiscoveryMode(route)}</small>
           <small>Priority {route.priority}</small>
         </div>
       ),
@@ -261,6 +273,19 @@ export function PersistedRouteDetail({
           label="Routing mode"
           value={formatRouteUpstreamMode(route)}
         />
+        <PolicyValue
+          label="Discovery mode"
+          value={formatRouteDiscoveryMode(route)}
+        />
+        {route.serviceInstances?.map(
+          (instance, index) => (
+            <PolicyValue
+              key={instance.baseUrl}
+              label={`Service instance ${index + 1}`}
+              value={instance.baseUrl}
+            />
+          ),
+        )}
         {route.weightedUpstreams?.map(
           (upstream, index) => (
             <PolicyValue

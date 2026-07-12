@@ -21,6 +21,13 @@ export const MAX_DASHBOARD_RETRY_STATUSES = 20;
 export const MIN_DASHBOARD_WEIGHTED_UPSTREAMS = 2;
 export const MAX_DASHBOARD_WEIGHTED_UPSTREAMS = 8;
 export const MAX_DASHBOARD_UPSTREAM_WEIGHT = 1_000;
+export const MIN_DASHBOARD_SERVICE_INSTANCES = 1;
+export const MAX_DASHBOARD_SERVICE_INSTANCES = 8;
+export const MAX_DASHBOARD_SERVICE_INSTANCE_BASE_URL_LENGTH =
+  2_048;
+
+const DASHBOARD_DISCOVERY_SERVICE_NAME_PATTERN =
+  /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export type DashboardRouteMethod =
   | "GET"
@@ -35,6 +42,10 @@ export type DashboardRouteHeaderMap =
 export type DashboardWeightedUpstream = {
   downstreamUrl: string;
   weight: number;
+};
+
+export type DashboardServiceInstance = {
+  baseUrl: string;
 };
 
 export type DashboardRouteTransformPolicy = {
@@ -77,6 +88,7 @@ export type DashboardPersistedRoute = {
   requestHost?: RouteRequestHost;
   downstreamUrl: string;
   weightedUpstreams?: DashboardWeightedUpstream[] | null;
+  serviceInstances?: DashboardServiceInstance[] | null;
   method: DashboardRouteMethod;
   enabled: boolean;
   priority: number;
@@ -242,6 +254,149 @@ function isSafeDownstreamUrl(
   } catch {
     return false;
   }
+}
+
+function readDashboardUrlOrigin(
+  value: string,
+): string | null {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+function isCanonicalServiceInstanceBaseUrl(
+  value: unknown,
+): value is string {
+  if (
+    !isNonEmptyBoundedString(
+      value,
+      MAX_DASHBOARD_SERVICE_INSTANCE_BASE_URL_LENGTH,
+    )
+  ) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+
+    return (
+      (url.protocol === "http:" ||
+        url.protocol === "https:") &&
+      !url.username &&
+      !url.password &&
+      url.pathname === "/" &&
+      url.search.length === 0 &&
+      url.hash.length === 0 &&
+      value === url.origin
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isDashboardServiceInstances(
+  value: unknown,
+  serviceName: unknown,
+  primaryDownstreamUrl: string,
+  weightedUpstreams: unknown,
+): value is DashboardServiceInstance[] | null | undefined {
+  if (value === undefined || value === null) {
+    return true;
+  }
+
+  if (
+    !isNonEmptyBoundedString(
+      serviceName,
+      64,
+    ) ||
+    !DASHBOARD_DISCOVERY_SERVICE_NAME_PATTERN.test(
+      serviceName,
+    ) ||
+    !Array.isArray(value) ||
+    value.length < MIN_DASHBOARD_SERVICE_INSTANCES ||
+    value.length > MAX_DASHBOARD_SERVICE_INSTANCES
+  ) {
+    return false;
+  }
+
+  const primaryOrigin =
+    readDashboardUrlOrigin(
+      primaryDownstreamUrl,
+    );
+
+  if (!primaryOrigin) {
+    return false;
+  }
+
+  const baseUrls = new Set<string>();
+
+  for (const instance of value) {
+    if (
+      !isRecord(instance) ||
+      !isCanonicalServiceInstanceBaseUrl(
+        instance.baseUrl,
+      ) ||
+      baseUrls.has(instance.baseUrl)
+    ) {
+      return false;
+    }
+
+    baseUrls.add(instance.baseUrl);
+  }
+
+  if (!baseUrls.has(primaryOrigin)) {
+    return false;
+  }
+
+  if (
+    weightedUpstreams !== undefined &&
+    weightedUpstreams !== null
+  ) {
+    if (!Array.isArray(weightedUpstreams)) {
+      return false;
+    }
+
+    const weightedOrigins =
+      new Set<string>();
+
+    for (const upstream of weightedUpstreams) {
+      if (!isRecord(upstream)) {
+        return false;
+      }
+
+      const downstreamUrl =
+        upstream.downstreamUrl;
+
+      if (!isSafeDownstreamUrl(downstreamUrl)) {
+        return false;
+      }
+
+      const origin =
+        readDashboardUrlOrigin(
+          downstreamUrl,
+        );
+
+      if (!origin) {
+        return false;
+      }
+
+      weightedOrigins.add(origin);
+    }
+
+    if (
+      weightedOrigins.size !== baseUrls.size ||
+      Array.from(weightedOrigins).some(
+        (origin) =>
+          !baseUrls.has(origin),
+      )
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function isHeaderMapOrAbsent(
@@ -539,6 +694,12 @@ export function isDashboardPersistedRoute(
     isDashboardWeightedUpstreams(
       value.weightedUpstreams,
       value.downstreamUrl,
+    ) &&
+    isDashboardServiceInstances(
+      value.serviceInstances,
+      value.serviceName,
+      value.downstreamUrl,
+      value.weightedUpstreams,
     ) &&
     isDashboardRouteMethod(value.method) &&
     typeof value.enabled === "boolean" &&

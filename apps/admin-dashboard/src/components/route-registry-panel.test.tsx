@@ -30,6 +30,16 @@ const route: DashboardPersistedRoute = {
       weight: 3,
     },
   ],
+  serviceInstances: [
+    {
+      baseUrl:
+        "http://product-service:3001",
+    },
+    {
+      baseUrl:
+        "http://product-service-canary:3001",
+    },
+  ],
   method: "GET",
   enabled: true,
   priority: 100,
@@ -115,6 +125,13 @@ describe("route registry read view", () => {
       "http://product-service-canary:3001/products",
     );
     expect(html).toContain("weight 3");
+    expect(html).toContain("Discovery mode");
+    expect(html).toContain("Service discovery");
+    expect(html).toContain("2 instances");
+    expect(html).toContain("Service instance 1");
+    expect(html).toContain(
+      "http://product-service-canary:3001",
+    );
     expect(html).toContain(
       "cannot create, update, delete, or",
     );
@@ -129,12 +146,15 @@ describe("route registry read view", () => {
         route={{
           ...route,
           weightedUpstreams: null,
+          serviceInstances: null,
         }}
       />,
     );
 
     expect(html).toContain("Single upstream");
+    expect(html).toContain("Static upstream");
     expect(html).not.toContain("Weighted target 1");
+    expect(html).not.toContain("Service instance 1");
   });
   it("renders runtime snapshot as distinct operational state", () => {
     const html = renderToStaticMarkup(

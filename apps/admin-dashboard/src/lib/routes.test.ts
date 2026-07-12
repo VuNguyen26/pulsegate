@@ -22,6 +22,7 @@ const productRoute: DashboardPersistedRoute = {
   downstreamUrl:
     "http://product-service:3001/products",
   weightedUpstreams: null,
+  serviceInstances: null,
   method: "GET",
   enabled: true,
   priority: 100,
@@ -340,6 +341,166 @@ describe("Dashboard route registry contract", () => {
                 "http://product-service-canary:3001/products",
               weight: 3,
             },
+          ],
+        },
+      ]),
+    ).toBe(false);
+  });
+  it("validates bounded service discovery metadata", () => {
+    const directDiscoveryRoute = {
+      ...productRoute,
+      serviceInstances: [
+        {
+          baseUrl:
+            "http://product-service:3001",
+        },
+      ],
+    };
+
+    expect(
+      isDashboardPersistedRouteList([
+        directDiscoveryRoute,
+      ]),
+    ).toBe(true);
+
+    const weightedDiscoveryRoute = {
+      ...productRoute,
+      weightedUpstreams: [
+        {
+          downstreamUrl:
+            productRoute.downstreamUrl,
+          weight: 1,
+        },
+        {
+          downstreamUrl:
+            "http://product-service-canary:3001/products",
+          weight: 3,
+        },
+      ],
+      serviceInstances: [
+        {
+          baseUrl:
+            "http://product-service:3001",
+        },
+        {
+          baseUrl:
+            "http://product-service-canary:3001",
+        },
+      ],
+    };
+
+    expect(
+      isDashboardPersistedRouteList([
+        weightedDiscoveryRoute,
+      ]),
+    ).toBe(true);
+
+    for (const serviceInstances of [
+      [],
+      [
+        {
+          baseUrl:
+            "http://product-service:3001",
+        },
+        {
+          baseUrl:
+            "http://product-service:3001",
+        },
+      ],
+      [
+        {
+          baseUrl:
+            "http://user:secret@product-service:3001",
+        },
+      ],
+      [
+        {
+          baseUrl:
+            "http://product-service:3001/health",
+        },
+      ],
+      [
+        {
+          baseUrl:
+            "http://product-service:3001?region=primary",
+        },
+      ],
+      [
+        {
+          baseUrl:
+            "http://product-service:3001/",
+        },
+      ],
+    ]) {
+      expect(
+        isDashboardPersistedRouteList([
+          {
+            ...productRoute,
+            serviceInstances,
+          },
+        ]),
+      ).toBe(false);
+    }
+
+    expect(
+      isDashboardPersistedRouteList([
+        {
+          ...productRoute,
+          serviceInstances: [
+            {
+              baseUrl:
+                "http://product-service-canary:3001",
+            },
+          ],
+        },
+      ]),
+    ).toBe(false);
+
+    expect(
+      isDashboardPersistedRouteList([
+        {
+          ...weightedDiscoveryRoute,
+          serviceInstances: [
+            {
+              baseUrl:
+                "http://product-service:3001",
+            },
+            {
+              baseUrl:
+                "http://product-service-next:3001",
+            },
+          ],
+        },
+      ]),
+    ).toBe(false);
+
+    expect(
+      isDashboardPersistedRouteList([
+        {
+          ...directDiscoveryRoute,
+          serviceName: "Product Service",
+        },
+      ]),
+    ).toBe(false);
+
+    expect(
+      isDashboardPersistedRouteList([
+        {
+          ...productRoute,
+          serviceInstances: [
+            {
+              baseUrl:
+                "http://product-service:3001",
+            },
+            ...Array.from(
+              {
+                length: 8,
+              },
+              (_, index) => ({
+                baseUrl:
+                  `http://product-service-${index}:3001`,
+              }),
+            ),
           ],
         },
       ]),
