@@ -7,6 +7,11 @@ import {
   type ServiceDiscoverySnapshot,
 } from "../config/service-discovery.js";
 import { validateDownstreamRoutes } from "../config/validate-downstream-routes.js";
+import {
+  createServiceInstanceHealthRegistry,
+  type ServiceInstanceHealthSnapshot,
+  type ServiceInstanceHealthStatus,
+} from "./service-instance-health-registry.js";
 
 export type ServiceDiscoveryRandomSource = () => number;
 
@@ -39,6 +44,20 @@ export type RouteRuntimeRegistry = {
     serviceName: string,
     randomSource?: ServiceDiscoveryRandomSource,
   ) => string | null;
+  getServiceInstanceHealthSnapshot: () =>
+    ServiceInstanceHealthSnapshot;
+  getServiceInstanceHealthStatus: (
+    serviceName: string,
+    baseUrl: string,
+  ) => ServiceInstanceHealthStatus | null;
+  recordServiceInstanceFailure: (
+    serviceName: string,
+    baseUrl: string,
+  ) => boolean;
+  recordServiceInstanceSuccess: (
+    serviceName: string,
+    baseUrl: string,
+  ) => boolean;
 };
 
 type CreateRouteRuntimeRegistryOptions = {
@@ -125,6 +144,13 @@ export function createRouteRuntimeRegistry(
       now(),
     );
 
+  const serviceInstanceHealthRegistry =
+    createServiceInstanceHealthRegistry({
+      initialSnapshot:
+        currentSnapshot.serviceDiscovery,
+      now,
+    });
+
   return {
     getSnapshot() {
       return cloneSnapshot(currentSnapshot);
@@ -140,6 +166,10 @@ export function createRouteRuntimeRegistry(
           routes,
           now(),
         );
+
+      serviceInstanceHealthRegistry.reconcile(
+        nextSnapshot.serviceDiscovery,
+      );
 
       currentSnapshot = nextSnapshot;
 
@@ -180,6 +210,40 @@ export function createRouteRuntimeRegistry(
       return matchedRoute
         ? structuredClone(matchedRoute)
         : null;
+    },
+
+    getServiceInstanceHealthSnapshot() {
+      return serviceInstanceHealthRegistry.getSnapshot();
+    },
+
+    getServiceInstanceHealthStatus(
+      serviceName,
+      baseUrl,
+    ) {
+      return serviceInstanceHealthRegistry.getStatus(
+        serviceName,
+        baseUrl,
+      );
+    },
+
+    recordServiceInstanceFailure(
+      serviceName,
+      baseUrl,
+    ) {
+      return serviceInstanceHealthRegistry.recordFailure(
+        serviceName,
+        baseUrl,
+      );
+    },
+
+    recordServiceInstanceSuccess(
+      serviceName,
+      baseUrl,
+    ) {
+      return serviceInstanceHealthRegistry.recordSuccess(
+        serviceName,
+        baseUrl,
+      );
     },
 
     resolveServiceInstanceBaseUrl(
