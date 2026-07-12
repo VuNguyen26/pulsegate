@@ -16,10 +16,8 @@ import type {
 
 import type { ResponseCacheStore } from "../cache/redis-response-cache-store.js";
 import type { DownstreamRouteConfig } from "../config/downstream-routes.js";
-import {
-  selectWeightedDownstreamUrl,
-  type WeightedRandomSource,
-} from "../config/weighted-upstream-selector.js";
+import type { WeightedRandomSource } from "../config/weighted-upstream-selector.js";
+import { resolveDownstreamTargetUrl } from "./downstream-target-resolver.js";
 import { DownstreamServiceError } from "../errors/downstream-service-error.js";
 import { apiKeyAuthMiddleware } from "../middlewares/api-key-auth.middleware.js";
 import { jwtAuthMiddleware } from "../middlewares/jwt-auth.middleware.js";
@@ -42,7 +40,10 @@ import { createDownstreamTimeout } from "../policies/timeout.policy.js";
 import {
   buildConfiguredRoutePolicyPath,
 } from "../config/route-identity.js";
-import type { RouteRuntimeRegistry } from "../runtime/route-runtime-registry.js";
+import type {
+  RouteRuntimeRegistry,
+  ServiceDiscoveryRandomSource,
+} from "../runtime/route-runtime-registry.js";
 
 export { buildResponseCacheKey };
 
@@ -601,6 +602,7 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
   responseCacheTtlSeconds?: number;
   usageRecorder?: ApiUsageRecorder;
   weightedRandomSource?: WeightedRandomSource;
+  serviceDiscoveryRandomSource?: ServiceDiscoveryRandomSource;
 }) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const usageStartedAtMs = Date.now();
@@ -650,10 +652,28 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
       }
     }
 
-    const selectedDownstreamUrl = selectWeightedDownstreamUrl(
-      routeConfig,
-      options.weightedRandomSource,
-    );
+    const selectedDownstreamUrl =
+      resolveDownstreamTargetUrl({
+        routeConfig,
+        routeRuntimeRegistry:
+          options.routeRuntimeRegistry,
+        weightedRandomSource:
+          options.weightedRandomSource,
+        serviceDiscoveryRandomSource:
+          options.serviceDiscoveryRandomSource,
+      });
+
+    if (!selectedDownstreamUrl) {
+      throw new DownstreamServiceError({
+        code: "DOWNSTREAM_SERVICE_UNAVAILABLE",
+        message:
+          buildDownstreamUnavailableMessage(
+            routeConfig,
+          ),
+        service: routeConfig.serviceName,
+        statusCode: 503,
+      });
+    }
 
     const downstreamRequestHeaders = applyRequestHeaderTransform(
       {

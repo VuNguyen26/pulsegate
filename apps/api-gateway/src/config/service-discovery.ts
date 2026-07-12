@@ -1,5 +1,6 @@
 import type {
   DownstreamRouteConfig,
+  ServiceInstance,
   WeightedUpstream,
 } from "./downstream-routes.js";
 
@@ -9,10 +10,6 @@ export const MAX_SERVICE_NAME_LENGTH = 64;
 export const MAX_SERVICE_INSTANCE_BASE_URL_LENGTH = 2048;
 
 const SERVICE_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-export type ServiceInstance = Readonly<{
-  baseUrl: string;
-}>;
 
 export type ServiceDiscoveryRouteConfig = Pick<
   DownstreamRouteConfig,

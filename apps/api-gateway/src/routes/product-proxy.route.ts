@@ -24,6 +24,7 @@ import { getRedisClient } from "../redis/redis-client.js";
 import { parseRequestHostHeader } from "../config/request-host.js";
 import {
   createRouteRuntimeRegistry,
+  type ServiceDiscoveryRandomSource,
   type RouteRuntimeRegistry,
 } from "../runtime/route-runtime-registry.js";
 
@@ -38,6 +39,7 @@ export type ProductProxyRouteOptions = {
   usageQuotaChecker?: UsageQuotaChecker;
   rejectedEventRecorder?: ApiRejectedEventRecorder;
   weightedRandomSource?: WeightedRandomSource;
+  serviceDiscoveryRandomSource?: ServiceDiscoveryRandomSource;
 };
 
 export type DownstreamProxyRouteOptions = ProductProxyRouteOptions & {
@@ -170,7 +172,9 @@ export async function downstreamProxyRoute(
         responseCacheStore: options.responseCacheStore,
         responseCacheTtlSeconds: options.responseCacheTtlSeconds,
         usageRecorder: options.usageRecorder,
+        routeRuntimeRegistry: effectiveRouteRuntimeRegistry,
         weightedRandomSource: options.weightedRandomSource,
+        serviceDiscoveryRandomSource: options.serviceDiscoveryRandomSource,
       }),
     });
   }
@@ -197,7 +201,9 @@ export async function downstreamProxyRoute(
         responseCacheStore: options.responseCacheStore,
         responseCacheTtlSeconds: options.responseCacheTtlSeconds,
         usageRecorder: options.usageRecorder,
+        routeRuntimeRegistry: effectiveRouteRuntimeRegistry,
         weightedRandomSource: options.weightedRandomSource,
+        serviceDiscoveryRandomSource: options.serviceDiscoveryRandomSource,
       }),
     });
   }

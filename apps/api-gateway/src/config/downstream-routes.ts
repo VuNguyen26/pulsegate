@@ -9,12 +9,17 @@ export type WeightedUpstream = {
   weight: number;
 };
 
+export type ServiceInstance = Readonly<{
+  baseUrl: string;
+}>;
+
 export type DownstreamRouteConfig = {
   requestHost?: string;
   serviceName: string;
   gatewayPath: string;
   downstreamUrl: string;
   weightedUpstreams?: readonly WeightedUpstream[];
+  serviceInstances?: readonly ServiceInstance[];
   method: HttpMethod;
   policies: RoutePolicies;
 };
