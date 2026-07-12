@@ -18,6 +18,9 @@ import {
 export const MAX_DASHBOARD_ROUTES = 500;
 export const MAX_DASHBOARD_ROUTE_HEADERS = 32;
 export const MAX_DASHBOARD_RETRY_STATUSES = 20;
+export const MIN_DASHBOARD_WEIGHTED_UPSTREAMS = 2;
+export const MAX_DASHBOARD_WEIGHTED_UPSTREAMS = 8;
+export const MAX_DASHBOARD_UPSTREAM_WEIGHT = 1_000;
 
 export type DashboardRouteMethod =
   | "GET"
@@ -28,6 +31,11 @@ export type DashboardRouteMethod =
 
 export type DashboardRouteHeaderMap =
   Record<string, string>;
+
+export type DashboardWeightedUpstream = {
+  downstreamUrl: string;
+  weight: number;
+};
 
 export type DashboardRouteTransformPolicy = {
   enabled: boolean;
@@ -68,6 +76,7 @@ export type DashboardPersistedRoute = {
   gatewayPath: string;
   requestHost?: RouteRequestHost;
   downstreamUrl: string;
+  weightedUpstreams?: DashboardWeightedUpstream[] | null;
   method: DashboardRouteMethod;
   enabled: boolean;
   priority: number;
@@ -466,6 +475,51 @@ export function getDashboardRoutePath(
   );
 }
 
+function isDashboardWeightedUpstreams(
+  value: unknown,
+  primaryDownstreamUrl: string,
+): value is DashboardWeightedUpstream[] | null | undefined {
+  if (value === undefined || value === null) {
+    return true;
+  }
+
+  if (
+    !Array.isArray(value) ||
+    value.length < MIN_DASHBOARD_WEIGHTED_UPSTREAMS ||
+    value.length > MAX_DASHBOARD_WEIGHTED_UPSTREAMS
+  ) {
+    return false;
+  }
+
+  const downstreamUrls = new Set<string>();
+  let primaryMatches = 0;
+
+  for (const upstream of value) {
+    if (
+      !isRecord(upstream) ||
+      !isSafeDownstreamUrl(upstream.downstreamUrl) ||
+      !isSafeIntegerBetween(
+        upstream.weight,
+        1,
+        MAX_DASHBOARD_UPSTREAM_WEIGHT,
+      )
+    ) {
+      return false;
+    }
+
+    if (downstreamUrls.has(upstream.downstreamUrl)) {
+      return false;
+    }
+
+    downstreamUrls.add(upstream.downstreamUrl);
+
+    if (upstream.downstreamUrl === primaryDownstreamUrl) {
+      primaryMatches += 1;
+    }
+  }
+
+  return primaryMatches === 1;
+}
 export function isDashboardPersistedRoute(
   value: unknown,
 ): value is DashboardPersistedRoute {
@@ -482,6 +536,10 @@ export function isDashboardPersistedRoute(
     isGatewayPath(value.gatewayPath) &&
     isOptionalRouteRequestHost(value.requestHost) &&
     isSafeDownstreamUrl(value.downstreamUrl) &&
+    isDashboardWeightedUpstreams(
+      value.weightedUpstreams,
+      value.downstreamUrl,
+    ) &&
     isDashboardRouteMethod(value.method) &&
     typeof value.enabled === "boolean" &&
     isSafeIntegerBetween(

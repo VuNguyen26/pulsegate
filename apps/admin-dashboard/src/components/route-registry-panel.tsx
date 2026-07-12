@@ -59,6 +59,17 @@ function formatBoolean(value: boolean): string {
   return value ? "Enabled" : "Disabled";
 }
 
+function formatRouteUpstreamMode(
+  route: DashboardPersistedRoute,
+): string {
+  const targetCount =
+    route.weightedUpstreams?.length ?? 0;
+
+  return targetCount > 0
+    ? `Weighted routing (${targetCount} targets)`
+    : "Single upstream";
+}
+
 const persistedColumns:
   readonly AdminResourceColumn<DashboardPersistedRoute>[] = [
     {
@@ -80,6 +91,7 @@ const persistedColumns:
       render: (route) => (
         <div className="route-downstream-cell">
           <code>{route.downstreamUrl}</code>
+          <small>{formatRouteUpstreamMode(route)}</small>
           <small>Priority {route.priority}</small>
         </div>
       ),
@@ -245,6 +257,19 @@ export function PersistedRouteDetail({
           label="Downstream URL"
           value={route.downstreamUrl}
         />
+        <PolicyValue
+          label="Routing mode"
+          value={formatRouteUpstreamMode(route)}
+        />
+        {route.weightedUpstreams?.map(
+          (upstream, index) => (
+            <PolicyValue
+              key={upstream.downstreamUrl}
+              label={`Weighted target ${index + 1}`}
+              value={`${upstream.downstreamUrl} - weight ${upstream.weight}`}
+            />
+          ),
+        )}
         <PolicyValue
           label="Priority"
           value={String(route.priority)}

@@ -18,6 +18,18 @@ const route: DashboardPersistedRoute = {
   gatewayPath: "/api/products",
   downstreamUrl:
     "http://product-service:3001/products",
+  weightedUpstreams: [
+    {
+      downstreamUrl:
+        "http://product-service:3001/products",
+      weight: 1,
+    },
+    {
+      downstreamUrl:
+        "http://product-service-canary:3001/products",
+      weight: 3,
+    },
+  ],
   method: "GET",
   enabled: true,
   priority: 100,
@@ -96,6 +108,13 @@ describe("route registry read view", () => {
     expect(html).toContain("/api/products");
     expect(html).toContain("API key auth");
     expect(html).toContain("Rate limit");
+    expect(html).toContain("Weighted routing");
+    expect(html).toContain("2 targets");
+    expect(html).toContain("Weighted target 1");
+    expect(html).toContain(
+      "http://product-service-canary:3001/products",
+    );
+    expect(html).toContain("weight 3");
     expect(html).toContain(
       "cannot create, update, delete, or",
     );
@@ -104,6 +123,19 @@ describe("route registry read view", () => {
     expect(html).not.toContain(">Save<");
   });
 
+  it("renders legacy routes as single-upstream configuration", () => {
+    const html = renderToStaticMarkup(
+      <PersistedRouteDetail
+        route={{
+          ...route,
+          weightedUpstreams: null,
+        }}
+      />,
+    );
+
+    expect(html).toContain("Single upstream");
+    expect(html).not.toContain("Weighted target 1");
+  });
   it("renders runtime snapshot as distinct operational state", () => {
     const html = renderToStaticMarkup(
       <RouteRuntimeSnapshotView

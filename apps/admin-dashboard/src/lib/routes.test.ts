@@ -21,6 +21,7 @@ const productRoute: DashboardPersistedRoute = {
   gatewayPath: "/api/products",
   downstreamUrl:
     "http://product-service:3001/products",
+  weightedUpstreams: null,
   method: "GET",
   enabled: true,
   priority: 100,
@@ -249,6 +250,101 @@ describe("Dashboard route registry contract", () => {
     ).toBe(false);
   });
 
+  it("validates bounded weighted upstream metadata", () => {
+    const weightedRoute: DashboardPersistedRoute = {
+      ...productRoute,
+      weightedUpstreams: [
+        {
+          downstreamUrl: productRoute.downstreamUrl,
+          weight: 1,
+        },
+        {
+          downstreamUrl:
+            "http://product-service-canary:3001/products",
+          weight: 3,
+        },
+      ],
+    };
+
+    expect(
+      isDashboardPersistedRouteList([weightedRoute]),
+    ).toBe(true);
+
+    expect(
+      isDashboardPersistedRouteList([
+        {
+          ...weightedRoute,
+          weightedUpstreams: [
+            {
+              downstreamUrl:
+                productRoute.downstreamUrl,
+              weight: 1,
+            },
+          ],
+        },
+      ]),
+    ).toBe(false);
+
+    expect(
+      isDashboardPersistedRouteList([
+        {
+          ...weightedRoute,
+          weightedUpstreams: [
+            {
+              downstreamUrl:
+                productRoute.downstreamUrl,
+              weight: 1,
+            },
+            {
+              downstreamUrl:
+                productRoute.downstreamUrl,
+              weight: 3,
+            },
+          ],
+        },
+      ]),
+    ).toBe(false);
+
+    expect(
+      isDashboardPersistedRouteList([
+        {
+          ...weightedRoute,
+          weightedUpstreams: [
+            {
+              downstreamUrl:
+                "http://product-service-canary:3001/products",
+              weight: 1,
+            },
+            {
+              downstreamUrl:
+                "http://product-service-next:3001/products",
+              weight: 3,
+            },
+          ],
+        },
+      ]),
+    ).toBe(false);
+
+    expect(
+      isDashboardPersistedRouteList([
+        {
+          ...weightedRoute,
+          weightedUpstreams: [
+            {
+              downstreamUrl:
+                productRoute.downstreamUrl,
+              weight: 0,
+            },
+            {
+              downstreamUrl:
+                "http://product-service-canary:3001/products",
+              weight: 3,
+            },
+          ],
+        },
+      ]),
+    ).toBe(false);
+  });
   it("rejects credential-bearing downstream URLs and oversized lists", () => {
     expect(
       isDashboardPersistedRouteList([
