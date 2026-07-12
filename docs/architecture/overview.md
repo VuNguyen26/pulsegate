@@ -6,24 +6,25 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.12.0
+v1.13.0
 
 ## Current Status
 
-Sprint 72 - Kubernetes runtime validation and deployment documentation Complete
+Sprint 73 - OpenTelemetry tracing foundation Complete
 
 Current validation:
 
 - Admin Dashboard: 53 test files / 244 tests passed.
-- API Gateway: 155 test files / 1140 tests passed.
+- API Gateway: 158 test files / 1160 tests passed.
 - Developer Portal: 2 test files / 7 tests passed.
-- Root release validation, typecheck, production builds, Prisma validation, Compose validation, and Git diff checks passed.
-- Docker Desktop Kubernetes v1.32.2 ran one Ready local control-plane node.
-- Kustomize rendered 13 base, 10 local bootstrap, and 13 local application resources.
-- Six Deployments reached 1/1 Ready and the ordered migration Job completed.
-- Product Service has 1 applied migration and API Gateway has 11 applied migrations.
-- In-cluster HTTP and bounded Windows port-forward validation passed.
-- API Gateway pod replacement produced a new Ready pod with zero restarts.
+- Product Service: 2 test files / 8 tests passed.
+- Root tests, typecheck, production builds, release-readiness validation, and Git diff checks passed.
+- API Gateway and Product Service images built with OpenTelemetry runtime dependencies.
+- Kustomize base and local overlay renders passed with no manifest changes.
+- Product Service and API Gateway migration deploy commands reported no pending migrations.
+- Docker Compose runtime returned HTTP 200 for both service health endpoints and Gateway proxy health.
+- W3C trace continuity and bounded Gateway access-log trace/span correlation passed.
+- Kubernetes cluster runtime was not re-applied because Sprint 73 changed no deployment contract.
 - Private npm workspace versions remain 0.1.0.
 - Protected annotated tag v1.0.0 remains unchanged.
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
@@ -276,6 +277,7 @@ API Gateway currently handles:
 - Analytics retention dry-run policy, candidate count, service, args parser, and command foundations.
 - Analytics retention execution guard, execution args parser, execution preview command, delete batch plan model, repository safety contract, operation planner, Prisma delete repository foundation, execution service preview, summary model, candidate count loader, candidate-read preview composition, operator preview output, DB-backed operator preview command, and operator preview fail-fast CLI hardening.
 - Internal/admin route, consumer, API key, usage plan, usage analytics, rejected event, quota, and rollup APIs.
+- Bounded OpenTelemetry server/client tracing with W3C propagation and structured access-log trace/span correlation.
 - Structured access logs, bounded Prometheus metric labels, provisioned Grafana panels, and bounded Docker-based k6 smoke validation.
 
 ---
@@ -1636,3 +1638,52 @@ PostgreSQL and Redis still use emptyDir. Pod replacement can lose local data. No
 
 Sprint 72 did not complete an approved resource-sizing exercise, so it does not invent requests or limits. Resource sizing remains a measured future hardening task.
 <!-- SPRINT-72-ARCHITECTURE-END -->
+
+<!-- SPRINT-73-ARCHITECTURE-START -->
+## OpenTelemetry tracing boundary (Sprint 73)
+
+### Runtime topology
+
+```text
+Client traceparent / tracestate
+-> API Gateway SERVER span
+-> access log traceId + spanId
+-> one API Gateway CLIENT span per actual fetch attempt
+-> trusted traceparent / tracestate injection after request transform
+-> Product Service SERVER span
+```
+
+### Runtime contract
+
+- API Gateway and Product Service use explicit local tracer providers rather than global auto-instrumentation.
+- Runtime providers use an AlwaysOff sampler and no exporter, collector, or backend.
+- Tests use an AlwaysOn sampler, SimpleSpanProcessor, and InMemorySpanExporter.
+- Only W3C `traceparent` and `tracestate` are accepted and propagated.
+- Invalid or missing incoming context starts a new trace.
+- `baggage`, B3, Jaeger, and vendor-specific propagation are not supported.
+- Gateway server span names use bounded Fastify route templates and `__unmatched__` for unmatched requests.
+- Client span names use bounded HTTP method and canonical service name.
+- Product Service server span names use bounded route templates and `__unmatched__`.
+- Cache hits and requests rejected before downstream fetch create no Gateway CLIENT span.
+- Every actual fetch attempt creates one CLIENT span, including retry and failover attempts.
+- Existing retry behavior remains authoritative: GET may execute at most eight attempts and non-GET requests are not replayed.
+
+### Attribute and security boundary
+
+Allowed attributes are fixed and bounded, including HTTP method, route template, response status, service name, retry attempt, failover flag, and allowlisted error/rejection codes.
+
+Tracing does not record raw API keys, hashes, JWTs, Authorization, Cookie, session data, request or response bodies, raw query strings, raw headers, request IDs, consumer IDs, API-key IDs, admin actors, database URLs, Redis credentials, Kubernetes Secrets, raw downstream URLs, raw unmatched paths, or free-form exception messages.
+
+### Source-of-truth boundary
+
+- Traces are operational diagnostics only.
+- PostgreSQL usage and rejected-event tables remain analytics and quota sources of truth.
+- Route configuration and the runtime registry remain routing sources of truth.
+- Process-local service health remains failover eligibility state.
+- Prometheus remains the metrics signal path.
+- Structured access logs remain the request completion log path.
+
+### Deployment boundary
+
+Sprint 73 adds no service, port, environment variable, Secret, migration, Kubernetes manifest, ServiceAccount, RBAC, Ingress, NodePort, LoadBalancer, collector, or tracing backend. Kustomize render validation passed, while cluster apply was not repeated because manifests and workload contracts were unchanged.
+<!-- SPRINT-73-ARCHITECTURE-END -->

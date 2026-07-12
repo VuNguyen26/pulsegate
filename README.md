@@ -2,30 +2,29 @@
 
 High-Traffic API Gateway & Observability Platform.
 
-## Current product/documentation version - v1.12.0
+## Current product/documentation version - v1.13.0
 
-**Latest completed sprint:** Sprint 72 - Kubernetes runtime validation and deployment documentation.
+**Latest completed sprint:** Sprint 73 - OpenTelemetry tracing foundation.
 
 Current validation baseline:
 
 - Admin Dashboard: 53 test files / 244 tests passed.
-- API Gateway: 155 test files / 1140 tests passed.
+- API Gateway: 158 test files / 1160 tests passed.
 - Developer Portal: 2 test files / 7 tests passed.
-- Root release validation, typecheck, production builds, Prisma validation, Compose validation, and Git diff checks passed.
-- Docker Desktop Kubernetes `docker-desktop` ran one Ready Kubernetes v1.32.2 control-plane node.
-- Kustomize rendered 13 base resources, 10 local bootstrap resources, and 13 local application resources.
-- PostgreSQL, Redis, Product Service, API Gateway, Admin Dashboard, and Developer Portal Deployments reached 1/1 Ready.
-- Product Service applied 1 migration and API Gateway applied 11 migrations through the ordered migration Job.
-- In-cluster HTTP validation passed for Gateway, Product Service, Dashboard, Dashboard BFF, and four Portal routes.
-- Windows port-forward validation passed for seven bounded HTTP surfaces.
-- API Gateway pod replacement produced a new pod UID, Ready state, zero restarts, and HTTP 200 health.
-- API Gateway runtime packaging was corrected so workspace-local Redis dependencies are present in the production image.
+- Product Service: 2 test files / 8 tests passed.
+- Root tests, typecheck, production builds, release-readiness validation, and Git diff checks passed.
+- API Gateway and Product Service production images built with direct OpenTelemetry runtime dependencies.
+- Kustomize base and local overlay renders passed without manifest changes.
+- Product Service and API Gateway migration deploy commands reported no pending migrations; the schemas retain 1 and 11 migrations respectively.
+- Docker Compose runtime returned HTTP 200 for Product Service health, API Gateway health, and Gateway-to-Product-Service proxy health.
+- A fixed inbound W3C trace ID continued through the Gateway and appeared with a bounded span ID in the structured access log.
+- Kubernetes cluster runtime was not re-applied in Sprint 73 because no Kubernetes manifest, service, port, Secret, or workload contract changed.
 
 Private npm workspace versions remain `0.1.0`.
 
-The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 72 creates no Git tag.
+The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 73 creates no Git tag.
 
-Next planned sprint: **Sprint 73 - OpenTelemetry tracing foundation**.
+Next planned sprint: **Sprint 74 - Loki logging foundation**.
 
 ---
 ## Current Status
@@ -189,7 +188,8 @@ Current gateway capabilities:
 - Analytics retention execution guard preview
 - Analytics retention repository safety primitives
 - Analytics retention execution service orchestration preview
-- Structured access logs
+- OpenTelemetry backend tracing foundation with bounded W3C propagation
+- Structured access logs with trace/span correlation
 - Prometheus metrics with bounded matched-route templates and fixed `__unmatched__` fallback
 - Provisioned five-panel Grafana gateway dashboard
 - Bounded Docker-based k6 health smoke
@@ -1316,3 +1316,57 @@ Product/documentation version: **v1.12.0**.
 
 Next planned sprint: **Sprint 73 - OpenTelemetry tracing foundation**.
 <!-- SPRINT-72-README-END -->
+
+<!-- SPRINT-73-README-START -->
+## Sprint 73 - OpenTelemetry tracing foundation
+
+Sprint 73 adds a bounded backend tracing foundation to API Gateway and Product Service without adding an exporter, collector, vendor backend, browser instrumentation, or new runtime port.
+
+Delivered and validated:
+
+- Added direct OpenTelemetry API, core, and trace SDK dependencies to API Gateway and Product Service.
+- Added a local tracing runtime with explicit context handling, W3C Trace Context propagation, an AlwaysOff production sampler, and deterministic in-memory test support.
+- Added one bounded Gateway SERVER span per inbound request.
+- Added fixed trace and span correlation fields to Gateway structured access logs.
+- Added one Gateway CLIENT span for each actual downstream fetch attempt.
+- Injected trusted `traceparent` and `tracestate` after request-header transformation so configured headers cannot override tracing context.
+- Explicitly removed outbound `baggage`; sensitive headers, raw paths, raw URLs, request bodies, request IDs, consumer IDs, API-key identifiers, and free-form exception messages are not span attributes.
+- Added Product Service SERVER tracing that continues the Gateway CLIENT span context.
+- Preserved cache-hit and pre-proxy behavior with zero downstream CLIENT spans.
+- Preserved GET-only retry/failover limits and non-GET no-replay behavior.
+- Preserved authentication, quota, rate-limit, cache, transform, analytics, metrics, service-discovery, and routing sources of truth.
+
+Validation evidence:
+
+- Admin Dashboard: 53 test files / 244 tests.
+- API Gateway: 158 test files / 1160 tests.
+- Developer Portal: 2 test files / 7 tests.
+- Product Service: 2 test files / 8 tests.
+- Root tests, typecheck, build, release-readiness, and diff checks passed.
+- Kustomize base and local overlay renders passed.
+- Backend images built and started through Docker Compose.
+- Product Service and API Gateway migration deploy commands reported no pending migrations.
+- Product Service health, Gateway health, and Gateway proxy health returned HTTP 200.
+- Gateway access logs continued trace ID `4bf92f3577b34da6a3ce929d0e0e4736` and emitted a bounded span ID.
+- Containers and the Compose network were removed after validation; the repository remained clean and synchronized.
+
+Boundaries:
+
+- Runtime sampling remains AlwaysOff and no exporter is configured.
+- No OTLP collector, Tempo, Jaeger, Zipkin, cloud vendor, service mesh, or browser tracing was introduced.
+- No new environment variable, permanent service, public endpoint, port, database migration, or Kubernetes resource was added.
+- Kubernetes manifests were rendered but the cluster runtime was not re-applied because deployment contracts did not change.
+- Traces are operational signals only and are not authentication, quota, billing, analytics, routing, or health sources of truth.
+- Private npm workspace versions remain `0.1.0` and no Sprint 73 Git tag is created.
+
+Implementation commits:
+
+- `1f71d56a46b824ada4393bd3486f14569fb0a320` - `feat(observability): add tracing contract foundation`
+- `bdd7c97e2133a9deca858f36e2c64ac18c206969` - `feat(gateway): add inbound tracing foundation`
+- `dca60387b214f4b690bda15147debd5e1048f78b` - `feat(gateway): propagate downstream trace context`
+- `dea8f62965acad25aa91ece87fe836ff958dba86` - `feat(product): add inbound tracing foundation`
+
+Product/documentation version: **v1.13.0**.
+
+Next planned sprint: **Sprint 74 - Loki logging foundation**.
+<!-- SPRINT-73-README-END -->

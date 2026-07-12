@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.12.0
+v1.13.0
 
 ## Latest Completed Sprint
 
-Sprint 72 - Kubernetes runtime validation and deployment documentation
+Sprint 73 - OpenTelemetry tracing foundation
 
 ---
 ## Document Scope
@@ -2232,3 +2232,47 @@ Validation baseline:
 
 Next sprint: Sprint 73 - OpenTelemetry tracing foundation.
 <!-- SPRINT-72-REQUIREMENTS-END -->
+
+<!-- SPRINT-73-REQUIREMENTS-START -->
+## Sprint 73 acceptance requirements
+
+1. API Gateway and Product Service shall declare direct, pinned OpenTelemetry API, core, and trace SDK dependencies.
+2. Runtime tracing shall use explicit local providers, an AlwaysOff sampler, and no exporter or collector.
+3. Tests shall have a deterministic AlwaysOn in-memory tracing seam.
+4. API Gateway shall create one SERVER span per inbound request.
+5. Product Service shall create one SERVER span per inbound request and continue valid Gateway-propagated context.
+6. Every actual downstream fetch attempt shall create one Gateway CLIENT span.
+7. Cache hits and pre-proxy rejections shall create zero downstream CLIENT spans.
+8. Existing GET retry/failover limits and non-GET no-replay behavior shall remain unchanged.
+9. W3C `traceparent` and `tracestate` shall be the only supported propagation headers.
+10. Outbound trusted trace headers shall be injected after request-header transformation and shall override configured trace headers.
+11. `baggage` shall not be propagated.
+12. Span names and attributes shall use bounded route templates, canonical service names, fixed enums, and bounded numeric values.
+13. Raw credentials, API keys, JWTs, cookies, bodies, queries, headers, request IDs, user/consumer identifiers, admin actors, database or Redis secrets, Kubernetes Secrets, raw URLs, raw unmatched paths, and free-form exception messages shall not be recorded in spans.
+14. Gateway structured access logs shall expose fixed trace ID and span ID correlation fields.
+15. Traces shall not become authentication, quota, billing, analytics, routing, service-discovery, or health sources of truth.
+16. No exporter, collector, Tempo, Jaeger, Zipkin, vendor backend, browser tracing, service mesh, or cloud tracing dependency shall be added.
+17. No environment variable, permanent service, public port, endpoint, database migration, or Kubernetes manifest shall be added.
+18. Docker Compose runtime shall validate Product Service health, Gateway health, and Gateway-to-Product-Service proxy health.
+19. Runtime validation shall prove a fixed inbound trace ID appears in Gateway access logs with a bounded span ID.
+20. Kustomize base and local overlay renders shall pass; cluster apply may be skipped when manifests and workload contracts are unchanged.
+21. Private npm workspace versions shall remain `0.1.0`.
+22. Protected tag `v1.0.0` shall remain unchanged and Sprint 73 shall create no Git tag.
+
+Implementation status: Complete.
+
+Validation baseline:
+
+- Admin Dashboard: 53 test files / 244 tests.
+- API Gateway: 158 test files / 1160 tests.
+- Developer Portal: 2 test files / 7 tests.
+- Product Service: 2 test files / 8 tests.
+- Root tests, typecheck, build, release-readiness, and diff checks passed.
+- Kustomize base and local overlay renders passed.
+- Backend Docker images built and started.
+- Product Service and API Gateway migration deploy commands reported no pending migrations.
+- Three bounded Docker Compose HTTP surfaces returned 200.
+- Gateway access-log trace correlation passed.
+
+Next sprint: Sprint 74 - Loki logging foundation.
+<!-- SPRINT-73-REQUIREMENTS-END -->

@@ -1,85 +1,73 @@
 # AI Handoff
 
-PulseGate is complete through **Sprint 72 - Kubernetes runtime validation and deployment documentation**.
+PulseGate is complete through Sprint 73 - OpenTelemetry tracing foundation.
 
 ## Canonical state
 
-- Product/documentation version: `v1.12.0`.
+- Product/documentation version: `v1.13.0`.
 - Private npm workspace versions: `0.1.0`.
-- Latest implementation commit before docs: `c6229f4091ae4c70b5ee4964b57559f9f47a049d`.
-- Protected annotated tag `v1.0.0` remains unchanged.
-- Sprint 72 creates no tag.
-- Next sprint: **Sprint 73 - OpenTelemetry tracing foundation**.
+- Latest implementation commit before docs: `dea8f62965acad25aa91ece87fe836ff958dba86`.
+- Protected annotated tag `v1.0.0` remains unchanged: tag object `726feb46e62a3224f7e27d55ae4f9e74dd6b1123`, target `407d03678674219e7228b15f0cd7a23074493f31`.
+- Sprint 73 creates no tag.
+- Next sprint: Sprint 74 - Loki logging foundation.
 
-## Validated Kubernetes runtime
+## Sprint 73 implementation commits
 
-- Context: `docker-desktop`.
-- Runtime: Docker Desktop Kubernetes, kubeadm, one local control-plane node.
-- Kubernetes version: v1.32.2.
-- Namespace: `pulsegate`.
-- Base render: 13 resources.
-- Local bootstrap render: 10 resources.
-- Local application render: 13 resources.
-- PostgreSQL, Redis, Product Service, API Gateway, Admin Dashboard, and Developer Portal Deployments reached 1/1 Ready.
-- Migration Job completed in Product Service -> API Gateway -> completion order.
-- Migration counts: 1 Product Service and 11 API Gateway.
-- In-cluster HTTP validation passed for 8 approved surfaces.
-- Seven port-forwarded HTTP surfaces returned 200.
-- Gateway pod replacement produced a new UID, zero restarts, and HTTP 200 health.
+- `1f71d56a46b824ada4393bd3486f14569fb0a320` - `feat(observability): add tracing contract foundation`
+- `bdd7c97e2133a9deca858f36e2c64ac18c206969` - `feat(gateway): add inbound tracing foundation`
+- `dca60387b214f4b690bda15147debd5e1048f78b` - `feat(gateway): propagate downstream trace context`
+- `dea8f62965acad25aa91ece87fe836ff958dba86` - `feat(product): add inbound tracing foundation`
 
-## Runtime image correction
+## Tracing contract
 
-The API Gateway production image must copy both:
+- API Gateway and Product Service use explicit local OpenTelemetry providers.
+- Runtime sampling is AlwaysOff and there is no exporter, collector, or backend.
+- Tests use AlwaysOn sampling with an in-memory exporter.
+- W3C `traceparent` and `tracestate` are supported; `baggage` is removed and not propagated.
+- Gateway creates one SERVER span per request and one CLIENT span per actual downstream fetch attempt.
+- Product Service creates one SERVER span and continues valid Gateway client context.
+- Cache hits and pre-proxy rejections create no downstream CLIENT spans.
+- Existing GET-only retry/failover limits and non-GET no-replay remain authoritative.
+- Gateway access logs include bounded `traceId` and `spanId` fields.
 
-```text
-/app/node_modules
-/app/apps/api-gateway/node_modules
-```
+## Security and cardinality contract
 
-The workspace-local tree contains the runtime `redis` package used by compiled Gateway output. Commit:
+Do not add raw credentials, API keys, JWTs, cookies, bodies, queries, headers, request IDs, consumer or API-key identifiers, admin actors, database URLs, Redis credentials, Kubernetes Secrets, raw downstream URLs, raw unmatched paths, or free-form exception messages to spans.
 
-```text
-c6229f4091ae4c70b5ee4964b57559f9f47a049d
-fix(runtime): include gateway workspace dependencies
-```
+Span names and attributes must remain bounded by route templates, canonical service names, fixed enums, response status, bounded retry attempt, and failover Boolean.
 
-Do not remove the workspace dependency copy without proving production runtime module resolution.
+## Source-of-truth contract
 
-## Kubernetes contract
+- Traces are operational diagnostics only.
+- Usage and rejected-event tables remain analytics and quota truth.
+- Route configuration and the runtime registry remain routing truth.
+- Process-local health remains failover eligibility state.
+- Prometheus remains metrics; structured logs remain request completion logs.
 
-- Kustomize uses the version embedded in `kubectl`.
-- Bootstrap path: `deploy/kubernetes/overlays/local`.
-- Application path: `deploy/kubernetes/overlays/local/applications`.
-- Application replicas remain one.
-- Services remain ClusterIP.
-- PostgreSQL and Redis remain ephemeral `emptyDir` Deployments.
-- Dashboard receives only `ADMIN_READ_ONLY_API_KEY`.
-- Developer Portal receives no privileged Secret.
-- Application service-account token mounting remains disabled.
-- Application containers remain non-root with RuntimeDefault seccomp, no privilege escalation, and dropped capabilities.
-- No Ingress, NodePort, LoadBalancer, RBAC, ServiceAccount, PVC, StatefulSet, or production secret management exists.
+## Validation baseline
 
-## Health and discovery contract
+- Admin Dashboard: 53 test files / 244 tests.
+- API Gateway: 158 test files / 1160 tests.
+- Developer Portal: 2 test files / 7 tests.
+- Product Service: 2 test files / 8 tests.
+- Root tests, typecheck, build, release-readiness, and diff checks passed.
+- Kustomize base and local overlay renders passed.
+- Docker images built; migrations reported no pending work.
+- Product Service health, Gateway health, and Gateway proxy health returned HTTP 200.
+- Fixed W3C trace ID continuity and Gateway access-log span correlation passed.
+- Docker containers/network were cleaned and Git remained synchronized.
+- Kubernetes cluster runtime was not re-applied because Sprint 73 changed no manifest or workload contract.
 
-- Kubernetes Services provide stable internal DNS only.
-- PulseGate does not query Kubernetes APIs or Endpoint resources for route discovery.
-- Existing configured service discovery remains authoritative.
-- Gateway instance health remains process-local and per pod.
-- Pod replacement recreates the process-local health registry.
-- Multiple Gateway replicas would have independent health views.
-- GET-only retry, seven-retry cap, eight-execution cap, and non-GET no-replay remain unchanged.
+## Sprint 74 boundary
 
-## Sprint 73 boundary
-
-Sprint 73 owns OpenTelemetry tracing foundation only.
+Sprint 74 owns Loki logging foundation only.
 
 Before patching:
 
-- audit current logging, request ID, Fastify hooks, proxy lifecycle, metrics, Docker, Compose, and Kubernetes configuration
-- preserve bounded labels and existing analytics sources of truth
-- define trace propagation and sampling explicitly
-- keep secrets, API keys, JWTs, raw bodies, and unbounded paths out of attributes
-- keep Loki, service mesh, cloud exporter lock-in, billing, marketplace, and enterprise IAM out of scope
-- validate Docker Compose and Kubernetes runtime after implementation
+- audit current structured logs, log fields, Docker, Compose, Kubernetes, Prometheus, Grafana, and tracing correlation
+- preserve access-log bounded fields and existing analytics sources of truth
+- define log shipping, retention, labels, and secret handling explicitly
+- keep raw credentials, bodies, queries, and unbounded paths out of Loki labels and log payloads
+- keep tracing exporter, service mesh, cloud lock-in, billing, marketplace, and enterprise IAM out of scope unless the fixed roadmap explicitly changes
 
-Do not change npm workspace versions or create a Git tag.
+Do not change private npm workspace versions or create a Git tag during Sprint 74 implementation.

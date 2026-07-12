@@ -2,7 +2,7 @@
 
 ## Current Version
 
-v1.12.0
+v1.13.0
 
 Private npm workspace package versions remain `0.1.0`.
 
@@ -10,9 +10,50 @@ The annotated `v1.0.0` Git tag remains unchanged at the final Sprint 60 document
 
 ## Latest Completed Sprint
 
-Sprint 72 - Kubernetes runtime validation and deployment documentation
+Sprint 73 - OpenTelemetry tracing foundation
 
 ## Latest Decision
+
+<!-- SPRINT-73-DECISION-LOG-START -->
+### 2026-07-12 - Use bounded manual OpenTelemetry tracing without a runtime exporter
+
+Decision:
+
+- Use direct OpenTelemetry API, core, and trace SDK dependencies in API Gateway and Product Service.
+- Use explicit local providers and context handling instead of global auto-instrumentation.
+- Keep runtime sampling AlwaysOff with no exporter or collector.
+- Use deterministic AlwaysOn in-memory tracing for tests.
+- Accept and propagate W3C `traceparent` and `tracestate` only.
+- Never propagate `baggage`.
+- Create one Gateway SERVER span per request, one Gateway CLIENT span per actual fetch attempt, and one Product Service SERVER span per request.
+- Inject trusted trace headers after request transformation.
+- Correlate Gateway access logs with fixed trace ID and span ID fields.
+- Keep all span names and attributes bounded and allowlisted.
+- Keep traces separate from routing, health, authentication, quota, billing, and analytics truth.
+- Advance product/documentation version to `v1.13.0`.
+- Keep private npm versions and protected tag `v1.0.0` unchanged.
+
+Reason:
+
+- Manual instrumentation provides an auditable foundation without introducing global monkey-patching or exporter lock-in.
+- Per-fetch CLIENT spans preserve retry and failover visibility while retaining existing execution bounds.
+- Post-transform injection prevents configuration from forging or overriding trusted downstream trace context.
+- AlwaysOff runtime sampling avoids hidden export cost before a collector and operating model are approved.
+- Strict allowlists prevent credentials and high-cardinality values from entering telemetry.
+
+Consequences:
+
+- Trace continuity is validated locally, but runtime spans are not exported or persisted.
+- Loki and Grafana observability integration remain future sprint scope.
+- A future exporter must preserve the current sampling, security, cardinality, and source-of-truth boundaries.
+- Kubernetes manifests and runtime exposure remain unchanged.
+
+Detailed record:
+
+- `docs/project-context/decisions/2026-07-12-opentelemetry-tracing-foundation.md`
+- `docs/sdlc/sprint-history/sprint-73.md`
+- `docs/runbooks/observability-validation.md`
+<!-- SPRINT-73-DECISION-LOG-END -->
 
 <!-- SPRINT-72-DECISION-LOG-START -->
 ### 2026-07-12 - Validate Kubernetes as a bounded local development runtime
