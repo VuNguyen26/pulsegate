@@ -41,6 +41,7 @@ import {
 } from "../policies/timeout.policy.js";
 import {
   recordRequestTracingOutcome,
+  startDownstreamClientTracingSpan,
 } from "../middlewares/tracing.middleware.js";
 import {
   buildConfiguredRoutePolicyPath,
@@ -111,7 +112,43 @@ function applyHeadersToReply(
   }
 }
 
+const OUTBOUND_TRACE_HEADER_NAMES =
+  new Set([
+    "baggage",
+    "traceparent",
+    "tracestate",
+  ]);
+
+function applyDownstreamTraceHeaders(
+  transformedHeaders:
+    Record<string, string>,
+  traceHeaders:
+    Record<string, string>,
+): Record<string, string> {
+  const outboundHeaders = {
+    ...transformedHeaders,
+  };
+
+  for (const headerName of
+    Object.keys(outboundHeaders)) {
+    if (
+      OUTBOUND_TRACE_HEADER_NAMES.has(
+        headerName.toLowerCase(),
+      )
+    ) {
+      delete outboundHeaders[
+        headerName
+      ];
+    }
+  }
+
+  return {
+    ...outboundHeaders,
+    ...traceHeaders,
+  };
+}
 function shouldRetryDownstreamError(
+
   error: unknown,
   retryOnStatuses: number[],
 ): boolean {
@@ -698,12 +735,13 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
       }
     }
 
-    const downstreamRequestHeaders = applyRequestHeaderTransform(
-      {
-        "x-request-id": request.id,
-      },
-      routePolicies.requestTransform,
-    );
+    const transformedDownstreamRequestHeaders =
+      applyRequestHeaderTransform(
+        {
+          "x-request-id": request.id,
+        },
+        routePolicies.requestTransform,
+      );
 
     const fixedLegacyTarget =
       routeConfig.serviceInstances ===
@@ -723,6 +761,10 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
       new Set<string>();
 
     let stopRetrying = false;
+    let downstreamAttempt = 0;
+    let firstTargetIdentity:
+      | string
+      | undefined;
 
     const fetchDownstreamResponse = async (): Promise<Response> => {
       const target =
@@ -761,7 +803,42 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
           routePolicies.timeout,
         );
 
-      const recordHealthFailure = (
+      const currentAttempt =
+        downstreamAttempt;
+
+      downstreamAttempt += 1;
+
+      const targetIdentity =
+        target.serviceInstanceBaseUrl ??
+        target.downstreamUrl;
+
+      const failover =
+        firstTargetIdentity !== undefined &&
+        firstTargetIdentity !==
+          targetIdentity;
+
+      firstTargetIdentity ??=
+        targetIdentity;
+
+      const downstreamTrace =
+        startDownstreamClientTracingSpan(
+          request,
+          {
+            method: routeConfig.method,
+            serviceName:
+              routeConfig.serviceName,
+            retryAttempt:
+              currentAttempt,
+            failover,
+          },
+        );
+
+      const downstreamRequestHeaders =
+        applyDownstreamTraceHeaders(
+          transformedDownstreamRequestHeaders,
+          downstreamTrace?.headers ?? {},
+        );
+const recordHealthFailure = (
         error: DownstreamServiceError,
       ): void => {
         if (
@@ -797,6 +874,10 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
                 downstreamTimeout.signal,
             },
           );
+
+        downstreamTrace?.recordResponse(
+          downstreamResponse.status,
+        );
 
         if (
           target.serviceInstanceBaseUrl &&
@@ -839,6 +920,19 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
           error instanceof
           DownstreamServiceError
         ) {
+          if (
+            error.code ===
+              "DOWNSTREAM_HTTP_ERROR" ||
+            error.code ===
+              "DOWNSTREAM_SERVICE_UNAVAILABLE" ||
+            error.code ===
+              "DOWNSTREAM_TIMEOUT"
+          ) {
+            downstreamTrace?.recordError(
+              error.code,
+            );
+          }
+
           throw error;
         }
 
@@ -870,7 +964,13 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
                 originalError: error,
               });
 
-        recordHealthFailure(
+        downstreamTrace?.recordError(
+          error instanceof Error &&
+            error.name === "AbortError"
+            ? "DOWNSTREAM_TIMEOUT"
+            : "DOWNSTREAM_SERVICE_UNAVAILABLE",
+        );
+recordHealthFailure(
           downstreamError,
         );
 

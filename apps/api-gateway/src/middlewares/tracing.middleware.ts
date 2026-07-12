@@ -104,6 +104,7 @@ export type GatewayTracingRejectionReason =
   | "ROUTE_NOT_FOUND";
 
 type GatewayTracingState = {
+  tracing: TracingRuntime;
   span: Span;
   context: Context;
   method: string;
@@ -317,7 +318,186 @@ function endRequestSpan(
   state.span.end();
 }
 
+export type DownstreamClientTracingErrorCode =
+  | "DOWNSTREAM_HTTP_ERROR"
+  | "DOWNSTREAM_SERVICE_UNAVAILABLE"
+  | "DOWNSTREAM_TIMEOUT";
+
+export type DownstreamClientTracingSpan = {
+  headers: Record<string, string>;
+  recordResponse: (
+    statusCode: number,
+  ) => void;
+  recordError: (
+    errorCode:
+      DownstreamClientTracingErrorCode,
+  ) => void;
+};
+
+type StartDownstreamClientTracingSpanOptions = {
+  method: string;
+  serviceName: string;
+  retryAttempt: number;
+  failover: boolean;
+};
+
+const MAX_DOWNSTREAM_RETRY_ATTEMPT = 7;
+
+const SERVICE_NAME_PATTERN =
+  /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function getBoundedServiceName(
+  serviceName: string,
+): string {
+  if (
+    serviceName.length > 0 &&
+    serviceName.length <= 64 &&
+    SERVICE_NAME_PATTERN.test(serviceName)
+  ) {
+    return serviceName;
+  }
+
+  return "unknown-service";
+}
+
+function getBoundedRetryAttempt(
+  retryAttempt: number,
+): number {
+  if (
+    Number.isInteger(retryAttempt) &&
+    retryAttempt >= 0 &&
+    retryAttempt <=
+      MAX_DOWNSTREAM_RETRY_ATTEMPT
+  ) {
+    return retryAttempt;
+  }
+
+  return 0;
+}
+
+export function startDownstreamClientTracingSpan(
+  request: FastifyRequest,
+  options:
+    StartDownstreamClientTracingSpanOptions,
+): DownstreamClientTracingSpan | undefined {
+  const state =
+    request.gatewayTracingState;
+
+  if (!state || state.ended) {
+    return undefined;
+  }
+
+  const method =
+    HTTP_METHODS.has(
+      options.method.toUpperCase(),
+    )
+      ? options.method.toUpperCase()
+      : "OTHER";
+
+  const serviceName =
+    getBoundedServiceName(
+      options.serviceName,
+    );
+
+  const retryAttempt =
+    getBoundedRetryAttempt(
+      options.retryAttempt,
+    );
+
+  const span =
+    state.tracing.tracer.startSpan(
+      `${method} ${serviceName}`,
+      {
+        kind: SpanKind.CLIENT,
+        attributes: {
+          "http.request.method":
+            method,
+          "pulsegate.service.name":
+            serviceName,
+          "pulsegate.retry.attempt":
+            retryAttempt,
+          "pulsegate.failover":
+            options.failover,
+        },
+      },
+      state.context,
+    );
+
+  const spanContext =
+    state.tracing.contextWithSpan(
+      state.context,
+      span,
+    );
+
+  const headers =
+    state.tracing.injectContext(
+      spanContext,
+    );
+
+  let ended = false;
+
+  const endSpan = (): void => {
+    if (ended) {
+      return;
+    }
+
+    ended = true;
+    span.end();
+  };
+
+  return {
+    headers,
+
+    recordResponse(statusCode) {
+      if (ended) {
+        return;
+      }
+
+      if (
+        Number.isInteger(statusCode) &&
+        statusCode >= 100 &&
+        statusCode <= 599
+      ) {
+        span.setAttribute(
+          "http.response.status_code",
+          statusCode,
+        );
+      }
+
+      if (statusCode >= 400) {
+        span.setAttribute(
+          "pulsegate.error.code",
+          "DOWNSTREAM_HTTP_ERROR",
+        );
+
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+        });
+      }
+
+      endSpan();
+    },
+
+    recordError(errorCode) {
+      if (ended) {
+        return;
+      }
+
+      span.setAttribute(
+        "pulsegate.error.code",
+        errorCode,
+      );
+
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+      });
+
+      endSpan();
+    },
+  };
+}
 export function registerTracingMiddleware(
+
   app: FastifyInstance,
   tracing: TracingRuntime,
 ): void {
@@ -353,6 +533,7 @@ export function registerTracingMiddleware(
         );
 
       request.gatewayTracingState = {
+        tracing,
         span,
         context:
           tracing.contextWithSpan(
