@@ -2,7 +2,7 @@
 
 ## Scope
 
-This runbook covers Sprint 69 bounded configured service discovery.
+This runbook covers Sprint 69 configured service discovery and Sprint 70 process-local health/failover hardening.
 
 It covers:
 
@@ -190,3 +190,22 @@ Completed before documentation finalization:
 - credential non-disclosure check passed
 
 This evidence does not prove health checks or failover; those remain Sprint 70 scope.
+
+<!-- SPRINT-70-SERVICE-DISCOVERY-RUNBOOK-START -->
+## Sprint 70 health and failover operations
+
+- Health is process-local and resets on Gateway restart.
+- Two qualifying failures enter a 30-second cooldown.
+- Network failures, timeouts, and downstream 5xx responses qualify.
+- Any HTTP response below 500 resets health.
+- Direct discovery selects only eligible instances.
+- Weighted discovery filters cooldown and per-request failed origins, preserves relative weights, and re-runs the selector.
+- Only GET requests retry.
+- Retry attempts are limited to 7 and executions to 8.
+- Non-GET requests execute once.
+- No eligible target returns the existing downstream-unavailable response.
+- Valid reload preserves unchanged health identities, initializes new identities, and prunes removed identities.
+- Invalid reload preserves previous routing and health.
+
+Sprint 70 runtime evidence proved JSONB roundtrip, two qualifying failures, client HTTP 200 failover, cooldown exclusion, HTTP 503 with no eligible target, no raw URL disclosure, soft deletion, runtime removal, and clean Git state.
+<!-- SPRINT-70-SERVICE-DISCOVERY-RUNBOOK-END -->

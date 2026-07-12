@@ -62,7 +62,7 @@ Rules:
 - Tests inject a deterministic random source.
 - Production uses an internal random source.
 - Retries reuse one selected target.
-- No target health or failover behavior exists.
+- Legacy weighted routes have no target health behavior; weighted routes with `serviceInstances` use Sprint 70 eligibility filtering and retry-budget failover.
 
 ## Admin persistence semantics
 
@@ -143,3 +143,19 @@ A direct discovery route without `weightedUpstreams` selects one configured inst
 
 See `docs/runbooks/service-discovery.md`.
 <!-- SPRINT-69-WEIGHTED-DISCOVERY-END -->
+
+<!-- SPRINT-70-WEIGHTED-FAILOVER-START -->
+## Sprint 70 weighted discovery failover
+
+Legacy weighted routes select one target and reuse it across retries.
+
+Weighted discovery routes:
+
+- require `serviceInstances`
+- filter cooldown and per-request failed origins
+- preserve relative weights among remaining origins
+- re-run the weighted selector for failover
+- fail closed when no eligible origin remains
+
+This preserves Sprint 68 compatibility while enabling Sprint 70 failover only for explicit discovery routes.
+<!-- SPRINT-70-WEIGHTED-FAILOVER-END -->

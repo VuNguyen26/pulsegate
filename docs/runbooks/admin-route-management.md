@@ -284,3 +284,19 @@ Persistence semantics:
 
 After an approved write, use the existing runtime reload endpoint. Reload validates the complete active route and service snapshot before atomic replacement.
 <!-- SPRINT-69-ADMIN-ROUTE-END -->
+
+<!-- SPRINT-70-ADMIN-ROUTE-START -->
+## Sprint 70 retry and health boundaries
+
+- Retry `attempts` must be an integer from 0 through 7.
+- Only GET requests execute retries.
+- Non-GET requests execute once.
+- Discovery failover cannot exceed the configured retry budget.
+- Health is derived from downstream observations.
+- Admin reload preserves unchanged health identities.
+- Adding an instance initializes it as healthy.
+- Removing an instance prunes its health entry.
+- Invalid reload preserves previous routing and health.
+- Admin APIs expose no force-healthy, force-cooldown, probe, or reset operation.
+- A route with no eligible discovery instance fails closed.
+<!-- SPRINT-70-ADMIN-ROUTE-END -->

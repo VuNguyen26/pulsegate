@@ -203,3 +203,22 @@ The route registry and service snapshot are replaced together only after the can
 
 Legacy routes with absent or SQL `NULL` discovery metadata remain outside the discovery snapshot and preserve their direct or weighted behavior.
 <!-- SPRINT-69-RUNTIME-RELOAD-END -->
+
+<!-- SPRINT-70-RUNTIME-RELOAD-START -->
+## Sprint 70 health-state reload semantics
+
+On a valid reload:
+
+- unchanged `serviceName + baseUrl` identities preserve health
+- new identities start healthy
+- removed identities are pruned
+- routing and service discovery are applied atomically
+
+On an invalid reload:
+
+- the previous route snapshot remains active
+- the previous health state remains active
+- no partial health reconciliation is published
+
+Process restart resets health. Reload does not poll external registries, perform active probes, distribute health across replicas, or expose health mutation through Admin or Dashboard APIs.
+<!-- SPRINT-70-RUNTIME-RELOAD-END -->

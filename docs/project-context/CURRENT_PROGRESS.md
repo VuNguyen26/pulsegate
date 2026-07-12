@@ -1,97 +1,73 @@
 # Current Progress
 
-## Canonical state after Sprint 69
+## Canonical state after Sprint 70
 
-- Product/documentation version: `v1.9.0`.
+- Product/documentation version: `v1.10.0`.
 - Private npm workspace versions: `0.1.0`.
-- Latest completed sprint: **Sprint 69 - Service discovery foundation**.
-- Latest implementation commit before documentation finalization: `b5aefe9f3bcb4aa44b4be2d65a2f127007525141`.
+- Latest completed sprint: **Sprint 70 - Service discovery health/failover hardening**.
+- Latest implementation commit before documentation finalization: `fdf38fadee069cbcf96c8e501b21306cfb73cb2f`.
 - Protected annotated tag `v1.0.0` remains unchanged at `407d03678674219e7228b15f0cd7a23074493f31`.
-- Sprint 69 creates no Git tag.
-- Next sprint: **Sprint 70 - Service discovery health/failover hardening**.
+- Sprint 70 creates no Git tag.
+- Next sprint: **Sprint 71 - Kubernetes foundation**.
 
-## Sprint 69 implementation commits
+## Sprint 70 implementation commits
 
-- `5575cae641462dd9646fa2c2fb22689dcdf5787f` - `feat(gateway): add service discovery contract`
-- `7c4f70655e7c2f6d9b50a26d81cfe00a06f1fc46` - `feat(gateway): resolve configured service instances`
-- `ab5a2b72d9b0fe4d592636305d5fb3fbea43725e` - `feat(gateway): persist service discovery routes`
-- `b5aefe9f3bcb4aa44b4be2d65a2f127007525141` - `feat(dashboard): show service discovery metadata`
+- `8b2acec1e42242893d638145437581e34ddece89` - `feat(gateway): add service instance health contract`
+- `42faa85e322b4dcb3af632cb649101aa924f5420` - `feat(gateway): add health-aware target selection`
+- `fdf38fadee069cbcf96c8e501b21306cfb73cb2f` - `feat(gateway): fail over unhealthy service instances`
 
 ## Delivered behavior
 
-- Optional route-level `serviceInstances`.
-- Canonical lowercase kebab-case service identity.
-- 1-8 unique canonical HTTP or HTTPS instance origins.
-- Maximum 64 services in one runtime discovery snapshot.
-- Primary downstream origin required in the instance set.
-- Equal instance sets required across active routes sharing a service name.
-- Direct discovery selects one trusted configured instance and preserves path/query.
-- Missing service/runtime state fails closed.
-- Weighted discovery remains on the existing weighted selector.
-- Weighted origins exactly match discovery instances.
-- Legacy direct and weighted routes remain compatible.
-- Nullable PostgreSQL JSONB persistence.
-- Admin create/read/update/clear/reload/soft-delete support.
-- Candidate-set validation before Admin writes.
-- Read-only Dashboard discovery mode and instance display.
+- Bounded process-local service-instance health registry.
+- Maximum 512 health entries.
+- Healthy, cooldown, and computed probe behavior.
+- Two-failure threshold and 30-second cooldown.
+- Network, timeout, and downstream 5xx failure classification.
+- HTTP responses below 500 reset health.
+- Health-aware direct and weighted discovery selection.
+- Per-request exclusion of qualifying failed instances.
+- GET-only failover through the existing retry budget.
+- Seven retry attempts and eight total executions maximum.
+- Fail-closed behavior when no eligible target remains.
+- Legacy direct and weighted compatibility.
+- Reload preservation, initialization, pruning, and invalid-reload safety.
+- No raw instance URL in client errors or metric labels.
 
 ## Validation baseline
 
-- API Gateway: 153 test files / 1110 tests.
-- Admin Dashboard: 53 test files / 244 tests.
-- Developer Portal: 2 test files / 7 tests.
-- Prisma schema validation passed.
-- Root tests, typecheck, and production build passed.
+- API Gateway: 155 test files / 1140 tests.
+- Targeted failover coverage: 41 tests.
+- API Gateway typecheck and build passed.
 - Docker Compose configuration passed.
-- Working and staged diff checks passed.
-- Migration `20260712114500_add_gateway_route_service_instances` deployed.
-- `service_instances` verified as nullable JSONB.
-- Admin create/read/reload/database roundtrip/direct proxy/soft-delete/cleanup passed.
-- Dashboard read-only GET/POST authorization boundary passed.
-- Dashboard BFF list/detail preserved discovery metadata.
-- Dashboard `/routes` returned HTTP 200 without credential disclosure.
+- Eleven Gateway migrations with none pending.
+- Active persisted routes with `retry_attempts > 7`: 0.
+- Gateway and Product Service images rebuilt.
+- Discovery metadata JSONB roundtrip passed.
+- Two qualifying failures produced client HTTP 200 through failover.
+- Cooldown exclusion prevented more requests to the failed instance.
+- No eligible target returned HTTP 503 without a downstream call.
+- Raw instance URL disclosure check passed.
+- Soft deletion, runtime removal, and database retention passed.
+- Working tree remained clean and HEAD matched `origin/main`.
 
 ## Preserved boundaries
 
-- No health checks or automatic failover.
-- No retry-to-another-instance behavior.
-- No external registry, DNS discovery, Kubernetes discovery, or cloud control plane.
-- No registration, deregistration, heartbeat, TTL, or background refresh.
-- No circuit breaker, passive health scoring, or outlier ejection.
-- No client-selected instance, arbitrary reverse proxy, or sticky routing.
-- No per-instance unbounded Prometheus labels.
-- No Dashboard mutation controls.
+- No active background polling.
+- No heartbeat, lease, registration, deregistration, or TTL.
+- No distributed or persisted health state.
+- No external registry, Consul, Eureka, DNS SRV, Kubernetes API, or cloud discovery.
+- No general circuit breaker, service mesh, or outlier-ejection platform.
+- No non-GET replay.
+- No client-selected target, sticky routing, or arbitrary reverse proxy.
+- No unbounded per-instance metrics.
+- No Dashboard health controls.
 - No Developer Portal route management.
-- No new dependency, environment variable, service, or port.
+- No migration, dependency, environment variable, permanent service, or permanent port.
 - No Kubernetes, OpenTelemetry, Loki, billing, marketplace, or enterprise IAM work.
 - No npm package version bump.
-- No Sprint 69 Git tag.
-
-## Documentation updated
-
-- `README.md`
-- `docs/architecture/overview.md`
-- `docs/sdlc/requirements.md`
-- `docs/project-context/CURRENT_PROGRESS.md`
-- `docs/project-context/AI_HANDOFF.md`
-- `docs/project-context/DECISION_LOG.md`
-- `docs/runbooks/admin-dashboard.md`
-- `docs/runbooks/admin-route-management.md`
-- `docs/runbooks/local-validation.md`
-- `docs/runbooks/runtime-reload.md`
-- `docs/runbooks/weighted-routing.md`
-- `docs/runbooks/service-discovery.md`
-- `docs/sdlc/sprint-history/sprint-69.md`
-- `docs/project-context/decisions/2026-07-12-service-discovery-foundation.md`
+- No Sprint 70 Git tag.
 
 ## Fixed roadmap
-
-### Backend Portfolio v1
-
-- Sprints 45-60 complete.
-- Sprint 60 released protected annotated tag `v1.0.0`.
-
-### Product/Platform Expansion v2
 
 - Sprint 61 - Admin Dashboard foundation - complete.
 - Sprint 62 - Dashboard consumers/API keys/usage plans - complete.
@@ -102,8 +78,8 @@
 - Sprint 67 - Host-based routing foundation - complete.
 - Sprint 68 - Weighted routing foundation - complete.
 - Sprint 69 - Service discovery foundation - complete.
-- Sprint 70 - Service discovery health/failover hardening - next.
-- Sprint 71 - Kubernetes foundation.
+- Sprint 70 - Service discovery health/failover hardening - complete.
+- Sprint 71 - Kubernetes foundation - next.
 - Sprint 72 - Kubernetes runtime validation and deployment docs.
 - Sprint 73 - OpenTelemetry tracing foundation.
 - Sprint 74 - Loki logging foundation.

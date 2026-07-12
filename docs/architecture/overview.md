@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.9.0
+v1.10.0
 
 ## Current Status
 
-Sprint 69 - Service discovery foundation Complete
+Sprint 70 - Service discovery health/failover hardening Complete
 
 Current validation:
 
@@ -538,8 +538,8 @@ Core:
 - Path parameters are not implemented yet.
 - Wildcard upstream mapping is not implemented yet.
 - Exact host-based routing is implemented; wildcard hosts and host analytics dimensions are not implemented.
-- Bounded configured service discovery is implemented; health checks and automatic failover are not implemented.
-- Configured route-level service discovery is implemented; external registries, health checks, and automatic failover are not implemented.
+- Bounded configured service discovery now includes process-local passive health state and retry-budget failover.
+- No active background polling, distributed health state, external registry, DNS discovery, circuit breaker, or general outlier-ejection platform is implemented.
 - OpenTelemetry tracing is not implemented yet.
 - Loki centralized logging is not implemented yet.
 - Only bounded local k6 health smoke validation is implemented; a production-scale load-test platform is not.
@@ -550,14 +550,14 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 64 - Dashboard rollup/retention/scheduler panels.
+Sprint 71 - Kubernetes foundation.
 
 Rationale:
 
-- Sprint 63 established bounded analytics filters, cursor navigation, strict DTO validation, and fixed same-origin Admin read URLs.
-- Sprint 64 should reuse those boundaries for rollup, scheduler, and retention inspection.
-- Scheduler and retention views must remain observational unless a later roadmap item explicitly approves execution.
-- Quota counting must remain based on raw successful usage events.
+- Sprint 70 completed bounded process-local service discovery health and failover behavior.
+- Kubernetes work must preserve the existing routing, retry, health, security, quota, analytics, and fail-closed boundaries.
+- Sprint 71 owns Kubernetes configuration foundations; production runtime validation remains assigned to Sprint 72.
+- Kubernetes APIs must not silently become a dynamic service-registry control plane.
 - Raw-event deletion must remain blocked.
 
 ## Selected Summary Runtime Rollup Reads
@@ -1337,3 +1337,115 @@ Operational boundary:
 - Raw instance origins are not added as unbounded Prometheus labels.
 - Sprint 70 owns health/failover hardening.
 <!-- SPRINT-69-ARCHITECTURE-END -->
+
+<!-- SPRINT-70-ARCHITECTURE-START -->
+## Service discovery health and failover hardening (Sprint 70)
+
+### Request flow
+
+```txt
+request
+  -> resolve route and policies
+  -> resolve one eligible discovery target
+  -> execute downstream request
+  -> classify transport result
+  -> update process-local health
+  -> on qualifying GET failure and remaining retry budget:
+       exclude failed target
+       resolve another eligible target
+       retry
+  -> transforms, cache store, analytics, metrics, and access log
+```
+
+### Process-local health registry
+
+The runtime registry owns a separate bounded instance-health registry.
+
+Identity:
+
+```txt
+serviceName + canonical baseUrl
+```
+
+Bounds and lifecycle:
+
+- Maximum 64 services.
+- Maximum 8 instances per service.
+- Maximum 512 health entries.
+- Valid reload preserves unchanged identities.
+- New identities start healthy.
+- Removed identities are pruned.
+- Invalid reload preserves previous routing and health.
+- Process restart resets health.
+- PostgreSQL and Redis do not persist health state.
+
+State transitions:
+
+- Two consecutive qualifying failures enter cooldown.
+- Cooldown lasts 30 seconds.
+- Post-cooldown eligibility is represented as a computed probe.
+- Any HTTP response below 500 returns the instance to healthy.
+- A qualifying probe failure returns it to cooldown.
+
+Qualifying failures:
+
+- network or unavailable failure
+- downstream timeout
+- downstream HTTP 5xx
+
+Neutral conditions:
+
+- cache hit
+- route, auth, quota, rate-limit, or request validation rejection
+- response-transform or cache-store failure
+- invalid JSON after an HTTP response
+
+### Target selection
+
+Direct discovery:
+
+- filters to eligible, non-excluded instances
+- selects uniformly
+- preserves trusted configured path and query
+
+Weighted discovery:
+
+- filters cooldown and per-request failed origins
+- preserves relative weights among remaining origins
+- re-runs the existing weighted selector
+
+Legacy routes:
+
+- do not use service-instance health without `serviceInstances`
+- preserve prior direct and weighted retry behavior
+
+### Retry boundary
+
+- Failover uses the existing retry policy.
+- Only GET retries.
+- Non-GET methods execute once.
+- Retry attempts are capped at 7.
+- Total downstream executions are capped at 8.
+- Failed discovery targets are excluded from later attempts in the same request.
+- No eligible target stops retry and fails closed.
+
+### Security and observability
+
+- Client input cannot select or reactivate instances.
+- Raw instance URLs are absent from client errors.
+- Raw instance URLs are absent from metric labels.
+- No unbounded instance-level metric dimension was added.
+
+### Deferred scope
+
+- active health polling
+- heartbeat, TTL, registration, or leases
+- distributed health state
+- database or Redis health persistence
+- external registries
+- Consul, Eureka, DNS SRV, Kubernetes API, or cloud discovery
+- circuit breaker, service mesh, or general outlier ejection
+- sticky sessions or client-selected targets
+- Dashboard health controls
+- Developer Portal route management
+<!-- SPRINT-70-ARCHITECTURE-END -->

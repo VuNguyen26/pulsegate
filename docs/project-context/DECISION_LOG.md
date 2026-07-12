@@ -2,7 +2,7 @@
 
 ## Current Version
 
-v1.9.0
+v1.10.0
 
 Private npm workspace package versions remain `0.1.0`.
 
@@ -10,7 +10,7 @@ The annotated `v1.0.0` Git tag remains unchanged at the final Sprint 60 document
 
 ## Latest Completed Sprint
 
-Sprint 69 - Service discovery foundation
+Sprint 70 - Service discovery health/failover hardening
 
 ## Latest Decision
 
@@ -1504,3 +1504,40 @@ Detailed record:
 
 - `docs/project-context/decisions/2026-07-12-service-discovery-foundation.md`
 <!-- SPRINT-69-DECISION-LOG-END -->
+
+<!-- SPRINT-70-DECISION-LOG-START -->
+### 2026-07-12 - Use bounded process-local health and retry-budget failover
+
+Decision:
+
+- Keep health process-local beside the runtime route registry.
+- Identify instances by canonical service name and base URL.
+- Bound health state to 512 entries.
+- Use two qualifying failures and a 30-second cooldown.
+- Treat network failures, timeouts, and downstream 5xx responses as failures.
+- Treat HTTP responses below 500 as transport success.
+- Preserve unchanged health identities across valid reloads.
+- Initialize new identities and prune removed identities.
+- Filter direct and weighted discovery by health eligibility.
+- Exclude failed targets from later attempts in the same request.
+- Fail over only through the existing GET retry policy.
+- Cap retries at 7 and total executions at 8.
+- Preserve legacy routing behavior.
+- Fail closed when no eligible target remains.
+
+Boundaries:
+
+- No active polling, heartbeat, TTL, registration, or leases.
+- No database, Redis, or distributed health state.
+- No external registry, DNS SRV, Consul, Eureka, Kubernetes API, or cloud discovery.
+- No general circuit breaker, service mesh, or outlier-ejection platform.
+- No non-GET replay.
+- No client-selected targets or sticky routing.
+- No Dashboard health controls or Developer Portal route management.
+- No new dependency, migration, environment variable, permanent service, or permanent port.
+- No npm version bump or Sprint 70 tag.
+
+Detailed record:
+
+- `docs/project-context/decisions/2026-07-12-service-discovery-health-failover-hardening.md`
+<!-- SPRINT-70-DECISION-LOG-END -->

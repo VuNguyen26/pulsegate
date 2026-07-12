@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.9.0
+v1.10.0
 
 ## Latest Completed Sprint
 
-Sprint 69 - Service discovery foundation
+Sprint 70 - Service discovery health/failover hardening
 
 ---
 
@@ -2090,3 +2090,52 @@ Validation baseline:
 
 Next sprint: Sprint 70 - Service discovery health/failover hardening.
 <!-- SPRINT-69-REQUIREMENTS-END -->
+
+<!-- SPRINT-70-REQUIREMENTS-START -->
+## Sprint 70 acceptance requirements
+
+1. Health state shall remain process-local and bounded.
+2. Health identity shall use canonical `serviceName + baseUrl`.
+3. The registry shall contain at most 512 health entries.
+4. Two consecutive qualifying failures shall enter a 30-second cooldown.
+5. Network failures, timeouts, and downstream 5xx responses shall qualify.
+6. Any HTTP response below 500 shall reset transport health.
+7. Cache hits and pre-proxy rejections shall not alter health.
+8. Invalid response JSON shall not record an instance failure.
+9. Valid reload shall preserve unchanged health identities.
+10. Valid reload shall initialize new identities and prune removed identities.
+11. Invalid reload shall preserve previous routing and health state.
+12. Process restart shall reset health.
+13. Direct discovery shall select only eligible instances.
+14. Weighted discovery shall filter ineligible origins and preserve remaining relative weights.
+15. A qualifying failed target shall be excluded from later attempts in the same request.
+16. Failover shall occur only through the existing retry budget.
+17. Retry attempts shall be capped at 7.
+18. Total downstream executions shall be capped at 8.
+19. Only GET requests may retry and fail over.
+20. Non-GET requests shall never be replayed.
+21. Legacy direct and weighted behavior shall remain compatible.
+22. No eligible target shall fail closed.
+23. Raw instance URLs shall not be exposed in client errors or metric labels.
+24. No active polling, distributed health store, external registry, circuit breaker, service mesh, or Kubernetes discovery shall be added.
+25. No migration, dependency, environment variable, permanent service, or permanent port shall be introduced.
+26. Deterministic automated and bounded Docker/PostgreSQL runtime validation shall pass.
+27. Private npm versions shall remain `0.1.0`.
+28. Protected tag `v1.0.0` shall remain unchanged.
+29. Sprint 70 shall create no Git tag.
+
+Validation evidence:
+
+- API Gateway: 155 test files / 1140 tests.
+- API Gateway typecheck and build passed.
+- Active persisted routes with retry attempts above 7: 0.
+- Two qualifying failures returned client HTTP 200 through failover.
+- Cooldown excluded the failed instance.
+- No eligible target returned HTTP 503 without another downstream request.
+- Raw instance URL disclosure check passed.
+- Soft deletion, runtime removal, database retention, and clean-tree checks passed.
+
+Product/documentation version: `v1.10.0`.
+
+Next sprint: Sprint 71 - Kubernetes foundation.
+<!-- SPRINT-70-REQUIREMENTS-END -->

@@ -2,9 +2,9 @@
 
 High-Traffic API Gateway & Observability Platform.
 
-## Current product/documentation version - v1.9.0
+## Current product/documentation version - v1.10.0
 
-**Latest completed sprint:** Sprint 69 - Service discovery foundation.
+**Latest completed sprint:** Sprint 70 - Service discovery health/failover hardening.
 
 Current validation baseline:
 
@@ -16,9 +16,9 @@ Current validation baseline:
 
 Private npm workspace versions remain `0.1.0`.
 
-The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 69 creates no Git tag.
+The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 70 creates no Git tag.
 
-Next planned sprint: **Sprint 70 - Service discovery health/failover hardening**.
+Next planned sprint: **Sprint 71 - Kubernetes foundation**.
 
 ---
 ## Current Status
@@ -1138,3 +1138,64 @@ Boundaries:
 
 Product/documentation version: **v1.9.0**.
 <!-- SPRINT-69-README-END -->
+
+<!-- SPRINT-70-README-START -->
+## Sprint 70 - Service discovery health/failover hardening
+
+Sprint 70 adds bounded process-local passive health tracking and retry-budget failover to configured service discovery.
+
+### Health contract
+
+- Health identity is `serviceName + canonical baseUrl`.
+- Health state is bounded to 512 entries: 64 services with up to 8 instances each.
+- Runtime behavior uses `healthy`, `cooldown`, and computed `probe` states.
+- Two consecutive qualifying failures enter a 30-second cooldown.
+- Network failures, timeouts, and downstream HTTP 5xx responses qualify.
+- Any downstream HTTP response below 500 resets the failure count.
+- Cache hits and pre-proxy auth, quota, rate-limit, route, and validation rejections are neutral.
+- Invalid response JSON is neutral after an HTTP response has already established transport success.
+
+### Failover contract
+
+- Health filtering applies only to routes with `serviceInstances`.
+- Direct discovery selects uniformly from eligible instances.
+- Weighted discovery filters ineligible origins and preserves remaining relative weights.
+- Qualifying failed targets are excluded from later attempts in the same request.
+- Failover occurs only inside the existing retry budget.
+- Only GET requests retry and fail over.
+- Non-GET requests are never replayed.
+- Retry attempts are capped at 7, limiting one request to 8 total downstream executions.
+- Legacy direct and weighted routes preserve their previous behavior.
+- No eligible target fails closed with the existing downstream-unavailable boundary.
+- Raw instance URLs are absent from client errors and Prometheus labels.
+
+### Reload lifecycle
+
+- Valid reload preserves unchanged health identities.
+- New instances start healthy.
+- Removed instances are pruned.
+- Invalid reload preserves the previous route and health state.
+- Process restart resets process-local health.
+- No active polling, distributed state, external registry, circuit breaker, service mesh, or Kubernetes discovery was added.
+
+### Implementation commits
+
+- `8b2acec1e42242893d638145437581e34ddece89` - `feat(gateway): add service instance health contract`
+- `42faa85e322b4dcb3af632cb649101aa924f5420` - `feat(gateway): add health-aware target selection`
+- `fdf38fadee069cbcf96c8e501b21306cfb73cb2f` - `feat(gateway): fail over unhealthy service instances`
+
+### Validation
+
+- API Gateway: 155 test files / 1140 tests passed.
+- API Gateway typecheck and production build passed.
+- Active persisted routes with `retry_attempts > 7`: 0.
+- Docker/PostgreSQL validation proved JSONB roundtrip, two qualifying failures with client HTTP 200, cooldown exclusion, no-eligible-target HTTP 503, no raw URL disclosure, soft deletion, runtime removal, and clean repository state.
+- No migration, dependency, environment variable, permanent service, or permanent port was added.
+- Private npm workspace versions remain `0.1.0`.
+- Protected annotated tag `v1.0.0` remains unchanged.
+- Sprint 70 creates no Git tag.
+
+Product/documentation version: **v1.10.0**.
+
+Next planned sprint: **Sprint 71 - Kubernetes foundation**.
+<!-- SPRINT-70-README-END -->

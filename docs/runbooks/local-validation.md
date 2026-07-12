@@ -347,3 +347,45 @@ Dashboard runtime validation requires:
 
 Deterministic tests are the evidence for multi-instance random boundaries and weighted/discovery interaction. The bounded runtime probe proves migration, persistence, reload, proxy integration, Dashboard BFF behavior, credential boundaries, and cleanup. Do not treat this validation as health-check or failover evidence.
 <!-- SPRINT-69-LOCAL-VALIDATION-END -->
+
+<!-- SPRINT-70-LOCAL-VALIDATION-START -->
+## Sprint 70 health/failover validation
+
+Automated baseline:
+
+```txt
+API Gateway: 155 test files / 1140 tests
+Typecheck: passed
+Build: passed
+```
+
+Database guard:
+
+```sql
+SELECT count(*)
+FROM gateway.gateway_routes
+WHERE deleted_at IS NULL
+  AND retry_attempts > 7;
+```
+
+Expected result: `0`.
+
+Bounded runtime validation must prove:
+
+1. configured discovery persistence roundtrip
+2. two qualifying failures
+3. client HTTP 200 through failover
+4. cooldown exclusion
+5. HTTP 503 when no eligible target remains
+6. no additional downstream call in fail-closed state
+7. no raw instance URL disclosure
+8. route soft deletion and runtime removal
+9. one retained soft-deleted database row
+10. clean working tree and synchronized refs
+
+Validated marker:
+
+```txt
+SPRINT_70_RUNTIME_FAILOVER=PASSED
+```
+<!-- SPRINT-70-LOCAL-VALIDATION-END -->
