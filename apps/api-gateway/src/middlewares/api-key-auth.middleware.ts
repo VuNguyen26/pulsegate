@@ -4,7 +4,12 @@ import type {
   HookHandlerDoneFunction,
 } from "fastify";
 
-import { env } from "../config/env.js";
+import {
+  env,
+} from "../config/env.js";
+import {
+  recordRequestTracingOutcome,
+} from "./tracing.middleware.js";
 
 export type ApiKeyAuthSource = "env" | "database";
 
@@ -75,6 +80,11 @@ function sendMissingApiKeyResponse(
   request: FastifyRequest,
   reply: FastifyReply,
 ): void {
+  recordRequestTracingOutcome(request, {
+    errorCode: "API_KEY_MISSING",
+    rejectionReason: "API_KEY_MISSING",
+  });
+
   reply.status(401).send({
     error: {
       code: "API_KEY_MISSING",
@@ -88,6 +98,11 @@ function sendInvalidApiKeyResponse(
   request: FastifyRequest,
   reply: FastifyReply,
 ): void {
+  recordRequestTracingOutcome(request, {
+    errorCode: "API_KEY_INVALID",
+    rejectionReason: "API_KEY_INVALID",
+  });
+
   reply.status(403).send({
     error: {
       code: "API_KEY_INVALID",

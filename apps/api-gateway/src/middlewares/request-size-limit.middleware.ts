@@ -1,4 +1,10 @@
-import type { FastifyReply, FastifyRequest } from "fastify";
+import type {
+  FastifyReply,
+  FastifyRequest,
+} from "fastify";
+import {
+  recordRequestTracingOutcome,
+} from "./tracing.middleware.js";
 
 export type RequestSizeLimitOptions = {
   maxBodyBytes: number;
@@ -40,6 +46,11 @@ export function createRequestSizeLimitMiddleware(
     if (contentLength <= options.maxBodyBytes) {
       return;
     }
+
+    recordRequestTracingOutcome(request, {
+      errorCode: "REQUEST_BODY_TOO_LARGE",
+      rejectionReason: "REQUEST_BODY_TOO_LARGE",
+    });
 
     reply.status(413).send({
       error: {

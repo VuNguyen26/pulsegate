@@ -23,6 +23,13 @@ import {
   createHttpMetrics,
   type HttpMetrics,
 } from "./observability/metrics.js";
+import {
+  createTracingRuntime,
+  type TracingRuntime,
+} from "./observability/tracing.js";
+import {
+  registerTracingMiddleware,
+} from "./middlewares/tracing.middleware.js";
 import { RedisRateLimitStore } from "./rate-limit/redis-rate-limit-store.js";
 import { disconnectRedis, getRedisClient } from "./redis/redis-client.js";
 import {
@@ -79,6 +86,7 @@ type BuildApiGatewayAppOptions = {
   logger?: boolean;
   productProxy?: DownstreamProxyRouteOptions;
   metrics?: HttpMetrics;
+  tracing?: TracingRuntime;
   routeConfigs?: readonly DownstreamRouteConfig[];
   routeManagement?: AdminRouteConfigRouteOptions;
   consumerManagement?: AdminConsumerRouteOptions;
@@ -103,15 +111,30 @@ export async function buildApiGatewayApp(
 
   const metrics = options.metrics ?? createHttpMetrics();
 
+  const tracing =
+    options.tracing ??
+    createTracingRuntime({
+      serviceName: "api-gateway",
+      onLifecycleError(operation) {
+        app.log.warn(
+          { operation },
+          "Tracing lifecycle operation failed",
+        );
+      },
+    });
+
   app.addHook("onClose", async () => {
     await disconnectRedis();
     await disconnectGatewayPrisma();
+    await tracing.forceFlush();
+    await tracing.shutdown();
   });
 
   app.addHook("onRequest", async (request, reply) => {
     reply.header("x-request-id", request.id);
   });
 
+  registerTracingMiddleware(app, tracing);
   registerAccessLogMiddleware(app);
   registerMetricsMiddleware(app, metrics);
 

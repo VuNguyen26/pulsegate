@@ -1,9 +1,19 @@
 import type { FastifyInstance } from "fastify";
 
-import { isDownstreamServiceError } from "../errors/downstream-service-error.js";
+import {
+  isDownstreamServiceError,
+} from "../errors/downstream-service-error.js";
+import {
+  recordRequestTracingOutcome,
+} from "./tracing.middleware.js";
 
 export function registerErrorHandlers(app: FastifyInstance): void {
   app.setNotFoundHandler((request, reply) => {
+    recordRequestTracingOutcome(request, {
+      errorCode: "ROUTE_NOT_FOUND",
+      rejectionReason: "ROUTE_NOT_FOUND",
+    });
+
     return reply.status(404).send({
       error: {
         message: "Route not found",
@@ -15,6 +25,10 @@ export function registerErrorHandlers(app: FastifyInstance): void {
 
   app.setErrorHandler((error, request, reply) => {
     if (isDownstreamServiceError(error)) {
+      recordRequestTracingOutcome(request, {
+        errorCode: error.code,
+      });
+
       request.log.warn(
         {
           code: error.code,
@@ -34,6 +48,10 @@ export function registerErrorHandlers(app: FastifyInstance): void {
         },
       });
     }
+
+    recordRequestTracingOutcome(request, {
+      errorCode: "INTERNAL_SERVER_ERROR",
+    });
 
     request.log.error(
       {

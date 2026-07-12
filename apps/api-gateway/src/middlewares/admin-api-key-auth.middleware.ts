@@ -4,7 +4,12 @@ import {
   hashApiKey,
   verifyApiKeyHash,
 } from "../api-keys/api-key-hashing.js";
-import { env } from "../config/env.js";
+import {
+  env,
+} from "../config/env.js";
+import {
+  recordRequestTracingOutcome,
+} from "./tracing.middleware.js";
 
 export type AdminApiKeyAuthOptions = {
   headerName?: string;
@@ -86,6 +91,11 @@ export function createAdminApiKeyAuthMiddleware(
     );
 
     if (!providedApiKey) {
+      recordRequestTracingOutcome(request, {
+        errorCode: "ADMIN_API_KEY_MISSING",
+        rejectionReason: "ADMIN_API_KEY_MISSING",
+      });
+
       return reply.status(401).send({
         error: {
           code: "ADMIN_API_KEY_MISSING",
@@ -118,6 +128,11 @@ export function createAdminApiKeyAuthMiddleware(
         return undefined;
       }
 
+      recordRequestTracingOutcome(request, {
+        errorCode: "ADMIN_API_KEY_READ_ONLY",
+        rejectionReason: "ADMIN_API_KEY_READ_ONLY",
+      });
+
       return reply.status(403).send({
         error: {
           code: "ADMIN_API_KEY_READ_ONLY",
@@ -126,6 +141,11 @@ export function createAdminApiKeyAuthMiddleware(
         },
       });
     }
+
+    recordRequestTracingOutcome(request, {
+      errorCode: "ADMIN_API_KEY_INVALID",
+      rejectionReason: "ADMIN_API_KEY_INVALID",
+    });
 
     return reply.status(403).send({
       error: {

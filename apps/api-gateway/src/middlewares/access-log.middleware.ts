@@ -1,4 +1,11 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type {
+  FastifyInstance,
+  FastifyReply,
+  FastifyRequest,
+} from "fastify";
+import {
+  getRequestTraceIdentifiers,
+} from "./tracing.middleware.js";
 
 const REQUEST_ID_HEADER = "x-request-id";
 const CACHE_HEADER = "x-cache";
@@ -13,6 +20,8 @@ declare module "fastify" {
 export type AccessLogPayload = {
   event: "http_request_completed";
   requestId?: string;
+  traceId?: string;
+  spanId?: string;
   method: string;
   path: string;
   route: string;
@@ -74,11 +83,18 @@ export function buildAccessLogPayload(params: {
     toSingleHeaderValue(reply.getHeader(REQUEST_ID_HEADER)) ??
     toSingleHeaderValue(request.headers[REQUEST_ID_HEADER]);
 
-  const cacheStatus = toSingleHeaderValue(reply.getHeader(CACHE_HEADER));
+  const cacheStatus =
+    toSingleHeaderValue(
+      reply.getHeader(CACHE_HEADER),
+    );
+
+  const traceIdentifiers =
+    getRequestTraceIdentifiers(request);
 
   return {
     event: "http_request_completed",
     requestId,
+    ...(traceIdentifiers ?? {}),
     method: request.method,
     path: getRequestPath(request),
     route: getRouteLabel(request),

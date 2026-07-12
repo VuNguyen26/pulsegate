@@ -1,4 +1,14 @@
-import { describe, expect, it } from "vitest";
+import {
+  describe,
+  expect,
+  it,
+} from "vitest";
+import {
+  createInMemoryTracingRuntime,
+} from "../observability/tracing.js";
+import {
+  registerTracingMiddleware,
+} from "./tracing.middleware.js";
 import Fastify from "fastify";
 import {
   buildAccessLogPayload,
@@ -87,6 +97,77 @@ describe("access log middleware", () => {
 
     expect(JSON.stringify(payload)).not.toContain("secret-api-key");
     expect(JSON.stringify(payload)).not.toContain("secret-jwt-token");
+  });
+
+  it("should include bounded trace identifiers without copying sensitive headers", async () => {
+    const {
+      runtime,
+    } =
+      createInMemoryTracingRuntime(
+        "api-gateway",
+      );
+
+    const app = Fastify({
+      logger: false,
+    });
+
+    registerTracingMiddleware(
+      app,
+      runtime,
+    );
+
+    app.get(
+      "/health",
+      async (request, reply) => {
+        reply.header(
+          "x-request-id",
+          "test-request-id",
+        );
+
+        return buildAccessLogPayload({
+          request,
+          reply,
+          durationMs: 10.25,
+        });
+      },
+    );
+
+    const response =
+      await app.inject({
+        method: "GET",
+        url: "/health",
+        headers: {
+          "x-api-key":
+            "secret-api-key",
+          authorization:
+            "Bearer secret-jwt-token",
+        },
+      });
+
+    expect(response.statusCode).toBe(200);
+
+    const payload =
+      response.json();
+
+    expect(payload.traceId).toMatch(
+      /^[0-9a-f]{32}$/,
+    );
+    expect(payload.spanId).toMatch(
+      /^[0-9a-f]{16}$/,
+    );
+    expect(
+      JSON.stringify(payload),
+    ).not.toContain(
+      "secret-api-key",
+    );
+    expect(
+      JSON.stringify(payload),
+    ).not.toContain(
+      "secret-jwt-token",
+    );
+
+    await app.close();
+    await runtime.shutdown();
   });
 
   it("should add response time header when registered", async () => {

@@ -5,6 +5,9 @@ import {
   type RateLimitConfig,
   type RateLimitResult,
 } from "../rate-limit/in-memory-rate-limit-store.js";
+import {
+  recordRequestTracingOutcome,
+} from "./tracing.middleware.js";
 
 export type RateLimitIdentityType = "api-key" | "ip";
 
@@ -71,6 +74,10 @@ export function createRateLimitMiddleware(
     const identifier = getRateLimitIdentifier(request, identityType);
 
     if (!identifier) {
+      recordRequestTracingOutcome(request, {
+        errorCode: "RATE_LIMIT_IDENTIFIER_MISSING",
+      });
+
       request.log.error(
         {
           identityType,
@@ -104,6 +111,11 @@ export function createRateLimitMiddleware(
     setRateLimitHeaders(reply, result);
 
     if (!result.allowed) {
+      recordRequestTracingOutcome(request, {
+        errorCode: "TOO_MANY_REQUESTS",
+        rejectionReason: "RATE_LIMIT_EXCEEDED",
+      });
+
       reply.header("retry-after", String(result.retryAfterSeconds));
 
       reply.status(429).send({

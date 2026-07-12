@@ -36,7 +36,12 @@ import {
   executeWithRetry,
   shouldRetryStatus,
 } from "../policies/retry.policy.js";
-import { createDownstreamTimeout } from "../policies/timeout.policy.js";
+import {
+  createDownstreamTimeout,
+} from "../policies/timeout.policy.js";
+import {
+  recordRequestTracingOutcome,
+} from "../middlewares/tracing.middleware.js";
 import {
   buildConfiguredRoutePolicyPath,
 } from "../config/route-identity.js";
@@ -514,7 +519,18 @@ export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
     const runtimeRouteConfig = resolveDownstreamRouteConfig(request, options);
 
     if (!runtimeRouteConfig) {
-      return reply.status(404).send(buildRouteNotFoundResponse(request.id));
+      recordRequestTracingOutcome(request, {
+        errorCode: "ROUTE_NOT_FOUND",
+        rejectionReason: "ROUTE_NOT_FOUND",
+      });
+
+      return reply
+        .status(404)
+        .send(
+          buildRouteNotFoundResponse(
+            request.id,
+          ),
+        );
     }
 
     const routePolicies = runtimeRouteConfig.policies;
@@ -597,6 +613,11 @@ export function createRuntimePolicyPreHandler(options: RouteResolverOptions & {
       );
 
       if (!quotaCheck.allowed) {
+        recordRequestTracingOutcome(request, {
+          errorCode: "QUOTA_EXCEEDED",
+          rejectionReason: "QUOTA_EXCEEDED",
+        });
+
         await recordQuotaRejectedEvent({
           rejectedEventRecorder: options.rejectedEventRecorder,
           request,
@@ -623,7 +644,18 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
     const routeConfig = resolveDownstreamRouteConfig(request, options);
 
     if (!routeConfig) {
-      return reply.status(404).send(buildRouteNotFoundResponse(request.id));
+      recordRequestTracingOutcome(request, {
+        errorCode: "ROUTE_NOT_FOUND",
+        rejectionReason: "ROUTE_NOT_FOUND",
+      });
+
+      return reply
+        .status(404)
+        .send(
+          buildRouteNotFoundResponse(
+            request.id,
+          ),
+        );
     }
 
     const routePolicies = routeConfig.policies;

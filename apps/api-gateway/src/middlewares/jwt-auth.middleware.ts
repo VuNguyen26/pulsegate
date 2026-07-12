@@ -1,7 +1,12 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { jwtVerify, type JWTPayload } from "jose";
 
-import { env } from "../config/env.js";
+import {
+  env,
+} from "../config/env.js";
+import {
+  recordRequestTracingOutcome,
+} from "./tracing.middleware.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -60,6 +65,11 @@ export async function jwtAuthMiddleware(
   const token = extractBearerToken(authorizationHeader);
 
   if (!token) {
+    recordRequestTracingOutcome(request, {
+      errorCode: "JWT_TOKEN_MISSING",
+      rejectionReason: "JWT_TOKEN_MISSING",
+    });
+
     reply.status(401).send({
       error: {
         code: "JWT_TOKEN_MISSING",
@@ -75,6 +85,11 @@ export async function jwtAuthMiddleware(
 
     request.jwtPayload = payload;
   } catch (error) {
+    recordRequestTracingOutcome(request, {
+      errorCode: "JWT_TOKEN_INVALID",
+      rejectionReason: "JWT_TOKEN_INVALID",
+    });
+
     request.log.warn(
       {
         error,
