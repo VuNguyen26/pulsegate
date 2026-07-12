@@ -325,4 +325,22 @@ describe("validateDownstreamRoutes", () => {
       /weightedUpstreams\[1\] downstreamUrl must use http or https/,
     );
   });
-});
+
+  it("should reject retry attempts beyond the bounded maximum", () => {
+    const route = createValidRoute({
+      policies: {
+        ...createValidRoute().policies,
+        retry: {
+          enabled: true,
+          attempts: 8,
+          retryOnStatuses: [502, 503, 504],
+        },
+      },
+    });
+
+    expect(() =>
+      validateDownstreamRoutes([route]),
+    ).toThrow(
+      /policies\.retry\.attempts must not exceed 7/,
+    );
+  });});

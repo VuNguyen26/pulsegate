@@ -4,6 +4,9 @@ import {
   buildRouteIdentityKey,
   formatRouteIdentityLabel,
 } from "./route-identity.js";
+import {
+  MAX_ROUTE_RETRY_ATTEMPTS,
+} from "../policies/retry.policy.js";
 
 const SUPPORTED_HTTP_METHODS = new Set<HttpMethod>([
   "GET",
@@ -245,6 +248,15 @@ function validateRoute(route: DownstreamRouteConfig, index: number): string[] {
 
   if (!isNonNegativeInteger(route.policies.retry.attempts)) {
     errors.push(`${routeLabel} policies.retry.attempts must be a non-negative integer`);
+  }
+
+  if (
+    Number.isInteger(route.policies.retry.attempts) &&
+    route.policies.retry.attempts > MAX_ROUTE_RETRY_ATTEMPTS
+  ) {
+    errors.push(
+      `${routeLabel} policies.retry.attempts must not exceed ${MAX_ROUTE_RETRY_ATTEMPTS}`,
+    );
   }
 
   if (route.policies.retry.enabled) {

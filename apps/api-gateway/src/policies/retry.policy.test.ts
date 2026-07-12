@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   executeWithRetry,
   isRetryableHttpMethod,
+  MAX_ROUTE_RETRY_ATTEMPTS,
   shouldRetryStatus,
 } from "./retry.policy.js";
 
@@ -156,4 +157,25 @@ describe("executeWithRetry", () => {
 
     expect(operation).toHaveBeenCalledTimes(3);
   });
-});
+
+  it("should cap unvalidated policies at eight total executions", async () => {
+    const operation = vi.fn(async () => ({
+      statusCode: 503,
+    }));
+
+    const result = await executeWithRetry({
+      method: "GET",
+      policy: {
+        enabled: true,
+        attempts: 100,
+        retryOnStatuses: [502, 503, 504],
+      },
+      operation,
+      shouldRetryResult:
+        (response) => response.statusCode === 503,
+    });
+
+    expect(MAX_ROUTE_RETRY_ATTEMPTS).toBe(7);
+    expect(result).toEqual({ statusCode: 503 });
+    expect(operation).toHaveBeenCalledTimes(8);
+  });});

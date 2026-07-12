@@ -1,5 +1,7 @@
 import type { RouteRetryPolicy } from "./route-policy.types.js";
 
+export const MAX_ROUTE_RETRY_ATTEMPTS = 7;
+
 export type ExecuteWithRetryOptions<T> = {
   method: string;
   policy: RouteRetryPolicy;
@@ -27,7 +29,12 @@ export async function executeWithRetry<T>(
     options.policy.attempts > 0 &&
     isRetryableHttpMethod(options.method);
 
-  const maxRetries = isRetryEnabled ? options.policy.attempts : 0;
+  const maxRetries = isRetryEnabled
+    ? Math.min(
+        options.policy.attempts,
+        MAX_ROUTE_RETRY_ATTEMPTS,
+      )
+    : 0;
 
   let retryCount = 0;
 
