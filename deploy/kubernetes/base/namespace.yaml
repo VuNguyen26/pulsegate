@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pulsegate
+  labels:
+    app.kubernetes.io/name: pulsegate
+    app.kubernetes.io/part-of: pulsegate
+    app.kubernetes.io/managed-by: kustomize
