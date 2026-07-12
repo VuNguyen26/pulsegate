@@ -5,3 +5,7 @@ namespace: pulsegate
 
 resources:
   - namespace.yaml
+  - product-service.yaml
+  - api-gateway.yaml
+  - admin-dashboard.yaml
+  - developer-portal.yaml

@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: developer-portal-config
+  labels:
+    app.kubernetes.io/name: developer-portal
+    app.kubernetes.io/part-of: pulsegate
+    app.kubernetes.io/component: portal
+data:
+  NODE_ENV: production
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: developer-portal
+  labels:
+    app.kubernetes.io/name: developer-portal
+    app.kubernetes.io/part-of: pulsegate
+    app.kubernetes.io/component: portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: developer-portal
+      app.kubernetes.io/part-of: pulsegate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: developer-portal
+        app.kubernetes.io/part-of: pulsegate
+        app.kubernetes.io/component: portal
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: developer-portal
+          image: pulsegate-developer-portal:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3004
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: developer-portal-config
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: developer-portal
+  labels:
+    app.kubernetes.io/name: developer-portal
+    app.kubernetes.io/part-of: pulsegate
+    app.kubernetes.io/component: portal
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: developer-portal
+    app.kubernetes.io/part-of: pulsegate
+  ports:
+    - name: http
+      port: 3004
+      targetPort: http
+      protocol: TCP
