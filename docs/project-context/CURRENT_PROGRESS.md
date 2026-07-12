@@ -1,63 +1,71 @@
 # Current Progress
 
-## Canonical state after Sprint 68
+## Canonical state after Sprint 69
 
-- Product/documentation version: `v1.8.0`.
+- Product/documentation version: `v1.9.0`.
 - Private npm workspace versions: `0.1.0`.
-- Latest completed sprint: **Sprint 68 - Weighted routing foundation**.
-- Latest implementation commit before documentation finalization: `528b9fbaf8b2429dab8b839824abfd8a99df924e`.
+- Latest completed sprint: **Sprint 69 - Service discovery foundation**.
+- Latest implementation commit before documentation finalization: `b5aefe9f3bcb4aa44b4be2d65a2f127007525141`.
 - Protected annotated tag `v1.0.0` remains unchanged at `407d03678674219e7228b15f0cd7a23074493f31`.
-- Sprint 68 creates no Git tag.
-- Next sprint: **Sprint 69 - Service discovery foundation**.
+- Sprint 69 creates no Git tag.
+- Next sprint: **Sprint 70 - Service discovery health/failover hardening**.
 
-## Sprint 68 implementation commits
+## Sprint 69 implementation commits
 
-- `ee22b47721b3a962e0dced0ec1bf456b3bf715d6` - `feat(gateway): add weighted upstream contract`
-- `7c706c42f0ee1bca60ac20c85b33b6a14cefc6dc` - `feat(gateway): route traffic across weighted upstreams`
-- `278e00e4cad5fb9726895241e446238ffed16866` - `feat(gateway): persist weighted upstream routing`
-- `528b9fbaf8b2429dab8b839824abfd8a99df924e` - `feat(dashboard): show weighted route metadata`
+- `5575cae641462dd9646fa2c2fb22689dcdf5787f` - `feat(gateway): add service discovery contract`
+- `7c4f70655e7c2f6d9b50a26d81cfe00a06f1fc46` - `feat(gateway): resolve configured service instances`
+- `ab5a2b72d9b0fe4d592636305d5fb3fbea43725e` - `feat(gateway): persist service discovery routes`
+- `b5aefe9f3bcb4aa44b4be2d65a2f127007525141` - `feat(dashboard): show service discovery metadata`
 
 ## Delivered behavior
 
-- Optional route-level `weightedUpstreams`.
-- 2-8 unique HTTP or HTTPS targets.
-- Relative integer weights from 1 through 1000.
-- Primary `downstreamUrl` required exactly once.
-- Exact-host route identity remains ahead of path-only fallback.
-- Selection occurs after route match and cache miss.
-- Retries reuse one selected target.
-- Client input cannot choose a target.
-- Legacy single-upstream routes remain compatible.
+- Optional route-level `serviceInstances`.
+- Canonical lowercase kebab-case service identity.
+- 1-8 unique canonical HTTP or HTTPS instance origins.
+- Maximum 64 services in one runtime discovery snapshot.
+- Primary downstream origin required in the instance set.
+- Equal instance sets required across active routes sharing a service name.
+- Direct discovery selects one trusted configured instance and preserves path/query.
+- Missing service/runtime state fails closed.
+- Weighted discovery remains on the existing weighted selector.
+- Weighted origins exactly match discovery instances.
+- Legacy direct and weighted routes remain compatible.
 - Nullable PostgreSQL JSONB persistence.
-- Admin create/read/update/clear/reload support.
-- Read-only Dashboard weighted metadata display.
+- Admin create/read/update/clear/reload/soft-delete support.
+- Candidate-set validation before Admin writes.
+- Read-only Dashboard discovery mode and instance display.
 
 ## Validation baseline
 
-- API Gateway: 147 test files / 1059 tests.
-- Admin Dashboard: 53 test files / 243 tests.
+- API Gateway: 153 test files / 1110 tests.
+- Admin Dashboard: 53 test files / 244 tests.
 - Developer Portal: 2 test files / 7 tests.
 - Prisma schema validation passed.
 - Root tests, typecheck, and production build passed.
 - Docker Compose configuration passed.
 - Working and staged diff checks passed.
-- PostgreSQL migration deploy passed.
-- Five existing routes remained legacy SQL `NULL` rows.
-- Bounded weighted create, reload, proxy, clear, single-upstream reload, and cleanup validation passed.
+- Migration `20260712114500_add_gateway_route_service_instances` deployed.
+- `service_instances` verified as nullable JSONB.
+- Admin create/read/reload/database roundtrip/direct proxy/soft-delete/cleanup passed.
+- Dashboard read-only GET/POST authorization boundary passed.
+- Dashboard BFF list/detail preserved discovery metadata.
+- Dashboard `/routes` returned HTTP 200 without credential disclosure.
 
 ## Preserved boundaries
 
-- No service discovery.
-- No upstream health checks or automatic failover.
-- No sticky routing or retry-to-another-upstream behavior.
-- No client target override or arbitrary reverse proxy.
-- No new dependency, environment variable, service, or port.
-- No per-upstream unbounded Prometheus labels.
+- No health checks or automatic failover.
+- No retry-to-another-instance behavior.
+- No external registry, DNS discovery, Kubernetes discovery, or cloud control plane.
+- No registration, deregistration, heartbeat, TTL, or background refresh.
+- No circuit breaker, passive health scoring, or outlier ejection.
+- No client-selected instance, arbitrary reverse proxy, or sticky routing.
+- No per-instance unbounded Prometheus labels.
 - No Dashboard mutation controls.
 - No Developer Portal route management.
+- No new dependency, environment variable, service, or port.
 - No Kubernetes, OpenTelemetry, Loki, billing, marketplace, or enterprise IAM work.
 - No npm package version bump.
-- No Sprint 68 Git tag.
+- No Sprint 69 Git tag.
 
 ## Documentation updated
 
@@ -67,19 +75,21 @@
 - `docs/project-context/CURRENT_PROGRESS.md`
 - `docs/project-context/AI_HANDOFF.md`
 - `docs/project-context/DECISION_LOG.md`
-- `docs/runbooks/host-based-routing.md`
 - `docs/runbooks/admin-dashboard.md`
+- `docs/runbooks/admin-route-management.md`
 - `docs/runbooks/local-validation.md`
+- `docs/runbooks/runtime-reload.md`
 - `docs/runbooks/weighted-routing.md`
-- `docs/sdlc/sprint-history/sprint-68.md`
-- `docs/project-context/decisions/2026-07-12-weighted-routing-foundation.md`
+- `docs/runbooks/service-discovery.md`
+- `docs/sdlc/sprint-history/sprint-69.md`
+- `docs/project-context/decisions/2026-07-12-service-discovery-foundation.md`
 
 ## Fixed roadmap
 
 ### Backend Portfolio v1
 
 - Sprints 45-60 complete.
-- Sprint 60 released the protected annotated tag `v1.0.0`.
+- Sprint 60 released protected annotated tag `v1.0.0`.
 
 ### Product/Platform Expansion v2
 
@@ -91,8 +101,8 @@
 - Sprint 66 - Developer Portal API docs and API-key self-service foundation - complete.
 - Sprint 67 - Host-based routing foundation - complete.
 - Sprint 68 - Weighted routing foundation - complete.
-- Sprint 69 - Service discovery foundation - next.
-- Sprint 70 - Service discovery health/failover hardening.
+- Sprint 69 - Service discovery foundation - complete.
+- Sprint 70 - Service discovery health/failover hardening - next.
 - Sprint 71 - Kubernetes foundation.
 - Sprint 72 - Kubernetes runtime validation and deployment docs.
 - Sprint 73 - OpenTelemetry tracing foundation.

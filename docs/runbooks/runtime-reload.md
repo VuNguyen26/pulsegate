@@ -1,4 +1,4 @@
-﻿# Runtime Reload Runbook
+# Runtime Reload Runbook
 
 This runbook contains manual commands for validating PulseGate runtime route reload behavior.
 
@@ -184,3 +184,22 @@ Invoke-RestMethod http://localhost:3000/internal/admin/routes/reload `
   -Body "{}" |
   ConvertTo-Json -Depth 10
 ```
+
+<!-- SPRINT-69-RUNTIME-RELOAD-START -->
+## Service discovery reload behavior
+
+Runtime reload includes the service discovery snapshot.
+
+Before replacement, the Gateway validates:
+
+- canonical service names
+- 1-8 canonical unique origins per service
+- primary downstream origin membership
+- exact equality for routes sharing a service name
+- weighted-origin equality and primary path/query consistency
+- maximum 64 configured services
+
+The route registry and service snapshot are replaced together only after the candidate configuration is valid. Invalid or conflicting discovery configuration fails closed and does not partially replace the active runtime state.
+
+Legacy routes with absent or SQL `NULL` discovery metadata remain outside the discovery snapshot and preserve their direct or weighted behavior.
+<!-- SPRINT-69-RUNTIME-RELOAD-END -->

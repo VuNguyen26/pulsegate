@@ -299,3 +299,51 @@ Database/runtime validation requires:
 
 Do not treat random distribution sampling as a health/failover test. Deterministic selector boundary tests are the contract evidence; runtime validation proves persistence, reload, and shared proxy integration.
 <!-- SPRINT-68-LOCAL-VALIDATION-END -->
+
+<!-- SPRINT-69-LOCAL-VALIDATION-START -->
+## Sprint 69 service discovery validation
+
+Automated validation:
+
+```powershell
+npm.cmd run test
+npm.cmd run typecheck
+npm.cmd run build
+docker compose config --quiet
+git diff --check
+```
+
+Prisma schema validation:
+
+```powershell
+$env:DATABASE_URL =
+  'postgresql://pulsegate:validation-only@127.0.0.1:5432/pulsegate?schema=gateway'
+
+npx.cmd --no-install prisma validate `
+  --schema apps/api-gateway/prisma/schema.prisma
+```
+
+Database/runtime validation requires:
+
+- deploy migration `20260712114500_add_gateway_route_service_instances`
+- verify `gateway.gateway_routes.service_instances` is nullable JSONB
+- create one isolated direct discovery route through the full-access Admin API
+- verify Admin list/detail and raw database JSONB roundtrip
+- reload the runtime registry
+- proxy through the discovery route and expect HTTP 200
+- soft-delete the probe route
+- reload and verify the removed route returns 404
+- verify the database row remains soft-deleted
+- force-recreate Gateway and Dashboard images when validating current source
+
+Dashboard runtime validation requires:
+
+- configure one temporary read-only Admin key for both Gateway and Dashboard
+- verify read-only GET returns 200 and read-only POST returns 403
+- verify Dashboard BFF list/detail preserves `serviceInstances`
+- verify `/routes` returns HTTP 200
+- verify the read-only credential is absent from rendered HTML
+- clean the probe route and verify it disappears from the BFF list
+
+Deterministic tests are the evidence for multi-instance random boundaries and weighted/discovery interaction. The bounded runtime probe proves migration, persistence, reload, proxy integration, Dashboard BFF behavior, credential boundaries, and cleanup. Do not treat this validation as health-check or failover evidence.
+<!-- SPRINT-69-LOCAL-VALIDATION-END -->

@@ -2,7 +2,7 @@
 
 ## Current Version
 
-v1.3.0
+v1.9.0
 
 Private npm workspace package versions remain `0.1.0`.
 
@@ -10,7 +10,7 @@ The annotated `v1.0.0` Git tag remains unchanged at the final Sprint 60 document
 
 ## Latest Completed Sprint
 
-Sprint 63 - Dashboard quota/usage/rejected events
+Sprint 69 - Service discovery foundation
 
 ## Latest Decision
 
@@ -1462,3 +1462,45 @@ Detailed record:
 
 - `docs/project-context/decisions/2026-07-12-weighted-routing-foundation.md`
 <!-- SPRINT-68-DECISION-LOG-END -->
+
+<!-- SPRINT-69-DECISION-LOG-START -->
+### 2026-07-12 - Use bounded configured service discovery
+
+Decision:
+
+- Keep discovery as trusted route configuration rather than an external control plane.
+- Add optional 1-8 entry `serviceInstances` containing unique canonical HTTP or HTTPS origins.
+- Keep `serviceName` as canonical lowercase kebab-case service identity.
+- Require the primary downstream origin in the instance set.
+- Require equal instance sets across active routes sharing a service name.
+- Bound the runtime snapshot to 64 services.
+- Use runtime random selection only for direct discovery routes.
+- Keep weighted discovery on the existing weighted selector and require exact origin equality.
+- Persist discovery metadata in nullable JSONB.
+- Validate the candidate active route set before Admin writes.
+- Keep the Dashboard read-only.
+- Fail closed on missing, invalid, conflicting, unsafe, or unavailable discovery state.
+
+Reason:
+
+- Route-owned configured discovery provides a controlled foundation without adding an external registry or background control plane.
+- Canonical origins and bounded sets prevent arbitrary target expansion.
+- Requiring consistent service definitions avoids route-dependent service identity.
+- Preserving weighted selector semantics avoids silently changing Sprint 68 traffic behavior.
+- Nullable JSONB preserves legacy direct and weighted routes.
+
+Boundaries:
+
+- No health checks or automatic failover.
+- No retry-to-another-instance behavior.
+- No registry polling, registration, deregistration, TTL, heartbeat, DNS SRV, Consul, Eureka, Kubernetes API, or cloud discovery.
+- No client-selected instance, sticky routing, arbitrary reverse proxy, or unbounded per-instance metric labels.
+- No Dashboard mutation or Developer Portal route management.
+- No new dependency, environment variable, service, or port.
+- No Kubernetes, OpenTelemetry, Loki, billing, marketplace, or enterprise IAM.
+- No npm package version bump or Sprint 69 Git tag.
+
+Detailed record:
+
+- `docs/project-context/decisions/2026-07-12-service-discovery-foundation.md`
+<!-- SPRINT-69-DECISION-LOG-END -->

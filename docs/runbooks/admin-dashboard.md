@@ -610,3 +610,26 @@ The browser contract fails closed when the weighted set is malformed, unsafe, du
 
 The Dashboard does not provide route mutation, reload, traffic splitting, health, or failover controls. It continues to use only fixed GET-only BFF resources and the server-only read-only Admin credential.
 <!-- SPRINT-68-DASHBOARD-RUNBOOK-END -->
+
+<!-- SPRINT-69-DASHBOARD-RUNBOOK-START -->
+## Service discovery route metadata
+
+The `/routes` page displays configured service discovery metadata through the existing fixed GET-only BFF resources.
+
+Display modes:
+
+- `Static upstream` when `serviceInstances` is absent or null.
+- `Service discovery (N instances)` when a validated instance set is present.
+- Direct and weighted routing mode remains displayed separately.
+- Each canonical instance `baseUrl` appears in the route detail view.
+
+The Dashboard contract fails closed when:
+
+- the service name is not canonical lowercase kebab-case
+- the instance set is empty or outside 1-8 entries
+- a base URL is invalid, duplicated, non-canonical, credential-bearing, or contains path/query/fragment
+- the primary downstream origin is absent
+- weighted origins differ from the configured instance set
+
+The Dashboard remains read-only. It has no route mutation, reload, registration, deregistration, health, failover, or traffic-control controls. Only the server-side read-only Admin credential is used, and it is not exposed to the browser.
+<!-- SPRINT-69-DASHBOARD-RUNBOOK-END -->

@@ -243,3 +243,44 @@ runtimeScope = dynamic-router
 newRoutesRequireRestart = false
 requiresRestart = false
 ```
+
+<!-- SPRINT-69-ADMIN-ROUTE-START -->
+## Service discovery route fields
+
+Admin route create and update payloads may include:
+
+```json
+{
+  "serviceName": "product-service",
+  "downstreamUrl": "http://product-a:3001/products",
+  "serviceInstances": [
+    {
+      "baseUrl": "http://product-a:3001"
+    },
+    {
+      "baseUrl": "http://product-b:3001"
+    }
+  ]
+}
+```
+
+Rules:
+
+- `serviceName` uses canonical lowercase kebab-case and is at most 64 characters.
+- `serviceInstances` contains 1-8 unique canonical HTTP or HTTPS origins.
+- Base URLs contain no credentials, path, query, fragment, or trailing slash.
+- The primary `downstreamUrl` origin exists in the set.
+- Routes sharing a service name expose the same instance set.
+- Weighted routes require weighted origins to exactly match service instances and to preserve the primary path/query.
+
+Persistence semantics:
+
+- Create omission or `null`: persist SQL `NULL`.
+- Update omission: preserve the current value.
+- Update `null`: clear with `Prisma.DbNull`.
+- Update array: replace the full set.
+- Soft-deleted routes do not participate in the active runtime snapshot.
+- Candidate-set validation runs before writes so a conflicting service definition is rejected without partial persistence.
+
+After an approved write, use the existing runtime reload endpoint. Reload validates the complete active route and service snapshot before atomic replacement.
+<!-- SPRINT-69-ADMIN-ROUTE-END -->

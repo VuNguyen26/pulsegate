@@ -123,3 +123,23 @@ Expected Sprint 68 baselines:
 - API Gateway: 147 test files / 1059 tests.
 - Admin Dashboard: 53 test files / 243 tests.
 - Developer Portal: 2 test files / 7 tests.
+
+<!-- SPRINT-69-WEIGHTED-DISCOVERY-START -->
+## Sprint 69 interaction with service discovery
+
+Weighted routing remains the target selector when both `weightedUpstreams` and `serviceInstances` are configured.
+
+Required relationship:
+
+- `serviceInstances` contains canonical origins only.
+- Weighted target origins exactly match the configured service instance set.
+- Every weighted target preserves the primary downstream path and query.
+- The existing weighted random source selects the target.
+- The direct service-discovery random source is not invoked.
+- Retries reuse the selected weighted target.
+- This relationship validates service membership but does not add health checks or failover.
+
+A direct discovery route without `weightedUpstreams` selects one configured instance from the runtime service snapshot and composes the selected origin with the primary downstream path and query.
+
+See `docs/runbooks/service-discovery.md`.
+<!-- SPRINT-69-WEIGHTED-DISCOVERY-END -->

@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.8.0
+v1.9.0
 
 ## Current Status
 
-Sprint 68 - Weighted routing foundation Complete
+Sprint 69 - Service discovery foundation Complete
 
 Current validation:
 
@@ -538,8 +538,8 @@ Core:
 - Path parameters are not implemented yet.
 - Wildcard upstream mapping is not implemented yet.
 - Exact host-based routing is implemented; wildcard hosts and host analytics dimensions are not implemented.
-- Bounded route-level weighted upstream routing is implemented; service discovery and health-based failover are not implemented.
-- Service discovery is not implemented yet.
+- Bounded configured service discovery is implemented; health checks and automatic failover are not implemented.
+- Configured route-level service discovery is implemented; external registries, health checks, and automatic failover are not implemented.
 - OpenTelemetry tracing is not implemented yet.
 - Loki centralized logging is not implemented yet.
 - Only bounded local k6 health smoke validation is implemented; a production-scale load-test platform is not.
@@ -1263,3 +1263,77 @@ Security and operational boundaries:
 - Health checks and automatic failover are deferred to Sprint 70.
 - Sticky routing, distributed coordination, Kubernetes traffic splitting, billing allocation, and experimentation platforms are not implemented.
 <!-- SPRINT-68-ARCHITECTURE-END -->
+
+<!-- SPRINT-69-ARCHITECTURE-START -->
+## Service discovery foundation (Sprint 69)
+
+Service discovery is bounded route-owned configuration layered after the existing method/path/host route identity decision.
+
+Runtime flow:
+
+```text
+request
+  -> normalize direct Host
+  -> resolve exact host route or path-only fallback
+  -> authentication, quota, rate limit
+  -> cache lookup
+  -> resolve downstream target
+       -> legacy direct URL, or
+       -> existing weighted target, or
+       -> one configured service instance for direct discovery
+  -> shared transform, timeout, retry, proxy, analytics, metrics, and access-log pipeline
+```
+
+Contract:
+
+- `serviceName` is a canonical lowercase kebab-case identity with a maximum length of 64.
+- `serviceInstances` is optional.
+- When present, it contains 1-8 unique canonical HTTP or HTTPS origins.
+- Instance origins contain no credentials, path, query, fragment, or trailing slash spelling that differs from `URL.origin`.
+- The primary `downstreamUrl` origin must be present.
+- The discovery snapshot contains at most 64 services.
+- All active routes using the same `serviceName` must expose the same sorted instance set.
+- Invalid, empty, duplicate, oversized, conflicting, unsafe, or non-canonical configuration fails closed.
+
+Direct discovery:
+
+- The runtime registry owns the validated service snapshot.
+- A direct discovery route selects one configured instance using an internal injectable random source.
+- The selected origin is composed with the primary downstream path and query.
+- Missing registry state or a missing service returns no target and fails closed.
+- Client headers, query parameters, request IDs, API keys, consumers, and Host input cannot select an instance.
+
+Weighted discovery:
+
+- When `weightedUpstreams` is present, the existing weighted selector remains authoritative.
+- Service discovery random selection is not invoked for weighted discovery.
+- Weighted origins must exactly match the configured service instance set.
+- All weighted targets must preserve the primary downstream path and query.
+- Weighted selection remains relative routing, not health-based failover.
+
+Persistence and management:
+
+- `gateway.gateway_routes.service_instances` is nullable JSONB.
+- SQL `NULL` preserves legacy direct or weighted behavior.
+- Admin create omission or `null` keeps discovery disabled.
+- Admin update omission preserves current metadata.
+- Admin update `null` clears discovery metadata through `Prisma.DbNull`.
+- Admin update with an array replaces the full instance set.
+- Admin write validation checks the candidate active route set before persistence so conflicting service definitions fail closed.
+- Runtime reload validates the full active route and service snapshot before atomic replacement.
+
+Dashboard:
+
+- The Dashboard remains read-only.
+- Its browser/server DTO validates the same cardinality, canonical-origin, uniqueness, primary-origin, service-name, and weighted-origin relationship.
+- The route table and detail view show `Static upstream` or `Service discovery (N instances)`.
+- Each configured service instance is displayed without adding mutation, reload, health, or failover controls.
+
+Operational boundary:
+
+- This is configured service discovery, not an external control plane.
+- No registry polling, registration, deregistration, TTL, heartbeat, DNS SRV, Consul, Eureka, Kubernetes API, cloud service discovery, health check, passive failure scoring, failover, circuit breaker, or outlier ejection exists.
+- A selected direct discovery instance remains the target for that proxy execution; retries do not select another instance.
+- Raw instance origins are not added as unbounded Prometheus labels.
+- Sprint 70 owns health/failover hardening.
+<!-- SPRINT-69-ARCHITECTURE-END -->

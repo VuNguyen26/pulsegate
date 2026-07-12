@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.8.0
+v1.9.0
 
 ## Latest Completed Sprint
 
-Sprint 68 - Weighted routing foundation
+Sprint 69 - Service discovery foundation
 
 ---
 
@@ -1295,8 +1295,8 @@ Implemented.
 - Path parameters are not implemented yet.
 - Wildcard upstream path forwarding is not implemented yet.
 - Exact host-based routing is implemented; wildcard hosts and host analytics dimensions are not implemented.
-- Bounded route-level weighted upstream routing is implemented; service discovery and health-based failover are not implemented.
-- Service discovery is not implemented yet.
+- Bounded configured service discovery is implemented; health checks and automatic failover are not implemented.
+- Configured route-level service discovery is implemented; external registries, health checks, and automatic failover are not implemented.
 - CI does not run full Docker Compose runtime validation yet.
 - Kubernetes/cloud deployment is planned later.
 - Kafka/RabbitMQ event streaming is planned later.
@@ -2045,3 +2045,48 @@ Validation baseline:
 
 Next sprint: Sprint 69 - Service discovery foundation.
 <!-- SPRINT-68-REQUIREMENTS-END -->
+
+<!-- SPRINT-69-REQUIREMENTS-START -->
+## Sprint 69 acceptance requirements
+
+1. Route configuration shall retain `serviceName` and `downstreamUrl` as the service identity and primary endpoint contract.
+2. Route configuration may include optional `serviceInstances`.
+3. A configured service name shall use canonical lowercase kebab-case and shall not exceed 64 characters.
+4. A configured instance set shall contain 1-8 entries.
+5. Each instance shall contain one unique canonical HTTP or HTTPS origin in `baseUrl`.
+6. Instance origins shall reject credentials, path, query, fragment, trailing-slash non-canonical spelling, invalid URLs, and values longer than 2048 characters.
+7. The primary `downstreamUrl` origin shall exist in `serviceInstances`.
+8. The runtime discovery snapshot shall contain at most 64 configured services.
+9. Active routes sharing one `serviceName` shall declare equal instance sets; conflicting definitions shall fail closed.
+10. Legacy direct and weighted routes with absent or SQL `NULL` discovery metadata shall remain compatible.
+11. Direct discovery shall select only from the trusted configured instance set and shall preserve the primary downstream path and query.
+12. Missing registry state, missing service state, invalid snapshots, empty sets, duplicates, conflicts, and unsafe origins shall fail closed.
+13. Client headers, query values, request IDs, API keys, consumers, and Host input shall not choose or override an instance.
+14. Exact-host route identity and path-only fallback shall remain unchanged and shall execute before target resolution.
+15. Cache hits shall not perform discovery selection or downstream fetch.
+16. Direct discovery selection shall use an internal injectable random source for deterministic tests.
+17. Weighted discovery shall keep the existing weighted selector and shall not invoke direct discovery random selection.
+18. Weighted origins shall exactly match the configured instance set and shall share the primary path and query.
+19. Retries shall reuse the selected target and shall not provide automatic failover to another instance.
+20. PostgreSQL persistence shall support create, read, preserve-on-omission, replace, clear-with-null, runtime reload, and soft-delete behavior.
+21. Admin write validation shall evaluate the candidate active route set before persistence.
+22. The Admin Dashboard shall validate and display discovery metadata as a read-only surface.
+23. Existing auth, quota, rate-limit, cache, transforms, timeout, retry, analytics, metrics, and access-log behavior shall remain in the shared pipeline.
+24. No active health checks, passive health scoring, automatic failover, circuit breaking, outlier ejection, background refresh, TTL, registration, deregistration, heartbeat, external registry, DNS SRV, Consul, Eureka, Kubernetes API, or cloud discovery shall be introduced.
+25. No client-selected instance, arbitrary reverse proxy, sticky routing, Dashboard mutation, Developer Portal route management, new dependency, environment variable, service, or port shall be introduced.
+26. Private npm workspace versions shall remain `0.1.0`.
+27. Protected tag `v1.0.0` shall remain unchanged and Sprint 69 shall create no Git tag.
+
+Implementation status: Complete.
+
+Validation baseline:
+
+- API Gateway: 153 test files / 1110 tests.
+- Admin Dashboard: 53 test files / 244 tests.
+- Developer Portal: 2 test files / 7 tests.
+- Prisma schema validation, root tests, root typecheck, root build, Compose validation, and diff checks passed.
+- PostgreSQL migration and bounded Admin/runtime service-discovery validation passed.
+- Dashboard BFF/runtime discovery metadata validation passed.
+
+Next sprint: Sprint 70 - Service discovery health/failover hardening.
+<!-- SPRINT-69-REQUIREMENTS-END -->

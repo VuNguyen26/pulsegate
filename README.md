@@ -2,23 +2,23 @@
 
 High-Traffic API Gateway & Observability Platform.
 
-## Current product/documentation version - v1.8.0
+## Current product/documentation version - v1.9.0
 
-**Latest completed sprint:** Sprint 68 - Weighted routing foundation.
+**Latest completed sprint:** Sprint 69 - Service discovery foundation.
 
 Current validation baseline:
 
-- API Gateway: 147 test files / 1059 tests passed.
-- Admin Dashboard: 53 test files / 243 tests passed.
+- API Gateway: 153 test files / 1110 tests passed.
+- Admin Dashboard: 53 test files / 244 tests passed.
 - Developer Portal: 2 test files / 7 tests passed.
 - Root tests, typecheck, production build, Prisma validation, Compose validation, and Git diff checks passed.
-- PostgreSQL migration and bounded Admin/runtime weighted-route validation passed.
+- PostgreSQL migration, Admin/runtime discovery validation, and Dashboard BFF/runtime validation passed.
 
 Private npm workspace versions remain `0.1.0`.
 
-The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 68 creates no Git tag.
+The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 69 creates no Git tag.
 
-Next planned sprint: **Sprint 69 - Service discovery foundation**.
+Next planned sprint: **Sprint 70 - Service discovery health/failover hardening**.
 
 ---
 ## Current Status
@@ -384,7 +384,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-68.md
+- docs/sdlc/sprint-history/sprint-69.md
 
 Latest observability and analytics runbooks:
 
@@ -402,7 +402,7 @@ Latest observability and analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-11-dashboard-quota-usage-rejected-events.md
+- docs/project-context/decisions/2026-07-12-service-discovery-foundation.md
 
 ---
 
@@ -1085,3 +1085,56 @@ Boundaries:
 
 Product/documentation version: **v1.8.0**.
 <!-- SPRINT-68-README-END -->
+
+<!-- SPRINT-69-README-START -->
+## Sprint 69 - Service discovery foundation
+
+Sprint 69 adds bounded, configured service discovery to the existing route registry without introducing health checks, automatic failover, an external registry, DNS discovery, or Kubernetes integration.
+
+Delivered:
+
+- Added optional route-level `serviceInstances` metadata.
+- A discovery service uses a canonical lowercase kebab-case `serviceName` of at most 64 characters.
+- A configured service contains 1-8 unique canonical HTTP or HTTPS origins.
+- Instance origins contain no credentials, path, query, fragment, or non-canonical spelling.
+- The primary `downstreamUrl` origin must exist in the configured instance set.
+- Routes sharing a service name must declare the same instance set.
+- A runtime snapshot contains at most 64 configured services and is validated before registry replacement.
+- Direct discovery routes choose one configured instance and preserve the primary downstream path and query.
+- Missing runtime discovery state fails closed rather than silently falling back to an arbitrary target.
+- Weighted discovery routes keep the existing weighted selector; their weighted origins must exactly match the configured instance set and share the primary path/query.
+- Legacy direct and weighted routes without discovery metadata remain compatible.
+- Nullable PostgreSQL JSONB persistence supports Admin create, read, update, clear, reload, and soft-delete workflows.
+- The Admin Dashboard validates and displays discovery mode and configured service instances through its existing read-only BFF boundary.
+
+Implementation commits:
+
+- `5575cae feat(gateway): add service discovery contract`
+- `7c4f706 feat(gateway): resolve configured service instances`
+- `ab5a2b7 feat(gateway): persist service discovery routes`
+- `b5aefe9 feat(dashboard): show service discovery metadata`
+
+Validation:
+
+- API Gateway: 153 test files / 1110 tests passed.
+- Admin Dashboard: 53 test files / 244 tests passed.
+- Developer Portal: 2 test files / 7 tests passed.
+- Prisma schema validation, root tests, root typecheck, root production build, Docker Compose configuration, and diff checks passed.
+- Migration `20260712114500_add_gateway_route_service_instances` deployed successfully.
+- `gateway.gateway_routes.service_instances` was verified as nullable JSONB.
+- Admin create/read/reload, direct proxy, database roundtrip, soft-delete, and registry cleanup passed.
+- Dashboard read-only authorization, BFF list/detail preservation, `/routes` rendering, credential non-disclosure, and cleanup passed.
+
+Boundaries:
+
+- Discovery data is trusted configured route metadata, not an external service registry.
+- No active health checks, passive health scoring, automatic failover, retry-to-another-instance, circuit breaking, or outlier ejection.
+- No background refresh, TTL, registration, deregistration, heartbeat, DNS SRV, Consul, Eureka, Kubernetes API, or cloud discovery integration.
+- No client-selected instance, arbitrary reverse proxy, sticky routing, or per-instance unbounded metric labels.
+- No Dashboard mutation controls or Developer Portal route-management workflow.
+- No new dependency, environment variable, service, or port.
+- No Kubernetes, OpenTelemetry, Loki, billing, marketplace, or enterprise IAM work.
+- No npm package version bump and no Sprint 69 Git tag.
+
+Product/documentation version: **v1.9.0**.
+<!-- SPRINT-69-README-END -->
