@@ -22,6 +22,9 @@
     "analytics:retention:operator-preview": "tsx src/analytics/analytics-retention-operator-preview.command.ts"
   },
   "dependencies": {
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/core": "2.9.0",
+    "@opentelemetry/sdk-trace-base": "2.9.0",
     "@prisma/client": "^6.19.3",
     "fastify": "^5.8.5",
     "jose": "^6.2.3",
