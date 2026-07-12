@@ -16,6 +16,10 @@ import type {
 
 import type { ResponseCacheStore } from "../cache/redis-response-cache-store.js";
 import type { DownstreamRouteConfig } from "../config/downstream-routes.js";
+import {
+  selectWeightedDownstreamUrl,
+  type WeightedRandomSource,
+} from "../config/weighted-upstream-selector.js";
 import { DownstreamServiceError } from "../errors/downstream-service-error.js";
 import { apiKeyAuthMiddleware } from "../middlewares/api-key-auth.middleware.js";
 import { jwtAuthMiddleware } from "../middlewares/jwt-auth.middleware.js";
@@ -596,6 +600,7 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
   responseCacheStore?: ResponseCacheStore;
   responseCacheTtlSeconds?: number;
   usageRecorder?: ApiUsageRecorder;
+  weightedRandomSource?: WeightedRandomSource;
 }) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const usageStartedAtMs = Date.now();
@@ -645,6 +650,11 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
       }
     }
 
+    const selectedDownstreamUrl = selectWeightedDownstreamUrl(
+      routeConfig,
+      options.weightedRandomSource,
+    );
+
     const downstreamRequestHeaders = applyRequestHeaderTransform(
       {
         "x-request-id": request.id,
@@ -656,7 +666,7 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
       const downstreamTimeout = createDownstreamTimeout(routePolicies.timeout);
 
       try {
-        const downstreamResponse = await fetch(routeConfig.downstreamUrl, {
+        const downstreamResponse = await fetch(selectedDownstreamUrl, {
           method: routeConfig.method,
           headers: downstreamRequestHeaders,
           signal: downstreamTimeout.signal,

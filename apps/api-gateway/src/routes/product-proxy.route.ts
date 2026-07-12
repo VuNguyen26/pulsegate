@@ -10,6 +10,7 @@ import {
   type DownstreamRouteConfig,
   type HttpMethod,
 } from "../config/downstream-routes.js";
+import type { WeightedRandomSource } from "../config/weighted-upstream-selector.js";
 import type { RateLimitStore } from "../middlewares/rate-limit.middleware.js";
 import {
   buildResponseCacheKey,
@@ -36,6 +37,7 @@ export type ProductProxyRouteOptions = {
   usageRecorder?: ApiUsageRecorder;
   usageQuotaChecker?: UsageQuotaChecker;
   rejectedEventRecorder?: ApiRejectedEventRecorder;
+  weightedRandomSource?: WeightedRandomSource;
 };
 
 export type DownstreamProxyRouteOptions = ProductProxyRouteOptions & {
@@ -168,6 +170,7 @@ export async function downstreamProxyRoute(
         responseCacheStore: options.responseCacheStore,
         responseCacheTtlSeconds: options.responseCacheTtlSeconds,
         usageRecorder: options.usageRecorder,
+        weightedRandomSource: options.weightedRandomSource,
       }),
     });
   }
@@ -194,6 +197,7 @@ export async function downstreamProxyRoute(
         responseCacheStore: options.responseCacheStore,
         responseCacheTtlSeconds: options.responseCacheTtlSeconds,
         usageRecorder: options.usageRecorder,
+        weightedRandomSource: options.weightedRandomSource,
       }),
     });
   }
