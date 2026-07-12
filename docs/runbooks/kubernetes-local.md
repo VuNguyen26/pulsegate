@@ -1,10 +1,49 @@
-# Local Kubernetes Foundation Runbook
+# Local Kubernetes Runtime Runbook
 
 ## Status
 
-Sprint 71 provides a statically validated local/development Kubernetes foundation.
+Sprint 72 validates the PulseGate Kubernetes foundation on a user-owned local Docker Desktop Kubernetes cluster.
 
-Sprint 71 did **not** apply these resources to a cluster. Commands that apply or mutate cluster state belong to Sprint 72 runtime validation and must be run only after the cluster and image-loading strategy are audited.
+Validated environment:
+
+```text
+Context: docker-desktop
+Provisioner: kubeadm
+Nodes: 1
+Kubernetes: v1.32.2
+Namespace: pulsegate
+```
+
+This runbook describes a local/development workflow. It does not describe a production, durable, highly available, or cloud deployment.
+
+## Safety preflight
+
+Always verify the context before mutation:
+
+```powershell
+kubectl config get-contexts
+kubectl config current-context
+kubectl cluster-info
+kubectl get nodes -o wide
+kubectl get namespaces
+kubectl get all -n pulsegate
+```
+
+Expected approved context:
+
+```text
+docker-desktop
+```
+
+Stop if:
+
+- the current context differs
+- the cluster is shared or not owned by the operator
+- unexpected workloads already exist in `pulsegate`
+- placeholder Secrets would be unsafe for the target cluster
+- the working tree is not clean when performing a release validation
+
+Never decode or print Secret values.
 
 ## Artifact paths
 
@@ -14,23 +53,7 @@ deploy/kubernetes/overlays/local
 deploy/kubernetes/overlays/local/applications
 ```
 
-Purpose:
-
-- `base` â€” namespace plus four application ConfigMaps, Deployments, and ClusterIP Services.
-- `overlays/local` â€” namespace, local-only Secrets, PostgreSQL, Redis, and migration Job.
-- `overlays/local/applications` â€” the four application workloads for the post-migration rollout phase.
-
-## Static validation
-
-```powershell
-cd E:\pulsegate
-
-kubectl kustomize deploy/kubernetes/base
-kubectl kustomize deploy/kubernetes/overlays/local
-kubectl kustomize deploy/kubernetes/overlays/local/applications
-```
-
-Expected resource counts:
+Expected render counts:
 
 ```text
 base                 13
@@ -38,39 +61,15 @@ local bootstrap      10
 local applications   13
 ```
 
-Expected kinds:
+Validate:
 
-```text
-base:
-  Namespace=1
-  ConfigMap=4
-  Deployment=4
-  Service=4
-
-local bootstrap:
-  Namespace=1
-  Secret=4
-  Deployment=2
-  Service=2
-  Job=1
-
-local applications:
-  Namespace=1
-  ConfigMap=4
-  Deployment=4
-  Service=4
+```powershell
+kubectl kustomize deploy/kubernetes/base
+kubectl kustomize deploy/kubernetes/overlays/local
+kubectl kustomize deploy/kubernetes/overlays/local/applications
 ```
 
-## Local image contract
-
-```text
-pulsegate-api-gateway:local
-pulsegate-product-service:local
-pulsegate-admin-dashboard:local
-pulsegate-developer-portal:local
-```
-
-Build examples:
+## Build local images
 
 ```powershell
 docker build `
@@ -94,64 +93,243 @@ docker build `
   .
 ```
 
-Loading images into kind, minikube, k3d, or another cluster is cluster-specific and remains a Sprint 72 decision.
+Docker Desktop Kubernetes uses the Docker Desktop image store in the validated kubeadm setup, so separate `kind load` or `minikube image load` commands were not required.
 
-## Intended Sprint 72 rollout order
+API Gateway runtime smoke:
 
-Do not treat this as Sprint 71 runtime evidence.
-
-```text
-1. Audit cluster context and existing resources.
-2. Build and load all four local images.
-3. Apply deploy/kubernetes/overlays/local.
-4. Wait for PostgreSQL and Redis readiness.
-5. Wait for Job/pulsegate-migrations completion.
-6. Inspect migration logs.
-7. Apply deploy/kubernetes/overlays/local/applications.
-8. Wait for four application rollouts.
-9. Validate Services, probes, DNS, and port-forwarded HTTP.
+```powershell
+docker run --rm `
+  --workdir /app/apps/api-gateway `
+  --entrypoint node `
+  pulsegate-api-gateway:local `
+  --input-type=module `
+  -e "await import('redis'); console.log('REDIS_IMPORT_OK')"
 ```
 
-Prospective commands after Sprint 72 audit:
+Expected:
+
+```text
+REDIS_IMPORT_OK
+```
+
+The Gateway runtime image must include the API Gateway workspace node_modules tree because npm installs `redis` there.
+
+## Bootstrap rollout
+
+Apply local dependencies and migration resources:
 
 ```powershell
 kubectl apply -k deploy/kubernetes/overlays/local
+```
 
-kubectl wait `
-  --for=condition=available `
+Wait for dependencies:
+
+```powershell
+kubectl rollout status `
   deployment/postgres `
-  deployment/redis `
   -n pulsegate `
   --timeout=180s
 
+kubectl rollout status `
+  deployment/redis `
+  -n pulsegate `
+  --timeout=180s
+```
+
+Wait for migrations:
+
+```powershell
 kubectl wait `
   --for=condition=complete `
   job/pulsegate-migrations `
   -n pulsegate `
-  --timeout=300s
+  --timeout=360s
+```
+
+Inspect migration logs without printing Secret values:
+
+```powershell
+kubectl logs `
+  job/pulsegate-migrations `
+  -n pulsegate `
+  -c product-service-migration
 
 kubectl logs `
   job/pulsegate-migrations `
   -n pulsegate `
-  --all-containers
+  -c api-gateway-migration
 
-kubectl apply -k deploy/kubernetes/overlays/local/applications
+kubectl logs `
+  job/pulsegate-migrations `
+  -n pulsegate `
+  -c completion
 ```
 
-## Secret boundary
+Validated migration counts:
 
-The local overlay contains explicit placeholder values beginning with `local-development-`.
+```text
+Product Service: 1
+API Gateway:     11
+```
 
-They are:
+## Application rollout
 
-- committed only for bounded local/development composition
-- not production credentials
-- not a secret-management platform
-- not suitable for shared or public clusters
+```powershell
+kubectl apply `
+  -k deploy/kubernetes/overlays/local/applications
+```
 
-Before any non-local deployment, replace this mechanism with an explicitly reviewed secret delivery model.
+Wait for the four rollouts:
 
-The Admin Dashboard receives only `ADMIN_READ_ONLY_API_KEY`. It must never receive `ADMIN_API_KEY`.
+```powershell
+foreach ($deployment in @(
+  'product-service',
+  'api-gateway',
+  'admin-dashboard',
+  'developer-portal'
+)) {
+  kubectl rollout status `
+    "deployment/$deployment" `
+    -n pulsegate `
+    --timeout=240s
+}
+```
+
+Inspect:
+
+```powershell
+kubectl get pods -n pulsegate -o wide
+kubectl get services -n pulsegate
+kubectl get endpointslices.discovery.k8s.io -n pulsegate
+```
+
+Expected application state:
+
+```text
+product-service    1/1 Ready
+api-gateway        1/1 Ready
+admin-dashboard    1/1 Ready
+developer-portal   1/1 Ready
+```
+
+## Port-forward validation
+
+Run each command in its own PowerShell window:
+
+```powershell
+kubectl port-forward `
+  -n pulsegate `
+  service/api-gateway `
+  13000:3000
+```
+
+```powershell
+kubectl port-forward `
+  -n pulsegate `
+  service/admin-dashboard `
+  13003:3003
+```
+
+```powershell
+kubectl port-forward `
+  -n pulsegate `
+  service/developer-portal `
+  13004:3004
+```
+
+Validated URLs:
+
+```text
+http://127.0.0.1:13000/health
+http://127.0.0.1:13003/
+http://127.0.0.1:13003/api/admin/runtime-status
+http://127.0.0.1:13004/
+http://127.0.0.1:13004/getting-started
+http://127.0.0.1:13004/api-docs
+http://127.0.0.1:13004/api-keys
+```
+
+All seven returned HTTP 200 in Sprint 72.
+
+Stop port-forward processes with `Ctrl+C`.
+
+## Pod lifecycle validation
+
+```powershell
+kubectl rollout restart `
+  deployment/api-gateway `
+  -n pulsegate
+
+kubectl rollout status `
+  deployment/api-gateway `
+  -n pulsegate `
+  --timeout=240s
+
+kubectl get pods `
+  -n pulsegate `
+  -l app.kubernetes.io/name=api-gateway
+```
+
+Sprint 72 observed:
+
+- a different pod UID after restart
+- a new Gateway pod in Ready state
+- restart count 0
+- HTTP 200 from `/health`
+
+The process-local service-instance health registry is recreated with the new process. This does not create distributed health state or a high-availability claim.
+
+## Troubleshooting
+
+### `current-context is not set`
+
+Docker Desktop Kubernetes has not created or selected a context. Enable or create the local cluster, then re-audit. Do not apply against kubectl's localhost fallback.
+
+### `ERR_MODULE_NOT_FOUND: Cannot find package 'redis'`
+
+The production Gateway image is missing workspace-local runtime dependencies.
+
+The Dockerfile must copy:
+
+```dockerfile
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/apps/api-gateway/node_modules ./apps/api-gateway/node_modules
+```
+
+Rebuild the image, run the Redis import smoke, then restart only the Gateway Deployment.
+
+### Startup probe connection refused
+
+A short startup probe failure can occur while a process is still starting. Inspect rollout status, current logs, restart count, and final readiness. Persistent failures require exact logs before patching.
+
+### CrashLoopBackOff
+
+```powershell
+kubectl get pods -n pulsegate -o wide
+kubectl describe pod <pod-name> -n pulsegate
+kubectl logs <pod-name> -n pulsegate --previous
+kubectl get events -n pulsegate --sort-by=.metadata.creationTimestamp
+```
+
+Preserve partial cluster state until the exact cause is known. Do not blindly reapply or delete the namespace.
+
+### Resource sizing not established
+
+Sprint 72 did not complete an approved resource-sizing exercise. Resource requests and limits remain deferred rather than guessed.
+
+## Security boundary
+
+- Dashboard receives only `ADMIN_READ_ONLY_API_KEY`.
+- Dashboard does not receive `ADMIN_API_KEY`.
+- Developer Portal receives no privileged Secret.
+- Application service-account token mounting is disabled.
+- Application containers run as UID/GID 1000.
+- RuntimeDefault seccomp is enabled.
+- Privilege escalation is disabled.
+- All Linux capabilities are dropped.
+- Services are ClusterIP only.
+
+Local generated Secret values are development placeholders, not production secret management.
 
 ## Data boundary
 
@@ -159,75 +337,48 @@ PostgreSQL and Redis use `emptyDir`.
 
 Consequences:
 
-- pod replacement can lose data
+- pod recreation can lose data
 - no durability is claimed
-- no backup/restore behavior exists
+- no backup or restore workflow exists
 - no PVC or StatefulSet exists
-- cleanup can remove all local data
 
-A durable data design is outside Sprint 71.
+## Rollback and recovery
 
-## Health and discovery boundary
+For an application-only issue, preserve bootstrap state and inspect the affected Deployment first.
 
-Application probes prove only that the process HTTP endpoint responds.
-
-They do not prove:
-
-- PostgreSQL or Redis dependency health
-- downstream Product Service health
-- distributed Gateway health
-- external registry health
-- active service-instance polling
-
-Gateway service-instance health remains in memory and per pod. Restarting the Gateway pod resets that state.
-
-Kubernetes DNS does not replace PulseGate route-owned `serviceInstances`, and the applications do not query Kubernetes APIs.
-
-## Exposure boundary
-
-All Services are ClusterIP.
-
-There is no:
-
-- Ingress
-- NodePort
-- LoadBalancer
-- public PostgreSQL
-- public Redis
-- generic Admin API exposure
-
-Sprint 72 may use bounded `kubectl port-forward` for validation without changing the committed exposure model.
-
-## Security boundary
-
-Application workloads:
-
-- disable automatic service-account token mounting
-- run as UID/GID 1000
-- require non-root execution
-- use `RuntimeDefault` seccomp
-- disallow privilege escalation
-- drop all Linux capabilities
-
-Not yet asserted:
-
-- read-only root filesystem
-- resource requests/limits
-- autoscaling
-- disruption budgets
-- network policies
-
-Those require runtime evidence or a separately approved security design.
-
-## Cleanup boundary
-
-Cleanup commands are destructive to local ephemeral data. Sprint 72 must inspect current context and namespace contents before running them.
-
-Potential cleanup after explicit approval:
+Reapply the tracked application overlay:
 
 ```powershell
-kubectl delete -k deploy/kubernetes/overlays/local/applications
-kubectl delete -k deploy/kubernetes/overlays/local
+kubectl apply `
+  -k deploy/kubernetes/overlays/local/applications
 ```
 
-Never run cleanup against an unknown or shared context.
+Restart one affected Deployment only after rebuilding its local image:
+
+```powershell
+kubectl rollout restart `
+  deployment/api-gateway `
+  -n pulsegate
+```
+
+Do not use force deletion, namespace deletion, or broad `delete all` commands as recovery shortcuts.
+
+## Cleanup
+
+Cleanup destroys local ephemeral data. Confirm context and namespace contents first.
+
+Application cleanup:
+
+```powershell
+kubectl delete `
+  -k deploy/kubernetes/overlays/local/applications
+```
+
+Bootstrap and namespace cleanup:
+
+```powershell
+kubectl delete `
+  -k deploy/kubernetes/overlays/local
+```
+
+Run cleanup only after explicit approval on the user-owned `docker-desktop` context.

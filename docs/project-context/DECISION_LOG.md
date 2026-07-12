@@ -2,7 +2,7 @@
 
 ## Current Version
 
-v1.11.0
+v1.12.0
 
 Private npm workspace package versions remain `0.1.0`.
 
@@ -10,9 +10,50 @@ The annotated `v1.0.0` Git tag remains unchanged at the final Sprint 60 document
 
 ## Latest Completed Sprint
 
-Sprint 71 - Kubernetes foundation
+Sprint 72 - Kubernetes runtime validation and deployment documentation
 
 ## Latest Decision
+
+<!-- SPRINT-72-DECISION-LOG-START -->
+### 2026-07-12 - Validate Kubernetes as a bounded local development runtime
+
+Decision:
+
+- Use the user-owned Docker Desktop `docker-desktop` kubeadm cluster for Sprint 72 runtime validation.
+- Keep one replica for each application.
+- Apply local dependencies and the ordered migration Job before application workloads.
+- Keep all Services internal and use bounded port-forwarding for host access.
+- Preserve Dashboard read-only credential separation and an unprivileged Portal.
+- Treat Gateway health as process-local and recreated on pod replacement.
+- Correct the API Gateway production image by copying workspace-local runtime dependencies.
+- Do not add resource requests/limits without a measured usage source.
+- Keep PostgreSQL and Redis ephemeral.
+- Keep Kubernetes separate from PulseGate route-owned service discovery.
+- Advance product/documentation version to `v1.12.0`.
+- Keep private npm versions and protected tag `v1.0.0` unchanged.
+
+Reason:
+
+- Sprint 71 intentionally stopped at static manifests.
+- Runtime evidence is required before claiming cluster deployment behavior.
+- Explicit bootstrap/application ordering preserves migration ownership.
+- Internal Services and port-forwarding validate the local runtime without widening exposure.
+- The discovered Redis module failure proved that successful image builds are insufficient without production-image runtime checks.
+- One Gateway replica avoids a false distributed-health or high-availability claim.
+
+Consequences:
+
+- Docker Desktop Kubernetes is now a validated local/development workflow.
+- The deployment remains non-production, ephemeral, single-node, and single-replica.
+- Future durable storage, ingress, scaling, resource sizing, network policy, and secret delivery require separate evidence and approval.
+- Sprint 73 may begin OpenTelemetry tracing foundation without revisiting Kubernetes foundation scope.
+
+Detailed record:
+
+- `docs/project-context/decisions/2026-07-12-kubernetes-runtime-validation.md`
+- `docs/sdlc/sprint-history/sprint-72.md`
+- `docs/runbooks/kubernetes-local.md`
+<!-- SPRINT-72-DECISION-LOG-END -->
 
 <!-- SPRINT-71-DECISION-LOG-START -->
 ### 2026-07-12 - Use a bounded Kustomize foundation for local Kubernetes deployment

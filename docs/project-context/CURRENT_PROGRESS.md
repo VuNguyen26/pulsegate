@@ -1,38 +1,28 @@
 # Current Progress
 
-## Canonical state after Sprint 71
+## Canonical state after Sprint 72
 
-- Product/documentation version: `v1.11.0`.
+- Product/documentation version: `v1.12.0`.
 - Private npm workspace versions: `0.1.0`.
-- Latest completed sprint: **Sprint 71 - Kubernetes foundation**.
-- Latest implementation commit before documentation finalization: `c171135e1d413e6d90d76aed7d83e279a12b8504`.
+- Latest completed sprint: **Sprint 72 - Kubernetes runtime validation and deployment documentation**.
+- Latest implementation commit before documentation finalization: `c6229f4091ae4c70b5ee4964b57559f9f47a049d`.
 - Protected annotated tag `v1.0.0` remains unchanged at `407d03678674219e7228b15f0cd7a23074493f31`.
-- Sprint 71 creates no Git tag.
-- Next sprint: **Sprint 72 - Kubernetes runtime validation and deployment documentation**.
+- Sprint 72 creates no Git tag.
+- Next sprint: **Sprint 73 - OpenTelemetry tracing foundation**.
 
-## Sprint 71 implementation commits
+## Sprint 72 implementation commit
 
-- `81f9a3f69c96b52c0489988e939706bd2671f6e0` - `feat(runtime): harden backend deployment entrypoints`
-- `e77494ab9356ac5ba297a158e1e9150fe35c99fc` - `feat(kubernetes): add deployment manifest foundation`
-- `5c8e50a8eb68a75cc50f84bfc2a831cd0c2d7e41` - `feat(kubernetes): add core application manifests`
-- `c171135e1d413e6d90d76aed7d83e279a12b8504` - `feat(kubernetes): add local dependency composition`
+- `c6229f4091ae4c70b5ee4964b57559f9f47a049d` - `fix(runtime): include gateway workspace dependencies`
 
 ## Delivered behavior
 
-- Kustomize base plus local bootstrap and local application overlays.
-- `pulsegate` namespace.
-- One-replica Deployments and ClusterIP Services for the four applications.
-- ConfigMap and Secret-reference boundaries.
-- Existing HTTP endpoints used for startup, readiness, and liveness probes.
-- Disabled service-account token mounting.
-- Non-root application containers with `RuntimeDefault` seccomp, no privilege escalation, and dropped capabilities.
-- Local-only PostgreSQL 16 and Redis 7 with ephemeral `emptyDir`.
-- Explicit ordered migration Job.
-- Production backend multi-stage Docker images.
-- Compiled JavaScript production startup.
-- Gateway Prisma runtime client copied into `dist`.
-- Product Service migration deploy script.
-- Graceful backend `SIGINT` and `SIGTERM` handling.
+- Validated the Sprint 71 Kustomize foundation on Docker Desktop Kubernetes.
+- Applied local PostgreSQL, Redis, Secrets, and ordered migration Job.
+- Applied Product Service, API Gateway, Admin Dashboard, and Developer Portal workloads.
+- Validated application probes, ClusterIP Services, EndpointSlices, internal DNS, HTTP surfaces, and bounded port-forward access.
+- Corrected API Gateway production image workspace dependency packaging.
+- Validated Gateway pod replacement and process restart behavior.
+- Expanded the Kubernetes local runbook with actual rollout, troubleshooting, rollback, and cleanup guidance.
 
 ## Validation baseline
 
@@ -40,31 +30,33 @@
 - API Gateway: 155 test files / 1140 tests.
 - Developer Portal: 2 test files / 7 tests.
 - Root release validation passed.
-- API Gateway and Product Service production images built.
-- Product Service migration runtime applied 1 migration.
-- API Gateway migration runtime applied 11 migrations.
+- Docker Desktop context: `docker-desktop`.
+- Kubernetes: v1.32.2.
 - Base render: 13 resources.
 - Local bootstrap render: 10 resources.
 - Local applications render: 13 resources.
-- Twelve Kubernetes source files are tracked.
-- No Kubernetes resources were applied.
+- PostgreSQL, Redis, and four application Deployments: 1/1 Ready.
+- Migration Job: Complete.
+- Product Service migrations: 1.
+- API Gateway migrations: 11.
+- In-cluster HTTP checks: 8 passed.
+- Port-forward HTTP checks: 7 passed.
+- Gateway replacement pod: new UID, Ready, zero restarts, HTTP 200.
 
 ## Preserved boundaries
 
-- Docker Compose remains unchanged and supported.
-- No Kubernetes API discovery.
-- No Ingress, NodePort, LoadBalancer, public database, or public Redis.
-- No ServiceAccount or RBAC.
-- No PVC, StatefulSet, or durability claim.
-- No Helm, GitOps, cloud-specific platform, or service mesh.
-- No production secret-management claim.
-- No resource requests/limits without measurement.
+- Docker Compose remains supported.
+- One application replica each; no HA claim.
 - Gateway health remains process-local and per pod.
-- One Gateway replica avoids a false distributed-health claim.
-- Host routing, weighted routing, service discovery, retry, authentication, quota, cache, transforms, analytics, metrics, and access logs remain unchanged.
+- No Kubernetes API discovery or distributed health state.
+- No Ingress, NodePort, LoadBalancer, public database, or public Redis.
+- No ServiceAccount, RBAC, PVC, StatefulSet, Helm, GitOps, cloud platform, or service mesh.
+- PostgreSQL and Redis remain ephemeral.
+- No production secret-management claim.
+- No resource requests/limits without measurements.
 - No OpenTelemetry, Loki, billing, marketplace, or enterprise IAM.
 - No npm package version bump.
-- No Sprint 71 Git tag.
+- No Sprint 72 Git tag.
 
 ## Fixed roadmap
 
@@ -79,8 +71,8 @@
 - Sprint 69 - Service discovery foundation - complete.
 - Sprint 70 - Service discovery health/failover hardening - complete.
 - Sprint 71 - Kubernetes foundation - complete.
-- Sprint 72 - Kubernetes runtime validation and deployment documentation - next.
-- Sprint 73 - OpenTelemetry tracing foundation.
+- Sprint 72 - Kubernetes runtime validation and deployment documentation - complete.
+- Sprint 73 - OpenTelemetry tracing foundation - next.
 - Sprint 74 - Loki logging foundation.
 - Sprint 75 - Grafana observability integration.
 - Sprint 76 - Platform RBAC/security hardening.

@@ -415,3 +415,34 @@ Cluster apply, image loading, rollout, port-forward, restart, termination, and c
 
 See `docs/runbooks/kubernetes-local.md`.
 <!-- SPRINT-71-LOCAL-VALIDATION-END -->
+
+<!-- SPRINT-72-LOCAL-VALIDATION-START -->
+## Sprint 72 Kubernetes runtime validation
+
+Validated local environment:
+
+```text
+context: docker-desktop
+Kubernetes: v1.32.2
+nodes: 1 Ready control-plane
+namespace: pulsegate
+```
+
+Validated sequence:
+
+1. Build four local application images.
+2. Render Kustomize targets with counts 13, 10, and 13.
+3. Apply local bootstrap resources.
+4. Wait for PostgreSQL and Redis.
+5. Wait for the ordered migration Job.
+6. Confirm 1 Product Service migration and 11 Gateway migrations.
+7. Apply four application workloads.
+8. Confirm all four application Deployments at 1/1 Ready.
+9. Validate internal DNS and HTTP.
+10. Validate seven port-forwarded HTTP surfaces.
+11. Replace the Gateway pod and confirm new UID, zero restarts, and HTTP 200 health.
+
+The API Gateway image also requires a runtime Redis import smoke because workspace dependencies are installed below `apps/api-gateway/node_modules`.
+
+See `docs/runbooks/kubernetes-local.md`.
+<!-- SPRINT-72-LOCAL-VALIDATION-END -->

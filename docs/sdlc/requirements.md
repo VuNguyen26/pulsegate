@@ -6,14 +6,13 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.10.0
+v1.12.0
 
 ## Latest Completed Sprint
 
-Sprint 70 - Service discovery health/failover hardening
+Sprint 72 - Kubernetes runtime validation and deployment documentation
 
 ---
-
 ## Document Scope
 
 This file tracks current and future requirements compactly.
@@ -2187,3 +2186,49 @@ Next sprint: Sprint 71 - Kubernetes foundation.
 9. The final working tree shall be clean.
 10. Actual Kubernetes apply and runtime validation shall remain deferred to Sprint 72.
 <!-- SPRINT-71-REQUIREMENTS-END -->
+
+<!-- SPRINT-72-REQUIREMENTS-START -->
+## Sprint 72 acceptance requirements
+
+1. Runtime validation shall use an explicitly audited, user-owned local/development Kubernetes context.
+2. The approved context shall remain `docker-desktop`; scripts shall fail closed on context drift.
+3. Base, local bootstrap, and local application Kustomize renders shall remain 13, 10, and 13 resources.
+4. Four Linux amd64 local application images shall build and run as non-root users.
+5. PostgreSQL and Redis shall become Ready before migration completion is accepted.
+6. One migration Job shall run Product Service migration before API Gateway migration and shall not seed data.
+7. Product Service shall report 1 applied migration and API Gateway shall report 11 applied migrations.
+8. Product Service, API Gateway, Admin Dashboard, and Developer Portal Deployments shall each reach 1/1 Ready.
+9. Application Services shall remain ClusterIP and shall expose one Ready endpoint each.
+10. Gateway, Product Service, Dashboard, Dashboard BFF, and Portal HTTP routes shall pass in-cluster validation.
+11. Bounded local port-forward validation shall return HTTP 200 for seven approved surfaces.
+12. Gateway pod replacement shall create a new pod UID, reach Ready, retain zero restarts, and return HTTP 200 health.
+13. Gateway production images shall contain workspace-local runtime dependencies required by compiled output.
+14. Dashboard shall receive only `ADMIN_READ_ONLY_API_KEY`.
+15. Developer Portal shall receive no privileged Secret.
+16. Automatic service-account token mounting shall remain disabled for application workloads.
+17. Existing route-owned discovery, process-local health, GET-only retry, seven-retry cap, and eight-execution cap shall remain unchanged.
+18. PostgreSQL and Redis shall remain explicitly ephemeral with no durability claim.
+19. No Ingress, NodePort, LoadBalancer, Kubernetes API discovery, RBAC, ServiceAccount, Helm, GitOps, service mesh, cloud dependency, OpenTelemetry, or Loki capability shall be added.
+20. Resource requests/limits shall not be invented without a measured runtime source.
+21. Docker Compose shall remain supported.
+22. Private npm workspace versions shall remain `0.1.0`.
+23. Protected tag `v1.0.0` shall remain unchanged and Sprint 72 shall create no Git tag.
+
+Implementation status: Complete.
+
+Validation baseline:
+
+- Admin Dashboard: 53 test files / 244 tests.
+- API Gateway: 155 test files / 1140 tests.
+- Developer Portal: 2 test files / 7 tests.
+- Root release validation passed.
+- Kustomize renders: 13 / 10 / 13.
+- Kubernetes Deployments: 6 at 1/1 Ready.
+- Migration Job: Complete.
+- Database migration counts: 1 Product Service / 11 API Gateway.
+- In-cluster HTTP checks: 8 passed.
+- Port-forwarded HTTP checks: 7 passed.
+- API Gateway lifecycle replacement: new UID, Ready, zero restarts, HTTP 200.
+
+Next sprint: Sprint 73 - OpenTelemetry tracing foundation.
+<!-- SPRINT-72-REQUIREMENTS-END -->

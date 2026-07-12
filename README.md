@@ -2,9 +2,9 @@
 
 High-Traffic API Gateway & Observability Platform.
 
-## Current product/documentation version - v1.11.0
+## Current product/documentation version - v1.12.0
 
-**Latest completed sprint:** Sprint 71 - Kubernetes foundation.
+**Latest completed sprint:** Sprint 72 - Kubernetes runtime validation and deployment documentation.
 
 Current validation baseline:
 
@@ -12,15 +12,20 @@ Current validation baseline:
 - API Gateway: 155 test files / 1140 tests passed.
 - Developer Portal: 2 test files / 7 tests passed.
 - Root release validation, typecheck, production builds, Prisma validation, Compose validation, and Git diff checks passed.
-- Production backend Docker image builds passed.
-- Product Service and API Gateway migration commands passed against temporary PostgreSQL with 1 public migration and 11 Gateway migrations.
+- Docker Desktop Kubernetes `docker-desktop` ran one Ready Kubernetes v1.32.2 control-plane node.
 - Kustomize rendered 13 base resources, 10 local bootstrap resources, and 13 local application resources.
+- PostgreSQL, Redis, Product Service, API Gateway, Admin Dashboard, and Developer Portal Deployments reached 1/1 Ready.
+- Product Service applied 1 migration and API Gateway applied 11 migrations through the ordered migration Job.
+- In-cluster HTTP validation passed for Gateway, Product Service, Dashboard, Dashboard BFF, and four Portal routes.
+- Windows port-forward validation passed for seven bounded HTTP surfaces.
+- API Gateway pod replacement produced a new pod UID, Ready state, zero restarts, and HTTP 200 health.
+- API Gateway runtime packaging was corrected so workspace-local Redis dependencies are present in the production image.
 
 Private npm workspace versions remain `0.1.0`.
 
-The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 71 creates no Git tag.
+The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 72 creates no Git tag.
 
-Next planned sprint: **Sprint 72 - Kubernetes runtime validation and deployment documentation**.
+Next planned sprint: **Sprint 73 - OpenTelemetry tracing foundation**.
 
 ---
 ## Current Status
@@ -1257,3 +1262,57 @@ Product/documentation version: **v1.11.0**.
 
 Next planned sprint: **Sprint 72 - Kubernetes runtime validation and deployment documentation**.
 <!-- SPRINT-71-README-END -->
+
+<!-- SPRINT-72-README-START -->
+## Sprint 72 - Kubernetes runtime validation and deployment documentation
+
+Sprint 72 validates the Sprint 71 Kubernetes foundation on an approved local Docker Desktop Kubernetes cluster and documents the actual local/development operating model.
+
+Delivered and validated:
+
+- Selected the user-owned `docker-desktop` context using Docker Desktop Kubernetes with the kubeadm single-node provisioner.
+- Confirmed Kubernetes v1.32.2, one Ready control-plane node, and no pre-existing `pulsegate` namespace or workload collision.
+- Built four Linux amd64 non-root local application images.
+- Applied the local bootstrap overlay, waited for PostgreSQL and Redis, and completed the ordered migration Job.
+- Confirmed 1 Product Service migration and 11 API Gateway migrations.
+- Applied four application ConfigMaps, Deployments, and ClusterIP Services.
+- Confirmed all four application Deployments reached 1/1 Ready.
+- Validated internal Service DNS and HTTP connectivity.
+- Validated Dashboard read-only credential separation and an unprivileged Developer Portal runtime.
+- Validated bounded Windows access through `kubectl port-forward`.
+- Replaced the API Gateway pod and confirmed a new pod UID, zero restarts, and HTTP 200 health.
+- Fixed the API Gateway production image to include workspace-local runtime dependencies.
+- Preserved Docker Compose, route-owned service discovery, per-pod process-local health, retry bounds, authentication, quota, cache, analytics, and observability behavior.
+
+Runtime evidence:
+
+- Docker Desktop context: `docker-desktop`.
+- Kubernetes: v1.32.2.
+- Base render: 13 resources.
+- Local bootstrap render: 10 resources.
+- Local application render: 13 resources.
+- Product Service migrations: 1.
+- API Gateway migrations: 11.
+- In-cluster HTTP checks: 8 passed.
+- Port-forwarded HTTP checks: 7 passed.
+- Gateway replacement pod: Ready with zero restarts.
+
+Boundaries:
+
+- This is a local/development validation, not a production, high-availability, durability, or cloud deployment claim.
+- Application replicas remain one.
+- PostgreSQL and Redis remain ephemeral `emptyDir` Deployments.
+- Services remain ClusterIP with no Ingress, NodePort, or LoadBalancer.
+- No Kubernetes API discovery, ServiceAccount, RBAC, service mesh, Helm, GitOps, cloud dependency, OpenTelemetry, or Loki work was added.
+- Resource requests/limits remain deferred because Sprint 72 did not complete an approved sizing exercise.
+- Process-local Gateway health is recreated with the pod process; no distributed health state is claimed.
+- No npm package version changed and no Sprint 72 Git tag was created.
+
+Implementation commit:
+
+- `c6229f4091ae4c70b5ee4964b57559f9f47a049d` - `fix(runtime): include gateway workspace dependencies`
+
+Product/documentation version: **v1.12.0**.
+
+Next planned sprint: **Sprint 73 - OpenTelemetry tracing foundation**.
+<!-- SPRINT-72-README-END -->

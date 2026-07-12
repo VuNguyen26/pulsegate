@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.11.0
+v1.12.0
 
 ## Current Status
 
-Sprint 71 - Kubernetes foundation Complete
+Sprint 72 - Kubernetes runtime validation and deployment documentation Complete
 
 Current validation:
 
@@ -18,8 +18,12 @@ Current validation:
 - API Gateway: 155 test files / 1140 tests passed.
 - Developer Portal: 2 test files / 7 tests passed.
 - Root release validation, typecheck, production builds, Prisma validation, Compose validation, and Git diff checks passed.
-- Backend production images and both migration commands passed.
-- Kustomize rendered base, local bootstrap, and local application targets.
+- Docker Desktop Kubernetes v1.32.2 ran one Ready local control-plane node.
+- Kustomize rendered 13 base, 10 local bootstrap, and 13 local application resources.
+- Six Deployments reached 1/1 Ready and the ordered migration Job completed.
+- Product Service has 1 applied migration and API Gateway has 11 applied migrations.
+- In-cluster HTTP and bounded Windows port-forward validation passed.
+- API Gateway pod replacement produced a new Ready pod with zero restarts.
 - Private npm workspace versions remain 0.1.0.
 - Protected annotated tag v1.0.0 remains unchanged.
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
@@ -1571,3 +1575,64 @@ Deferred to Sprint 72:
 - resource measurements and requests/limits
 - rollback, troubleshooting, and cleanup evidence
 <!-- SPRINT-71-ARCHITECTURE-END -->
+
+<!-- SPRINT-72-ARCHITECTURE-START -->
+## Kubernetes runtime validation boundary (Sprint 72)
+
+### Validated local topology
+
+```text
+Docker Desktop Kubernetes / docker-desktop
+  -> namespace pulsegate
+    -> PostgreSQL 16 Deployment + ClusterIP + emptyDir
+    -> Redis 7 Deployment + ClusterIP + emptyDir
+    -> ordered migration Job
+    -> Product Service Deployment + ClusterIP
+    -> API Gateway Deployment + ClusterIP
+    -> Admin Dashboard Deployment + ClusterIP
+    -> Developer Portal Deployment + ClusterIP
+```
+
+The cluster is a user-owned local Docker Desktop kubeadm cluster with one Kubernetes v1.32.2 control-plane node. This topology is for bounded local/development validation only.
+
+### Runtime validation order
+
+```text
+audit context and ownership
+  -> build four local images
+  -> apply local bootstrap
+  -> wait for PostgreSQL and Redis
+  -> wait for ordered migration Job
+  -> apply application overlay
+  -> wait for four application rollouts
+  -> validate Service DNS and HTTP
+  -> validate port-forward access
+  -> replace Gateway pod and validate lifecycle
+```
+
+### Runtime packaging correction
+
+The API Gateway workspace dependency `redis` is installed under the API Gateway workspace node_modules tree. The production image now copies that workspace-local runtime dependency tree in addition to root node_modules. This prevents a successful image build from producing an `ERR_MODULE_NOT_FOUND` failure at container startup.
+
+### Health and lifecycle
+
+Gateway service-instance health remains process-local and per pod. Kubernetes pod replacement creates a new process and therefore a new in-memory health registry. No health state is persisted to PostgreSQL, Redis, Kubernetes objects, or another Gateway replica.
+
+The validated one-replica rollout does not establish high availability. Multiple Gateway replicas would still hold independent health views.
+
+### Security and exposure
+
+- Application service-account token mounting remains disabled.
+- Application containers remain non-root with RuntimeDefault seccomp, no privilege escalation, and all capabilities dropped.
+- Dashboard receives only the read-only Admin credential.
+- Developer Portal receives no privileged Secret.
+- Services remain ClusterIP.
+- PostgreSQL and Redis remain internal.
+- No Kubernetes API discovery, RBAC, Ingress, NodePort, LoadBalancer, or service mesh was added.
+
+### Persistence and resource limitations
+
+PostgreSQL and Redis still use emptyDir. Pod replacement can lose local data. No PVC, StatefulSet, backup, restore, or durability claim exists.
+
+Sprint 72 did not complete an approved resource-sizing exercise, so it does not invent requests or limits. Resource sizing remains a measured future hardening task.
+<!-- SPRINT-72-ARCHITECTURE-END -->

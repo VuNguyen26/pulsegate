@@ -1,96 +1,85 @@
 # AI Handoff
 
-PulseGate is complete through **Sprint 71 - Kubernetes foundation**.
+PulseGate is complete through **Sprint 72 - Kubernetes runtime validation and deployment documentation**.
 
 ## Canonical state
 
-- Product/documentation version: `v1.11.0`.
+- Product/documentation version: `v1.12.0`.
 - Private npm workspace versions: `0.1.0`.
-- Latest implementation commit before docs: `c171135e1d413e6d90d76aed7d83e279a12b8504`.
+- Latest implementation commit before docs: `c6229f4091ae4c70b5ee4964b57559f9f47a049d`.
 - Protected annotated tag `v1.0.0` remains unchanged.
-- Sprint 71 creates no tag.
-- Next sprint: **Sprint 72 - Kubernetes runtime validation and deployment documentation**.
+- Sprint 72 creates no tag.
+- Next sprint: **Sprint 73 - OpenTelemetry tracing foundation**.
 
-## Kubernetes artifact contract
+## Validated Kubernetes runtime
 
-- Kustomize is used through the version embedded in `kubectl`.
-- Base path: `deploy/kubernetes/base`.
-- Local bootstrap path: `deploy/kubernetes/overlays/local`.
-- Local application path: `deploy/kubernetes/overlays/local/applications`.
+- Context: `docker-desktop`.
+- Runtime: Docker Desktop Kubernetes, kubeadm, one local control-plane node.
+- Kubernetes version: v1.32.2.
 - Namespace: `pulsegate`.
-- Application images:
-  - `pulsegate-api-gateway:local`
-  - `pulsegate-product-service:local`
-  - `pulsegate-admin-dashboard:local`
-  - `pulsegate-developer-portal:local`
-- Application Services are ClusterIP only.
-- Application replicas remain `1`.
-- No Ingress, NodePort, LoadBalancer, ServiceAccount, or RBAC exists.
+- Base render: 13 resources.
+- Local bootstrap render: 10 resources.
+- Local application render: 13 resources.
+- PostgreSQL, Redis, Product Service, API Gateway, Admin Dashboard, and Developer Portal Deployments reached 1/1 Ready.
+- Migration Job completed in Product Service -> API Gateway -> completion order.
+- Migration counts: 1 Product Service and 11 API Gateway.
+- In-cluster HTTP validation passed for 8 approved surfaces.
+- Seven port-forwarded HTTP surfaces returned 200.
+- Gateway pod replacement produced a new UID, zero restarts, and HTTP 200 health.
 
-## Runtime and migration contract
+## Runtime image correction
 
-- API Gateway and Product Service production images are multi-stage and run compiled JavaScript as user `node`.
-- Gateway build copies its generated Prisma client into `dist/generated/prisma`.
-- Backend servers handle `SIGINT` and `SIGTERM` through `app.close()`.
-- Product Service exposes `db:migrate:deploy`.
-- Local PostgreSQL and Redis are ephemeral Deployments with `emptyDir`.
-- One Job executes Product Service migration before API Gateway migration.
-- Applications are rendered separately so migration completion can precede application rollout.
-- No seed runs in the migration Job.
+The API Gateway production image must copy both:
 
-## Configuration and security contract
+```text
+/app/node_modules
+/app/apps/api-gateway/node_modules
+```
 
-- ConfigMaps contain non-secret settings.
-- Base application manifests contain Secret references only.
-- The local overlay generates explicit local-development placeholder Secrets.
-- The Dashboard receives only `ADMIN_READ_ONLY_API_KEY`.
-- The Dashboard does not receive `ADMIN_API_KEY`.
-- The Developer Portal receives no privileged Secret.
-- Application service-account token mounting is disabled.
-- Application workloads run non-root with `RuntimeDefault` seccomp, no privilege escalation, and dropped capabilities.
-- PostgreSQL and Redis are not publicly exposed.
+The workspace-local tree contains the runtime `redis` package used by compiled Gateway output. Commit:
+
+```text
+c6229f4091ae4c70b5ee4964b57559f9f47a049d
+fix(runtime): include gateway workspace dependencies
+```
+
+Do not remove the workspace dependency copy without proving production runtime module resolution.
+
+## Kubernetes contract
+
+- Kustomize uses the version embedded in `kubectl`.
+- Bootstrap path: `deploy/kubernetes/overlays/local`.
+- Application path: `deploy/kubernetes/overlays/local/applications`.
+- Application replicas remain one.
+- Services remain ClusterIP.
+- PostgreSQL and Redis remain ephemeral `emptyDir` Deployments.
+- Dashboard receives only `ADMIN_READ_ONLY_API_KEY`.
+- Developer Portal receives no privileged Secret.
+- Application service-account token mounting remains disabled.
+- Application containers remain non-root with RuntimeDefault seccomp, no privilege escalation, and dropped capabilities.
+- No Ingress, NodePort, LoadBalancer, RBAC, ServiceAccount, PVC, StatefulSet, or production secret management exists.
 
 ## Health and discovery contract
 
 - Kubernetes Services provide stable internal DNS only.
-- PulseGate does not query Kubernetes APIs or Endpoint resources.
+- PulseGate does not query Kubernetes APIs or Endpoint resources for route discovery.
 - Existing configured service discovery remains authoritative.
 - Gateway instance health remains process-local and per pod.
-- Pod restart resets health.
+- Pod replacement recreates the process-local health registry.
 - Multiple Gateway replicas would have independent health views.
-- Sprint 71 keeps one Gateway replica and makes no high-availability claim.
 - GET-only retry, seven-retry cap, eight-execution cap, and non-GET no-replay remain unchanged.
 
-## Validation evidence
+## Sprint 73 boundary
 
-- Root release validation passed.
-- API Gateway: 155 test files / 1140 tests.
-- Admin Dashboard: 53 test files / 244 tests.
-- Developer Portal: 2 test files / 7 tests.
-- Both production backend Docker images built.
-- Product Service migration applied 1 migration.
-- API Gateway migration applied 11 migrations.
-- Base render produced 13 resources.
-- Local bootstrap render produced 10 resources.
-- Local applications render produced 13 resources.
-- No cluster apply occurred.
+Sprint 73 owns OpenTelemetry tracing foundation only.
 
-## Sprint 72 handoff
+Before patching:
 
-Sprint 72 must audit the actual available cluster/runtime before applying anything.
+- audit current logging, request ID, Fastify hooks, proxy lifecycle, metrics, Docker, Compose, and Kubernetes configuration
+- preserve bounded labels and existing analytics sources of truth
+- define trace propagation and sampling explicitly
+- keep secrets, API keys, JWTs, raw bodies, and unbounded paths out of attributes
+- keep Loki, service mesh, cloud exporter lock-in, billing, marketplace, and enterprise IAM out of scope
+- validate Docker Compose and Kubernetes runtime after implementation
 
-Expected work:
-
-- select or create an approved local cluster
-- load the four local images into that cluster
-- apply local bootstrap resources
-- wait for PostgreSQL, Redis, and migration Job completion
-- apply application resources
-- validate rollouts, probes, DNS, and port-forwarded HTTP surfaces
-- validate routing, Admin credential separation, quota/cache/analytics behavior, and failover invariants
-- validate graceful termination
-- validate pod restart and process-local health reset
-- measure resources before adding requests/limits
-- document rollback, troubleshooting, and cleanup
-
-Sprint 72 must not silently add Kubernetes API discovery, a service mesh, cloud platform dependencies, production secret management, OpenTelemetry, Loki, billing, marketplace, enterprise IAM, npm version changes, or a Git tag.
+Do not change npm workspace versions or create a Git tag.
