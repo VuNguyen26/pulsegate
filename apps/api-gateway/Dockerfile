@@ -23,6 +23,7 @@ COPY --from=build --chown=node:node /app/apps/api-gateway/package.json ./apps/ap
 COPY --from=build --chown=node:node /app/apps/api-gateway/dist ./apps/api-gateway/dist
 COPY --from=build --chown=node:node /app/apps/api-gateway/prisma ./apps/api-gateway/prisma
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/apps/api-gateway/node_modules ./apps/api-gateway/node_modules
 
 USER node
 
