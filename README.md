@@ -1,37 +1,26 @@
 # PulseGate
 
-<!-- pulsegate:sprint-64:start -->
-## Current release - v1.7.0
-
-**Latest completed sprint:** Sprint 66 - Developer Portal API docs and API-key self-service foundation.
-
-The Admin Dashboard now provides three read-only operator views:
-
-- /rollups inspects bounded persisted usage and rejected-request rollups.
-- /scheduler evaluates a fixed observational scheduler preview while runtime invocation remains closed.
-- /retention reads fixed 90-day dry-run candidate counts without importing deletion infrastructure or executing retention.
-
-The Dashboard uses fixed same-origin BFF GET routes and server-only Admin API credentials. Rollups remain derived analytics and never replace raw-event quota, billing, authentication, or audit truth.
-<!-- pulsegate:sprint-64:end -->
-
 High-Traffic API Gateway & Observability Platform.
 
-PulseGate is being built toward a product-like API Gateway and API Management Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
+## Current product/documentation version - v1.8.0
 
-Current version:
+**Latest completed sprint:** Sprint 68 - Weighted routing foundation.
 
-- v1.3.0
+Current validation baseline:
 
-Latest completed sprint:
+- API Gateway: 147 test files / 1059 tests passed.
+- Admin Dashboard: 53 test files / 243 tests passed.
+- Developer Portal: 2 test files / 7 tests passed.
+- Root tests, typecheck, production build, Prisma validation, Compose validation, and Git diff checks passed.
+- PostgreSQL migration and bounded Admin/runtime weighted-route validation passed.
 
-- Sprint 63 - Dashboard quota/usage/rejected events
+Private npm workspace versions remain `0.1.0`.
 
-Private npm workspace package versions remain `0.1.0`.
+The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 68 creates no Git tag.
 
-The annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`.
+Next planned sprint: **Sprint 69 - Service discovery foundation**.
 
 ---
-
 ## Current Status
 
 PulseGate currently includes:
@@ -395,7 +384,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-63.md
+- docs/sdlc/sprint-history/sprint-68.md
 
 Latest observability and analytics runbooks:
 
@@ -1046,3 +1035,53 @@ PulseGate now supports exact normalized request-host route conditions while pres
 Current product/documentation version: **v1.7.0**. Private npm workspace versions remain **0.1.0**.
 
 Next planned sprint: **Sprint 68 â€” Weighted routing foundation**.
+
+<!-- SPRINT-68-README-START -->
+## Sprint 68 - Weighted routing foundation
+
+Sprint 68 adds bounded route-level weighted upstream selection while preserving the existing host/path route identity and shared proxy policy pipeline.
+
+Delivered:
+
+- Added optional `weightedUpstreams` route metadata while preserving legacy `downstreamUrl`.
+- Weighted configurations require 2-8 unique HTTP or HTTPS upstreams.
+- Each weight is a relative integer from 1 through 1000; weights do not need to total 100.
+- The primary `downstreamUrl` must appear exactly once in the weighted set.
+- Invalid, duplicate, empty, malformed, or primary-mismatched configurations fail closed.
+- Weighted selection occurs only after exact-host/path-only route resolution and after a cache miss.
+- A selected target remains fixed across retries; Sprint 68 does not retry against a different upstream.
+- Client headers, query parameters, API keys, consumers, and request IDs cannot choose or override a target.
+- Nullable PostgreSQL JSONB persistence keeps existing rows in legacy single-upstream mode.
+- Admin create/read/update/reload supports weighted metadata; update omission preserves, `null` clears, and an array replaces the full set.
+- The Admin Dashboard validates and displays read-only single-upstream or weighted target metadata.
+- Existing authentication, authorization, quota, rate-limit, cache, transform, timeout, retry, analytics, metrics, and access-log boundaries remain in the shared route pipeline.
+
+Implementation commits:
+
+- `ee22b47 feat(gateway): add weighted upstream contract`
+- `7c706c4 feat(gateway): route traffic across weighted upstreams`
+- `278e00e feat(gateway): persist weighted upstream routing`
+- `528b9fb feat(dashboard): show weighted route metadata`
+
+Validation:
+
+- API Gateway: 147 test files / 1059 tests passed.
+- Admin Dashboard: 53 test files / 243 tests passed.
+- Developer Portal: 2 test files / 7 tests passed.
+- Prisma schema validation, root typecheck, root production build, and Docker Compose configuration passed.
+- Migration `20260712070000_add_gateway_route_weighted_upstreams` deployed successfully.
+- Five existing route rows remained compatible with SQL `NULL` weighted metadata.
+- A bounded runtime probe created a weighted route, reloaded the registry, proxied successfully, cleared the weighted metadata to SQL `NULL`, reloaded single-upstream mode, and soft-deleted the probe route.
+
+Boundaries:
+
+- No service discovery; that begins in Sprint 69.
+- No upstream health checks or automatic failover; those remain Sprint 70 scope.
+- No sticky routing, client-selected target, arbitrary proxy target, new dependency, environment variable, service, or port.
+- No per-upstream unbounded metric labels.
+- No Developer Portal route-management or Admin Dashboard mutation workflow.
+- No Kubernetes, OpenTelemetry, Loki, billing, marketplace, or enterprise IAM work.
+- No npm package version bump and no Sprint 68 Git tag.
+
+Product/documentation version: **v1.8.0**.
+<!-- SPRINT-68-README-END -->

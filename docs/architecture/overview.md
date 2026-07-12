@@ -6,26 +6,21 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.3.0
+v1.8.0
 
 ## Current Status
 
-Sprint 63 - Dashboard quota/usage/rejected events Complete
+Sprint 68 - Weighted routing foundation Complete
 
 Current validation:
 
-- Admin Dashboard: 38 test files / 200 tests passed.
-- API Gateway: 136 test files / 988 tests passed.
-- Root typecheck and build passed.
-- Docker Compose configuration passed.
-- Working and staged diff checks passed.
-- Runtime parity passed for consumers, consumer-scoped API keys, usage plans, persisted routes, and runtime routes.
-- Missing-resource and mutation-method boundaries passed.
-- Full-access Admin credentials remained absent from the Dashboard.
-- Successful runtime mutation count remained zero.
-- No persistence, quota, event-recorder, scheduler-execution, retention-execution, or raw-event behavior changed.
-
-PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
+- API Gateway: 147 test files / 1059 tests passed.
+- Admin Dashboard: 53 test files / 243 tests passed.
+- Developer Portal: 2 test files / 7 tests passed.
+- Root tests, typecheck, production build, Prisma validation, Compose validation, and Git diff checks passed.
+- PostgreSQL migration and bounded weighted-routing runtime validation passed.
+- Private npm workspace versions remain 0.1.0.
+- Protected annotated tag v1.0.0 remains unchanged.PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
 
 PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, DB-backed non-destructive retention operator preview hardening, non-destructive rollup schedule preview planning, non-destructive rollup scheduler runner preview planning, non-destructive rollup scheduler execution boundary preview planning, non-destructive rollup scheduler execution wiring review, non-destructive rollup scheduler command dry-run design review, non-destructive rollup scheduler command dry-run invocation contract and readiness review, non-destructive rollup scheduler command dry-run invocation design review, non-destructive rollup scheduler command dry-run service invocation contract review, non-destructive rollup scheduler command dry-run service invocation implementation design, non-destructive rollup scheduler command dry-run service invocation wiring readiness review, non-destructive rollup scheduler command dry-run service invocation fail-closed error model, non-destructive rollup scheduler command dry-run service invocation wiring contract, non-destructive rollup scheduler command dry-run service invocation request mapper design, non-destructive rollup scheduler command dry-run service adapter boundary design, non-destructive rollup scheduler command dry-run service adapter preview output integration, command dry-run runtime service invocation, runtime consistency output, blocked-path runtime tests, non-destructive rollup scheduler command execute contract review, non-destructive command execute readiness review, non-destructive command execute operator output review, non-destructive blocked-by-default command execute wiring preview, selected summary runtime rollup read switching behind explicit flag with raw-summary fallback, and CI/CD.
 
@@ -539,11 +534,11 @@ Core:
 - The Admin Dashboard now includes read-only consumers, consumer-scoped API keys, usage plans, persisted/runtime routes, quota state, successful usage analytics, and rejected-event investigation; rollup, scheduler, and retention panels remain assigned to Sprint 64.
 - Developer Portal foundation is implemented as a public static-first application; API documentation and API-key self-service boundaries remain assigned to Sprint 66.
 - Admin authorization remains a local full-access/read-only API key boundary; database-backed administrator identities and general platform RBAC are not implemented yet.
-- Dynamic router supports exact method + exact path matching only.
+- Dynamic routing supports exact method/path plus an optional exact host condition; path parameters are not implemented.
 - Path parameters are not implemented yet.
 - Wildcard upstream mapping is not implemented yet.
-- Host-based routing is not implemented yet.
-- Weighted upstreams are not implemented yet.
+- Exact host-based routing is implemented; wildcard hosts and host analytics dimensions are not implemented.
+- Bounded route-level weighted upstream routing is implemented; service discovery and health-based failover are not implemented.
 - Service discovery is not implemented yet.
 - OpenTelemetry tracing is not implemented yet.
 - Loki centralized logging is not implemented yet.
@@ -1203,3 +1198,68 @@ Fastify registration remains deduplicated by method and path. Host selection occ
 Persistence uses nullable `gateway_routes.request_host`. Null means path-only. The legacy database uniqueness on method and gateway path was removed because Sprint 67 identity includes host-or-null. Active and disabled non-deleted records reserve identity; soft-deleted records release it. Admin conflict checks enforce the application-level identity contract.
 
 Cache and route-level rate-limit keys include configured host identity. Analytics remains method/path based, so host-specific routes sharing a method/path intentionally aggregate together.
+
+<!-- SPRINT-68-ARCHITECTURE-START -->
+## Weighted routing foundation (Sprint 68)
+
+Weighted routing is route-level metadata layered after the existing route identity decision.
+
+Runtime order:
+
+```text
+request
+  -> normalize direct Host
+  -> resolve exact host route or path-only fallback
+  -> authentication, authorization, quota, rate limit
+  -> cache lookup
+  -> select one configured weighted upstream on cache miss
+  -> shared transform, timeout, retry, proxy, analytics, and metrics pipeline
+```
+
+Contract:
+
+- `downstreamUrl` remains the primary and legacy single-upstream target.
+- `weightedUpstreams` is optional.
+- When present, it contains 2-8 entries.
+- Each entry contains `downstreamUrl` and a relative integer `weight` from 1 through 1000.
+- The sum is not required to equal 100.
+- URLs must be unique HTTP or HTTPS targets.
+- The primary `downstreamUrl` must occur exactly once.
+- Invalid runtime or persisted configuration fails closed.
+
+Selection:
+
+- Selection uses a bounded cumulative relative-weight algorithm.
+- The random source is injectable for deterministic tests.
+- No request header, query value, request ID, API key, consumer, or client-controlled value participates.
+- Selection occurs once per proxy execution after a cache miss.
+- Retries reuse the selected target and do not provide failover.
+- A cache hit does not select or fetch an upstream.
+
+Persistence and management:
+
+- `gateway.gateway_routes.weighted_upstreams` is nullable JSONB.
+- SQL `NULL` represents legacy single-upstream behavior.
+- Admin create omission or `null` persists legacy mode.
+- Admin update omission preserves current metadata.
+- Admin update `null` clears weighted mode.
+- Admin update with an array replaces the full weighted set.
+- Runtime reload validates the full active route snapshot before atomic registry replacement.
+
+Dashboard:
+
+- The Dashboard remains read-only.
+- It validates the same bounded URL, cardinality, uniqueness, weight, and primary-target rules.
+- It renders `Single upstream` or `Weighted routing (N targets)` and lists each target with its weight.
+- No route mutation or traffic-control UI was added.
+
+Security and operational boundaries:
+
+- Weighted routing does not create an open proxy or allow arbitrary client target selection.
+- Host conditions remain route identity only and are not converted into upstream URLs.
+- Authentication, quota, rate-limit, cache, transform, timeout, retry, analytics, and metrics behavior remains shared.
+- Raw upstream URLs are not added as Prometheus labels.
+- Service discovery is deferred to Sprint 69.
+- Health checks and automatic failover are deferred to Sprint 70.
+- Sticky routing, distributed coordination, Kubernetes traffic splitting, billing allocation, and experimentation platforms are not implemented.
+<!-- SPRINT-68-ARCHITECTURE-END -->

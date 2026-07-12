@@ -259,3 +259,43 @@ Expected results:
 - Rendered HTML does not contain Admin credential names, Admin endpoint paths, or a real-looking `pgk_live_` key.
 - Production Portal source does not add forms, mutation controls, fetch integration, browser credential storage, or privileged Admin integration for API-key self-service.
 <!-- SPRINT-66-LOCAL-VALIDATION-END -->
+
+<!-- SPRINT-68-LOCAL-VALIDATION-START -->
+## Sprint 68 weighted routing validation
+
+Automated validation:
+
+```powershell
+npm.cmd run test
+npm.cmd run typecheck
+npm.cmd run build
+docker compose config --quiet
+git diff --check
+```
+
+Prisma schema validation:
+
+```powershell
+$env:DATABASE_URL =
+  'postgresql://pulsegate:validation-only@127.0.0.1:5432/pulsegate?schema=gateway'
+
+npx.cmd --no-install prisma validate `
+  --schema apps/api-gateway/prisma/schema.prisma
+```
+
+Database/runtime validation requires:
+
+- deploy the Gateway migrations to bounded PostgreSQL
+- verify `gateway.gateway_routes.weighted_upstreams` is nullable JSONB
+- verify legacy rows remain SQL `NULL`
+- create one isolated weighted route through the Admin API
+- reload the runtime registry
+- proxy through the weighted route
+- clear `weightedUpstreams` with JSON null
+- verify SQL `NULL`
+- reload and proxy in single-upstream mode
+- soft-delete the probe route
+- reload and verify it is absent from the active registry
+
+Do not treat random distribution sampling as a health/failover test. Deterministic selector boundary tests are the contract evidence; runtime validation proves persistence, reload, and shared proxy integration.
+<!-- SPRINT-68-LOCAL-VALIDATION-END -->

@@ -2,7 +2,7 @@
 
 ## Scope
 
-This runbook covers Sprint 67 exact host-based routing. It excludes weighted routing, service discovery, failover, wildcard hosts, TLS, and DNS.
+This runbook focuses on Sprint 67 exact host-based route identity. Weighted target selection is documented in `docs/runbooks/weighted-routing.md`. This runbook does not cover service discovery, failover, wildcard hosts, TLS, or DNS.
 
 ## Route identity
 
@@ -52,3 +52,18 @@ npm.cmd run validate:release
 ```
 
 For database validation, deploy migrations to bounded PostgreSQL, seed path-only routes, create two exact-host routes sharing method/path, reload the registry, and verify exact selection plus valid unknown-host fallback.
+
+<!-- SPRINT-68-HOST-INTERACTION-START -->
+## Sprint 68 interaction
+
+Host routing and weighted routing are separate decisions:
+
+1. Resolve route identity by method, pathname, and direct normalized Host.
+2. Prefer an exact host-specific route.
+3. Otherwise use an eligible path-only fallback.
+4. After a route is selected and a cache miss occurs, select one configured weighted upstream.
+
+A weighted set belongs to one resolved route. Weight selection does not compare different host identities, does not consume forwarded host headers, and does not turn Host input into a downstream URL.
+
+See `docs/runbooks/weighted-routing.md` for configuration and validation.
+<!-- SPRINT-68-HOST-INTERACTION-END -->

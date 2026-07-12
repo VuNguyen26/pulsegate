@@ -594,3 +594,19 @@ npm.cmd run typecheck
 npm.cmd run build
 docker compose config --quiet
 ```
+
+<!-- SPRINT-68-DASHBOARD-RUNBOOK-START -->
+## Weighted route metadata
+
+The `/routes` page displays persisted weighted upstream metadata as a read-only extension of the existing route registry.
+
+Display modes:
+
+- `Single upstream` when `weightedUpstreams` is absent or null.
+- `Weighted routing (N targets)` when a validated weighted set is present.
+- Each target is displayed with its relative integer weight.
+
+The browser contract fails closed when the weighted set is malformed, unsafe, duplicated, outside 2-8 entries, outside weight 1-1000, or does not include the primary downstream URL exactly once.
+
+The Dashboard does not provide route mutation, reload, traffic splitting, health, or failover controls. It continues to use only fixed GET-only BFF resources and the server-only read-only Admin credential.
+<!-- SPRINT-68-DASHBOARD-RUNBOOK-END -->

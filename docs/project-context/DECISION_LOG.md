@@ -1421,3 +1421,44 @@ Consequences:
 - Enforce identity conflicts in the Admin repository/API boundary for Sprint 67.
 - Include configured host identity in cache and route-level rate-limit keys.
 - Defer analytics host attribution because it requires a wider raw-event, rollup, API, and Dashboard dimension migration.
+
+<!-- SPRINT-68-DECISION-LOG-START -->
+### 2026-07-12 - Use bounded relative weighted upstream routing
+
+Decision:
+
+- Keep `downstreamUrl` as the primary and legacy single-upstream target.
+- Add optional 2-8 entry `weightedUpstreams`.
+- Use unique HTTP or HTTPS targets with relative integer weights from 1 through 1000.
+- Require the primary target exactly once.
+- Select after route identity resolution and cache miss.
+- Reuse one selected target across retries.
+- Persist weighted metadata in nullable JSONB and preserve SQL `NULL` legacy rows.
+- Support Admin create/read/preserve/replace/clear/reload semantics.
+- Keep the Dashboard read-only.
+- Fail closed on invalid configuration.
+
+Reason:
+
+- Relative weights provide a bounded routing foundation without requiring percentages.
+- Preserving `downstreamUrl` keeps existing routes compatible.
+- Selecting once across retries avoids silently introducing failover.
+- Nullable JSONB fits route-owned bounded configuration and avoids widening the schema with discovery concepts.
+- Client-independent selection prevents arbitrary target control.
+
+Boundaries:
+
+- No service discovery.
+- No upstream health checks or automatic failover.
+- No sticky routing.
+- No client-selected upstream.
+- No open proxy.
+- No new dependency, environment variable, service, or port.
+- No Dashboard mutation or Developer Portal route management.
+- No Kubernetes, OpenTelemetry, Loki, billing, marketplace, or enterprise IAM.
+- No npm package version bump or Sprint 68 Git tag.
+
+Detailed record:
+
+- `docs/project-context/decisions/2026-07-12-weighted-routing-foundation.md`
+<!-- SPRINT-68-DECISION-LOG-END -->

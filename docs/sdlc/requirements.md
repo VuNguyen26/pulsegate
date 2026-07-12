@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.3.0
+v1.8.0
 
 ## Latest Completed Sprint
 
-Sprint 63 - Dashboard quota/usage/rejected events
+Sprint 68 - Weighted routing foundation
 
 ---
 
@@ -1291,11 +1291,11 @@ Implemented.
 - Developer Portal foundation is implemented; authentication, account/session flows, API-key issuance, billing, and backend integration are not implemented.
 - Admin auth is still local admin API key based.
 - Minimal full-access/read-only admin authorization exists, but database-backed administrator identities and general platform RBAC are not implemented yet.
-- Dynamic router supports exact method + exact path matching only.
+- Dynamic routing supports exact method/path plus an optional exact host condition; path parameters are not implemented.
 - Path parameters are not implemented yet.
 - Wildcard upstream path forwarding is not implemented yet.
-- Host-based routing is not implemented yet.
-- Weighted upstreams are not implemented yet.
+- Exact host-based routing is implemented; wildcard hosts and host analytics dimensions are not implemented.
+- Bounded route-level weighted upstream routing is implemented; service discovery and health-based failover are not implemented.
 - Service discovery is not implemented yet.
 - CI does not run full Docker Compose runtime validation yet.
 - Kubernetes/cloud deployment is planned later.
@@ -2008,3 +2008,40 @@ Implementation status: Complete in Sprint 59.
 9. The Dashboard shall validate and display host conditions and use host-aware row identity.
 10. Existing path-only behavior, quota enforcement, policy flow, and protected `v1.0.0` tag shall remain compatible.
 11. Weighted routing, discovery, failover, wildcard hosts, and host analytics dimensions shall remain out of scope.
+
+<!-- SPRINT-68-REQUIREMENTS-START -->
+## Sprint 68 acceptance requirements
+
+1. Route configuration shall retain `downstreamUrl` as the primary and legacy single-upstream target.
+2. Route configuration may include optional `weightedUpstreams`.
+3. A weighted configuration shall contain 2-8 entries.
+4. Each entry shall use a unique HTTP or HTTPS `downstreamUrl`.
+5. Each `weight` shall be an integer from 1 through 1000.
+6. Weights shall be relative and shall not be required to sum to 100.
+7. The primary `downstreamUrl` shall occur exactly once in the weighted set.
+8. Missing, malformed, duplicate, empty, undersized, oversized, out-of-range, or primary-mismatched weighted configuration shall fail closed.
+9. Route identity resolution shall remain exact host first and path-only fallback second.
+10. Weighted selection shall occur only after route identity resolution and after a cache miss.
+11. A selected upstream shall remain fixed across retries.
+12. Client headers, query parameters, request IDs, API keys, and consumer identities shall not choose or override an upstream.
+13. Legacy routes with absent or SQL `NULL` weighted metadata shall preserve single-upstream behavior.
+14. PostgreSQL persistence shall support create, read, preserve-on-omission, replace, clear-with-null, and runtime reload.
+15. Runtime reload shall validate the active snapshot before registry replacement.
+16. The Admin Dashboard shall validate and display weighted metadata as a read-only surface.
+17. Existing auth, quota, rate-limit, cache, transforms, timeout, retry, analytics, metrics, and access-log behavior shall remain in the shared pipeline.
+18. No service discovery, health-based failover, sticky routing, client target selection, arbitrary reverse proxy, Kubernetes, OpenTelemetry, Loki, billing, marketplace, or enterprise IAM capability shall be introduced.
+19. Private npm workspace versions shall remain `0.1.0`.
+20. Protected tag `v1.0.0` shall remain unchanged and Sprint 68 shall create no Git tag.
+
+Implementation status: Complete.
+
+Validation baseline:
+
+- API Gateway: 147 test files / 1059 tests.
+- Admin Dashboard: 53 test files / 243 tests.
+- Developer Portal: 2 test files / 7 tests.
+- Prisma schema validation, root tests, root typecheck, root build, Compose validation, and diff checks passed.
+- PostgreSQL migration and bounded Admin/runtime weighted-route validation passed.
+
+Next sprint: Sprint 69 - Service discovery foundation.
+<!-- SPRINT-68-REQUIREMENTS-END -->
