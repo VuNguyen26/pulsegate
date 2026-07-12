@@ -1,24 +1,46 @@
-import type { FastifyInstance } from "fastify";
+import type {
+  FastifyInstance,
+} from "fastify";
+import {
+  recordProductTracingOutcome,
+} from "./tracing.middleware.js";
 
-export function registerErrorHandlers(app: FastifyInstance): void {
-  app.setNotFoundHandler((request, reply) => {
-    return reply.status(404).send({
-      error: {
-        message: "Route not found",
-        path: request.url,
-        requestId: request.id,
-      },
-    });
-  });
+export function registerErrorHandlers(
+  app: FastifyInstance,
+): void {
+  app.setNotFoundHandler(
+    (request, reply) => {
+      recordProductTracingOutcome(
+        request,
+        "ROUTE_NOT_FOUND",
+      );
 
-  app.setErrorHandler((error, request, reply) => {
-    request.log.error(error);
+      return reply.status(404).send({
+        error: {
+          message: "Route not found",
+          path: request.url,
+          requestId: request.id,
+        },
+      });
+    },
+  );
 
-    return reply.status(500).send({
-      error: {
-        message: "Internal Server Error",
-        requestId: request.id,
-      },
-    });
-  });
+  app.setErrorHandler(
+    (error, request, reply) => {
+      recordProductTracingOutcome(
+        request,
+        "INTERNAL_SERVER_ERROR",
+      );
+
+      request.log.error(error);
+
+      return reply.status(500).send({
+        error: {
+          message:
+            "Internal Server Error",
+          requestId: request.id,
+        },
+      });
+    },
+  );
 }

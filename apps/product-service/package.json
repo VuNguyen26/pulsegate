@@ -10,14 +10,19 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p prisma/tsconfig.json --noEmit",
     "db:generate": "prisma generate --schema prisma/schema.prisma",
     "db:migrate:deploy": "prisma migrate deploy --schema prisma/schema.prisma",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/core": "2.9.0",
+    "@opentelemetry/sdk-trace-base": "2.9.0",
     "@prisma/client": "^6.19.3",
     "fastify": "^5.8.5"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
-    "prisma": "^6.19.3"
+    "prisma": "^6.19.3",
+    "vitest": "4.1.9"
   }
 }
