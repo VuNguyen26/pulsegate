@@ -17,7 +17,7 @@ import type {
 import type { ResponseCacheStore } from "../cache/redis-response-cache-store.js";
 import type { DownstreamRouteConfig } from "../config/downstream-routes.js";
 import type { WeightedRandomSource } from "../config/weighted-upstream-selector.js";
-import { resolveDownstreamTargetUrl } from "./downstream-target-resolver.js";
+import { resolveDownstreamTarget } from "./downstream-target-resolver.js";
 import { DownstreamServiceError } from "../errors/downstream-service-error.js";
 import { apiKeyAuthMiddleware } from "../middlewares/api-key-auth.middleware.js";
 import { jwtAuthMiddleware } from "../middlewares/jwt-auth.middleware.js";
@@ -113,6 +113,20 @@ function shouldRetryDownstreamError(
   return (
     error instanceof DownstreamServiceError &&
     retryOnStatuses.includes(error.statusCode)
+  );
+}
+
+function isServiceInstanceHealthFailure(
+  error: DownstreamServiceError,
+): boolean {
+  return (
+    error.code ===
+      "DOWNSTREAM_SERVICE_UNAVAILABLE" ||
+    error.code === "DOWNSTREAM_TIMEOUT" ||
+    (
+      error.code === "DOWNSTREAM_HTTP_ERROR" &&
+      error.statusCode === 502
+    )
   );
 }
 
@@ -652,29 +666,6 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
       }
     }
 
-    const selectedDownstreamUrl =
-      resolveDownstreamTargetUrl({
-        routeConfig,
-        routeRuntimeRegistry:
-          options.routeRuntimeRegistry,
-        weightedRandomSource:
-          options.weightedRandomSource,
-        serviceDiscoveryRandomSource:
-          options.serviceDiscoveryRandomSource,
-      });
-
-    if (!selectedDownstreamUrl) {
-      throw new DownstreamServiceError({
-        code: "DOWNSTREAM_SERVICE_UNAVAILABLE",
-        message:
-          buildDownstreamUnavailableMessage(
-            routeConfig,
-          ),
-        service: routeConfig.serviceName,
-        statusCode: 503,
-      });
-    }
-
     const downstreamRequestHeaders = applyRequestHeaderTransform(
       {
         "x-request-id": request.id,
@@ -682,66 +673,195 @@ export function createDownstreamProxyHandler(options: RouteResolverOptions & {
       routePolicies.requestTransform,
     );
 
-    const fetchDownstreamResponse = async (): Promise<Response> => {
-      const downstreamTimeout = createDownstreamTimeout(routePolicies.timeout);
+    const fixedLegacyTarget =
+      routeConfig.serviceInstances ===
+      undefined
+        ? resolveDownstreamTarget({
+            routeConfig,
+            routeRuntimeRegistry:
+              options.routeRuntimeRegistry,
+            weightedRandomSource:
+              options.weightedRandomSource,
+            serviceDiscoveryRandomSource:
+              options.serviceDiscoveryRandomSource,
+          })
+        : null;
 
-      try {
-        const downstreamResponse = await fetch(selectedDownstreamUrl, {
-          method: routeConfig.method,
-          headers: downstreamRequestHeaders,
-          signal: downstreamTimeout.signal,
+    const excludedServiceInstanceBaseUrls =
+      new Set<string>();
+
+    let stopRetrying = false;
+
+    const fetchDownstreamResponse = async (): Promise<Response> => {
+      const target =
+        fixedLegacyTarget ??
+        resolveDownstreamTarget({
+          routeConfig,
+          routeRuntimeRegistry:
+            options.routeRuntimeRegistry,
+          weightedRandomSource:
+            options.weightedRandomSource,
+          serviceDiscoveryRandomSource:
+            options.serviceDiscoveryRandomSource,
+          excludedServiceInstanceBaseUrls: [
+            ...excludedServiceInstanceBaseUrls,
+          ],
         });
 
+      if (!target) {
+        stopRetrying = true;
+
+        throw new DownstreamServiceError({
+          code:
+            "DOWNSTREAM_SERVICE_UNAVAILABLE",
+          message:
+            buildDownstreamUnavailableMessage(
+              routeConfig,
+            ),
+          service:
+            routeConfig.serviceName,
+          statusCode: 503,
+        });
+      }
+
+      const downstreamTimeout =
+        createDownstreamTimeout(
+          routePolicies.timeout,
+        );
+
+      const recordHealthFailure = (
+        error: DownstreamServiceError,
+      ): void => {
+        if (
+          !target.serviceInstanceBaseUrl ||
+          !isServiceInstanceHealthFailure(
+            error,
+          )
+        ) {
+          return;
+        }
+
+        options.routeRuntimeRegistry
+          ?.recordServiceInstanceFailure(
+            routeConfig.serviceName,
+            target.serviceInstanceBaseUrl,
+          );
+
+        excludedServiceInstanceBaseUrls.add(
+          target.serviceInstanceBaseUrl,
+        );
+      };
+
+      try {
+        const downstreamResponse =
+          await fetch(
+            target.downstreamUrl,
+            {
+              method:
+                routeConfig.method,
+              headers:
+                downstreamRequestHeaders,
+              signal:
+                downstreamTimeout.signal,
+            },
+          );
+
+        if (
+          target.serviceInstanceBaseUrl &&
+          downstreamResponse.status < 500
+        ) {
+          options.routeRuntimeRegistry
+            ?.recordServiceInstanceSuccess(
+              routeConfig.serviceName,
+              target.serviceInstanceBaseUrl,
+            );
+        }
+
         if (!downstreamResponse.ok) {
-          throw new DownstreamServiceError({
-            code: "DOWNSTREAM_HTTP_ERROR",
-            message: buildDownstreamHttpErrorMessage(routeConfig),
-            service: routeConfig.serviceName,
-            statusCode:
-              downstreamResponse.status >= 500
-                ? 502
-                : downstreamResponse.status,
-          });
+          const downstreamError =
+            new DownstreamServiceError({
+              code:
+                "DOWNSTREAM_HTTP_ERROR",
+              message:
+                buildDownstreamHttpErrorMessage(
+                  routeConfig,
+                ),
+              service:
+                routeConfig.serviceName,
+              statusCode:
+                downstreamResponse.status >= 500
+                  ? 502
+                  : downstreamResponse.status,
+            });
+
+          recordHealthFailure(
+            downstreamError,
+          );
+
+          throw downstreamError;
         }
 
         return downstreamResponse;
       } catch (error) {
-        if (error instanceof DownstreamServiceError) {
+        if (
+          error instanceof
+          DownstreamServiceError
+        ) {
           throw error;
         }
 
-        if (error instanceof Error && error.name === "AbortError") {
-          throw new DownstreamServiceError({
-            code: "DOWNSTREAM_TIMEOUT",
-            message: buildDownstreamTimeoutMessage(routeConfig),
-            service: routeConfig.serviceName,
-            statusCode: 504,
-            originalError: error,
-          });
-        }
+        const downstreamError =
+          error instanceof Error &&
+          error.name === "AbortError"
+            ? new DownstreamServiceError({
+                code:
+                  "DOWNSTREAM_TIMEOUT",
+                message:
+                  buildDownstreamTimeoutMessage(
+                    routeConfig,
+                  ),
+                service:
+                  routeConfig.serviceName,
+                statusCode: 504,
+                originalError: error,
+              })
+            : new DownstreamServiceError({
+                code:
+                  "DOWNSTREAM_SERVICE_UNAVAILABLE",
+                message:
+                  buildDownstreamUnavailableMessage(
+                    routeConfig,
+                  ),
+                service:
+                  routeConfig.serviceName,
+                statusCode: 503,
+                originalError: error,
+              });
 
-        throw new DownstreamServiceError({
-          code: "DOWNSTREAM_SERVICE_UNAVAILABLE",
-          message: buildDownstreamUnavailableMessage(routeConfig),
-          service: routeConfig.serviceName,
-          statusCode: 503,
-          originalError: error,
-        });
+        recordHealthFailure(
+          downstreamError,
+        );
+
+        throw downstreamError;
       } finally {
         downstreamTimeout.cleanup();
       }
     };
 
-    const response = await executeWithRetry({
-      method: routeConfig.method,
-      policy: routePolicies.retry,
-      operation: fetchDownstreamResponse,
-      shouldRetryError: (error) =>
-        shouldRetryDownstreamError(
-          error,
-          routePolicies.retry.retryOnStatuses,
-        ),
-    });
+    const response =
+      await executeWithRetry({
+        method: routeConfig.method,
+        policy: routePolicies.retry,
+        operation:
+          fetchDownstreamResponse,
+        shouldRetryError: (error) =>
+          !stopRetrying &&
+          shouldRetryDownstreamError(
+            error,
+            routePolicies.retry
+              .retryOnStatuses,
+          ),
+      });
 
     if (
       shouldRetryStatus(routePolicies.retry, response.status) &&

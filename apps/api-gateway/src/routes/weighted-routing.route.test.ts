@@ -33,6 +33,7 @@ type WeightedRouteOptions = {
   targetName?: string;
   cacheEnabled?: boolean;
   retryEnabled?: boolean;
+  discoveryEnabled?: boolean;
 };
 
 function createWeightedRoute(
@@ -68,6 +69,20 @@ function createWeightedRoute(
         weight: 3,
       },
     ],
+    ...(options.discoveryEnabled
+      ? {
+          serviceInstances: [
+            {
+              baseUrl:
+                `http://${targetName}-a:3001`,
+            },
+            {
+              baseUrl:
+                `http://${targetName}-b:3001`,
+            },
+          ],
+        }
+      : {}),
     policies: {
       ...baseRoute.policies,
       auth: {
@@ -274,6 +289,92 @@ describe("weighted downstream routing", () => {
     expect(weightedRandomSource).toHaveBeenCalledTimes(1);
   });
 
+  it("should fail over across eligible weighted discovery instances", async () => {
+    const route =
+      createWeightedRoute({
+        retryEnabled: true,
+        discoveryEnabled: true,
+      });
+
+    const registry =
+      createRouteRuntimeRegistry({
+        initialRoutes: [route],
+      });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: "temporary failure",
+          }),
+          {
+            status: 503,
+            headers: {
+              "content-type":
+                "application/json",
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "ok",
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type":
+                "application/json",
+            },
+          },
+        ),
+      );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const weightedRandomSource =
+      vi.fn(() => 0.25);
+
+    app = await buildWeightedApp({
+      routes: [route],
+      routeRuntimeRegistry: registry,
+      weightedRandomSource,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: route.gatewayPath,
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    expect(
+      fetchMock.mock.calls.map(
+        ([downstreamUrl]) =>
+          downstreamUrl,
+      ),
+    ).toEqual([
+      "http://product-service-b:3001/products",
+      "http://product-service-a:3001/products",
+    ]);
+
+    expect(
+      weightedRandomSource,
+    ).toHaveBeenCalledTimes(2);
+
+    expect(
+      registry.getServiceInstanceHealthStatus(
+        "product-service",
+        "http://product-service-b:3001",
+      ),
+    ).toMatchObject({
+      consecutiveFailures: 1,
+      state: "healthy",
+      eligible: true,
+    });
+  });
   it("should not select or fetch a target on a cache hit", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

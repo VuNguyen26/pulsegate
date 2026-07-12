@@ -39,6 +39,9 @@ function createDiscoveryRoute(
     downstreamPath?: string;
     cacheEnabled?: boolean;
     retryEnabled?: boolean;
+    retryAttempts?: number;
+    retryOnStatuses?: number[];
+    method?: DownstreamRouteConfig["method"];
   } = {},
 ): DownstreamRouteConfig {
   const route =
@@ -57,6 +60,9 @@ function createDiscoveryRoute(
       "/api/products",
     downstreamUrl:
       `http://product-a:3001${downstreamPath}`,
+    method:
+      options.method ??
+      route.method,
     serviceInstances: [
       {
         baseUrl:
@@ -90,9 +96,11 @@ function createDiscoveryRoute(
           false,
         attempts:
           options.retryEnabled
-            ? 1
+            ? options.retryAttempts ?? 1
             : 0,
-        retryOnStatuses: [502],
+        retryOnStatuses:
+          options.retryOnStatuses ??
+          [502, 503, 504],
       },
     },
   };
@@ -219,7 +227,7 @@ describe(
     );
 
     it(
-      "reuses one discovered target for every retry",
+      "selects an alternate discovered target after a retryable failure",
       async () => {
         const fetchMock = vi
           .fn()
@@ -288,12 +296,12 @@ describe(
           ),
         ).toEqual([
           "http://product-b:3001/products",
-          "http://product-b:3001/products",
+          "http://product-a:3001/products",
         ]);
 
         expect(
           randomSource,
-        ).toHaveBeenCalledTimes(1);
+        ).toHaveBeenCalledTimes(2);
       },
     );
 
@@ -468,6 +476,631 @@ describe(
               randomSource,
           }),
         );
+
+        const response =
+          await app.inject({
+            method: "GET",
+            url: route.gatewayPath,
+          });
+
+        expect(
+          response.statusCode,
+        ).toBe(503);
+
+        expect(response.json()).toMatchObject({
+          error: {
+            code:
+              "DOWNSTREAM_SERVICE_UNAVAILABLE",
+            service:
+              "product-service",
+          },
+        });
+
+        expect(
+          fetchMock,
+        ).not.toHaveBeenCalled();
+
+        expect(
+          randomSource,
+        ).not.toHaveBeenCalled();
+      },
+    );
+    it(
+      "fails over to an alternate instance after a connection failure",
+      async () => {
+        const route =
+          createDiscoveryRoute({
+            retryEnabled: true,
+          });
+
+        const registry =
+          createRouteRuntimeRegistry({
+            initialRoutes: [route],
+          });
+
+        const fetchMock = vi.fn(
+          async (
+            input:
+              | string
+              | URL
+              | Request,
+          ): Promise<Response> => {
+            const url = String(input);
+
+            if (
+              url.startsWith(
+                "http://product-a:3001",
+              )
+            ) {
+              throw new Error(
+                "connection refused",
+              );
+            }
+
+            return new Response(
+              JSON.stringify({
+                downstreamUrl: url,
+              }),
+              {
+                status: 200,
+                headers: {
+                  "content-type":
+                    "application/json",
+                },
+              },
+            );
+          },
+        );
+
+        vi.stubGlobal(
+          "fetch",
+          fetchMock,
+        );
+
+        app =
+          await buildDiscoveryApp({
+            routes: [route],
+            routeRuntimeRegistry:
+              registry,
+            serviceDiscoveryRandomSource:
+              () => 0,
+          });
+
+        const response =
+          await app.inject({
+            method: "GET",
+            url: route.gatewayPath,
+          });
+
+        expect(
+          response.statusCode,
+        ).toBe(200);
+
+        expect(
+          fetchMock.mock.calls.map(
+            (call) =>
+              String(call[0]),
+          ),
+        ).toEqual([
+          "http://product-a:3001/products",
+          "http://product-b:3001/products",
+        ]);
+
+        expect(
+          registry.getServiceInstanceHealthStatus(
+            "product-service",
+            "http://product-a:3001",
+          ),
+        ).toMatchObject({
+          consecutiveFailures: 1,
+          state: "healthy",
+          eligible: true,
+        });
+      },
+    );
+
+    it(
+      "fails over to an alternate instance after a timeout",
+      async () => {
+        const route =
+          createDiscoveryRoute({
+            retryEnabled: true,
+          });
+
+        const registry =
+          createRouteRuntimeRegistry({
+            initialRoutes: [route],
+          });
+
+        const fetchMock = vi.fn(
+          async (
+            input:
+              | string
+              | URL
+              | Request,
+          ): Promise<Response> => {
+            const url = String(input);
+
+            if (
+              url.startsWith(
+                "http://product-a:3001",
+              )
+            ) {
+              const error =
+                new Error("aborted");
+
+              error.name =
+                "AbortError";
+
+              throw error;
+            }
+
+            return new Response(
+              JSON.stringify({
+                downstreamUrl: url,
+              }),
+              {
+                status: 200,
+                headers: {
+                  "content-type":
+                    "application/json",
+                },
+              },
+            );
+          },
+        );
+
+        vi.stubGlobal(
+          "fetch",
+          fetchMock,
+        );
+
+        app =
+          await buildDiscoveryApp({
+            routes: [route],
+            routeRuntimeRegistry:
+              registry,
+            serviceDiscoveryRandomSource:
+              () => 0,
+          });
+
+        const response =
+          await app.inject({
+            method: "GET",
+            url: route.gatewayPath,
+          });
+
+        expect(
+          response.statusCode,
+        ).toBe(200);
+
+        expect(
+          fetchMock.mock.calls.map(
+            (call) =>
+              String(call[0]),
+          ),
+        ).toEqual([
+          "http://product-a:3001/products",
+          "http://product-b:3001/products",
+        ]);
+      },
+    );
+
+    it(
+      "fails over to an alternate instance after a downstream 5xx",
+      async () => {
+        const route =
+          createDiscoveryRoute({
+            retryEnabled: true,
+          });
+
+        const registry =
+          createRouteRuntimeRegistry({
+            initialRoutes: [route],
+          });
+
+        const fetchMock = vi.fn(
+          async (
+            input:
+              | string
+              | URL
+              | Request,
+          ): Promise<Response> => {
+            const url = String(input);
+
+            return url.startsWith(
+              "http://product-a:3001",
+            )
+              ? new Response(
+                  JSON.stringify({
+                    error:
+                      "temporary failure",
+                  }),
+                  {
+                    status: 503,
+                    headers: {
+                      "content-type":
+                        "application/json",
+                    },
+                  },
+                )
+              : new Response(
+                  JSON.stringify({
+                    downstreamUrl: url,
+                  }),
+                  {
+                    status: 200,
+                    headers: {
+                      "content-type":
+                        "application/json",
+                    },
+                  },
+                );
+          },
+        );
+
+        vi.stubGlobal(
+          "fetch",
+          fetchMock,
+        );
+
+        app =
+          await buildDiscoveryApp({
+            routes: [route],
+            routeRuntimeRegistry:
+              registry,
+            serviceDiscoveryRandomSource:
+              () => 0,
+          });
+
+        const response =
+          await app.inject({
+            method: "GET",
+            url: route.gatewayPath,
+          });
+
+        expect(
+          response.statusCode,
+        ).toBe(200);
+
+        expect(
+          fetchMock.mock.calls.map(
+            (call) =>
+              String(call[0]),
+          ),
+        ).toEqual([
+          "http://product-a:3001/products",
+          "http://product-b:3001/products",
+        ]);
+      },
+    );
+
+    it(
+      "treats a downstream 4xx as a successful health observation without failover",
+      async () => {
+        const route =
+          createDiscoveryRoute({
+            retryEnabled: true,
+          });
+
+        const registry =
+          createRouteRuntimeRegistry({
+            initialRoutes: [route],
+          });
+
+        registry.recordServiceInstanceFailure(
+          "product-service",
+          "http://product-a:3001",
+        );
+
+        const fetchMock =
+          vi.fn(async () =>
+            new Response(
+              JSON.stringify({
+                error: "bad request",
+              }),
+              {
+                status: 400,
+                headers: {
+                  "content-type":
+                    "application/json",
+                },
+              },
+            ),
+          );
+
+        vi.stubGlobal(
+          "fetch",
+          fetchMock,
+        );
+
+        app =
+          await buildDiscoveryApp({
+            routes: [route],
+            routeRuntimeRegistry:
+              registry,
+            serviceDiscoveryRandomSource:
+              () => 0,
+          });
+
+        const response =
+          await app.inject({
+            method: "GET",
+            url: route.gatewayPath,
+          });
+
+        expect(
+          response.statusCode,
+        ).toBe(400);
+
+        expect(
+          fetchMock,
+        ).toHaveBeenCalledTimes(1);
+
+        expect(
+          registry.getServiceInstanceHealthStatus(
+            "product-service",
+            "http://product-a:3001",
+          ),
+        ).toMatchObject({
+          consecutiveFailures: 0,
+          state: "healthy",
+          eligible: true,
+        });
+      },
+    );
+
+    it(
+      "moves a repeatedly failing instance into cooldown and skips it",
+      async () => {
+        const route =
+          createDiscoveryRoute({
+            retryEnabled: true,
+          });
+
+        const registry =
+          createRouteRuntimeRegistry({
+            initialRoutes: [route],
+          });
+
+        const fetchMock = vi.fn(
+          async (
+            input:
+              | string
+              | URL
+              | Request,
+          ): Promise<Response> => {
+            const url = String(input);
+
+            if (
+              url.startsWith(
+                "http://product-a:3001",
+              )
+            ) {
+              throw new Error(
+                "connection refused",
+              );
+            }
+
+            return new Response(
+              JSON.stringify({
+                downstreamUrl: url,
+              }),
+              {
+                status: 200,
+                headers: {
+                  "content-type":
+                    "application/json",
+                },
+              },
+            );
+          },
+        );
+
+        vi.stubGlobal(
+          "fetch",
+          fetchMock,
+        );
+
+        app =
+          await buildDiscoveryApp({
+            routes: [route],
+            routeRuntimeRegistry:
+              registry,
+            serviceDiscoveryRandomSource:
+              () => 0,
+          });
+
+        for (
+          let requestIndex = 0;
+          requestIndex < 3;
+          requestIndex += 1
+        ) {
+          const response =
+            await app.inject({
+              method: "GET",
+              url: route.gatewayPath,
+            });
+
+          expect(
+            response.statusCode,
+          ).toBe(200);
+        }
+
+        expect(
+          fetchMock.mock.calls.map(
+            (call) =>
+              String(call[0]),
+          ),
+        ).toEqual([
+          "http://product-a:3001/products",
+          "http://product-b:3001/products",
+          "http://product-a:3001/products",
+          "http://product-b:3001/products",
+          "http://product-b:3001/products",
+        ]);
+
+        expect(
+          registry.getServiceInstanceHealthStatus(
+            "product-service",
+            "http://product-a:3001",
+          ),
+        ).toMatchObject({
+          consecutiveFailures: 2,
+          state: "cooldown",
+          eligible: false,
+        });
+      },
+    );
+
+    it(
+      "does not fail over when retry is disabled",
+      async () => {
+        const route =
+          createDiscoveryRoute();
+
+        const registry =
+          createRouteRuntimeRegistry({
+            initialRoutes: [route],
+          });
+
+        const fetchMock =
+          vi.fn(async () => {
+            throw new Error(
+              "connection refused",
+            );
+          });
+
+        vi.stubGlobal(
+          "fetch",
+          fetchMock,
+        );
+
+        app =
+          await buildDiscoveryApp({
+            routes: [route],
+            routeRuntimeRegistry:
+              registry,
+            serviceDiscoveryRandomSource:
+              () => 0,
+          });
+
+        const response =
+          await app.inject({
+            method: "GET",
+            url: route.gatewayPath,
+          });
+
+        expect(
+          response.statusCode,
+        ).toBe(503);
+
+        expect(
+          fetchMock,
+        ).toHaveBeenCalledTimes(1);
+
+        expect(
+          registry.getServiceInstanceHealthStatus(
+            "product-service",
+            "http://product-a:3001",
+          ),
+        ).toMatchObject({
+          consecutiveFailures: 1,
+          state: "healthy",
+        });
+      },
+    );
+
+    it(
+      "does not replay a non-GET discovery request",
+      async () => {
+        const route =
+          createDiscoveryRoute({
+            retryEnabled: true,
+            method: "POST",
+          });
+
+        const fetchMock =
+          vi.fn(async () => {
+            throw new Error(
+              "connection refused",
+            );
+          });
+
+        vi.stubGlobal(
+          "fetch",
+          fetchMock,
+        );
+
+        app =
+          await buildDiscoveryApp({
+            routes: [route],
+            serviceDiscoveryRandomSource:
+              () => 0,
+          });
+
+        const response =
+          await app.inject({
+            method: "POST",
+            url: route.gatewayPath,
+          });
+
+        expect(
+          response.statusCode,
+        ).toBe(503);
+
+        expect(
+          fetchMock,
+        ).toHaveBeenCalledTimes(1);
+      },
+    );
+    it(
+      "fails closed without selecting a target when all instances are in cooldown",
+      async () => {
+        const route =
+          createDiscoveryRoute({
+            retryEnabled: true,
+          });
+
+        const registry =
+          createRouteRuntimeRegistry({
+            initialRoutes: [route],
+          });
+
+        for (
+          const baseUrl of [
+            "http://product-a:3001",
+            "http://product-b:3001",
+          ]
+        ) {
+          registry.recordServiceInstanceFailure(
+            "product-service",
+            baseUrl,
+          );
+
+          registry.recordServiceInstanceFailure(
+            "product-service",
+            baseUrl,
+          );
+        }
+
+        const fetchMock = vi.fn();
+        const randomSource =
+          vi.fn(() => 0);
+
+        vi.stubGlobal(
+          "fetch",
+          fetchMock,
+        );
+
+        app =
+          await buildDiscoveryApp({
+            routes: [route],
+            routeRuntimeRegistry:
+              registry,
+            serviceDiscoveryRandomSource:
+              randomSource,
+          });
 
         const response =
           await app.inject({
