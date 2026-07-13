@@ -19,6 +19,12 @@ import type { DownstreamRouteConfig } from "../config/downstream-routes.js";
 import type { WeightedRandomSource } from "../config/weighted-upstream-selector.js";
 import { resolveDownstreamTarget } from "./downstream-target-resolver.js";
 import { DownstreamServiceError } from "../errors/downstream-service-error.js";
+import {
+  buildAuthRejectionRecordingFailedLogPayload,
+  buildQuotaRejectionRecordingFailedLogPayload,
+  buildRateLimitRejectionRecordingFailedLogPayload,
+  buildUsageRecordingFailedLogPayload,
+} from "../observability/logging.js";
 import { apiKeyAuthMiddleware } from "../middlewares/api-key-auth.middleware.js";
 import { jwtAuthMiddleware } from "../middlewares/jwt-auth.middleware.js";
 import {
@@ -81,13 +87,12 @@ async function recordApiUsageEvent(options: {
       apiKeyId: options.request.apiKeyId,
       consumerId: options.request.apiConsumerId,
     });
-  } catch (error) {
+  } catch {
     options.request.log.error(
-      {
-        error,
-        requestId: options.request.id,
-        route: options.routeConfig.gatewayPath,
-      },
+      buildUsageRecordingFailedLogPayload(
+        options.request.id,
+        options.routeConfig.gatewayPath,
+      ),
       "Failed to record API usage event",
     );
   }
@@ -277,13 +282,12 @@ async function recordQuotaRejectedEvent(options: {
       consumerId: options.request.apiConsumerId,
       metadata: buildQuotaExceededDetails(options.quotaCheck),
     });
-  } catch (error) {
+  } catch {
     options.request.log.error(
-      {
-        error,
-        requestId: options.request.id,
-        route: options.routeConfig.gatewayPath,
-      },
+      buildQuotaRejectionRecordingFailedLogPayload(
+        options.request.id,
+        options.routeConfig.gatewayPath,
+      ),
       "Failed to record quota rejected event",
     );
   }
@@ -365,13 +369,12 @@ async function recordRateLimitRejectedEvent(options: {
         ),
       }),
     });
-  } catch (error) {
+  } catch {
     options.request.log.error(
-      {
-        error,
-        requestId: options.request.id,
-        route: options.routeConfig.gatewayPath,
-      },
+      buildRateLimitRejectionRecordingFailedLogPayload(
+        options.request.id,
+        options.routeConfig.gatewayPath,
+      ),
       "Failed to record rate limit rejected event",
     );
   }
@@ -446,14 +449,13 @@ async function recordAuthRejectedEvent(options: {
         authType: options.authType,
       },
     });
-  } catch (error) {
+  } catch {
     options.request.log.error(
-      {
-        error,
-        requestId: options.request.id,
-        route: options.routeConfig.gatewayPath,
-        authType: options.authType,
-      },
+      buildAuthRejectionRecordingFailedLogPayload(
+        options.request.id,
+        options.routeConfig.gatewayPath,
+        options.authType,
+      ),
       "Failed to record auth rejected event",
     );
   }

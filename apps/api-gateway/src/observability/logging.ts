@@ -89,3 +89,52 @@ export function buildJwtInvalidLogPayload(
     errorCode: "JWT_TOKEN_INVALID" as const,
   };
 }
+export function buildUsageRecordingFailedLogPayload(
+  requestId: string,
+  route: string,
+) {
+  return {
+    event: "api_usage_recording_failed" as const,
+    errorCode: "API_USAGE_RECORDING_FAILED" as const,
+    requestId,
+    route,
+  };
+}
+
+export function buildQuotaRejectionRecordingFailedLogPayload(
+  requestId: string,
+  route: string,
+) {
+  return {
+    event: "quota_rejection_recording_failed" as const,
+    errorCode: "QUOTA_REJECTION_RECORDING_FAILED" as const,
+    requestId,
+    route,
+  };
+}
+
+export function buildRateLimitRejectionRecordingFailedLogPayload(
+  requestId: string,
+  route: string,
+) {
+  return {
+    event: "rate_limit_rejection_recording_failed" as const,
+    errorCode: "RATE_LIMIT_REJECTION_RECORDING_FAILED" as const,
+    requestId,
+    route,
+  };
+}
+
+export function buildAuthRejectionRecordingFailedLogPayload(
+  requestId: string,
+  route: string,
+  authType: "api-key" | "jwt",
+) {
+  return {
+    event: "auth_rejection_recording_failed" as const,
+    errorCode: "AUTH_REJECTION_RECORDING_FAILED" as const,
+    requestId,
+    route,
+    authType,
+  };
+}
