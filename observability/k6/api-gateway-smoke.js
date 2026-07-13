@@ -1,8 +1,14 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
 
-const baseUrl = (__ENV.BASE_URL || "http://api-gateway:3000").replace(/\/+$/, "");
-const healthUrl = `${baseUrl}/health`;
+const baseUrl = (__ENV.BASE_URL || "http://api-gateway:3000").replace(
+  /\/+$/,
+  "",
+);
+
+const gatewayHealthUrl = `${baseUrl}/health`;
+const proxiedProductHealthUrl =
+  `${baseUrl}/api/product-service/health`;
 
 const requestParams = {
   timeout: "2s",
@@ -28,7 +34,7 @@ export const options = {
 
 export function setup() {
   for (let attempt = 1; attempt <= 8; attempt += 1) {
-    const response = http.get(healthUrl, {
+    const response = http.get(gatewayHealthUrl, {
       ...requestParams,
       tags: {
         phase: "readiness",
@@ -42,27 +48,41 @@ export function setup() {
     sleep(1);
   }
 
-  throw new Error(`API Gateway did not become ready: ${healthUrl}`);
+  throw new Error(
+    `API Gateway did not become ready: ${gatewayHealthUrl}`,
+  );
 }
 
 export default function () {
-  const response = http.get(healthUrl, {
+  const response = http.get(proxiedProductHealthUrl, {
     ...requestParams,
     tags: {
       phase: "smoke",
     },
   });
 
+  let reportsProductService = false;
   let reportsHealthyStatus = false;
 
   try {
-    reportsHealthyStatus = response.json("status") === "ok";
+    reportsProductService =
+      response.json("service") === "product-service";
+
+    reportsHealthyStatus =
+      response.json("status") === "ok";
   } catch {
+    reportsProductService = false;
     reportsHealthyStatus = false;
   }
 
   check(response, {
-    "health endpoint returns HTTP 200": (result) => result.status === 200,
-    "health endpoint reports ok": () => reportsHealthyStatus,
+    "proxied health returns HTTP 200":
+      (result) => result.status === 200,
+
+    "proxied health reports product service":
+      () => reportsProductService,
+
+    "proxied health reports ok":
+      () => reportsHealthyStatus,
   });
 }
