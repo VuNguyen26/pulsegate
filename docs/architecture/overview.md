@@ -1,5 +1,28 @@
 # PulseGate Architecture Overview
 
+## Current audited platform snapshot
+
+This section describes the current implementation after Sprint 78. The later sprint-specific sections are additive historical snapshots and do not replace the canonical current state in `docs/project-context/CURRENT_PROGRESS.md`.
+
+- Product/documentation version: `v1.18.0`.
+- Private first-party npm workspace versions: `0.1.0`.
+- Latest completed sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+- Current sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
+- Next sprint: Sprint 80 - Product/Platform v2 Release.
+- The product/documentation version remains `v1.18.0` during Sprint 79 implementation checkpoints. `v1.19.0` is reserved for successful Sprint 79 finalization, while `v2.0.0` remains reserved for Sprint 80.
+- All 29 Gateway Admin routes remain protected by the trusted Admin boundary and the 18-read/11-mutation authorization matrix.
+- The Admin Dashboard exposes 18 fixed GET-only BFF route files, no non-GET Admin BFF handler, and no generic Admin proxy.
+- `ADMIN_READ_ONLY_API_KEY` remains server-only. Full-access `ADMIN_API_KEY` remains absent from Dashboard runtime and browser surfaces.
+- The Developer Portal remains public, static-first, unprivileged, and non-operational for real API-key issuance.
+- Route identity preserves host and gateway-path conditions. Weighted upstream routing, configured service discovery, health-aware target selection, bounded process-local failover, and the retry cap of seven attempts remain implementation boundaries.
+- The database sources of truth remain `gateway_routes`, `api_consumers`, `api_keys`, `usage_plans`, `api_usage_events`, `api_rejected_events`, `api_usage_rollups`, and `api_rejected_rollups`.
+- Trace propagation retains `traceparent`, `tracestate`, and `baggage`.
+- API Gateway and Product Service runtime access logs remain structured JSON.
+- Loki labels remain bounded to `service`, `level`, and `event`; request, trace, and span identifiers remain JSON fields rather than unbounded labels.
+- The validated Compose model contains 10 services.
+- The Kubernetes deployment tree contains 12 YAML files and retains non-root, no-privilege-escalation, dropped-capability, seccomp, and service-account-token hardening.
+- Documentation, UI state, metrics, logs, traces, demo summaries, and k6 summaries are not authorization, routing, quota, billing, retention-execution, or database sources of truth.
+
 ## Project
 
 PulseGate - High-Traffic API Gateway & Observability Platform
@@ -1098,7 +1121,7 @@ Sprint 59 keeps observability lightweight and reproducible:
 - no OpenTelemetry, Loki, Kubernetes, or Admin UI scope
 
 <!-- pulsegate:sprint-64:start -->
-## Sprint 64 â€” Admin analytics operations read model
+## Sprint 64 — Admin analytics operations read model
 
 Sprint 64 extends the Admin Dashboard with three source-separated, read-only analytics operations paths:
 

@@ -1,5 +1,52 @@
 # PulseGate Requirements
 
+## Current normative requirements and delivery boundary
+
+This section owns the current normative delivery boundary together with `docs/project-context/CURRENT_PROGRESS.md`. Sprint-specific sections later in this document are historical acceptance records; they must not be interpreted as newer canonical state.
+
+### Current release state
+
+- Product/documentation version: `v1.18.0`.
+- Private first-party npm workspace versions: `0.1.0`.
+- Latest completed sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+- Current sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
+- Next sprint: Sprint 80 - Product/Platform v2 Release.
+- The fixed Sprint 45-80 roadmap remains unchanged.
+- Sprint 79 creates no Git tag.
+- `v1.19.0` may be introduced only during successful Sprint 79 documentation finalization.
+- `v2.0.0` remains reserved for Sprint 80.
+
+### Sprint 79 permitted scope
+
+- Clarify canonical current-state documentation.
+- Consolidate overlapping runbooks and correct command defects.
+- Align architecture and requirements with audited implementation.
+- Correct exact headings, links, encoding defects, and stale operational wording.
+- Prepare an explicit Sprint 80 release handoff.
+- Preserve historical sprint and decision records unless an exact factual, heading, link, or encoding defect is confirmed.
+
+### Sprint 79 prohibited scope
+
+- Application-source or application-test-behavior changes.
+- API, database, migration, dependency, package-lock, environment, service, port, Compose, or Kubernetes changes.
+- Runtime data mutation or deletion of preserved Sprint 78 evidence.
+- Private npm workspace version changes.
+- Sprint 79 tag creation.
+- Sprint 80 release execution.
+- Creation of `v2.0.0`.
+
+### Required platform invariants
+
+- All 29 Gateway Admin routes remain protected.
+- The Admin authorization matrix remains 18 read routes and 11 mutation routes.
+- The Admin Dashboard remains limited to 18 fixed GET-only BFF route files with no generic Admin proxy.
+- `ADMIN_READ_ONLY_API_KEY` remains server-only, and full-access `ADMIN_API_KEY` remains outside Dashboard runtime and browser surfaces.
+- The Developer Portal remains public, static-first, unprivileged, and unable to issue real API keys.
+- Host routing, route identity, weighted upstreams, service discovery, health-aware failover, bounded retry, quota, usage analytics, rejection analytics, rollups, scheduler, retention, tracing, structured logging, metrics, Grafana, Loki, Alloy, Compose, Kubernetes, and database source-of-truth boundaries remain intact.
+- The validated Compose model remains 10 services.
+- The Kubernetes deployment tree remains 12 YAML files with the established security context.
+- Repository-generated evidence remains outside the repository under `E:\pulsegate-artifacts`.
+
 ## Project
 
 PulseGate - High-Traffic API Gateway & Observability Platform
@@ -1908,7 +1955,7 @@ Validation:
 Implementation status: Complete in Sprint 59.
 
 <!-- pulsegate:sprint-64:start -->
-## Sprint 64 acceptance â€” read-only analytics operations
+## Sprint 64 acceptance — read-only analytics operations
 
 - The operator can inspect bounded persisted usage and rejected rollups.
 - Rollup query parameters are allowlisted, duplicate-safe, source-aware, and bounded to at most 744 buckets and a Dashboard result limit of 100.
