@@ -13,7 +13,7 @@ export default function RejectedEventsPage() {
     <section className="page-stack">
       <header className="page-header">
         <p className="eyebrow">
-          Sprint 63 - Read-only rejection analytics
+          Public Demo - Read-only rejection analytics
         </p>
         <h1>Rejected events</h1>
         <p>

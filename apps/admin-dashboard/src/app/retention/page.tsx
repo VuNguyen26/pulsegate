@@ -15,7 +15,7 @@ export default function RetentionPage() {
     <section className="page-stack">
       <header className="page-header">
         <p className="eyebrow">
-          Sprint 64 - Read-only operations
+          Public Demo - Read-only operations
         </p>
 
         <h1>Retention preview</h1>

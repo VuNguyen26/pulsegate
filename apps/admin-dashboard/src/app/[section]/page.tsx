@@ -61,7 +61,7 @@ export default async function PlannedSectionPage({
       </header>
 
       <article className="content-card">
-        <h2>Foundation placeholder</h2>
+        <h2>Public demo placeholder</h2>
         <p>
           This section intentionally contains no fake data or mutation
           controls. Its implementation remains assigned to the stated

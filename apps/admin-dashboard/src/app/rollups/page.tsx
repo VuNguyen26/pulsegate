@@ -23,7 +23,7 @@ export default function RollupsPage() {
     <section className="page-stack">
       <header className="page-header">
         <p className="eyebrow">
-          Sprint 64 - Read-only operations
+          Public Demo - Read-only operations
         </p>
 
         <h1>Analytics rollups</h1>

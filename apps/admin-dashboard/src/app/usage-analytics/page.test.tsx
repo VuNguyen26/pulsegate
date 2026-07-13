@@ -42,7 +42,7 @@ describe("UsageAnalyticsPage", () => {
       "Offset pagination and rollup switches are not exposed",
     );
     expect(html).not.toContain(
-      "Foundation placeholder",
+      "Public demo placeholder",
     );
   });
 });

@@ -13,7 +13,7 @@ export default function UsagePlansPage() {
     <section className="page-stack">
       <header className="page-header">
         <p className="eyebrow">
-          Sprint 62 - Read-only configuration
+          Public Demo - Read-only configuration
         </p>
         <h1>Usage plans</h1>
         <p>

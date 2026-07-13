@@ -4,7 +4,7 @@ export default function OverviewPage() {
   return (
     <section className="page-stack">
       <div className="hero">
-        <p className="eyebrow">Sprint 66</p>
+        <p className="eyebrow">Public Demo v2.0.0</p>
         <h1>Build against PulseGate with a clear public boundary.</h1>
         <p>
           The Developer Portal now includes bounded public API documentation

@@ -13,7 +13,7 @@ export default function ConsumersPage() {
     <section className="page-stack">
       <header className="page-header">
         <p className="eyebrow">
-          Sprint 62 - Read-only registry
+          Public Demo - Read-only registry
         </p>
         <h1>API consumers</h1>
         <p>

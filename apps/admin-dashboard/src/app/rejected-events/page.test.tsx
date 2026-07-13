@@ -36,7 +36,7 @@ describe("RejectedEventsPage", () => {
       "mutation controls are not exposed",
     );
     expect(html).not.toContain(
-      "Foundation placeholder",
+      "Public demo placeholder",
     );
     expect(html).not.toContain("rawKey");
   });

@@ -13,7 +13,7 @@ export default function ApiKeysPage() {
     <section className="page-stack">
       <header className="page-header">
         <p className="eyebrow">
-          Sprint 62 - Consumer-scoped read view
+          Public Demo - Consumer-scoped read view
         </p>
         <h1>API keys</h1>
         <p>

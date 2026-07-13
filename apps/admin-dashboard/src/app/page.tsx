@@ -4,8 +4,8 @@ export default function OverviewPage() {
   return (
     <section className="page-stack">
       <header className="page-header">
-        <p className="eyebrow">Sprint 61</p>
-        <h1>Admin Dashboard foundation</h1>
+        <p className="eyebrow">Public Demo v2.0.0</p>
+        <h1>Admin Dashboard</h1>
         <p>
           A secure, read-only administration shell for
           PulseGate with server-only Gateway connectivity.

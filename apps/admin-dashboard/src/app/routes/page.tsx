@@ -13,7 +13,7 @@ export default function RoutesPage() {
     <section className="page-stack">
       <header className="page-header">
         <p className="eyebrow">
-          Sprint 62 - Read-only route registry
+          Public Demo - Read-only route registry
         </p>
         <h1>Gateway routes</h1>
         <p>

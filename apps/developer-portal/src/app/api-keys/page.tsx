@@ -54,7 +54,7 @@ export default function ApiKeysPage() {
   return (
     <section className="page-stack key-page">
       <header className="key-hero">
-        <p className="eyebrow">Available in Sprint 66</p>
+        <p className="eyebrow">Public Demo v2.0.0</p>
         <h1>API-key self-service foundation.</h1>
         <p>
           This page defines the expected security and ownership boundary for a
@@ -63,7 +63,7 @@ export default function ApiKeysPage() {
         </p>
 
         <div className="docs-status-row" aria-label="API-key foundation status">
-          <span className="status-badge">Foundation</span>
+          <span className="status-badge">Design boundary</span>
           <span className="status-badge status-badge-muted">
             Not connected
           </span>

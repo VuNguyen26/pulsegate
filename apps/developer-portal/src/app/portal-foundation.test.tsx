@@ -30,8 +30,8 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe("Developer Portal foundation", () => {
-  it("renders real Sprint 66 overview and existing getting-started content", () => {
-    expect(render(<OverviewPage />)).toContain("Sprint 66");
+  it("renders the public demo overview and existing getting-started content", () => {
+    expect(render(<OverviewPage />)).toContain("Public Demo v2.0.0");
     expect(render(<GettingStartedPage />)).toContain(
       "does not create developer accounts",
     );

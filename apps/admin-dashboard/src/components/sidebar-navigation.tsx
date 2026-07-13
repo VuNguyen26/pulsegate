@@ -24,7 +24,7 @@ export function SidebarNavigation() {
               >
                 <span>{item.label}</span>
                 {item.plannedSprint > 61 ? (
-                  <small>Sprint {item.plannedSprint}</small>
+                  <small>Read-only</small>
                 ) : null}
               </Link>
             </li>

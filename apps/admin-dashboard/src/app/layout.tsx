@@ -27,7 +27,7 @@ export default function RootLayout({
               <span className="product-area">Admin Dashboard</span>
             </div>
             <span className="foundation-badge">
-              Foundation
+              v2.0.0
             </span>
           </header>
 

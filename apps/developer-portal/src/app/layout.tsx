@@ -23,7 +23,7 @@ export default function RootLayout({
           <PortalNavigation />
         </header>
         <main>{children}</main>
-        <footer>PulseGate Developer Portal · Sprint 66 developer foundations</footer>
+        <footer>PulseGate Developer Portal - Public Demo v2.0.0</footer>
       </body>
     </html>
   );

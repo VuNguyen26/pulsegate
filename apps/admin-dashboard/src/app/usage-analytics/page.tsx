@@ -16,7 +16,7 @@ export default function UsageAnalyticsPage() {
     <section className="page-stack">
       <header className="page-header">
         <p className="eyebrow">
-          Sprint 63 - Read-only analytics
+          Public Demo - Read-only analytics
         </p>
         <h1>Usage analytics</h1>
         <p>

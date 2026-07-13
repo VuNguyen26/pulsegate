@@ -25,7 +25,7 @@ const publicEndpoints = [
       "Applies the Gateway security response headers.",
     ],
     request:
-      "curl.exe -i http://localhost:3000/health",
+      "curl.exe -i https://pulsegate-public-demo-api.onrender.com/health",
     response: `{
   "service": "api-gateway",
   "status": "ok",
@@ -52,7 +52,7 @@ const publicEndpoints = [
       "Reports x-cache as BYPASS.",
     ],
     request:
-      "curl.exe -i http://localhost:3000/api/product-service/health",
+      "curl.exe -i https://pulsegate-public-demo-api.onrender.com/api/product-service/health",
     response: null,
     headers: [
       "x-request-id",
@@ -81,7 +81,7 @@ const publicEndpoints = [
       "The successful response schema remains downstream-owned and is not frozen by this static reference.",
     ],
     request:
-      'curl.exe -i http://localhost:3000/api/products -H "x-api-key: <your-api-key>" -H "Authorization: Bearer <your-bearer-token>"',
+      'curl.exe -i https://pulsegate-public-demo-api.onrender.com/api/products -H "x-api-key: <your-api-key>" -H "Authorization: Bearer <your-bearer-token>"',
     response: null,
     headers: [
       "x-request-id",
@@ -159,7 +159,7 @@ export default function ApiDocsPage() {
   return (
     <section className="page-stack docs-page">
       <header className="docs-hero">
-        <p className="eyebrow">Available in Sprint 66</p>
+        <p className="eyebrow">Public Demo v2.0.0</p>
         <h1>Public API documentation foundation.</h1>
         <p>
           This static reference documents only runtime contracts that are
