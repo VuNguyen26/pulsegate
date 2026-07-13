@@ -2,6 +2,9 @@ import type {
   FastifyInstance,
 } from "fastify";
 import {
+  buildProductErrorLogPayload,
+} from "../observability/logging.js";
+import {
   recordProductTracingOutcome,
 } from "./tracing.middleware.js";
 
@@ -32,7 +35,12 @@ export function registerErrorHandlers(
         "INTERNAL_SERVER_ERROR",
       );
 
-      request.log.error(error);
+      request.log.error(
+        buildProductErrorLogPayload(
+          request.id,
+        ),
+        "Unhandled Product Service error",
+      );
 
       return reply.status(500).send({
         error: {
