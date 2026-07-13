@@ -182,3 +182,23 @@ export function buildRetryableDownstreamResponseLogPayload(
     statusCode,
   };
 }
+export function buildRuntimeRoutesLoadedLogPayload(
+  routeCount: number,
+) {
+  return {
+    event: "runtime_routes_database_loaded" as const,
+    routeCount,
+  };
+}
+
+export function buildRuntimeRouteEmptyFallbackLogPayload(
+  fallbackRouteCount: number,
+) {
+  return {
+    event:
+      "runtime_routes_database_empty_fallback" as const,
+    errorCode:
+      "DATABASE_ROUTE_CONFIGS_EMPTY" as const,
+    fallbackRouteCount,
+  };
+}

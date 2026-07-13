@@ -7,6 +7,8 @@ import {
   buildDownstreamErrorLogPayload,
   buildRateLimitIdentifierMissingLogPayload,
   buildRetryableDownstreamResponseLogPayload,
+  buildRuntimeRouteEmptyFallbackLogPayload,
+  buildRuntimeRoutesLoadedLogPayload,
   buildTracingLifecycleFailedLogPayload,
   buildUnhandledGatewayErrorLogPayload,
 } from "./logging.js";
@@ -86,6 +88,24 @@ describe("bounded Gateway error logging", () => {
       requestId: "request-4",
       route: "/api/products",
       statusCode: 503,
+    });
+  });
+
+  it("uses bounded runtime route loading fields", () => {
+    expect(
+      buildRuntimeRoutesLoadedLogPayload(2),
+    ).toEqual({
+      event: "runtime_routes_database_loaded",
+      routeCount: 2,
+    });
+
+    expect(
+      buildRuntimeRouteEmptyFallbackLogPayload(3),
+    ).toEqual({
+      event:
+        "runtime_routes_database_empty_fallback",
+      errorCode: "DATABASE_ROUTE_CONFIGS_EMPTY",
+      fallbackRouteCount: 3,
     });
   });
 });

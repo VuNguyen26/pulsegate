@@ -73,6 +73,7 @@ describe("runtime downstream route config loader", () => {
     expect(logger.info).toHaveBeenCalledWith(
       "Loaded downstream route configs from database",
       {
+        event: "runtime_routes_database_loaded",
         routeCount: 1,
       },
     );
@@ -96,6 +97,9 @@ describe("runtime downstream route config loader", () => {
     expect(logger.warn).toHaveBeenCalledWith(
       "No database downstream route configs found; falling back to static downstream route configs",
       {
+        event:
+          "runtime_routes_database_empty_fallback",
+        errorCode: "DATABASE_ROUTE_CONFIGS_EMPTY",
         fallbackRouteCount: 1,
       },
     );
@@ -126,5 +130,46 @@ describe("runtime downstream route config loader", () => {
         fallbackRouteCount: 1,
       },
     );
+  });
+
+  it("should emit structured JSON with the default logger", async () => {
+    const consoleInfo = vi
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
+
+    try {
+      const databaseRouteConfigs = [
+        createRouteConfig(
+          "/api/db-route",
+          "http://service:3001/db-route",
+        ),
+      ];
+
+      await loadRuntimeDownstreamRouteConfigs({
+        loadFromDatabase:
+          async () => databaseRouteConfigs,
+        staticRouteConfigs: [],
+      });
+
+      expect(consoleInfo).toHaveBeenCalledTimes(1);
+
+      const line =
+        consoleInfo.mock.calls[0]?.[0];
+
+      expect(typeof line).toBe("string");
+
+      expect(
+        JSON.parse(String(line)),
+      ).toMatchObject({
+        event: "runtime_routes_database_loaded",
+        level: 30,
+        time: expect.any(Number),
+        routeCount: 1,
+        msg:
+          "Loaded downstream route configs from database",
+      });
+    } finally {
+      consoleInfo.mockRestore();
+    }
   });
 });

@@ -5,7 +5,9 @@ import {
 import { loadDatabaseDownstreamRouteConfigs } from "./database-route-config.repository.js";
 import { gatewayPrisma } from "../database/gateway-prisma.js";
 import {
+  buildRuntimeRouteEmptyFallbackLogPayload,
   buildRuntimeRouteFallbackLogPayload,
+  buildRuntimeRoutesLoadedLogPayload,
 } from "../observability/logging.js";
 
 export type RuntimeRouteConfigLogger = {
@@ -19,12 +21,40 @@ export type RuntimeDownstreamRouteConfigLoaderOptions = {
   logger?: RuntimeRouteConfigLogger;
 };
 
+function writeBootstrapRuntimeRouteLog(
+  level: 30 | 40,
+  message: string,
+  context?: Record<string, unknown>,
+): void {
+  const line = JSON.stringify({
+    ...(context ?? {}),
+    level,
+    time: Date.now(),
+    msg: message,
+  });
+
+  if (level === 30) {
+    console.info(line);
+    return;
+  }
+
+  console.warn(line);
+}
+
 const defaultLogger: RuntimeRouteConfigLogger = {
   info: (message, context) => {
-    console.info(message, context ?? {});
+    writeBootstrapRuntimeRouteLog(
+      30,
+      message,
+      context,
+    );
   },
   warn: (message, context) => {
-    console.warn(message, context ?? {});
+    writeBootstrapRuntimeRouteLog(
+      40,
+      message,
+      context,
+    );
   },
 };
 
@@ -43,17 +73,20 @@ export async function loadRuntimeDownstreamRouteConfigs(
     if (databaseRouteConfigs.length === 0) {
       logger.warn(
         "No database downstream route configs found; falling back to static downstream route configs",
-        {
-          fallbackRouteCount: staticRouteConfigs.length,
-        },
+        buildRuntimeRouteEmptyFallbackLogPayload(
+          staticRouteConfigs.length,
+        ),
       );
 
       return staticRouteConfigs;
     }
 
-    logger.info("Loaded downstream route configs from database", {
-      routeCount: databaseRouteConfigs.length,
-    });
+    logger.info(
+      "Loaded downstream route configs from database",
+      buildRuntimeRoutesLoadedLogPayload(
+        databaseRouteConfigs.length,
+      ),
+    );
 
     return databaseRouteConfigs;
   } catch {
