@@ -6,6 +6,7 @@ import {
 import {
   buildDownstreamErrorLogPayload,
   buildRateLimitIdentifierMissingLogPayload,
+  buildRetryableDownstreamResponseLogPayload,
   buildTracingLifecycleFailedLogPayload,
   buildUnhandledGatewayErrorLogPayload,
 } from "./logging.js";
@@ -69,6 +70,22 @@ describe("bounded Gateway error logging", () => {
       errorCode: "RATE_LIMIT_IDENTIFIER_MISSING",
       requestId: "request-3",
       identityType: "api-key",
+    });
+  });
+
+  it("uses bounded retry-exhausted fields", () => {
+    expect(
+      buildRetryableDownstreamResponseLogPayload(
+        "request-4",
+        "/api/products",
+        503,
+      ),
+    ).toEqual({
+      event: "downstream_retry_exhausted",
+      errorCode: "DOWNSTREAM_RETRY_EXHAUSTED",
+      requestId: "request-4",
+      route: "/api/products",
+      statusCode: 503,
     });
   });
 });

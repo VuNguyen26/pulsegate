@@ -169,3 +169,16 @@ export function buildRateLimitIdentifierMissingLogPayload(
     identityType,
   };
 }
+export function buildRetryableDownstreamResponseLogPayload(
+  requestId: string,
+  route: string,
+  statusCode: number,
+) {
+  return {
+    event: "downstream_retry_exhausted" as const,
+    errorCode: "DOWNSTREAM_RETRY_EXHAUSTED" as const,
+    requestId,
+    route,
+    statusCode,
+  };
+}

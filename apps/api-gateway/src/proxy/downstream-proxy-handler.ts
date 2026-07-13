@@ -24,6 +24,7 @@ import {
   buildQuotaRejectionRecordingFailedLogPayload,
   buildRateLimitRejectionRecordingFailedLogPayload,
   buildResponseCacheStoreFailedLogPayload,
+  buildRetryableDownstreamResponseLogPayload,
   buildUsageRecordingFailedLogPayload,
 } from "../observability/logging.js";
 import { apiKeyAuthMiddleware } from "../middlewares/api-key-auth.middleware.js";
@@ -1003,11 +1004,11 @@ recordHealthFailure(
       routePolicies.retry.enabled
     ) {
       request.log.warn(
-        {
-          requestId: request.id,
-          statusCode: response.status,
-          route: routeConfig.gatewayPath,
-        },
+        buildRetryableDownstreamResponseLogPayload(
+          request.id,
+          routeConfig.gatewayPath,
+          response.status,
+        ),
         "Received retryable downstream response after retry execution",
       );
     }
