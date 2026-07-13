@@ -2,11 +2,11 @@
 
 ## Current Version
 
-v1.19.0
+v2.0.0
 
 ## Latest Completed Sprint
 
-Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup
+Sprint 80 - Product/Platform v2 Release
 
 ## Latest Decision
 <!-- SPRINT-78-DECISION-LOG-START -->
@@ -1896,3 +1896,20 @@ Sprint 80 adopts the existing v1 release convention for the final Product/Platfo
 - Use tag annotation `PulseGate v2.0.0 - Product/Platform v2`.
 - Do not publish npm packages, container images, or a cloud deployment.
 - Do not invent Sprint 81.
+
+## 2026-07-13 - Sprint 80 release validation completed
+
+Sprint 80 completed the Product/Platform v2 release validation and final documentation preparation.
+
+- Product/documentation version advanced from `v1.19.0` to `v2.0.0`.
+- Latest completed sprint is Sprint 80 - Product/Platform v2 Release.
+- No current or next sprint is defined beyond the fixed Sprint 45-80 roadmap.
+- 230 test files / 1474 tests passed.
+- Workspace typecheck, production builds, release-readiness, documentation checks, Compose configuration, and all existing Kustomize renders passed.
+- The bounded end-to-end demo and bounded k6 smoke passed.
+- Runtime cleanup left zero Compose containers and preserved named volumes.
+- Private first-party npm workspace versions remain `0.1.0`.
+- `package-lock.json` remains unchanged.
+- Protected annotated tag `v1.0.0` remains unchanged.
+- Annotated tag `v2.0.0` remains pending post-commit release validation.
+- No Sprint 81 is defined.

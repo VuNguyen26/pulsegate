@@ -1,49 +1,35 @@
 # PulseGate Requirements
 
-## Current normative state and Sprint 80 handoff
+## Final Product/Platform v2 normative state
 
-This section owns the current normative delivery boundary together with `docs/project-context/CURRENT_PROGRESS.md`. Sprint-specific sections later in this document are historical acceptance records; they must not be interpreted as newer canonical state.
+This section owns the final normative delivery boundary together with `docs/project-context/CURRENT_PROGRESS.md`. Later sprint-specific sections are historical acceptance records.
 
-### Current release state
+### Release state
 
-- Product/documentation version: `v1.19.0`.
-- Private first-party npm workspace versions: `0.1.0`.
-- Latest completed sprint: No sprint is defined beyond the fixed Sprint 45-80 roadmap..
-- Current sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
-- Next sprint: Sprint 80 - Product/Platform v2 Release.
-- The fixed Sprint 45-80 roadmap remains unchanged.
-- Sprint 79 creates no Git tag.
-- Sprint 79 finalization advanced product/documentation version to `v1.19.0` without creating a tag.
-- `v2.0.0` remains reserved for Sprint 80.
+- Product/documentation version: `v2.0.0`.
+- Latest completed sprint: Sprint 80 - Product/Platform v2 Release.
+- No current or next sprint is defined beyond the fixed Sprint 45-80 roadmap.
+- The fixed Sprint 45-80 roadmap is complete.
+- Private first-party npm workspace versions remain `0.1.0`.
+- `package-lock.json` remains unchanged.
+- Protected annotated tag `v1.0.0` remains unchanged.
+- Annotated tag `v2.0.0` may be created only after the pushed final Sprint 80 documentation commit passes post-commit release validation.
+- No npm package publication, container publication, cloud deployment, production-capacity certification, SLA, SLO, billing, or enterprise-compliance claim is part of this release.
+- No Sprint 81 is defined.
 
-### Completed Sprint 79 scope
+### Final release evidence
 
-- Clarify canonical current-state documentation.
-- Consolidate overlapping runbooks and correct command defects.
-- Align architecture and requirements with audited implementation.
-- Correct exact headings, links, encoding defects, and stale operational wording.
-- Prepare an explicit Sprint 80 release handoff.
-- Preserve historical sprint and decision records unless an exact factual, heading, link, or encoding defect is confirmed.
-
-### Sprint 79 exclusions retained
-
-- Application-source or application-test-behavior changes.
-- API, database, migration, dependency, package-lock, environment, service, port, Compose, or Kubernetes changes.
-- Runtime data mutation or deletion of preserved Sprint 78 evidence.
-- Private npm workspace version changes.
-- Sprint 79 tag creation.
-- Sprint 80 release execution.
-- Creation of `v2.0.0`.
-
-### Sprint 80 current handoff boundary
-
-- Treat product/documentation version `v1.19.0` as the official starting baseline.
-- Treat Sprint 79 as complete and Sprint 80 as current.
-- Audit the exact repository state before any release patch.
-- Preserve all application, security, routing, observability, database, Compose, Kubernetes, and protected-tag invariants unless an explicit Sprint 80 requirement changes them.
-- Run the complete release validation strategy before creating `v2.0.0`.
-- Create no release tag from documentation claims alone.
-- Keep Product/Platform v2 release execution inside Sprint 80.
+- 230 test files and 1474 tests passed.
+- Workspace typecheck and production builds passed.
+- Release-readiness validation passed.
+- Documentation integrity validation passed.
+- Docker Compose configuration passed with 10 services.
+- All existing Kubernetes Kustomize targets rendered successfully without apply.
+- The bounded end-to-end demo passed.
+- The bounded k6 smoke passed.
+- Runtime cleanup completed with zero remaining Compose containers and no named-volume deletion.
+- Repository state remained clean and synchronized.
+- No application, test, dependency, package-lock, migration, environment, service, port, Compose, Kubernetes, database-schema, or protected-tag change was introduced by Sprint 80 release preparation.
 
 ### Required platform invariants
 
@@ -52,9 +38,7 @@ This section owns the current normative delivery boundary together with `docs/pr
 - The Admin Dashboard remains limited to 18 fixed GET-only BFF route files with no generic Admin proxy.
 - `ADMIN_READ_ONLY_API_KEY` remains server-only, and full-access `ADMIN_API_KEY` remains outside Dashboard runtime and browser surfaces.
 - The Developer Portal remains public, static-first, unprivileged, and unable to issue real API keys.
-- Host routing, route identity, weighted upstreams, service discovery, health-aware failover, bounded retry, quota, usage analytics, rejection analytics, rollups, scheduler, retention, tracing, structured logging, metrics, Grafana, Loki, Alloy, Compose, Kubernetes, and database source-of-truth boundaries remain intact.
-- The validated Compose model remains 10 services.
-- The Kubernetes deployment tree remains 12 YAML files with the established security context.
+- Host routing, route identity, weighted upstreams, service discovery, health-aware failover, bounded retry, quota, analytics, rollups, scheduler, retention, tracing, logging, metrics, Grafana, Loki, Alloy, Compose, Kubernetes, and database source-of-truth boundaries remain intact.
 - Repository-generated evidence remains outside the repository under `E:\pulsegate-artifacts`.
 
 ## Project

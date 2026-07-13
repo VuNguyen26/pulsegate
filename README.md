@@ -2,45 +2,34 @@
 
 High-Traffic API Gateway & Observability Platform.
 
-## Sprint 79 completion snapshot
+## Product/Platform v2 release snapshot
 
-- Product/documentation version: `v1.19.0`.
-- Latest completed sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
-- Current sprint: Sprint 80 - Product/Platform v2 Release.
-- No sprint is defined beyond the fixed Sprint 45-80 roadmap.
-- Sprint 79 full validation passed at baseline `46ce60eb32e66f71fd269e68512e8aeb913386b6`.
-- Final validation evidence SHA-256: `BF578349A4281069904865CC2F10EE2061A3954AF329630878B9BE79EC477182`.
-- All private first-party workspace versions remain `0.1.0`.
-- Sprint 79 created no Git tag.
-- `v2.0.0` remains reserved for Sprint 80.
+- Product/documentation version: `v2.0.0`.
+- Latest completed sprint: Sprint 80 - Product/Platform v2 Release.
+- No current or next sprint is defined beyond the fixed Sprint 45-80 roadmap.
+- Sprint 80 release preparation commit: `6c995204fc301c1a6a43ebc47a969c499e1aa3a4`.
+- Static release validation passed with 230 test files and 1474 tests.
+- Admin Dashboard: 55 test files / 253 tests.
+- API Gateway: 163 test files / 1177 tests.
+- Developer Portal: 2 test files / 8 tests.
+- Product Service: 10 test files / 36 tests.
+- Workspace typecheck, production build, release-readiness, documentation checks, Compose validation, and all Kustomize renders passed.
+- The validated Compose model contains 10 services.
+- The bounded end-to-end demo and bounded k6 smoke passed.
+- Runtime cleanup completed with zero remaining Compose containers and no named-volume deletion.
+- Private first-party npm workspace versions remain `0.1.0`.
+- `package-lock.json` remains unchanged.
+- Protected annotated tag `v1.0.0` remains unchanged.
+- Annotated tag `v2.0.0` remains pending post-commit release validation.
+- No Sprint 81 is defined.
 
-## Current product/documentation version - v1.19.0
+Release evidence:
 
-**Latest completed sprint:** No sprint is defined beyond the fixed Sprint 45-80 roadmap..
-
-Current validation baseline:
-
-- Admin Dashboard: 55 test files / 253 tests passed.
-- API Gateway: 163 test files / 1177 tests passed.
-- Developer Portal: 2 test files / 8 tests passed.
-- Product Service: 10 test files / 36 tests passed.
-- Root typecheck, production build, release validation, Compose configuration, package-lock integrity, clean-tree verification, and origin synchronization passed.
-- The bounded GET-only demo proved Developer Portal documentation -> API Gateway -> Product Service health.
-- The demo created exactly one expected usage event and zero rejected events.
-- The local k6 smoke completed 10/10 iterations and 30/30 checks with 0% failed requests.
-- The smoke-phase p95 was 34.19 ms against the bounded threshold of less than 1000 ms.
-- The k6 run created exactly 10 expected usage events and zero rejected events.
-- Required runtime containers retained their IDs, images, and zero restart counts during demo, k6, and release validation.
-- Sprint-created containers were removed after validation while named volumes and bounded database evidence were preserved.
-- Sanitized runtime, k6, and release-readiness evidence is stored outside the repository under `E:\pulsegate-artifacts`.
-
-Private npm workspace versions remain `0.1.0`.
-
-The protected annotated Git tag `v1.0.0` remains unchanged: tag object `726feb46e62a3224f7e27d55ae4f9e74dd6b1123`, target `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 78 creates no Git tag.
-
-Current sprint: **Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup**.
-
-Next sprint: **Sprint 80 - Product/Platform v2 Release**.
+- Static validation report SHA-256: `B16E4AFA923D1757F1F1E5321CF9073EBD0091D625E77822400865F232A1D322`.
+- Release-readiness log SHA-256: `E9A285A9D9F4B5673B554EC37C528941204600F64A609AA85911AF4F4C8214D5`.
+- Runtime report SHA-256: `5C5362FC8A47B29F5FD6AA4E06B5B94D3C4BD4003ADA305B4668850CE4E86F5D`.
+- Demo log SHA-256: `81E9D486EA2A2E349DA030BC0564D7146B301137065E7E3B5F0FDAAEA9C4A19B`.
+- k6 log SHA-256: `3BA22FC9363A4BF5F706393FD51E2D0EA0D3811019759B526E28C0ED97DE3BE7`.
 
 ## Tech Stack
 
