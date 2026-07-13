@@ -105,6 +105,7 @@ export async function buildApiGatewayApp(
 ) {
   const app = Fastify({
     logger: options.logger ?? true,
+    disableRequestLogging: true,
     genReqId: generateRequestId,
     bodyLimit: env.MAX_REQUEST_BODY_BYTES,
   });
