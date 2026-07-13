@@ -91,7 +91,8 @@ const usageColumns:
       header: "Route",
       render: (item) => (
         <span>
-          {item.routeMethod} {item.routePath}
+          {nullableValue(item.routeMethod)}{" "}
+          {nullableValue(item.routePath)}
         </span>
       ),
     },
@@ -113,7 +114,7 @@ const usageColumns:
         <span>
           {item.statusClass}
           {" / "}
-          {item.cacheStatus}
+          {nullableValue(item.cacheStatus)}
         </span>
       ),
     },
@@ -127,7 +128,7 @@ const usageColumns:
       key: "errors",
       header: "Errors",
       render: (item) =>
-        formatInteger(item.totalErrors),
+        formatInteger(item.errorRequests),
     },
     {
       key: "duration",
@@ -157,7 +158,8 @@ const rejectedColumns:
       header: "Route",
       render: (item) => (
         <span>
-          {item.routeMethod} {item.routePath}
+          {nullableValue(item.routeMethod)}{" "}
+          {nullableValue(item.routePath)}
         </span>
       ),
     },
@@ -177,7 +179,7 @@ const rejectedColumns:
       key: "auth-source",
       header: "Auth source",
       render: (item) =>
-        item.apiKeyAuthSource,
+        nullableValue(item.apiKeyAuthSource),
     },
     {
       key: "requests",
@@ -199,10 +201,10 @@ function sumUsage(
         item.totalRequests,
       errors:
         totals.errors +
-        item.totalErrors,
+        item.errorRequests,
       cacheHits:
         totals.cacheHits +
-        item.totalCacheHits,
+        item.cacheHits,
       durationMs:
         totals.durationMs +
         item.totalDurationMs,
@@ -253,7 +255,7 @@ export function RollupInspectionContent({
               key: "buckets",
               label: "Rows",
               value: formatInteger(
-                read.items.length,
+                read.count,
               ),
             },
             {
@@ -299,7 +301,7 @@ export function RollupInspectionContent({
             key: "buckets",
             label: "Rows",
             value: formatInteger(
-              read.items.length,
+              read.count,
             ),
           },
           {

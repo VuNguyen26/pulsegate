@@ -39,16 +39,22 @@ export type DashboardUsageRollupItem = {
   dimensionHash: string;
   consumerId: NullableString;
   apiKeyId: NullableString;
-  routePath: string;
-  routeMethod: string;
+  routePath: NullableString;
+  routeMethod: NullableString;
   statusClass: string;
-  cacheStatus: string;
-  apiKeyAuthSource: string;
+  cacheStatus: NullableString;
+  apiKeyAuthSource: NullableString;
   totalRequests: number;
-  totalErrors: number;
-  totalCacheHits: number;
+  successfulRequests: number;
+  errorRequests: number;
   totalDurationMs: number;
-  lastOccurredAt: string;
+  averageDurationMs: number;
+  cacheHits: number;
+  cacheMisses: number;
+  cacheBypasses: number;
+  lastRequestAt: string;
+  rolledUpAt: string;
+  updatedAt: string;
 };
 
 export type DashboardRejectedRollupItem = {
@@ -59,13 +65,15 @@ export type DashboardRejectedRollupItem = {
   dimensionHash: string;
   consumerId: NullableString;
   apiKeyId: NullableString;
-  routePath: string;
-  routeMethod: string;
+  routePath: NullableString;
+  routeMethod: NullableString;
   rejectionReason: string;
   statusCode: number;
-  apiKeyAuthSource: string;
+  apiKeyAuthSource: NullableString;
   totalRejectedRequests: number;
   lastRejectedAt: string;
+  rolledUpAt: string;
+  updatedAt: string;
 };
 
 export type DashboardUsageRollupRead = {
@@ -74,6 +82,7 @@ export type DashboardUsageRollupRead = {
   window: DashboardRollupWindow;
   limit: number;
   filters: DashboardUsageRollupFilters;
+  count: number;
   items: DashboardUsageRollupItem[];
 };
 
@@ -83,6 +92,7 @@ export type DashboardRejectedRollupRead = {
   window: DashboardRollupWindow;
   limit: number;
   filters: DashboardRejectedRollupFilters;
+  count: number;
   items: DashboardRejectedRollupItem[];
 };
 
@@ -298,10 +308,16 @@ function isUsageItem(
       "cacheStatus",
       "apiKeyAuthSource",
       "totalRequests",
-      "totalErrors",
-      "totalCacheHits",
+      "successfulRequests",
+      "errorRequests",
       "totalDurationMs",
-      "lastOccurredAt",
+      "averageDurationMs",
+      "cacheHits",
+      "cacheMisses",
+      "cacheBypasses",
+      "lastRequestAt",
+      "rolledUpAt",
+      "updatedAt",
     ])
   ) {
     return false;
@@ -315,16 +331,22 @@ function isUsageItem(
     isNonEmptyString(value.dimensionHash) &&
     isNullableString(value.consumerId) &&
     isNullableString(value.apiKeyId) &&
-    isNonEmptyString(value.routePath) &&
-    isNonEmptyString(value.routeMethod) &&
+    isNullableString(value.routePath) &&
+    isNullableString(value.routeMethod) &&
     isNonEmptyString(value.statusClass) &&
-    isNonEmptyString(value.cacheStatus) &&
-    isNonEmptyString(value.apiKeyAuthSource) &&
+    isNullableString(value.cacheStatus) &&
+    isNullableString(value.apiKeyAuthSource) &&
     isNonNegativeInteger(value.totalRequests) &&
-    isNonNegativeInteger(value.totalErrors) &&
-    isNonNegativeInteger(value.totalCacheHits) &&
+    isNonNegativeInteger(value.successfulRequests) &&
+    isNonNegativeInteger(value.errorRequests) &&
     isNonNegativeInteger(value.totalDurationMs) &&
-    isIsoTimestamp(value.lastOccurredAt)
+    isNonNegativeInteger(value.averageDurationMs) &&
+    isNonNegativeInteger(value.cacheHits) &&
+    isNonNegativeInteger(value.cacheMisses) &&
+    isNonNegativeInteger(value.cacheBypasses) &&
+    isIsoTimestamp(value.lastRequestAt) &&
+    isIsoTimestamp(value.rolledUpAt) &&
+    isIsoTimestamp(value.updatedAt)
   );
 }
 
@@ -349,6 +371,8 @@ function isRejectedItem(
       "apiKeyAuthSource",
       "totalRejectedRequests",
       "lastRejectedAt",
+      "rolledUpAt",
+      "updatedAt",
     ])
   ) {
     return false;
@@ -362,15 +386,17 @@ function isRejectedItem(
     isNonEmptyString(value.dimensionHash) &&
     isNullableString(value.consumerId) &&
     isNullableString(value.apiKeyId) &&
-    isNonEmptyString(value.routePath) &&
-    isNonEmptyString(value.routeMethod) &&
+    isNullableString(value.routePath) &&
+    isNullableString(value.routeMethod) &&
     isNonEmptyString(value.rejectionReason) &&
     isStatusCode(value.statusCode) &&
-    isNonEmptyString(value.apiKeyAuthSource) &&
+    isNullableString(value.apiKeyAuthSource) &&
     isNonNegativeInteger(
       value.totalRejectedRequests,
     ) &&
-    isIsoTimestamp(value.lastRejectedAt)
+    isIsoTimestamp(value.lastRejectedAt) &&
+    isIsoTimestamp(value.rolledUpAt) &&
+    isIsoTimestamp(value.updatedAt)
   );
 }
 
@@ -397,6 +423,7 @@ export function isDashboardRollupRead(
       "window",
       "limit",
       "filters",
+      "count",
       "items",
     ])
   ) {
@@ -409,6 +436,7 @@ export function isDashboardRollupRead(
     window,
     limit,
     filters,
+    count,
     items,
   } = value;
 
@@ -421,7 +449,10 @@ export function isDashboardRollupRead(
     !isRollupWindow(window) ||
     !Number.isSafeInteger(limit) ||
     Number(limit) < 1 ||
-    Number(limit) > 100
+    Number(limit) > 100 ||
+    !isNonNegativeInteger(count) ||
+    !Array.isArray(items) ||
+    items.length !== Number(count)
   ) {
     return false;
   }

@@ -42,6 +42,7 @@ describe("RollupInspectionContent", () => {
             consumerId: null,
             cacheStatus: null,
           },
+          count: 1,
           items: [
             {
               id: "usage-rollup-1",
@@ -62,11 +63,19 @@ describe("RollupInspectionContent", () => {
               apiKeyAuthSource:
                 "DATABASE",
               totalRequests: 10,
-              totalErrors: 1,
-              totalCacheHits: 7,
+              successfulRequests: 9,
+              errorRequests: 1,
               totalDurationMs: 1200,
-              lastOccurredAt:
+              averageDurationMs: 120,
+              cacheHits: 7,
+              cacheMisses: 2,
+              cacheBypasses: 1,
+              lastRequestAt:
                 "2026-07-10T10:59:00.000Z",
+              rolledUpAt:
+                "2026-07-10T11:01:00.000Z",
+              updatedAt:
+                "2026-07-10T11:01:00.000Z",
             },
           ],
         }}
@@ -104,6 +113,7 @@ describe("RollupInspectionContent", () => {
             consumerId: null,
             rejectionReason: null,
           },
+          count: 0,
           items: [],
         }}
       />,

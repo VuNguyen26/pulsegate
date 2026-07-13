@@ -33,6 +33,7 @@ describe("isDashboardRollupRead", () => {
           ...commonFilters,
           cacheStatus: "HIT",
         },
+        count: 1,
         items: [
           {
             id: "usage-rollup-1",
@@ -51,11 +52,19 @@ describe("isDashboardRollupRead", () => {
             cacheStatus: "HIT",
             apiKeyAuthSource: "DATABASE",
             totalRequests: 10,
-            totalErrors: 0,
-            totalCacheHits: 7,
+            successfulRequests: 10,
+            errorRequests: 0,
             totalDurationMs: 1200,
-            lastOccurredAt:
+            averageDurationMs: 120,
+            cacheHits: 7,
+            cacheMisses: 2,
+            cacheBypasses: 1,
+            lastRequestAt:
               "2026-07-05T10:59:00.000Z",
+            rolledUpAt:
+              "2026-07-05T11:01:00.000Z",
+            updatedAt:
+              "2026-07-05T11:01:00.000Z",
           },
         ],
       }),
@@ -78,6 +87,7 @@ describe("isDashboardRollupRead", () => {
           consumerId: null,
           rejectionReason: "API_KEY_MISSING",
         },
+        count: 1,
         items: [
           {
             id: "rejected-rollup-1",
@@ -99,6 +109,10 @@ describe("isDashboardRollupRead", () => {
             totalRejectedRequests: 5,
             lastRejectedAt:
               "2026-07-05T10:59:00.000Z",
+            rolledUpAt:
+              "2026-07-05T11:01:00.000Z",
+            updatedAt:
+              "2026-07-05T11:01:00.000Z",
           },
         ],
       }),
@@ -116,6 +130,7 @@ describe("isDashboardRollupRead", () => {
           ...commonFilters,
           cacheStatus: "HIT",
         },
+        count: 0,
         items: [],
       }),
     ).toBe(false);
@@ -132,6 +147,7 @@ describe("isDashboardRollupRead", () => {
           ...commonFilters,
           cacheStatus: "HIT",
         },
+        count: 0,
         items: [],
         readOnlyApiKey: "must-not-cross-bff",
       }),
@@ -147,6 +163,7 @@ describe("isDashboardRollupRead", () => {
           ...commonFilters,
           cacheStatus: "HIT",
         },
+        count: 2,
         items: [{}, {}],
       }),
     ).toBe(false);

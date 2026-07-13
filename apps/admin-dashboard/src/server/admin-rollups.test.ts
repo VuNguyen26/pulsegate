@@ -44,6 +44,7 @@ const usageRollups = {
     consumerId: null,
     cacheStatus: "HIT",
   },
+  count: 0,
   items: [],
 } as const;
 

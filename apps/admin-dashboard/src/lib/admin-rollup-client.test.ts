@@ -41,6 +41,7 @@ const data = {
     consumerId: null,
     cacheStatus: null,
   },
+  count: 0,
   items: [],
 } as const;
 
