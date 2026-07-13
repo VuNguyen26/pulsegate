@@ -1,23 +1,25 @@
 param(
-  [switch]$SkipBuild,
-  [switch]$SkipK6
+  [string]$ArtifactDirectory =
+    "E:\pulsegate-artifacts\sprint-78-demo"
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-if (Get-Variable PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
-  $PSNativeCommandUseErrorActionPreference = $false
-}
+$gatewayBaseUrl =
+  "http://localhost:3000"
 
-function Show-Section {
-  param([string]$Title)
+$productServiceBaseUrl =
+  "http://localhost:3001"
 
-  Write-Host ""
-  Write-Host ("=" * 72)
-  Write-Host $Title
-  Write-Host ("=" * 72)
-}
+$adminDashboardBaseUrl =
+  "http://localhost:3003"
+
+$developerPortalBaseUrl =
+  "http://localhost:3004"
+
+$proxiedHealthPath =
+  "/api/product-service/health"
 
 function Assert-True {
   param(
@@ -30,32 +32,44 @@ function Assert-True {
   }
 }
 
-function Invoke-NativeChecked {
+function Assert-LocalHttpEndpoint {
   param(
-    [string]$FilePath,
-    [string[]]$ArgumentList
+    [string]$Name,
+    [string]$Uri,
+    [int]$ExpectedPort
   )
 
-  & $FilePath @ArgumentList
-  $exitCode = $LASTEXITCODE
+  $parsedUri =
+    [System.Uri]$Uri
 
-  if ($exitCode -ne 0) {
-    throw "$FilePath failed with exit code $exitCode"
-  }
+  $allowedHosts = @(
+    "localhost",
+    "127.0.0.1"
+  )
+
+  Assert-True `
+    ($parsedUri.Scheme -eq "http") `
+    "$Name must use local HTTP."
+
+  Assert-True `
+    ($allowedHosts -contains $parsedUri.Host) `
+    "$Name must use localhost or 127.0.0.1."
+
+  Assert-True `
+    ($parsedUri.Port -eq $ExpectedPort) `
+    "$Name must use port $ExpectedPort."
 }
 
-function Invoke-DemoHttp {
+function Invoke-BoundedGet {
   param(
-    [string]$Uri,
-    [string]$Method = "GET",
-    [hashtable]$Headers = @{},
-    [string]$Body
+    [string]$Name,
+    [string]$Uri
   )
 
   $request = @{
     Uri         = $Uri
-    Method      = $Method
-    Headers     = $Headers
+    Method      = "GET"
+    TimeoutSec  = 10
     ErrorAction = "Stop"
   }
 
@@ -63,358 +77,336 @@ function Invoke-DemoHttp {
     $request.UseBasicParsing = $true
   }
 
-  if ($PSBoundParameters.ContainsKey("Body")) {
-    $request.Body = $Body
-    $request.ContentType = "application/json"
-  }
-
   try {
-    $response = Invoke-WebRequest @request
+    $response =
+      Invoke-WebRequest @request
 
     return [PSCustomObject]@{
+      Name   = $Name
+      Uri    = $Uri
       Status = [int]$response.StatusCode
       Body   = [string]$response.Content
     }
   }
   catch {
-    $errorRecord = $_
     $statusCode = 0
-    $responseBody = ""
 
-    if ($null -ne $errorRecord.Exception.Response) {
-      $statusCode = [int]$errorRecord.Exception.Response.StatusCode
+    if ($null -ne $_.Exception.Response) {
+      $statusCode =
+        [int]$_.Exception.Response.StatusCode
     }
 
-    $errorDetailsProperty =
-      $errorRecord.PSObject.Properties["ErrorDetails"]
-
-    if (
-      $null -ne $errorDetailsProperty -and
-      $null -ne $errorDetailsProperty.Value
-    ) {
-      $messageProperty =
-        $errorDetailsProperty.Value.PSObject.Properties["Message"]
-
-      if ($null -ne $messageProperty) {
-        $responseBody = [string]$messageProperty.Value
-      }
-    }
-
-    if (
-      [string]::IsNullOrWhiteSpace($responseBody) -and
-      $null -ne $errorRecord.Exception.Response
-    ) {
-      try {
-        $errorResponse = $errorRecord.Exception.Response
-
-        if (
-          $errorResponse.PSObject.Methods.Name -contains
-          "GetResponseStream"
-        ) {
-          $stream = $errorResponse.GetResponseStream()
-
-          if ($null -ne $stream) {
-            $reader = New-Object System.IO.StreamReader($stream)
-
-            try {
-              $responseBody = $reader.ReadToEnd()
-            }
-            finally {
-              $reader.Dispose()
-              $stream.Dispose()
-            }
-          }
-        }
-        elseif (
-          $null -ne $errorResponse.Content -and
-          $errorResponse.Content.PSObject.Methods.Name -contains
-          "ReadAsStringAsync"
-        ) {
-          $responseBody = $errorResponse.Content.
-            ReadAsStringAsync().
-            GetAwaiter().
-            GetResult()
-        }
-      }
-      catch {
-        $responseBody = ""
-      }
-    }
-
-    if ([string]::IsNullOrWhiteSpace($responseBody)) {
-      $responseBody = [string]$errorRecord.Exception.Message
-    }
-
-    return [PSCustomObject]@{
-      Status = $statusCode
-      Body   = $responseBody
-    }
+    throw (
+      "$Name failed with HTTP status " +
+      $statusCode +
+      "."
+    )
   }
 }
 
-function Wait-ForHttp200 {
+function Convert-DemoJson {
   param(
-    [string]$Name,
-    [string]$Uri
+    [object]$Response
   )
 
-  for ($attempt = 1; $attempt -le 30; $attempt++) {
-    $response = Invoke-DemoHttp -Uri $Uri
-
-    if ($response.Status -eq 200) {
-      Write-Host "$Name is ready."
-      return
-    }
-
-    Start-Sleep -Seconds 2
+  try {
+    return (
+      [string]$Response.Body |
+        ConvertFrom-Json
+    )
   }
-
-  throw "$Name did not become ready: $Uri"
+  catch {
+    throw (
+      [string]$Response.Name +
+      " returned invalid JSON."
+    )
+  }
 }
 
-function Assert-Http {
+function Get-RequiredStringProperty {
   param(
-    [object]$Response,
-    [int]$ExpectedStatus,
-    [string]$ExpectedCode,
-    [string]$Description
+    [object]$Object,
+    [string]$PropertyName,
+    [string]$Context
+  )
+
+  $property = @(
+    $Object.PSObject.Properties |
+      Where-Object {
+        $_.Name -eq $PropertyName
+      }
   )
 
   Assert-True `
-    ($Response.Status -eq $ExpectedStatus) `
-    "$Description returned HTTP $($Response.Status), expected $ExpectedStatus."
+    (@($property).Count -eq 1) `
+    "$Context is missing $PropertyName."
 
-  if ($ExpectedCode) {
-    Assert-True `
-      ($Response.Body -match [Regex]::Escape($ExpectedCode)) `
-      "$Description did not include $ExpectedCode."
-  }
+  $value =
+    [string]$property[0].Value
 
-  Write-Host "$Description passed."
+  Assert-True `
+    (-not [string]::IsNullOrWhiteSpace($value)) `
+    "$Context has an empty $PropertyName."
+
+  return $value
 }
 
-$gatewayBaseUrl = "http://localhost:3000"
-$prometheusBaseUrl = "http://localhost:9090"
-$grafanaBaseUrl = "http://localhost:3002"
+Assert-LocalHttpEndpoint `
+  "API Gateway" `
+  $gatewayBaseUrl `
+  3000
 
-$adminApiKey = if ($env:ADMIN_API_KEY) {
-  $env:ADMIN_API_KEY
-}
-else {
-  "pulsegate-demo-full-access-local-only"
-}
+Assert-LocalHttpEndpoint `
+  "Product Service" `
+  $productServiceBaseUrl `
+  3001
 
-$readOnlyApiKey = if ($env:ADMIN_READ_ONLY_API_KEY) {
-  $env:ADMIN_READ_ONLY_API_KEY
-}
-else {
-  "pulsegate-demo-read-only-local-only"
-}
+Assert-LocalHttpEndpoint `
+  "Admin Dashboard" `
+  $adminDashboardBaseUrl `
+  3003
+
+Assert-LocalHttpEndpoint `
+  "Developer Portal" `
+  $developerPortalBaseUrl `
+  3004
+
+$allowedArtifactRoot =
+  [System.IO.Path]::GetFullPath(
+    "E:\pulsegate-artifacts"
+  )
+
+$resolvedArtifactDirectory =
+  [System.IO.Path]::GetFullPath(
+    $ArtifactDirectory
+  )
+
+$allowedArtifactPrefix =
+  $allowedArtifactRoot.TrimEnd(
+    [System.IO.Path]::DirectorySeparatorChar
+  ) +
+  [System.IO.Path]::DirectorySeparatorChar
+
+$artifactPathAllowed =
+  (
+    $resolvedArtifactDirectory -eq
+    $allowedArtifactRoot
+  ) -or
+  $resolvedArtifactDirectory.StartsWith(
+    $allowedArtifactPrefix,
+    [System.StringComparison]::OrdinalIgnoreCase
+  )
 
 Assert-True `
-  ($adminApiKey -ne $readOnlyApiKey) `
-  "Full-access and read-only demo keys must be different."
+  $artifactPathAllowed `
+  "Artifacts must remain under E:\pulsegate-artifacts."
 
-$previousAdminApiKey = $env:ADMIN_API_KEY
-$previousReadOnlyApiKey = $env:ADMIN_READ_ONLY_API_KEY
+$startedAt =
+  [System.DateTimeOffset]::UtcNow
+
+Write-Host "=== SPRINT 78 END-TO-END DEMO ==="
+Write-Host "FLOW=Developer Portal -> API Gateway -> Product Service"
+Write-Host "METHOD=GET"
+Write-Host "PROXIED_ROUTE=$proxiedHealthPath"
+Write-Host "EXPECTED_USAGE_EVENT_DELTA=1"
+Write-Host "EXPECTED_REJECTED_EVENT_DELTA=0"
+Write-Host "CREDENTIALS_USED=FALSE"
+
+$gatewayHealth =
+  Invoke-BoundedGet `
+    "API Gateway health" `
+    "$gatewayBaseUrl/health"
+
+Assert-True `
+  ($gatewayHealth.Status -eq 200) `
+  "API Gateway health did not return HTTP 200."
+
+$gatewayPayload =
+  Convert-DemoJson $gatewayHealth
+
+$gatewayStatus =
+  Get-RequiredStringProperty `
+    $gatewayPayload `
+    "status" `
+    "API Gateway health"
+
+Assert-True `
+  ($gatewayStatus -eq "ok") `
+  "API Gateway did not report status ok."
+
+Write-Host "API_GATEWAY_HEALTH=PASS"
+
+$productHealth =
+  Invoke-BoundedGet `
+    "Product Service health" `
+    "$productServiceBaseUrl/health"
+
+Assert-True `
+  ($productHealth.Status -eq 200) `
+  "Product Service health did not return HTTP 200."
+
+$productPayload =
+  Convert-DemoJson $productHealth
+
+$productService =
+  Get-RequiredStringProperty `
+    $productPayload `
+    "service" `
+    "Product Service health"
+
+$productStatus =
+  Get-RequiredStringProperty `
+    $productPayload `
+    "status" `
+    "Product Service health"
+
+Assert-True `
+  ($productService -eq "product-service") `
+  "Product Service returned an unexpected service identity."
+
+Assert-True `
+  ($productStatus -eq "ok") `
+  "Product Service did not report status ok."
+
+Write-Host "PRODUCT_SERVICE_HEALTH=PASS"
+
+$portalDocs =
+  Invoke-BoundedGet `
+    "Developer Portal API documentation" `
+    "$developerPortalBaseUrl/api-docs"
+
+Assert-True `
+  ($portalDocs.Status -eq 200) `
+  "Developer Portal API documentation did not return HTTP 200."
+
+Assert-True `
+  (
+    ([string]$portalDocs.Body).Contains(
+      $proxiedHealthPath
+    )
+  ) `
+  "Developer Portal does not document the selected proxied route."
+
+Write-Host "DEVELOPER_PORTAL_API_DOCS=PASS"
+
+$dashboardRoot =
+  Invoke-BoundedGet `
+    "Admin Dashboard root" `
+    "$adminDashboardBaseUrl/"
+
+Assert-True `
+  ($dashboardRoot.Status -eq 200) `
+  "Admin Dashboard root did not return HTTP 200."
+
+Write-Host "ADMIN_DASHBOARD_ROOT=PASS"
+
+$proxiedHealth =
+  Invoke-BoundedGet `
+    "Gateway proxied Product Service health" `
+    "$gatewayBaseUrl$proxiedHealthPath"
+
+Assert-True `
+  ($proxiedHealth.Status -eq 200) `
+  "Proxied Product Service health did not return HTTP 200."
+
+$proxiedPayload =
+  Convert-DemoJson $proxiedHealth
+
+$proxiedService =
+  Get-RequiredStringProperty `
+    $proxiedPayload `
+    "service" `
+    "Proxied Product Service health"
+
+$proxiedStatus =
+  Get-RequiredStringProperty `
+    $proxiedPayload `
+    "status" `
+    "Proxied Product Service health"
+
+Assert-True `
+  ($proxiedService -eq "product-service") `
+  "Proxied response returned an unexpected service identity."
+
+Assert-True `
+  ($proxiedStatus -eq "ok") `
+  "Proxied Product Service did not report status ok."
+
+Write-Host "PROXIED_PRODUCT_SERVICE_HEALTH=PASS"
+Write-Host "DEMO_HTTP_RESULT=PASS"
+
+$completedAt =
+  [System.DateTimeOffset]::UtcNow
+
+$summary = [ordered]@{
+  sprint = 78
+  flow =
+    "Developer Portal -> API Gateway -> Product Service"
+  localOnly = $true
+  method = "GET"
+  proxiedRoute = $proxiedHealthPath
+  startedAt = $startedAt.ToString("o")
+  completedAt = $completedAt.ToString("o")
+  requests = [ordered]@{
+    gatewayHealthStatus =
+      $gatewayHealth.Status
+    productServiceHealthStatus =
+      $productHealth.Status
+    developerPortalApiDocsStatus =
+      $portalDocs.Status
+    adminDashboardRootStatus =
+      $dashboardRoot.Status
+    proxiedProductServiceHealthStatus =
+      $proxiedHealth.Status
+  }
+  proxiedResponse = [ordered]@{
+    service = $proxiedService
+    status = $proxiedStatus
+  }
+  expectedDataMutation = [ordered]@{
+    apiUsageEvents = 1
+    apiRejectedEvents = 0
+  }
+  credentialsUsed = $false
+  destructiveMethodsUsed = $false
+  rawResponseBodiesStored = $false
+}
+
+$summaryJson =
+  $summary |
+    ConvertTo-Json -Depth 8
+
+$utf8NoBom =
+  New-Object System.Text.UTF8Encoding($false)
+
+$summaryPath =
+  Join-Path `
+    $resolvedArtifactDirectory `
+    "sprint-78-demo-summary.json"
 
 try {
-  $env:ADMIN_API_KEY = $adminApiKey
-  $env:ADMIN_READ_ONLY_API_KEY = $readOnlyApiKey
+  New-Item `
+    -ItemType Directory `
+    -Path $resolvedArtifactDirectory `
+    -Force |
+    Out-Null
 
-  Show-Section "Start Docker runtime"
-
-  $composeArguments = @("compose", "up", "-d")
-
-  if (-not $SkipBuild) {
-    $composeArguments += "--build"
-  }
-
-  Invoke-NativeChecked "docker" $composeArguments
-  Invoke-NativeChecked "docker" @("compose", "ps")
-
-  Wait-ForHttp200 "API Gateway" "$gatewayBaseUrl/health"
-  Wait-ForHttp200 "Prometheus" "$prometheusBaseUrl/-/ready"
-  Wait-ForHttp200 "Grafana" "$grafanaBaseUrl/api/health"
-
-  Show-Section "Gateway metrics"
-
-  $metrics = Invoke-DemoHttp "$gatewayBaseUrl/metrics"
-  Assert-Http $metrics 200 "" "Metrics endpoint"
-
-  foreach ($metricName in @(
-    "http_requests_total",
-    "http_request_duration_seconds",
-    "http_response_cache_total"
-  )) {
-    Assert-True `
-      ($metrics.Body.Contains($metricName)) `
-      "Metric family $metricName was not found."
-  }
-
-  $pathA = "/demo-unmatched-$([Guid]::NewGuid().ToString('N'))"
-  $pathB = "/demo-unmatched-$([Guid]::NewGuid().ToString('N'))"
-
-  Assert-Http `
-    (Invoke-DemoHttp "$gatewayBaseUrl$pathA") `
-    404 `
-    "" `
-    "First unmatched request"
-
-  Assert-Http `
-    (Invoke-DemoHttp "$gatewayBaseUrl$pathB") `
-    404 `
-    "" `
-    "Second unmatched request"
-
-  $metricsAfterUnmatched = Invoke-DemoHttp "$gatewayBaseUrl/metrics"
-
-  Assert-True `
-    ($metricsAfterUnmatched.Body.Contains('route="__unmatched__"')) `
-    "Bounded unmatched route label was not found."
-
-  Assert-True `
-    (-not $metricsAfterUnmatched.Body.Contains($pathA)) `
-    "First raw unmatched path leaked into metrics."
-
-  Assert-True `
-    (-not $metricsAfterUnmatched.Body.Contains($pathB)) `
-    "Second raw unmatched path leaked into metrics."
-
-  Write-Host "Bounded unmatched metric labeling passed."
-
-  Show-Section "Prometheus target"
-
-  $targetsResponse = Invoke-DemoHttp "$prometheusBaseUrl/api/v1/targets"
-  Assert-Http $targetsResponse 200 "" "Prometheus targets API"
-
-  $targetsPayload = $targetsResponse.Body | ConvertFrom-Json
-  $gatewayTarget = $targetsPayload.data.activeTargets |
-    Where-Object {
-      $_.scrapeUrl -eq "http://api-gateway:3000/metrics"
-    } |
-    Select-Object -First 1
-
-  Assert-True ($null -ne $gatewayTarget) "Gateway Prometheus target was not found."
-  Assert-True ($gatewayTarget.health -eq "up") "Gateway Prometheus target is not up."
-
-  Write-Host "Prometheus gateway target passed."
-
-  Show-Section "Grafana datasource and dashboard"
-
-  $basicValue = [Convert]::ToBase64String(
-    [Text.Encoding]::ASCII.GetBytes("admin:admin")
+  [System.IO.File]::WriteAllText(
+    $summaryPath,
+    $summaryJson + [Environment]::NewLine,
+    $utf8NoBom
   )
-
-  $grafanaHeaders = @{
-    Authorization = "Basic $basicValue"
-  }
-
-  $datasource = Invoke-DemoHttp `
-    "$grafanaBaseUrl/api/datasources/uid/pulsegate-prometheus/health" `
-    "GET" `
-    $grafanaHeaders
-
-  Assert-Http $datasource 200 "" "Grafana datasource health"
-
-  $datasourcePayload = $datasource.Body | ConvertFrom-Json
-  Assert-True `
-    ($datasourcePayload.status -eq "OK") `
-    "Grafana datasource status is not OK."
-
-  $dashboard = Invoke-DemoHttp `
-    "$grafanaBaseUrl/api/dashboards/uid/pulsegate-api-gateway-overview" `
-    "GET" `
-    $grafanaHeaders
-
-  Assert-Http $dashboard 200 "" "Grafana dashboard lookup"
-
-  $dashboardPayload = $dashboard.Body | ConvertFrom-Json
-
-  Assert-True `
-    ($dashboardPayload.dashboard.panels.Count -eq 5) `
-    "Grafana dashboard does not contain exactly 5 panels."
-
-  Write-Host "Grafana provisioning passed."
-
-  Show-Section "Admin authentication boundary"
-
-  $readOnlyHeaders = @{
-    "x-admin-api-key" = $readOnlyApiKey
-  }
-
-  $fullAccessHeaders = @{
-    "x-admin-api-key" = $adminApiKey
-  }
-
-  Assert-Http `
-    (Invoke-DemoHttp `
-      "$gatewayBaseUrl/internal/admin/routes" `
-      "GET" `
-      $readOnlyHeaders) `
-    200 `
-    "" `
-    "Read-only admin GET"
-
-  Assert-Http `
-    (Invoke-DemoHttp `
-      "$gatewayBaseUrl/internal/admin/consumers" `
-      "POST" `
-      $readOnlyHeaders `
-      "{}") `
-    403 `
-    "ADMIN_API_KEY_READ_ONLY" `
-    "Read-only admin mutation"
-
-  Assert-Http `
-    (Invoke-DemoHttp `
-      "$gatewayBaseUrl/internal/admin/consumers" `
-      "POST" `
-      $fullAccessHeaders `
-      "{}") `
-    400 `
-    "API_CONSUMER_INVALID" `
-    "Full-access payload validation"
-
-  Assert-Http `
-    (Invoke-DemoHttp `
-      "$gatewayBaseUrl/internal/admin/routes" `
-      "GET" `
-      @{ "x-admin-api-key" = "invalid-demo-key" }) `
-    403 `
-    "ADMIN_API_KEY_INVALID" `
-    "Invalid admin credential"
-
-  if (-not $SkipK6) {
-    Show-Section "Bounded k6 smoke"
-
-    $npmCommand = if ($env:OS -eq "Windows_NT") {
-      "npm.cmd"
-    }
-    else {
-      "npm"
-    }
-
-    Invoke-NativeChecked $npmCommand @("run", "test:k6:smoke")
-  }
-
-  Show-Section "Demo summary"
-
-  Write-Host "Gateway, metrics, Prometheus, Grafana, admin auth, and bounded k6 checks passed."
-  Write-Host "No destructive retention, background execute, or raw event deletion was invoked."
 }
-finally {
-  if ($null -eq $previousAdminApiKey) {
-    Remove-Item Env:ADMIN_API_KEY -ErrorAction SilentlyContinue
-  }
-  else {
-    $env:ADMIN_API_KEY = $previousAdminApiKey
-  }
+catch {
+  Write-Host "ARTIFACT_WRITE=FAILED"
+  Write-Host "DEMO_HTTP_RESULT=PASS"
 
-  if ($null -eq $previousReadOnlyApiKey) {
-    Remove-Item Env:ADMIN_READ_ONLY_API_KEY -ErrorAction SilentlyContinue
-  }
-  else {
-    $env:ADMIN_READ_ONLY_API_KEY = $previousReadOnlyApiKey
-  }
+  throw (
+    "Demo HTTP proof passed, but the sanitized " +
+    "artifact could not be written."
+  )
 }
+
+Write-Host "ARTIFACT_WRITE=PASS"
+Write-Host "ARTIFACT_PATH=$summaryPath"
+Write-Host "DEMO_RESULT=PASS"
