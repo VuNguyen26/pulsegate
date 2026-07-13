@@ -68,16 +68,16 @@ Required safety conditions:
 
 Run automated validation:
 
-    npm run test
-    npm run typecheck
-    npm run build
+    npm.cmd run test
+    npm.cmd run typecheck
+    npm.cmd run build
 
 Run targeted service preview tests:
 
-    npm run test --workspace api-gateway -- analytics-retention-execution-service.test.ts
-    npm run test --workspace api-gateway -- analytics-retention-execution-service-summary.test.ts
-    npm run test --workspace api-gateway -- analytics-retention-execution-candidate-count-loader.test.ts
-    npm run test --workspace api-gateway -- analytics-retention-execution-service-candidate-read-preview.test.ts
+    npm.cmd run test --workspace api-gateway -- analytics-retention-execution-service.test.ts
+    npm.cmd run test --workspace api-gateway -- analytics-retention-execution-service-summary.test.ts
+    npm.cmd run test --workspace api-gateway -- analytics-retention-execution-candidate-count-loader.test.ts
+    npm.cmd run test --workspace api-gateway -- analytics-retention-execution-service-candidate-read-preview.test.ts
 
 Expected result:
 

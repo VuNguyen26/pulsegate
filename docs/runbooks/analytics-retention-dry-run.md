@@ -35,7 +35,7 @@ Output includes:
 
 Base command:
 
-    npm run analytics:retention:dry-run --workspace api-gateway -- [options]
+    npm.cmd run analytics:retention:dry-run --workspace api-gateway -- [options]
 
 Options:
 
@@ -47,13 +47,13 @@ Options:
 
 Examples:
 
-    npm run analytics:retention:dry-run --workspace api-gateway -- --enabled false
+    npm.cmd run analytics:retention:dry-run --workspace api-gateway -- --enabled false
 
-    npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90
+    npm.cmd run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90
 
-    npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source rejected --rejected-retention-days 90
+    npm.cmd run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source rejected --rejected-retention-days 90
 
-    npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90
+    npm.cmd run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90
 
 ---
 
@@ -69,27 +69,27 @@ Set local PowerShell DATABASE_URL:
 
 Deploy migrations:
 
-    npm run db:migrate:deploy --workspace api-gateway
+    npm.cmd run db:migrate:deploy --workspace api-gateway
 
 Run disabled preview:
 
-    npm run analytics:retention:dry-run --workspace api-gateway -- --enabled false
+    npm.cmd run analytics:retention:dry-run --workspace api-gateway -- --enabled false
 
 Run usage-only preview:
 
-    npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90
+    npm.cmd run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90
 
 Run rejected-only preview:
 
-    npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source rejected --rejected-retention-days 90
+    npm.cmd run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source rejected --rejected-retention-days 90
 
 Run both-source preview:
 
-    npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90
+    npm.cmd run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90
 
 Validate execute mode is rejected:
 
-    npm run analytics:retention:dry-run --workspace api-gateway -- --mode execute
+    npm.cmd run analytics:retention:dry-run --workspace api-gateway -- --mode execute
 
 Expected execute-mode result:
 

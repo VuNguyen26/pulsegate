@@ -111,7 +111,7 @@ $env:ADMIN_DASHBOARD_REQUEST_TIMEOUT_MS = '3000'
 Start the Dashboard:
 
 ```powershell
-npm run dev:dashboard
+npm.cmd run dev:dashboard
 ```
 
 Open:
@@ -318,9 +318,9 @@ The Admin header is added only by the Dashboard server when calling the Gateway.
 Run:
 
 ```powershell
-npm test
-npm run typecheck
-npm run build
+npm.cmd test
+npm.cmd run typecheck
+npm.cmd run build
 docker compose config --quiet
 git diff --check
 ```
@@ -440,7 +440,7 @@ docker compose rm -f admin-dashboard
 Do not use:
 
 ```txt
-docker compose down -v
+docker compose down
 ```
 
 unless Docker volume deletion is explicitly intended and approved.

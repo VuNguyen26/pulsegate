@@ -137,7 +137,7 @@ Expected:
 ## Bounded k6 Smoke
 
 ~~~powershell
-npm run test:k6:smoke
+npm.cmd run test:k6:smoke
 ~~~
 
 The tracked smoke contract is bounded to:
@@ -156,7 +156,7 @@ Override the gateway base URL only when needed:
 
 ~~~powershell
 $env:K6_BASE_URL = "http://api-gateway:3000"
-npm run test:k6:smoke
+npm.cmd run test:k6:smoke
 Remove-Item Env:K6_BASE_URL
 ~~~
 

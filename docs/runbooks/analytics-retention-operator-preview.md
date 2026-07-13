@@ -16,7 +16,7 @@ It is not a delete command.
 
 Implemented command:
 
-    npm run analytics:retention:operator-preview --workspace api-gateway -- [options]
+    npm.cmd run analytics:retention:operator-preview --workspace api-gateway -- [options]
 
 Sprint 31 hardening:
 
@@ -46,7 +46,7 @@ Start required services:
 
 Deploy migrations:
 
-    npm run db:migrate:deploy --workspace api-gateway
+    npm.cmd run db:migrate:deploy --workspace api-gateway
 
 Expected migration state:
 
@@ -59,7 +59,7 @@ Expected migration state:
 
 Base command:
 
-    npm run analytics:retention:operator-preview --workspace api-gateway -- [options]
+    npm.cmd run analytics:retention:operator-preview --workspace api-gateway -- [options]
 
 Supported options:
 
@@ -81,23 +81,23 @@ Execute confirmation value:
 
 Disabled preview:
 
-    npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled false
+    npm.cmd run analytics:retention:operator-preview --workspace api-gateway -- --enabled false
 
 Usage-only preview:
 
-    npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90
+    npm.cmd run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90
 
 Rejected-only preview:
 
-    npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source rejected --rejected-retention-days 90
+    npm.cmd run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source rejected --rejected-retention-days 90
 
 Both-source dry-run preview:
 
-    npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120
+    npm.cmd run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120
 
 Both-source execute preview:
 
-    npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100
+    npm.cmd run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100
 
 ---
 
@@ -163,14 +163,14 @@ Required safety conditions:
 
 Run automated validation:
 
-    npm run test
-    npm run typecheck
-    npm run build
+    npm.cmd run test
+    npm.cmd run typecheck
+    npm.cmd run build
 
 Run targeted operator preview tests:
 
-    npm run test --workspace api-gateway -- analytics-retention-operator-preview-output.test.ts
-    npm run test --workspace api-gateway -- analytics-retention-operator-preview.command.test.ts
+    npm.cmd run test --workspace api-gateway -- analytics-retention-operator-preview-output.test.ts
+    npm.cmd run test --workspace api-gateway -- analytics-retention-operator-preview.command.test.ts
 
 Run DB-backed runtime validation:
 
@@ -178,21 +178,21 @@ Run DB-backed runtime validation:
 
     docker compose up -d postgres
 
-    npm run db:migrate:deploy --workspace api-gateway
+    npm.cmd run db:migrate:deploy --workspace api-gateway
 
-    npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled false
+    npm.cmd run analytics:retention:operator-preview --workspace api-gateway -- --enabled false
 
-    npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90
+    npm.cmd run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90
 
-    npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source rejected --rejected-retention-days 90
+    npm.cmd run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source rejected --rejected-retention-days 90
 
-    npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120
+    npm.cmd run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120
 
-    npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100
+    npm.cmd run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100
 
 Run invalid execution argument validation:
 
-    npm run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90 --mode dry-run --hard-delete-limit 100
+    npm.cmd run analytics:retention:operator-preview --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90 --mode dry-run --hard-delete-limit 100
 
 Expected invalid result:
 

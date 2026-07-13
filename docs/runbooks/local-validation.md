@@ -5,18 +5,18 @@ This runbook contains the main local validation commands for PulseGate.
 ## Full Automated Validation
 
 ```powershell
-npm run test
-npm run typecheck
-npm run build
+npm.cmd run test
+npm.cmd run typecheck
+npm.cmd run build
 git status
 ```
 
 Expected result:
 
 ```txt
-npm run test       -> passed
-npm run typecheck  -> passed
-npm run build      -> passed
+npm.cmd run test       -> passed
+npm.cmd run typecheck  -> passed
+npm.cmd run build      -> passed
 git status         -> review current working tree
 ```
 
@@ -179,7 +179,7 @@ docker compose down
 Run the bounded health smoke:
 
 ```powershell
-npm run test:k6:smoke
+npm.cmd run test:k6:smoke
 ```
 
 Validate the local observability runtime:
@@ -482,7 +482,7 @@ Full validation baseline:
 - Product Service: 10 test files / 36 tests.
 - Root typecheck, build, release validation, and Compose configuration passed.
 - Package-lock hash and protected tag remained unchanged.
-- Detailed logs are stored outside the repository under `E:\pulsegate-artifacts\sprint-77-full-validation`.
+- Detailed validation logs are stored outside the repository under a sprint-specific directory in `E:\pulsegate-artifacts`.
 
 Bounded runtime validation:
 

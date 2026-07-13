@@ -71,16 +71,16 @@ Usage and rejected sources use separate Prisma models:
 
 Run automated validation:
 
-    npm run test
-    npm run typecheck
-    npm run build
+    npm.cmd run test
+    npm.cmd run typecheck
+    npm.cmd run build
 
 Run targeted repository tests:
 
-    npm run test --workspace api-gateway -- analytics-retention-delete.repository
-    npm run test --workspace api-gateway -- analytics-retention-delete.repository.prisma
-    npm run test --workspace api-gateway -- analytics-retention-delete-repository-safety
-    npm run test --workspace api-gateway -- analytics-retention-delete-operation-plan
+    npm.cmd run test --workspace api-gateway -- analytics-retention-delete.repository
+    npm.cmd run test --workspace api-gateway -- analytics-retention-delete.repository.prisma
+    npm.cmd run test --workspace api-gateway -- analytics-retention-delete-repository-safety
+    npm.cmd run test --workspace api-gateway -- analytics-retention-delete-operation-plan
 
 Run safe runtime validation without invoking repository delete:
 
@@ -88,11 +88,11 @@ Run safe runtime validation without invoking repository delete:
 
     docker compose up -d postgres redis
 
-    npm run db:migrate:deploy --workspace api-gateway
+    npm.cmd run db:migrate:deploy --workspace api-gateway
 
-    npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90
+    npm.cmd run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90
 
-    npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 10
+    npm.cmd run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 90 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 10
 
 Expected safe runtime result:
 

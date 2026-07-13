@@ -16,7 +16,7 @@ Use the existing analytics retention dry-run command when DB-backed candidate co
 
 ## Command
 
-    npm run analytics:retention:execution-preview --workspace api-gateway -- [options]
+    npm.cmd run analytics:retention:execution-preview --workspace api-gateway -- [options]
 
 Options:
 - --enabled <true|false>
@@ -35,7 +35,7 @@ Execute preview confirmation value:
 
 ## Dry-Run Preview Example
 
-    npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90
+    npm.cmd run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90
 
 Expected safety signals:
 - executionArgs.mode is dry-run.
@@ -47,7 +47,7 @@ Expected safety signals:
 
 ## Execute Preview Example
 
-    npm run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100
+    npm.cmd run analytics:retention:execution-preview --workspace api-gateway -- --enabled true --source both --usage-retention-days 90 --rejected-retention-days 120 --mode execute --confirm-execute I_UNDERSTAND_ANALYTICS_RETENTION_DELETE --hard-delete-limit 100
 
 Expected safety signals:
 - executionArgs.mode is execute.
@@ -85,11 +85,11 @@ Rejected/security traffic remains in gateway.api_rejected_events.
 DB-backed candidate dry-run:
 
     $env:DATABASE_URL = "postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
-    npm run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90
+    npm.cmd run analytics:retention:dry-run --workspace api-gateway -- --enabled true --source usage --usage-retention-days 90
 
 Migration deploy before DB-backed validation:
 
-    npm run db:migrate:deploy --workspace api-gateway
+    npm.cmd run db:migrate:deploy --workspace api-gateway
 
 ---
 

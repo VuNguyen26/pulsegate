@@ -16,7 +16,7 @@ It is not an autonomous scheduler job. Direct CLI execute is available only thro
 
 ## Base Command
 
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --run-at <iso> --granularity <hour|day>
+    npm.cmd run analytics:rollup:scheduler-preview --workspace api-gateway -- --run-at <iso> --granularity <hour|day>
 
 Schedule options:
 
@@ -84,7 +84,7 @@ From the host:
     docker compose up -d postgres
     docker compose ps postgres
 
-    npm run db:migrate:deploy --workspace api-gateway
+    npm.cmd run db:migrate:deploy --workspace api-gateway
 
 The database migration step should report no pending migrations after the local schema is current.
 
@@ -94,7 +94,7 @@ The database migration step should report no pending migrations after the local 
 
     cd E:\pulsegate
 
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
+    npm.cmd run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
 
 Expected result:
 
@@ -122,7 +122,7 @@ Expected result:
 
     $env:DATABASE_URL = "postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
 
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-mode dry-run --event-limit 500
+    npm.cmd run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-mode dry-run --event-limit 500
 
 Expected result:
 
@@ -166,7 +166,7 @@ Safety expectations:
 
     cd E:\pulsegate
 
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-mode dry-run
+    npm.cmd run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-mode dry-run
 
 Expected result:
 
@@ -187,7 +187,7 @@ Expected result:
 
     cd E:\pulsegate
 
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-trigger process-local --execution-mode dry-run --event-limit 500
+    npm.cmd run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-trigger process-local --execution-mode dry-run --event-limit 500
 
 Expected result:
 
@@ -211,7 +211,7 @@ Expected result:
 
     cd E:\pulsegate
 
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-mode execute --event-limit 500
+    npm.cmd run analytics:rollup:scheduler-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1 --execution-mode execute --event-limit 500
 
 Expected result:
 
@@ -229,7 +229,7 @@ Expected result:
 
     cd E:\pulsegate
 
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --run-at 2026-07-06T13:07:00.000Z --granularity hour --source usage
+    npm.cmd run analytics:rollup:scheduler-preview --workspace api-gateway -- --run-at 2026-07-06T13:07:00.000Z --granularity hour --source usage
 
 Expected result:
 
@@ -247,7 +247,7 @@ Expected result:
 
 ## Invalid Command Validation
 
-    npm run analytics:rollup:scheduler-preview --workspace api-gateway -- --run-at invalid-date --granularity hour
+    npm.cmd run analytics:rollup:scheduler-preview --workspace api-gateway -- --run-at invalid-date --granularity hour
 
 Expected result:
 
@@ -309,7 +309,7 @@ Use this command only for direct CLI command execute with strict guardrails:
 ```powershell
 $env:DATABASE_URL="postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
 
-npm run analytics:rollup:scheduler-preview --workspace api-gateway -- `
+npm.cmd run analytics:rollup:scheduler-preview --workspace api-gateway -- `
   --enabled true `
   --source both `
   --run-at 2026-07-06T13:07:00.000Z `
@@ -393,7 +393,7 @@ Example:
 ```powershell
 $env:DATABASE_URL = "postgresql://pulsegate:pulsegate_password@localhost:5432/pulsegate?schema=gateway"
 
-npm run analytics:rollup:scheduler-preview --workspace api-gateway -- `
+npm.cmd run analytics:rollup:scheduler-preview --workspace api-gateway -- `
   --enabled true `
   --source both `
   --run-at 2026-07-09T10:00:00.000Z `

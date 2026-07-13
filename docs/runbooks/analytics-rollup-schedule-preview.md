@@ -16,7 +16,7 @@ For scheduler runner preview, see:
 
 ## Base Command
 
-    npm run analytics:rollup:schedule-preview --workspace api-gateway -- --run-at <iso> --granularity <hour|day>
+    npm.cmd run analytics:rollup:schedule-preview --workspace api-gateway -- --run-at <iso> --granularity <hour|day>
 
 Options:
 
@@ -65,7 +65,7 @@ Expected safety output:
 
     cd E:\pulsegate
 
-    npm run analytics:rollup:schedule-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
+    npm.cmd run analytics:rollup:schedule-preview --workspace api-gateway -- --enabled true --source both --run-at 2026-07-06T13:07:00.000Z --granularity hour --lookback-buckets 1 --safety-delay-ms 300000 --max-buckets 1
 
 Expected result:
 
@@ -86,7 +86,7 @@ Expected result:
 
     cd E:\pulsegate
 
-    npm run analytics:rollup:schedule-preview --workspace api-gateway -- --run-at 2026-07-06T13:07:00.000Z --granularity hour --source usage
+    npm.cmd run analytics:rollup:schedule-preview --workspace api-gateway -- --run-at 2026-07-06T13:07:00.000Z --granularity hour --source usage
 
 Expected result:
 
@@ -101,7 +101,7 @@ Expected result:
 
 ## Invalid Command Validation
 
-    npm run analytics:rollup:schedule-preview --workspace api-gateway -- --run-at invalid-date --granularity hour
+    npm.cmd run analytics:rollup:schedule-preview --workspace api-gateway -- --run-at invalid-date --granularity hour
 
 Expected result:
 

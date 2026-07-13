@@ -15,7 +15,7 @@ For non-destructive schedule planning preview, see:
 
 ## Base Command
 
-npm run analytics:rollup:backfill --workspace api-gateway -- --from <iso> --to <iso> --granularity <hour|day>
+npm.cmd run analytics:rollup:backfill --workspace api-gateway -- --from <iso> --to <iso> --granularity <hour|day>
 
 Options:
 
@@ -51,7 +51,7 @@ Options:
 
 cd E:\pulsegate
 
-npm run analytics:rollup:backfill --workspace api-gateway -- --from "2026-07-05T10:15:00.000Z" --to "2026-07-05T13:00:00.000Z" --granularity "hour"
+npm.cmd run analytics:rollup:backfill --workspace api-gateway -- --from "2026-07-05T10:15:00.000Z" --to "2026-07-05T13:00:00.000Z" --granularity "hour"
 
 Expected result:
 
@@ -67,7 +67,7 @@ Expected result:
 
 cd E:\pulsegate
 
-npm run analytics:rollup:backfill --workspace api-gateway -- --from "2026-07-05T10:15:00.000Z" --to "2026-07-05T10:15:00.000Z" --granularity "hour" --mode "execute"
+npm.cmd run analytics:rollup:backfill --workspace api-gateway -- --from "2026-07-05T10:15:00.000Z" --to "2026-07-05T10:15:00.000Z" --granularity "hour" --mode "execute"
 
 Expected result:
 
@@ -85,7 +85,7 @@ Expected result:
 
 Use only after dry-run confirms the intended rebuild window.
 
-npm run analytics:rollup:backfill --workspace api-gateway -- --from "2026-07-05T00:00:00.000Z" --to "2026-07-06T00:00:00.000Z" --granularity "hour" --source "usage" --mode "execute"
+npm.cmd run analytics:rollup:backfill --workspace api-gateway -- --from "2026-07-05T00:00:00.000Z" --to "2026-07-06T00:00:00.000Z" --granularity "hour" --source "usage" --mode "execute"
 
 ---
 
@@ -93,13 +93,13 @@ npm run analytics:rollup:backfill --workspace api-gateway -- --from "2026-07-05T
 
 Use only after dry-run confirms the intended rebuild window.
 
-npm run analytics:rollup:backfill --workspace api-gateway -- --from "2026-07-05T00:00:00.000Z" --to "2026-07-06T00:00:00.000Z" --granularity "hour" --source "rejected" --mode "execute"
+npm.cmd run analytics:rollup:backfill --workspace api-gateway -- --from "2026-07-05T00:00:00.000Z" --to "2026-07-06T00:00:00.000Z" --granularity "hour" --source "rejected" --mode "execute"
 
 ---
 
 ## Invalid Command Validation
 
-npm run analytics:rollup:backfill --workspace api-gateway -- --from "2026-07-05T10:15:00.000Z" --to "2026-07-05T13:00:00.000Z" --granularity "minute"
+npm.cmd run analytics:rollup:backfill --workspace api-gateway -- --from "2026-07-05T10:15:00.000Z" --to "2026-07-05T13:00:00.000Z" --granularity "minute"
 
 Expected result:
 
