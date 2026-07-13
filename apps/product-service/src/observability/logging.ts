@@ -48,3 +48,14 @@ export function buildProductStartupCleanupFailedLogPayload() {
     errorCode: "PRODUCT_STARTUP_CLEANUP_FAILED" as const,
   };
 }
+
+export function buildTracingLifecycleFailedLogPayload(
+  operation: "forceFlush" | "shutdown",
+) {
+  return {
+    event: "tracing_lifecycle_operation_failed" as const,
+    errorCode:
+      "TRACING_LIFECYCLE_OPERATION_FAILED" as const,
+    operation,
+  };
+}

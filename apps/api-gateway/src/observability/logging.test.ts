@@ -5,6 +5,7 @@ import {
 } from "../errors/downstream-service-error.js";
 import {
   buildDownstreamErrorLogPayload,
+  buildTracingLifecycleFailedLogPayload,
   buildUnhandledGatewayErrorLogPayload,
 } from "./logging.js";
 
@@ -40,6 +41,19 @@ describe("bounded Gateway error logging", () => {
       event: "gateway_request_failed",
       requestId: "request-2",
       errorCode: "INTERNAL_SERVER_ERROR",
+    });
+  });
+
+  it("uses bounded tracing lifecycle fields", () => {
+    expect(
+      buildTracingLifecycleFailedLogPayload(
+        "forceFlush",
+      ),
+    ).toEqual({
+      event: "tracing_lifecycle_operation_failed",
+      errorCode:
+        "TRACING_LIFECYCLE_OPERATION_FAILED",
+      operation: "forceFlush",
     });
   });
 });

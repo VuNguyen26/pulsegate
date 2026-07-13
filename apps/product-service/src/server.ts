@@ -23,6 +23,7 @@ import {
   buildProductStartedLogPayload,
   buildProductStartupCleanupFailedLogPayload,
   buildProductStartupFailedLogPayload,
+  buildTracingLifecycleFailedLogPayload,
 } from "./observability/logging.js";
 import {
   createTracingRuntime,
@@ -49,7 +50,9 @@ const tracing =
     serviceName: "product-service",
     onLifecycleError(operation) {
       app.log.warn(
-        { operation },
+        buildTracingLifecycleFailedLogPayload(
+          operation,
+        ),
         "Tracing lifecycle operation failed",
       );
     },

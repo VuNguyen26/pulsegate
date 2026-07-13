@@ -147,3 +147,14 @@ export function buildResponseCacheStoreFailedLogPayload(
     requestId,
   };
 }
+
+export function buildTracingLifecycleFailedLogPayload(
+  operation: "forceFlush" | "shutdown",
+) {
+  return {
+    event: "tracing_lifecycle_operation_failed" as const,
+    errorCode:
+      "TRACING_LIFECYCLE_OPERATION_FAILED" as const,
+    operation,
+  };
+}

@@ -5,6 +5,9 @@ import { createPrismaApiRejectedEventRecorder } from "./api-rejections/api-rejec
 import { createPrismaApiUsageRecorder } from "./api-usage/api-usage-recorder.js";
 import { createPrismaUsageQuotaChecker } from "./usage-plans/usage-quota-checker.js";
 import {
+  buildTracingLifecycleFailedLogPayload,
+} from "./observability/logging.js";
+import {
   downstreamRouteConfigs,
   type DownstreamRouteConfig,
 } from "./config/downstream-routes.js";
@@ -118,7 +121,9 @@ export async function buildApiGatewayApp(
       serviceName: "api-gateway",
       onLifecycleError(operation) {
         app.log.warn(
-          { operation },
+          buildTracingLifecycleFailedLogPayload(
+            operation,
+          ),
           "Tracing lifecycle operation failed",
         );
       },
