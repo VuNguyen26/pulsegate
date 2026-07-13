@@ -503,3 +503,33 @@ PowerShell 5.1 native-command rule:
 - Use the native process exit code as the pass/fail source.
 - Read optional JSON properties through property-existence checks under `Set-StrictMode`.
 <!-- SPRINT-77-LOCAL-VALIDATION-END -->
+
+<!-- SPRINT-78-LOCAL-VALIDATION-START -->
+## Sprint 78 end-to-end demo and lightweight k6 validation
+
+Validated flow:
+
+~~~text
+Developer Portal /api-docs
+  -> API Gateway /api/product-service/health
+  -> Product Service /health
+~~~
+
+Bounded runtime evidence:
+
+- Demo: one successful usage event, zero rejected events.
+- k6: one VU, ten shared iterations, 10/10 iterations complete, 30/30 checks pass.
+- Failed smoke request rate: 0%.
+- Smoke-phase p95: 34.19 ms against `p(95)<1000`.
+- k6 persistence: ten successful usage events, zero rejected events.
+- Required services retained container IDs, image IDs, and zero restart counts.
+- Disposable k6 container removed.
+- Release validation added no usage or rejected events.
+- Six Sprint-started containers removed after validation.
+- Named volumes and eleven bounded usage events preserved.
+- No production capacity or production SLO claim.
+
+Detailed commands and safety boundaries:
+
+- `docs/runbooks/end-to-end-demo-and-k6.md`
+<!-- SPRINT-78-LOCAL-VALIDATION-END -->

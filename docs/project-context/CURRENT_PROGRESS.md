@@ -1,36 +1,49 @@
 # Current Progress
 
-## Canonical state after Sprint 77
+## Canonical state after Sprint 78
 
-- Product/documentation version: `v1.17.0`.
+- Product/documentation version: `v1.18.0`.
 - Private npm workspace versions: `0.1.0`.
-- Latest completed sprint: Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
-- Latest implementation commit before documentation finalization: `63a02880c93558e87b56e48db1e21b07b80b5417`.
-- Sprint 76 documentation baseline commit: `89108d30e4371ed7feef8ae10b2cf963ee9b9536`.
+- Latest completed sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+- Latest implementation commit before documentation finalization: `4cf3d2d60e5edc4a58449af7d64b3f8a14601f0a`.
+- Sprint 77 documentation baseline commit: `b0e854190837dfec81a284d5b4fea7d3f8237778`.
 - Protected annotated tag `v1.0.0` remains unchanged.
 - Tag object: `726feb46e62a3224f7e27d55ae4f9e74dd6b1123`.
 - Tag target: `407d03678674219e7228b15f0cd7a23074493f31`.
-- Sprint 77 creates no Git tag.
-- Current sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
-- Next sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
+- Sprint 78 creates no Git tag.
+- Current sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
+- Next sprint: Sprint 80 - Product/Platform v2 Release.
 
-## Sprint 77 implementation commits
+## Sprint 78 implementation commits
 
-- `063b25f66b8f1992b46c2932e2e25bbb87735675` - `feat(ui): polish shared interface states`
-- `1c38237a4426b8874434c2f43c49feed22e706f8` - `feat(ui): improve responsive keyboard access`
-- `63a02880c93558e87b56e48db1e21b07b80b5417` - `feat(ui): finalize dashboard accessibility polish`
+- `260293efacf063487999d2473d76cc2b03c0c0b9` - `feat(demo): add bounded end-to-end validation flow`
+- `4cf3d2d60e5edc4a58449af7d64b3f8a14601f0a` - `test(k6): add bounded end-to-end validation`
 
 ## Delivered behavior
 
-- Root Dashboard and Portal loading boundaries use explicit polite status semantics.
-- Root and shared error states use explicit alert semantics.
-- Shared Dashboard loading and empty states expose consistent status semantics.
-- Dashboard loading skeletons are hidden from assistive technology.
-- Dashboard table overflow regions are labeled, keyboard focusable, and visibly focused.
-- Portal code regions and the HTTP error-reference table are keyboard focusable.
-- Dashboard and Portal navigation, links, buttons, documentation navigation, tables, and code regions retain visible focus treatment.
-- Four route-registry mojibake delimiters were corrected.
-- Existing responsive breakpoints, bounded horizontal scrolling, wrapping, and long-content behavior were preserved.
+- Replaced the legacy broad runtime demo with a bounded GET-only flow.
+- Proved Developer Portal `/api-docs` documents `/api/product-service/health`.
+- Proved API Gateway, Product Service, Admin Dashboard, Developer Portal, and the proxied Product Service response.
+- Stored only sanitized status and bounded response evidence outside the repository.
+- Updated the existing k6 smoke to use Gateway readiness and ten proxied Product Service health iterations.
+- Added smoke-phase thresholds and deterministic response checks.
+- Preserved existing Compose, routing, proxy, analytics, security, and observability contracts.
+
+## Runtime and database evidence
+
+- Demo usage count for `/api/product-service/health`: `3 -> 4`; delta `1`.
+- Demo rejected-event count: `17 -> 17`; delta `0`.
+- k6 usage count for `/api/product-service/health`: `4 -> 14`; delta `10`.
+- k6 rejected-event count: `17 -> 17`; delta `0`.
+- k6 completed 10/10 iterations and 30/30 checks.
+- Smoke request-failure rate: `0%`.
+- Smoke-phase p95: `34.19 ms`, below `1000 ms`.
+- PostgreSQL, Redis, Product Service, API Gateway, Admin Dashboard, and Developer Portal retained container IDs and image IDs with zero restarts.
+- The disposable k6 container was removed.
+- Release validation produced zero additional usage and rejected events.
+- Sprint-started containers were removed.
+- Named volumes and eleven bounded Sprint 78 usage events were retained as evidence.
+- No production capacity or production SLO claim is made.
 
 ## Full validation evidence
 
@@ -38,40 +51,34 @@
 - API Gateway: 163 test files / 1177 tests.
 - Developer Portal: 2 test files / 8 tests.
 - Product Service: 10 test files / 36 tests.
-- Root typecheck passed.
-- Root production build passed.
-- Release-readiness validation passed.
-- Docker Compose configuration passed.
-- Package-lock SHA-256 remained unchanged.
+- Root tests, typecheck, production build, release-readiness validation, Compose checks, diff checks, clean-tree verification, and origin synchronization passed.
+- Package-lock SHA-256 remained `0DC54D8748B45FDCC50DC8B5729D13838301F702AB1EB6F6C09814B3E07EEC41`.
+- Demo script SHA-256: `F9B50A3EE890099EE0C6D7B75BA1BE7132BB0E772D55E52CA939FC831D24B80B`.
+- k6 script SHA-256: `AD0A4DA1C8636B1B31DAA138D8403DD29D4E4CB4222F339772A6F9DD7BE9A62C`.
 - Protected tag `v1.0.0` remained unchanged.
 - Working tree remained clean.
 
-## Runtime evidence
+## Artifact evidence
 
-- Admin Dashboard production image built successfully.
-- Developer Portal production image built successfully.
-- Admin Dashboard container was healthy.
-- Developer Portal container was healthy.
-- Ten Dashboard routes returned HTTP 200.
-- Four Portal routes returned HTTP 200.
-- Dashboard production CSS focus markers passed.
-- Portal production CSS focus markers passed.
-- Portal API documentation rendered six keyboard-focusable regions.
-- Tested production HTML contained no Admin credential marker, fake issued-key prefix, `U+00C2 U+00B7`, or Unicode replacement character.
-- Repository mutation count remained zero.
+- Demo summary: `E:\pulsegate-artifacts\sprint-78-demo\sprint-78-demo-summary.json`.
+- Demo runtime evidence: `E:\pulsegate-artifacts\sprint-78-runtime-validation`.
+- k6 runtime evidence: `E:\pulsegate-artifacts\sprint-78-k6-validation`.
+- Release-readiness evidence: `E:\pulsegate-artifacts\sprint-78-release-readiness`.
+- Documentation finalization evidence: `E:\pulsegate-artifacts\sprint-78-documentation`.
 
 ## Preserved boundaries
 
-- No backend endpoint, database schema, migration, dependency, environment variable, Compose service, public port, Kubernetes resource, or npm workspace version change.
-- No Admin mutation control, generic Admin proxy, browser credential, developer identity, billing, marketplace, or enterprise IAM work.
-- No routing, quota, analytics, tracing, logging, metrics, scheduler, retention, or raw-event behavior change.
-- No Git tag.
+- No new feature, backend endpoint, Admin mutation, database schema, migration, seed, dependency, environment variable, Compose service, public port, Kubernetes resource, or npm workspace version change.
+- No API key, JWT, or Admin credential was required for the selected flow.
+- No destructive HTTP method or database cleanup was executed.
+- No broad performance laboratory, stress test, soak test, production-capacity claim, or production-SLO claim.
+- No Sprint 78 Git tag.
 
-## Sprint 78 boundary
+## Sprint 79 boundary
 
-Sprint 78 owns End-to-End Demo and Lightweight k6 Validation.
+Sprint 79 owns v2 Docs, Runbooks and Architecture Cleanup.
 
-It should prove one coherent existing product flow and provide bounded load evidence without introducing new product functionality, changing runtime contracts, claiming production capacity, building a broad performance laboratory, or performing Sprint 79 documentation cleanup early.
+It must audit duplicated, stale, inconsistent, oversized, or encoding-damaged documentation before patching. It may consolidate and clarify documentation, runbooks, architecture descriptions, navigation, and handoff state, but it must preserve all implementation, runtime, security, database, routing, quota, analytics, observability, Kubernetes, package, artifact, and protected-tag contracts. It must not begin Sprint 80 release work or create `v2.0.0` early.
 
 ## Fixed roadmap
 
@@ -99,6 +106,6 @@ It should prove one coherent existing product flow and provide bounded load evid
 - Sprint 75 - Grafana Observability Integration - complete.
 - Sprint 76 - Admin RBAC/Platform Security Hardening - complete.
 - Sprint 77 - UI Loading/Empty/Error/Responsive Polish - complete.
-- Sprint 78 - End-to-End Demo and Lightweight k6 Validation - current.
-- Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup - next.
-- Sprint 80 - Product/Platform v2 Release - planned; `v2.0.0` tag.
+- Sprint 78 - End-to-End Demo and Lightweight k6 Validation - complete.
+- Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup - current.
+- Sprint 80 - Product/Platform v2 Release - next; `v2.0.0` tag remains reserved.

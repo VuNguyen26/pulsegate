@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.17.0
+v1.18.0
 
 ## Current Status
 
-Sprint 77 - UI Loading/Empty/Error/Responsive Polish Complete
+Sprint 78 - End-to-End Demo and Lightweight k6 Validation Complete
 
 Current validation:
 
@@ -19,16 +19,20 @@ Current validation:
 - Developer Portal: 2 test files / 8 tests passed.
 - Product Service: 10 test files / 36 tests passed.
 - Root typecheck, production build, release validation, Compose configuration, package-lock integrity, clean-tree verification, and origin synchronization passed.
-- Admin Dashboard and Developer Portal production containers were healthy.
-- Ten Dashboard routes and four Portal routes returned HTTP 200.
-- Verified production CSS and keyboard-focus regions were present.
+- The GET-only demo proved Developer Portal documentation -> API Gateway -> Product Service health.
+- Demo persistence delta was one usage event and zero rejected events.
+- k6 completed 10/10 iterations and 30/30 checks with 0% request failures.
+- Smoke-phase p95 was 34.19 ms against the bounded threshold of less than 1000 ms.
+- k6 persistence delta was ten usage events and zero rejected events.
+- Runtime services were not restarted or recreated.
+- Sprint-created containers were removed; named volumes and bounded evidence were preserved.
 - Private npm workspace versions remain `0.1.0`.
 - Protected annotated tag `v1.0.0` remains unchanged.
-- Sprint 77 creates no Git tag.
+- Sprint 78 creates no Git tag.
 
-Current sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+Current sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
 
-Next sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
+Next sprint: Sprint 80 - Product/Platform v2 Release.
 
 ## Current High-Level Architecture
 
@@ -1874,3 +1878,47 @@ Security preservation:
 - Portal source remains free of Admin routes, Admin credentials, fake issued-key values, and browser secret storage.
 - Sprint 77 changes no backend, database, routing, policy, analytics, or observability architecture.
 <!-- SPRINT-77-ARCHITECTURE-END -->
+
+<!-- SPRINT-78-ARCHITECTURE-START -->
+## Sprint 78 demonstration and lightweight k6 architecture
+
+The validated flow reuses existing public and runtime boundaries:
+
+~~~text
+Developer Portal /api-docs
+  -> documents GET /api/product-service/health
+  -> API Gateway :3000
+  -> existing route registry and proxy pipeline
+  -> Product Service /health :3001
+  -> bounded success response
+  -> existing usage-event recorder
+~~~
+
+Demonstration properties:
+
+- The flow is GET-only and requires no API key, JWT, or Admin credential.
+- Direct Gateway, Product Service, Dashboard, and Portal health or root surfaces are readiness evidence only.
+- The proxied Product Service health request is the single demonstrated business flow.
+- One demo execution creates one successful usage event and no rejected event.
+- Summary artifacts store status and bounded response fields, not raw bodies or credentials.
+
+k6 properties:
+
+- Gateway `/health` is readiness-only and is tagged `phase=readiness`.
+- `/api/product-service/health` is the workload and is tagged `phase=smoke`.
+- The scenario uses one VU, ten shared iterations, a 30-second maximum duration, a five-second graceful stop, and a two-second timeout.
+- Smoke thresholds require zero failed requests and p95 below 1000 ms.
+- All three response checks must pass.
+- One approved run creates ten successful usage events and no rejected event.
+- This is a local smoke contract, not a production capacity, stress, soak, scalability, or SLO claim.
+
+Operational boundaries:
+
+- Existing Docker Compose services and images are reused.
+- No permanent service, port, environment variable, dependency, schema, migration, or seed is added.
+- Core service container IDs and image IDs must remain stable during the run.
+- The k6 container is disposable.
+- Sanitized artifacts are written under `E:\pulsegate-artifacts`.
+- Sprint-created containers may be removed without deleting named volumes.
+- Existing routing, retry, quota, analytics, security, tracing, logging, metrics, scheduler, and retention sources of truth remain unchanged.
+<!-- SPRINT-78-ARCHITECTURE-END -->

@@ -2,9 +2,9 @@
 
 High-Traffic API Gateway & Observability Platform.
 
-## Current product/documentation version - v1.17.0
+## Current product/documentation version - v1.18.0
 
-**Latest completed sprint:** Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
+**Latest completed sprint:** Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
 
 Current validation baseline:
 
@@ -13,20 +13,22 @@ Current validation baseline:
 - Developer Portal: 2 test files / 8 tests passed.
 - Product Service: 10 test files / 36 tests passed.
 - Root typecheck, production build, release validation, Compose configuration, package-lock integrity, clean-tree verification, and origin synchronization passed.
-- Admin Dashboard and Developer Portal production images built successfully.
-- Admin Dashboard and Developer Portal containers were healthy.
-- Ten Dashboard routes and four Portal routes returned HTTP 200.
-- Production CSS retained the verified keyboard-focus selectors.
-- Portal API documentation rendered six keyboard-focusable regions.
-- Tested production HTML contained no Admin credential markers, raw key prefixes, Unicode replacement characters, or mojibake delimiters.
+- The bounded GET-only demo proved Developer Portal documentation -> API Gateway -> Product Service health.
+- The demo created exactly one expected usage event and zero rejected events.
+- The local k6 smoke completed 10/10 iterations and 30/30 checks with 0% failed requests.
+- The smoke-phase p95 was 34.19 ms against the bounded threshold of less than 1000 ms.
+- The k6 run created exactly 10 expected usage events and zero rejected events.
+- Required runtime containers retained their IDs, images, and zero restart counts during demo, k6, and release validation.
+- Sprint-created containers were removed after validation while named volumes and bounded database evidence were preserved.
+- Sanitized runtime, k6, and release-readiness evidence is stored outside the repository under `E:\pulsegate-artifacts`.
 
 Private npm workspace versions remain `0.1.0`.
 
-The protected annotated Git tag `v1.0.0` remains unchanged: tag object `726feb46e62a3224f7e27d55ae4f9e74dd6b1123`, target `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 77 creates no Git tag.
+The protected annotated Git tag `v1.0.0` remains unchanged: tag object `726feb46e62a3224f7e27d55ae4f9e74dd6b1123`, target `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 78 creates no Git tag.
 
-Current sprint: **Sprint 78 - End-to-End Demo and Lightweight k6 Validation**.
+Current sprint: **Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup**.
 
-Next sprint: **Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup**.
+Next sprint: **Sprint 80 - Product/Platform v2 Release**.
 
 ## Tech Stack
 
@@ -322,13 +324,13 @@ Latest decision record:
 
 ## Recommended Next Sprint
 
-Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
 
 Reason:
 
-- Sprint 77 completed bounded UI state, responsive, keyboard-access, encoding, and runtime polish.
-- Sprint 78 owns the end-to-end demonstration path and lightweight k6 validation.
-- Sprint 78 must reuse the existing runtime contracts and must not become a broad performance laboratory or a new feature sprint.
+- Sprint 78 completed the bounded end-to-end demo and lightweight local k6 validation.
+- Sprint 79 owns v2 documentation, runbook, and architecture cleanup.
+- Sprint 79 must preserve implementation behavior and must not begin the Sprint 80 release or create `v2.0.0` early.
 
 ## Sprint 55 Completion
 
@@ -1467,3 +1469,66 @@ Current sprint: **Sprint 78 - End-to-End Demo and Lightweight k6 Validation**.
 
 Next sprint: **Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup**.
 <!-- SPRINT-77-README-END -->
+
+<!-- SPRINT-78-README-START -->
+## Sprint 78 - End-to-End Demo and Lightweight k6 Validation
+
+Sprint 78 proves one coherent existing product flow without adding a new feature, endpoint, credential path, database schema, service, port, or dependency.
+
+Delivered behavior:
+
+- Replaced the legacy broad runtime script with a bounded GET-only demonstration.
+- Proved Developer Portal `/api-docs` documents `/api/product-service/health`.
+- Proved API Gateway and Product Service health plus the proxied Product Service response.
+- Wrote only sanitized summary evidence outside the repository.
+- Updated the existing k6 smoke to use Gateway readiness and a 10-iteration proxied Product Service workload.
+- Kept the scenario bounded to one VU, ten shared iterations, a 30-second maximum duration, a five-second graceful stop, and a two-second request timeout.
+- Scoped request-failure and latency thresholds to the smoke phase.
+- Added deterministic response checks for HTTP 200, `service=product-service`, and `status=ok`.
+
+Implementation commits:
+
+- `260293efacf063487999d2473d76cc2b03c0c0b9` - `feat(demo): add bounded end-to-end validation flow`
+- `4cf3d2d60e5edc4a58449af7d64b3f8a14601f0a` - `test(k6): add bounded end-to-end validation`
+
+Runtime evidence:
+
+- The demo created exactly one usage event and zero rejected events.
+- k6 completed 10/10 iterations and 30/30 checks.
+- Smoke request failure rate was 0%.
+- Smoke-phase p95 was 34.19 ms against `p(95)<1000`.
+- The k6 run created exactly ten usage events and zero rejected events.
+- Six required services remained on the same container IDs and image IDs with zero restarts.
+- The disposable k6 container was removed.
+- Sprint-created runtime containers were removed after release validation.
+- Named volumes and eleven bounded Sprint 78 usage events were preserved as evidence.
+- No production capacity or production SLO claim is made.
+
+Validation:
+
+- Admin Dashboard: 55 test files / 253 tests.
+- API Gateway: 163 test files / 1177 tests.
+- Developer Portal: 2 test files / 8 tests.
+- Product Service: 10 test files / 36 tests.
+- Root tests, typecheck, production builds, release-readiness, Compose checks, Git diff checks, clean-tree verification, and origin synchronization passed.
+- Release validation created no additional usage or rejected events.
+- Package-lock and protected-tag hashes remained unchanged.
+
+Preserved boundaries:
+
+- No new feature, API endpoint, Admin mutation, database migration, dependency, environment variable, Compose service, public port, Kubernetes resource, npm workspace version, or Git tag.
+- No credential was required for the selected public health flow.
+- No destructive HTTP method or database cleanup was used.
+- No broad performance, production-capacity, or production-SLO claim.
+- All artifacts remain outside the repository under `E:\pulsegate-artifacts`.
+
+Runbook:
+
+- `docs/runbooks/end-to-end-demo-and-k6.md`
+
+Product/documentation version: **v1.18.0**.
+
+Current sprint: **Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup**.
+
+Next sprint: **Sprint 80 - Product/Platform v2 Release**.
+<!-- SPRINT-78-README-END -->

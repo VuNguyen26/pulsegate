@@ -2,13 +2,49 @@
 
 ## Current Version
 
-v1.17.0
+v1.18.0
 
 ## Latest Completed Sprint
 
-Sprint 77 - UI Loading/Empty/Error/Responsive Polish
+Sprint 78 - End-to-End Demo and Lightweight k6 Validation
 
 ## Latest Decision
+<!-- SPRINT-78-DECISION-LOG-START -->
+### 2026-07-13 - Reuse one public GET flow for both demonstration and bounded k6 evidence
+
+Decision:
+
+- Demonstrate Developer Portal documentation -> API Gateway -> Product Service health.
+- Keep the demo GET-only, credential-free, bounded, and non-destructive.
+- Reuse the existing `api-gateway-smoke.js` and target the same proxied health flow.
+- Keep k6 at one VU and ten shared iterations.
+- Record exact successful-usage and rejected-event deltas.
+- Keep runtime, k6, and release artifacts outside the repository.
+- Preserve named volumes and bounded database evidence while removing only Sprint-started containers.
+- Make no production capacity or production SLO claim.
+- Advance product/documentation version to `v1.18.0`.
+- Keep private npm workspace versions at `0.1.0` and create no Sprint 78 tag.
+
+Reason:
+
+- One shared flow provides coherent product evidence without inventing a new feature.
+- Exact database deltas prove the current analytics path while keeping mutation bounded.
+- Existing Compose and k6 contracts are sufficient for a lightweight local smoke.
+- External sanitized artifacts avoid repository noise and credential leakage.
+
+Consequences:
+
+- One demo run retains one successful usage event.
+- One k6 run retains ten successful usage events.
+- Rejected-event count remains unchanged.
+- Container identity and restart stability are explicit acceptance checks.
+- Sprint 79 can focus on documentation and architecture cleanup without reopening runtime behavior.
+
+Detailed record:
+
+- `docs/project-context/decisions/2026-07-13-end-to-end-demo-lightweight-k6-validation.md`
+<!-- SPRINT-78-DECISION-LOG-END -->
+
 <!-- SPRINT-77-DECISION-LOG-START -->
 ### 2026-07-13 - Reuse existing UI primitives and make overflow regions keyboard reachable
 

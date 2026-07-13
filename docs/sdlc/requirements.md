@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.17.0
+v1.18.0
 
 ## Latest Completed Sprint
 
-Sprint 77 - UI Loading/Empty/Error/Responsive Polish
+Sprint 78 - End-to-End Demo and Lightweight k6 Validation
 
 ## Current Sprint
 
-Sprint 78 - End-to-End Demo and Lightweight k6 Validation
+Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup
 
 ## Next Sprint
 
-Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup
+Sprint 80 - Product/Platform v2 Release
 
 ---
 ## Document Scope
@@ -47,7 +47,7 @@ Long-term target:
 
 - API Gateway runtime
 - Admin APIs
-- Admin Dashboard foundation and bounded read-only operator surfaces are implemented through Sprint 76; Sprint 77 owns loading, empty, error, and responsive polish
+- Admin Dashboard and Developer Portal product surfaces, UI polish, and bounded end-to-end validation are complete through Sprint 78; Sprint 79 owns documentation, runbook, and architecture cleanup only
 - Developer Portal foundation, API documentation, and API-key self-service foundation/mock are implemented through Sprint 66
 - API consumers
 - API keys
@@ -2453,3 +2453,60 @@ Current sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
 
 Next sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
 <!-- SPRINT-77-REQUIREMENTS-END -->
+
+<!-- SPRINT-78-REQUIREMENTS-START -->
+## Sprint 78 acceptance requirements
+
+1. Existing demo, k6, runtime, credential, persistence, cleanup, and artifact behavior shall be audited before patching.
+2. Sprint 78 shall select one truthful existing end-to-end flow.
+3. The selected flow shall be Developer Portal documentation -> API Gateway -> Product Service health.
+4. The flow shall use only `GET`.
+5. The flow shall require no API key, JWT, Admin credential, mutation, seed, or fake capability.
+6. The demo shall validate Gateway health, Product Service health, Portal API documentation, Dashboard root availability, and the proxied Product Service health response.
+7. The proxied response shall report `service=product-service` and `status=ok`.
+8. The demo shall write only sanitized artifacts outside the repository.
+9. One demo execution shall create exactly one successful usage event and zero rejected events.
+10. The existing k6 smoke shall use Gateway health for readiness only.
+11. The k6 workload shall target `/api/product-service/health`.
+12. The k6 scenario shall use one VU and ten shared iterations.
+13. The scenario maximum duration shall remain 30 seconds with a five-second graceful stop.
+14. Request timeout shall remain two seconds.
+15. Smoke request failure rate shall be zero.
+16. Smoke p95 shall remain below 1000 ms.
+17. All HTTP 200, service-name, and healthy-status checks shall pass.
+18. One approved k6 run shall create exactly ten successful usage events and zero rejected events.
+19. Required runtime services shall not restart or be recreated during demo, k6, or release validation.
+20. The disposable k6 container shall be removed.
+21. Sprint-created runtime containers may be removed after validation without deleting named volumes.
+22. Runtime evidence shall make no production capacity, stress, soak, scalability, or production SLO claim.
+23. Sprint 78 shall add no new feature, endpoint, dependency, environment variable, Compose service, public port, database migration, Kubernetes resource, npm workspace version, or Git tag.
+24. Package-lock and protected tag `v1.0.0` shall remain unchanged.
+25. Full workspace tests, typecheck, production builds, release-readiness, Compose checks, diff checks, clean-tree verification, and origin synchronization shall pass.
+26. Product/documentation version shall advance to `v1.18.0`.
+27. Private npm workspace versions shall remain `0.1.0`.
+
+Implementation status: Complete.
+
+Implementation commits:
+
+- `260293efacf063487999d2473d76cc2b03c0c0b9` - `feat(demo): add bounded end-to-end validation flow`
+- `4cf3d2d60e5edc4a58449af7d64b3f8a14601f0a` - `test(k6): add bounded end-to-end validation`
+
+Validation baseline:
+
+- Admin Dashboard: 55 test files / 253 tests.
+- API Gateway: 163 test files / 1177 tests.
+- Developer Portal: 2 test files / 8 tests.
+- Product Service: 10 test files / 36 tests.
+- Demo persistence delta: one usage event and zero rejected events.
+- k6: 10/10 iterations, 30/30 checks, 0% failed requests, smoke p95 34.19 ms.
+- k6 persistence delta: ten usage events and zero rejected events.
+- Runtime services retained container IDs, image IDs, and zero restart counts.
+- Sprint-created containers were removed; named volumes and database evidence were preserved.
+- Release validation created no additional usage or rejected events.
+- Root tests, typecheck, builds, release validation, Compose checks, diff checks, clean-tree verification, and origin synchronization passed.
+
+Current sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
+
+Next sprint: Sprint 80 - Product/Platform v2 Release.
+<!-- SPRINT-78-REQUIREMENTS-END -->
