@@ -37,20 +37,13 @@ The full-access and read-only values must be different. Identical configuration 
 
 Admin credentials are verified through the API key hashing helper and Node.js timing-safe comparison rather than direct raw secret equality.
 
-Optional actor attribution header:
+Trusted actor attribution:
 
-```txt
-x-admin-actor
-```
-
-Actor attribution rules:
-
-- Leading and trailing whitespace is removed.
-- Maximum length is 64 characters.
-- The first character must be a letter or digit.
-- Remaining characters may contain letters, digits, `.`, `_`, `:`, `@`, or `-`.
-- Missing, blank, duplicated, oversized, or unsafe values fall back to `admin-api-key`.
-- The header is audit attribution metadata and must not be treated as cryptographically authenticated administrator identity.
+- Caller-controlled `x-admin-actor` is ignored for authenticated identity.
+- Successful full-access authentication derives actor `admin-api-key`.
+- Successful read-only authentication derives actor `admin-read-only-api-key`.
+- The authentication context is request-local and is created only after timing-safe credential verification.
+- Route handlers read actor attribution from trusted context rather than request headers.
 
 Full-access read example:
 
@@ -165,7 +158,6 @@ Invoke-RestMethod http://localhost:3000/internal/admin/routes `
   -Method POST `
   -Headers @{
     "x-admin-api-key" = "local-admin-key"
-    "x-admin-actor" = "local-admin"
     "content-type" = "application/json"
   } `
   -Body $body |
@@ -176,8 +168,8 @@ Expected:
 
 ```txt
 201 Created
-createdBy = local-admin
-updatedBy = local-admin
+createdBy = admin-api-key
+updatedBy = admin-api-key
 ```
 
 ## Update Route Config
@@ -192,7 +184,6 @@ Invoke-RestMethod http://localhost:3000/internal/admin/routes/<route-id> `
   -Method PATCH `
   -Headers @{
     "x-admin-api-key" = "local-admin-key"
-    "x-admin-actor" = "local-admin"
     "content-type" = "application/json"
   } `
   -Body $patchBody |
@@ -206,7 +197,6 @@ Invoke-RestMethod http://localhost:3000/internal/admin/routes/<route-id> `
   -Method DELETE `
   -Headers @{
     "x-admin-api-key" = "local-admin-key"
-    "x-admin-actor" = "local-admin"
   } |
   ConvertTo-Json -Depth 10
 ```
@@ -300,3 +290,36 @@ After an approved write, use the existing runtime reload endpoint. Reload valida
 - Admin APIs expose no force-healthy, force-cooldown, probe, or reset operation.
 - A route with no eligible discovery instance fails closed.
 <!-- SPRINT-70-ADMIN-ROUTE-END -->
+
+<!-- SPRINT-76-ADMIN-SECURITY-START -->
+## Sprint 76 Admin security validation
+
+Current protected route inventory:
+
+- Total Admin routes: 29.
+- Read routes: 18.
+- Mutation routes: 11.
+- Every route is covered by the marked global Admin authentication registration boundary.
+
+Expected runtime matrix:
+
+| Request | Expected result |
+| --- | --- |
+| Missing key on Admin GET | `401 ADMIN_API_KEY_MISSING` |
+| Invalid key on Admin GET | `403 ADMIN_API_KEY_INVALID` |
+| Read-only key on Admin GET | HTTP 200 |
+| Read-only key on Admin mutation | `403 ADMIN_API_KEY_READ_ONLY` |
+| Full-access key on Admin GET | HTTP 200 |
+
+Forged actor check:
+
+- Sending `x-admin-actor: forged-runtime-actor` must not change trusted context.
+- Full-access persistence attribution remains `admin-api-key`.
+- Read-only context actor remains `admin-read-only-api-key`; read-only mutations still fail before persistence.
+
+Credential safety:
+
+- Do not print full-access or read-only values.
+- Check tested HTTP bodies and Gateway logs for exact credential reflection.
+- Remove temporary `ADMIN_API_KEY` and `ADMIN_READ_ONLY_API_KEY` variables from the current PowerShell process before running repository tests, because inherited temporary values can alter test configuration.
+<!-- SPRINT-76-ADMIN-SECURITY-END -->

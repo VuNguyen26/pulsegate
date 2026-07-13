@@ -446,3 +446,27 @@ The API Gateway image also requires a runtime Redis import smoke because workspa
 
 See `docs/runbooks/kubernetes-local.md`.
 <!-- SPRINT-72-LOCAL-VALIDATION-END -->
+
+<!-- SPRINT-76-LOCAL-VALIDATION-START -->
+## Sprint 76 security validation hygiene
+
+When temporary Admin credentials are generated for Docker runtime proof, they may remain in the current PowerShell process after containers are recreated.
+
+Before running workspace tests or `npm.cmd run validate:release`, remove them from the shell:
+
+~~~powershell
+Remove-Item Env:ADMIN_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:ADMIN_READ_ONLY_API_KEY -ErrorAction SilentlyContinue
+~~~
+
+Leaving temporary values in the process can cause Admin route tests to inherit unexpected credentials and return `403` despite correct source behavior.
+
+Sprint 76 release baseline:
+
+- Admin Dashboard: 54 files / 248 tests.
+- API Gateway: 163 files / 1177 tests.
+- Developer Portal: 2 files / 7 tests.
+- Product Service: 10 files / 36 tests.
+- Typecheck and production builds passed for all four workspaces.
+- Diff checks, clean-tree verification, and origin synchronization passed.
+<!-- SPRINT-76-LOCAL-VALIDATION-END -->

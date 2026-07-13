@@ -2,52 +2,29 @@
 
 High-Traffic API Gateway & Observability Platform.
 
-## Current product/documentation version - v1.15.0
+## Current product/documentation version - v1.16.0
 
-**Latest completed sprint:** Sprint 75 - Grafana observability integration.
+**Latest completed sprint:** Sprint 76 - Admin RBAC/Platform Security Hardening.
 
 Current validation baseline:
 
-- Admin Dashboard: 53 test files / 244 tests passed.
-- API Gateway: 162 test files / 1177 tests passed.
+- Admin Dashboard: 54 test files / 248 tests passed.
+- API Gateway: 163 test files / 1177 tests passed.
 - Developer Portal: 2 test files / 7 tests passed.
 - Product Service: 10 test files / 36 tests passed.
-- Root release validation, typecheck, production builds, diff checks, Docker Compose validation, bounded k6 smoke, and three Kustomize renders passed.
-- Grafana 13.1.0 provisioned the existing Prometheus datasource and metrics dashboard plus the bounded Loki datasource and logs dashboard.
-- Loki/Alloy outage and recovery validation passed without restarting the application, Grafana, or Prometheus containers.
+- Root release validation, workspace typecheck, production builds, diff checks, clean-tree verification, and origin synchronization passed.
+- Runtime authorization proved missing, invalid, read-only, and full-access behavior without source or database mutation.
+- The Dashboard BFF and page returned HTTP 200 while retaining the server-only read-only credential boundary.
+- API Gateway and Dashboard responses and Gateway logs exposed no Admin credential values.
+- Prometheus, Grafana, Loki, and Alloy behavior remained available and bounded.
 
 Private npm workspace versions remain `0.1.0`.
 
-The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 75 creates no Git tag.
+The protected annotated Git tag `v1.0.0` remains unchanged: tag object `726feb46e62a3224f7e27d55ae4f9e74dd6b1123`, target `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 76 creates no Git tag.
 
-Next planned sprint: **Sprint 76 - Admin RBAC/Platform Security Hardening**.
+Current sprint: **Sprint 77 - UI Loading/Empty/Error/Responsive Polish**.
 
----
-## Current Status
-
-Sprint 75 - Grafana observability integration is complete and pushed.
-
-- Product/documentation version: `v1.15.0`.
-- Private npm workspace versions remain `0.1.0`.
-- Latest implementation commit before documentation finalization: `3750bb8a30c0a5fb3a0a871523472113b21c9561`.
-- Grafana provisions Prometheus as the default datasource and Loki as the non-default read-only datasource.
-- The existing five-panel metrics dashboard remains unchanged.
-- The bounded four-panel logs dashboard uses only `service`, `level`, and `event` variables.
-- Loki labels remain exactly `service`, `level`, and `event`.
-- `requestId`, `traceId`, and `spanId` remain JSON body fields only.
-- Loki has no public host-port binding.
-- Loki/Alloy outage isolation and recovery validation passed.
-- Admin Dashboard: 53 test files / 244 tests.
-- API Gateway: 162 test files / 1177 tests.
-- Developer Portal: 2 test files / 7 tests.
-- Product Service: 10 test files / 36 tests.
-- Root release validation, typecheck, builds, bounded k6 smoke, Compose validation, and three Kustomize renders passed.
-- Protected annotated tag `v1.0.0` remains unchanged.
-- Sprint 75 creates no Git tag.
-
-Current sprint: **Sprint 76 - Admin RBAC/Platform Security Hardening**.
-
-Next sprint: **Sprint 77 - UI Loading/Empty/Error/Responsive Polish**.
+Next sprint: **Sprint 78 - End-to-End Demo and Lightweight k6 Validation**.
 
 ## Tech Stack
 
@@ -319,7 +296,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-74.md
+- docs/sdlc/sprint-history/sprint-76.md
 
 Latest observability and analytics runbooks:
 
@@ -337,19 +314,19 @@ Latest observability and analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-13-loki-logging-foundation.md
+- docs/project-context/decisions/2026-07-13-admin-rbac-platform-security-hardening.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 64 - Dashboard rollup/retention/scheduler panels.
+Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
 
 Reason:
 
-- Sprint 63 completed the bounded read-only quota, successful usage, and rejected-event Dashboard surfaces.
-- The fixed roadmap assigns rollup, retention, and scheduler operator panels to Sprint 64.
-- Sprint 64 must reuse fixed GET-only BFF resources, preserve all current execution guardrails, and avoid opening retention deletion or autonomous scheduler execution.
+- Sprint 76 completed the trusted Admin identity and credential boundary hardening.
+- Sprint 77 owns UI state consistency and responsive polish only.
+- Sprint 77 must preserve the fixed GET-only Dashboard BFF model, server-only read-only credential, and all current Gateway security contracts.
 
 ## Sprint 55 Completion
 
@@ -1384,3 +1361,54 @@ Current sprint: **Sprint 76 - Admin RBAC/Platform Security Hardening**.
 
 Next sprint: **Sprint 77 - UI Loading/Empty/Error/Responsive Polish**.
 <!-- SPRINT-75-README-END -->
+
+<!-- SPRINT-76-README-START -->
+## Sprint 76 - Admin RBAC/Platform Security Hardening
+
+Sprint 76 hardens the existing local Admin API-key authorization boundary without introducing enterprise IAM.
+
+Delivered behavior:
+
+- Replaced caller-controlled `x-admin-actor` attribution with request-local trusted authentication context.
+- Full-access requests derive actor `admin-api-key`.
+- Read-only requests derive actor `admin-read-only-api-key`.
+- Locked the exact 29-route Admin authorization matrix: 18 read routes and 11 mutation routes.
+- Read-only credentials remain limited to `GET`, `HEAD`, and `OPTIONS`.
+- Locked 18 fixed GET-only Dashboard BFF resources with no catch-all proxy.
+- Kept `ADMIN_READ_ONLY_API_KEY` server-only and kept full-access `ADMIN_API_KEY` out of the Dashboard runtime.
+- Proved missing, invalid, read-only, and full-access runtime behavior.
+- Proved Admin credentials were absent from tested HTTP responses and Gateway logs.
+
+Implementation commits:
+
+- `fce89f224e81335ae78024a22be89cf784c9b6cb` - `fix(security): trust authenticated admin actor context`
+- `d82af694b0642de6a2efd5771bf2dc21f1df5c9e` - `test(security): lock admin authorization matrix`
+- `9cd147d0565be99ddfc1c20b815f9fb230b8f67f` - `test(dashboard): lock admin credential boundary`
+
+Validation:
+
+- Admin Dashboard: 54 test files / 248 tests.
+- API Gateway: 163 test files / 1177 tests.
+- Developer Portal: 2 test files / 7 tests.
+- Product Service: 10 test files / 36 tests.
+- Workspace typecheck and production builds passed.
+- Diff checks, clean-tree verification, and origin synchronization passed.
+- Runtime authorization and Dashboard boundary proofs passed with zero source and database mutation.
+- Observability services remained healthy; Loki retained no public host port.
+- The application/Alloy-configured Loki label allowlist remains `service`, `level`, and `event`. Loki label discovery may additionally report managed `service_name`; Sprint 76 added no configured label.
+
+Preserved boundaries:
+
+- No database schema or migration.
+- No npm dependency or private npm version change.
+- No new environment variable, Compose service, public port, or Kubernetes RBAC resource.
+- No enterprise SSO, SAML, OIDC, database-backed administrator model, organization redesign, or multi-tenant billing.
+- No routing, quota, analytics, tracing, logging, metrics, scheduler, retention, or raw-event behavior change.
+- No Sprint 76 Git tag.
+
+Product/documentation version: **v1.16.0**.
+
+Current sprint: **Sprint 77 - UI Loading/Empty/Error/Responsive Polish**.
+
+Next sprint: **Sprint 78 - End-to-End Demo and Lightweight k6 Validation**.
+<!-- SPRINT-76-README-END -->

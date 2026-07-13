@@ -1,75 +1,78 @@
 # AI Handoff
 
-PulseGate is complete through Sprint 75 - Grafana observability integration.
+PulseGate is complete through Sprint 76 - Admin RBAC/Platform Security Hardening.
 
 ## Canonical state
 
-- Product/documentation version: `v1.15.0`.
+- Product/documentation version: `v1.16.0`.
 - Private npm workspace versions: `0.1.0`.
-- Latest implementation commit before docs: `3750bb8a30c0a5fb3a0a871523472113b21c9561`.
+- Latest implementation commit before docs: `9cd147d0565be99ddfc1c20b815f9fb230b8f67f`.
+- Sprint 75 documentation baseline: `e62ce96b4502ee5b71aa88185de906e0d2ed5b11`.
 - Protected annotated tag `v1.0.0` remains unchanged.
 - Tag object: `726feb46e62a3224f7e27d55ae4f9e74dd6b1123`.
 - Tag target: `407d03678674219e7228b15f0cd7a23074493f31`.
-- Sprint 75 creates no tag.
-- Current sprint: Sprint 76 - Admin RBAC/Platform Security Hardening.
-- Next sprint: Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
+- Sprint 76 creates no tag.
+- Current sprint: Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
+- Next sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
 
-## Sprint 75 implementation commits
+## Sprint 76 implementation commits
 
-- `d741518763e5f75d6b52dde86d0633a4317a1c26` - `feat(observability): provision grafana loki datasource`
-- `788891fd4dbcd816a56b44448e874dc31829d279` - `feat(observability): add bounded grafana log views`
-- `3750bb8a30c0a5fb3a0a871523472113b21c9561` - `fix(observability): poll grafana dashboard files`
+- `fce89f224e81335ae78024a22be89cf784c9b6cb` - `fix(security): trust authenticated admin actor context`
+- `d82af694b0642de6a2efd5771bf2dc21f1df5c9e` - `test(security): lock admin authorization matrix`
+- `9cd147d0565be99ddfc1c20b815f9fb230b8f67f` - `test(dashboard): lock admin credential boundary`
 
-## Grafana and Loki contract
+## Admin security invariants
 
-- Grafana validated at version 13.1.0.
-- Prometheus UID `pulsegate-prometheus`, URL `http://prometheus:9090`, default.
-- Loki UID `pulsegate-loki`, URL `http://loki:3100`, non-default, provisioned read-only.
-- Loki has no public host port.
-- Metrics dashboard UID `pulsegate-api-gateway-overview`.
-- Logs dashboard UID `pulsegate-logs-overview`.
-- Logs dashboard folder `PulseGate`.
-- Logs dashboard has four panels.
-- Variables are `service`, `level`, and `event`.
-- Log result limit is 100.
-- Default range is 15 minutes.
-- Dashboard provider polling interval is 30 seconds.
+- Every exact `/internal/admin` route and descendant must register the marked Admin API-key authentication middleware.
+- Current matrix: 29 routes total, 18 read and 11 mutation routes.
+- Missing credential: `401 ADMIN_API_KEY_MISSING`.
+- Invalid credential: `403 ADMIN_API_KEY_INVALID`.
+- Read-only mutation: `403 ADMIN_API_KEY_READ_ONLY`.
+- Full-access and read-only keys must be non-empty when enabled and must differ.
+- Credential comparison remains timing-safe through the API-key hashing helper.
+- Caller-controlled `x-admin-actor` is ignored for authenticated identity.
+- Full-access actor is `admin-api-key`.
+- Read-only actor is `admin-read-only-api-key`.
+- Trusted authentication context is request-local and stored outside client-controlled request data.
 
-## Logging invariants
+## Dashboard credential invariants
 
-- Loki labels remain exactly `service`, `level`, and `event`.
-- `requestId`, `traceId`, and `spanId` remain JSON body fields only.
-- Do not add high-cardinality labels.
-- Do not log API keys, JWTs, authorization headers, cookies, request bodies, response bodies, database URLs, Redis credentials, Secret values, arbitrary headers, or raw exception objects.
-- Logs and metrics are operational signals, not business or security sources of truth.
-- Application health is independent from Grafana, Loki, and Alloy.
-- Existing Prometheus behavior must remain intact.
+- Dashboard has 18 fixed GET-only BFF resources.
+- No catch-all Admin proxy.
+- Dashboard uses only `ADMIN_READ_ONLY_API_KEY` server-side.
+- Full-access `ADMIN_API_KEY` must remain absent from Dashboard runtime, browser code, HTML, responses, bundles, and logs.
+- No browser-stored Admin credential and no Dashboard mutation control.
 
 ## Validation evidence
 
-- Admin Dashboard: 53 test files / 244 tests.
-- API Gateway: 162 test files / 1177 tests.
+- Admin Dashboard: 54 test files / 248 tests.
+- API Gateway: 163 test files / 1177 tests.
 - Developer Portal: 2 test files / 7 tests.
 - Product Service: 10 test files / 36 tests.
-- Root release validation, typecheck, builds, k6 smoke, Compose validation, and three Kustomize renders passed.
-- Grafana provisioned both datasources and both dashboards.
-- Loki and Prometheus health returned `OK`.
-- Gateway and Product Service correlation searches passed.
-- Loki/Alloy outage independence and end-to-end recovery passed.
+- Root release validation, typecheck, builds, diff checks, clean-tree verification, and origin synchronization passed.
+- Runtime authorization and Dashboard boundary proofs passed.
+- Admin credential reflection and Gateway log exposure checks passed.
+- Runtime proof created no source or database mutation.
 
-## Sprint 76 starting boundary
+## Observability invariants
 
-Sprint 76 is Admin RBAC/Platform Security Hardening.
+- Preserve existing Prometheus, Grafana, Loki, Alloy, tracing, and logging behavior.
+- Application/Alloy-configured Loki labels remain `service`, `level`, and `event`.
+- Loki label discovery may additionally report managed `service_name`; do not treat it as a new client-controlled or application-configured label.
+- Correlation identifiers remain JSON body fields only.
+- Loki remains without a public host port.
+- Observability remains operational tooling, not authentication, authorization, quota, billing, analytics, routing, failover, or audit truth.
+
+## Sprint 77 starting boundary
+
+Sprint 77 is UI Loading/Empty/Error/Responsive Polish.
 
 Audit before patching:
 
-- Admin API authentication middleware and route coverage.
-- Admin role and permission representation.
-- Admin actor attribution and trusted identity sources.
-- Full-access versus read-only server-side credentials.
-- Dashboard BFF credential handling.
-- Browser, logs, errors, and configuration exposure.
-- Fail-closed behavior for missing, invalid, or insufficient permissions.
-- Tests, Compose runtime, and backward compatibility.
+- Existing loading, empty, error, retry, and responsive behavior across all Dashboard pages.
+- Shared components and CSS primitives before introducing page-specific variants.
+- Browser/server boundaries and production-route behavior.
+- Accessibility, keyboard, layout, overflow, narrow viewport, and long-content behavior.
+- Existing tests and production build output.
 
-Preserve all existing observability and application contracts. Do not implement Sprint 77 UI polish, enterprise SSO/SAML, billing, marketplace, broad organization redesign, cloud observability, production HA logging, or a new Git tag.
+Preserve the 18 fixed GET-only Dashboard BFF resources, server-only read-only credential, trusted Gateway Admin context, all 29 Admin route protections, routing, quota, analytics, tracing, logging, metrics, scheduler, retention, and protected tags. Do not implement Sprint 78 demo or broad load testing early.

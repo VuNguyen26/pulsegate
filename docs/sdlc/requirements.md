@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.15.0
+v1.16.0
 
 ## Latest Completed Sprint
 
-Sprint 75 - Grafana observability integration
+Sprint 76 - Admin RBAC/Platform Security Hardening
 
 ## Current Sprint
 
-Sprint 76 - Admin RBAC/Platform Security Hardening
+Sprint 77 - UI Loading/Empty/Error/Responsive Polish
 
 ## Next Sprint
 
-Sprint 77 - UI Loading/Empty/Error/Responsive Polish
+Sprint 78 - End-to-End Demo and Lightweight k6 Validation
 
 ---
 ## Document Scope
@@ -47,8 +47,8 @@ Long-term target:
 
 - API Gateway runtime
 - Admin APIs
-- Admin Dashboard foundation, core resource reads, quota state, successful usage analytics, and rejected-event investigation implemented; rollup/scheduler/retention panel expansion continues in Sprint 64
-- Developer Portal foundation implemented in Sprint 65; API documentation and API-key self-service foundation/mock remain assigned to Sprint 66
+- Admin Dashboard foundation and bounded read-only operator surfaces are implemented through Sprint 76; Sprint 77 owns loading, empty, error, and responsive polish
+- Developer Portal foundation, API documentation, and API-key self-service foundation/mock are implemented through Sprint 66
 - API consumers
 - API keys
 - Usage plans
@@ -59,7 +59,7 @@ Long-term target:
 - Analytics retention and rollups
 - Observability
 - CI/CD
-- Cloud/Kubernetes deployment later
+- Kubernetes local deployment foundation and runtime validation implemented through Sprint 72; production cloud deployment remains future work
 
 ---
 
@@ -2352,3 +2352,53 @@ Current sprint: Sprint 76 - Admin RBAC/Platform Security Hardening.
 
 Next sprint: Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
 <!-- SPRINT-75-REQUIREMENTS-END -->
+
+<!-- SPRINT-76-REQUIREMENTS-START -->
+## Sprint 76 acceptance requirements
+
+1. Caller-controlled `x-admin-actor` shall not determine authenticated Admin identity.
+2. Successful Admin authentication shall create a request-local trusted context.
+3. Full-access context shall derive actor `admin-api-key`.
+4. Read-only context shall derive actor `admin-read-only-api-key`.
+5. Full-access and read-only credentials shall remain distinct and timing-safe verified.
+6. Missing Admin credentials shall return `401 ADMIN_API_KEY_MISSING`.
+7. Invalid Admin credentials shall return `403 ADMIN_API_KEY_INVALID`.
+8. Read-only mutation attempts shall return `403 ADMIN_API_KEY_READ_ONLY`.
+9. All 29 registered `/internal/admin` routes shall remain protected by the marked global registration boundary.
+10. The authorization matrix shall contain 18 read routes and 11 mutation routes.
+11. Read-only access shall remain limited to `GET`, `HEAD`, and `OPTIONS`.
+12. The Dashboard shall expose exactly 18 fixed GET-only BFF resources and no catch-all Admin proxy.
+13. The Dashboard shall use only the server-side `ADMIN_READ_ONLY_API_KEY`.
+14. Full-access `ADMIN_API_KEY` shall remain absent from Dashboard runtime and browser production surfaces.
+15. Admin credential values shall not appear in tested HTTP responses or Gateway logs.
+16. Runtime validation shall be non-destructive and shall not mutate source or database state.
+17. Routing, quota, analytics, tracing, logging, metrics, Grafana, Loki, Alloy, Prometheus, scheduler, retention, and raw-event behavior shall remain unchanged.
+18. Application/Alloy-configured Loki labels shall remain limited to `service`, `level`, and `event`; Loki-managed `service_name` discovery shall not be treated as a newly configured application label.
+19. Sprint 76 shall add no database migration, dependency, environment variable, Compose service, public port, Kubernetes RBAC resource, or Git tag.
+20. Private npm workspace versions shall remain `0.1.0`.
+21. Product/documentation version shall advance to `v1.16.0`.
+22. Full workspace tests, typecheck, production builds, diff checks, clean-tree checks, runtime security proof, Dashboard boundary proof, and observability preservation checks shall pass.
+
+Implementation status: Complete.
+
+Implementation commits:
+
+- `fce89f224e81335ae78024a22be89cf784c9b6cb` - `fix(security): trust authenticated admin actor context`
+- `d82af694b0642de6a2efd5771bf2dc21f1df5c9e` - `test(security): lock admin authorization matrix`
+- `9cd147d0565be99ddfc1c20b815f9fb230b8f67f` - `test(dashboard): lock admin credential boundary`
+
+Validation baseline:
+
+- Admin Dashboard: 54 test files / 248 tests.
+- API Gateway: 163 test files / 1177 tests.
+- Developer Portal: 2 test files / 7 tests.
+- Product Service: 10 test files / 36 tests.
+- Typecheck, production builds, diff checks, clean-tree verification, and origin synchronization passed.
+- Runtime authorization and Dashboard boundary proofs passed.
+- No Admin credential value appeared in tested responses or Gateway logs.
+- No source or database mutation occurred.
+
+Current sprint: Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
+
+Next sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+<!-- SPRINT-76-REQUIREMENTS-END -->

@@ -273,7 +273,7 @@ Collected services are limited to:
 
 ### Expected Loki labels
 
-Every accepted backend stream must contain exactly:
+All application/Alloy-configured stream labels are limited to:
 
 - `service`
 - `level`
@@ -295,7 +295,7 @@ The following values must remain in the JSON body and must not become labels:
 6. Query Loki by the fixed `service` label.
 7. Locate the matching JSON body by request ID.
 8. Confirm request ID, trace ID, and span ID are present in the body.
-9. Confirm stream labels are exactly `event`, `level`, and `service`.
+9. Confirm application/Alloy-configured stream labels are `event`, `level`, and `service`; Loki label discovery may additionally report managed `service_name`.
 10. Stop Loki and Alloy.
 11. Confirm API Gateway and Product Service health still return HTTP 200.
 12. Restart Loki and Alloy and confirm both recover.
@@ -359,7 +359,7 @@ Variables are limited to `service`, `level`, and `event`. The two logs panels us
 
 ### Label and correlation boundary
 
-The exact stored label allowlist is `service`, `level`, and `event`.
+The application/Alloy-configured label allowlist is `service`, `level`, and `event`. Loki label discovery may additionally report managed `service_name`; it is not a new client-controlled or Sprint-configured application label.
 
 `requestId`, `traceId`, and `spanId` remain JSON body fields and must not become labels or dashboard variables.
 
@@ -403,3 +403,20 @@ Sprint 76 may harden Admin RBAC and platform security after auditing the current
 
 Do not change Grafana, Loki, Alloy, Prometheus, tracing, routing, quota, or analytics behavior merely to implement Admin security.
 <!-- SPRINT-75-RUNBOOK-END -->
+
+<!-- SPRINT-76-OBSERVABILITY-PRESERVATION-START -->
+## Sprint 76 observability preservation
+
+Sprint 76 changes no observability configuration.
+
+Validated preservation evidence:
+
+- API Gateway, Product Service, Prometheus, and Grafana returned HTTP 200.
+- Prometheus remained the default Grafana datasource.
+- Loki remained the non-default datasource.
+- Both PulseGate dashboards remained provisioned.
+- Loki and Alloy remained running.
+- Loki retained zero public host-port bindings.
+- Application/Alloy-configured labels remained `event`, `level`, and `service`.
+- The Loki labels endpoint additionally reported managed `service_name`; this does not widen application label configuration or permit client-controlled high-cardinality values.
+<!-- SPRINT-76-OBSERVABILITY-PRESERVATION-END -->

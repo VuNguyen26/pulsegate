@@ -633,3 +633,29 @@ The Dashboard contract fails closed when:
 
 The Dashboard remains read-only. It has no route mutation, reload, registration, deregistration, health, failover, or traffic-control controls. Only the server-side read-only Admin credential is used, and it is not exposed to the browser.
 <!-- SPRINT-69-DASHBOARD-RUNBOOK-END -->
+
+<!-- SPRINT-76-DASHBOARD-SECURITY-START -->
+## Sprint 76 Dashboard credential boundary
+
+Locked production contract:
+
+- 18 explicit browser-facing BFF resources.
+- Every resource is GET-only.
+- No catch-all or browser-selected Admin API proxy.
+- Server imports remain marked `server-only`.
+- Only `ADMIN_READ_ONLY_API_KEY` is used for Gateway Admin calls.
+- Full-access `ADMIN_API_KEY` remains absent from Dashboard runtime.
+- Admin credential names and values remain absent from client production surfaces.
+
+Runtime proof:
+
+- Dashboard page returned HTTP 200.
+- `GET /api/admin/runtime-status` returned HTTP 200.
+- Gateway read-only Admin GET returned HTTP 200.
+- Gateway read-only mutation returned `403 ADMIN_API_KEY_READ_ONLY`.
+- Tested response bodies contained neither temporary Admin credential value.
+- Gateway logs contained neither temporary Admin credential value.
+- Source and database mutation counts remained zero.
+
+Any Sprint 77 UI polish must preserve these 18 fixed resources and must not add mutation controls, a generic proxy, browser credentials, or full-access Dashboard configuration.
+<!-- SPRINT-76-DASHBOARD-SECURITY-END -->

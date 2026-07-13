@@ -2,13 +2,64 @@
 
 ## Current Version
 
-v1.15.0
+v1.16.0
 
 ## Latest Completed Sprint
 
-Sprint 75 - Grafana observability integration
+Sprint 76 - Admin RBAC/Platform Security Hardening
 
 ## Latest Decision
+
+<!-- SPRINT-76-DECISION-LOG-START -->
+### 2026-07-13 - Derive Admin identity from trusted authentication context
+
+Decision:
+
+- Ignore caller-controlled `x-admin-actor` for authenticated Admin identity.
+- Create request-local trusted context only after full-access or read-only credential verification succeeds.
+- Derive actor `admin-api-key` for full-access requests.
+- Derive actor `admin-read-only-api-key` for read-only requests.
+- Keep the marked global route-registration boundary for all 29 Admin routes.
+- Lock the 18-read/11-mutation authorization matrix in regression tests.
+- Keep the Dashboard at 18 explicit GET-only BFF resources with no catch-all proxy.
+- Keep full-access Admin credentials out of the Dashboard and browser.
+- Preserve all existing routing, quota, analytics, tracing, logging, metrics, scheduler, and retention behavior.
+- Advance product/documentation version to `v1.16.0`.
+- Keep private npm versions and protected tag `v1.0.0` unchanged.
+
+Reason:
+
+- A client-supplied actor header cannot provide trustworthy audit identity.
+- Credential-derived request-local context binds authorization mode and bounded actor attribution to the verified secret.
+- Exact route and BFF matrices prevent future additions from silently widening authorization or proxy scope.
+- The bounded change strengthens local platform security without pretending to provide enterprise identity or IAM.
+
+Consequences:
+
+- Existing Admin mutation audit fields use stable credential-derived actors.
+- Read-only requests have a distinct bounded actor even though mutation remains prohibited.
+- `x-admin-actor` may still arrive as untrusted input but has no identity effect.
+- No database migration, dependency, environment variable, service, port, Kubernetes RBAC resource, or Git tag is introduced.
+- Enterprise SSO, SAML, OIDC, database-backed administrators, organizations, and multi-tenant authorization remain out of scope.
+
+Validation:
+
+- Admin Dashboard: 54 test files / 248 tests.
+- API Gateway: 163 test files / 1177 tests.
+- Developer Portal: 2 test files / 7 tests.
+- Product Service: 10 test files / 36 tests.
+- Root release validation, typecheck, builds, diff checks, clean-tree verification, and origin synchronization passed.
+- Runtime missing, invalid, read-only, and full-access authorization proof passed.
+- Dashboard BFF/page and credential exposure checks passed.
+- Runtime proof caused zero source and database mutation.
+
+Detailed record:
+
+- `docs/project-context/decisions/2026-07-13-admin-rbac-platform-security-hardening.md`
+- `docs/sdlc/sprint-history/sprint-76.md`
+- `docs/runbooks/admin-route-management.md`
+- `docs/runbooks/admin-dashboard.md`
+<!-- SPRINT-76-DECISION-LOG-END -->
 
 <!-- SPRINT-74-DECISION-LOG-START -->
 ### 2026-07-13 - Use bounded stdout collection through Alloy and Loki

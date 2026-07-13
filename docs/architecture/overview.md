@@ -6,33 +6,28 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.15.0
+v1.16.0
 
 ## Current Status
 
-Sprint 75 - Grafana observability integration Complete
+Sprint 76 - Admin RBAC/Platform Security Hardening Complete
 
 Current validation:
 
-- Admin Dashboard: 53 test files / 244 tests passed.
-- API Gateway: 162 test files / 1177 tests passed.
+- Admin Dashboard: 54 test files / 248 tests passed.
+- API Gateway: 163 test files / 1177 tests passed.
 - Developer Portal: 2 test files / 7 tests passed.
 - Product Service: 10 test files / 36 tests passed.
-- Root release validation, typecheck, production builds, Docker Compose validation, bounded k6 smoke, Git diff checks, and three Kustomize renders passed.
-- Grafana provisioned the existing Prometheus datasource and metrics dashboard plus the bounded Loki datasource and logs dashboard.
-- Prometheus remains the default datasource.
-- Loki remains internal, non-default, read-only, and without a public host-port binding.
-- Loki labels remain exactly `service`, `level`, and `event`.
-- Correlation identifiers remain in JSON log bodies only.
-- Applications, Grafana, and Prometheus remained available during a Loki and Alloy outage.
-- Fresh logs reached Loki after Loki and Alloy recovery without restarting unaffected services.
+- Root release validation, typecheck, production builds, diff checks, clean-tree verification, and origin synchronization passed.
+- Runtime Admin authorization and Dashboard credential-boundary proofs passed.
+- No source or database mutation occurred during runtime security validation.
 - Private npm workspace versions remain `0.1.0`.
 - Protected annotated tag `v1.0.0` remains unchanged.
-- Sprint 75 creates no Git tag.
+- Sprint 76 creates no Git tag.
 
-Current sprint: Sprint 76 - Admin RBAC/Platform Security Hardening.
+Current sprint: Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
 
-Next sprint: Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
+Next sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
 
 ## Current High-Level Architecture
 
@@ -559,15 +554,13 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 71 - Kubernetes foundation.
+Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
 
 Rationale:
 
-- Sprint 70 completed bounded process-local service discovery health and failover behavior.
-- Kubernetes work must preserve the existing routing, retry, health, security, quota, analytics, and fail-closed boundaries.
-- Sprint 71 owns Kubernetes configuration foundations; production runtime validation remains assigned to Sprint 72.
-- Kubernetes APIs must not silently become a dynamic service-registry control plane.
-- Raw-event deletion must remain blocked.
+- Sprint 76 completed the trusted request-local Admin authentication context and locked Gateway/Dashboard authorization matrices.
+- Sprint 77 should improve UI state consistency without widening methods, resources, credentials, or browser privileges.
+- The Dashboard must remain a fixed GET-only server-side BFF using only the read-only Admin credential.
 
 ## Selected Summary Runtime Rollup Reads
 
@@ -1799,3 +1792,44 @@ Logs and dashboards remain operational evidence only. They are not sources of tr
 
 Sprint 75 adds no database schema, Kubernetes workload collection, public Loki service, trace backend, cloud vendor, product-facing log explorer, alerting platform, or production durability claim.
 <!-- SPRINT-75-ARCHITECTURE-END -->
+
+<!-- SPRINT-76-ARCHITECTURE-START -->
+## Sprint 76 Admin security architecture
+
+Trusted Admin flow:
+
+~~~text
+Admin request
+  -> fixed Admin API-key header
+  -> timing-safe full-access/read-only verification
+  -> request-local WeakMap authentication context
+  -> bounded accessMode and derived actor
+  -> route handler and persistence audit fields
+~~~
+
+Security properties:
+
+- `x-admin-actor` is caller-controlled and is ignored for authenticated identity.
+- Full-access context uses `accessMode=full-access` and actor `admin-api-key`.
+- Read-only context uses `accessMode=read-only` and actor `admin-read-only-api-key`.
+- Missing context falls back to the bounded actor `admin-api-key`; protected routes still require the marked authentication guard.
+- All 29 registered `/internal/admin` routes remain covered by the global registration boundary.
+- The read-only key is accepted only for the 18 read routes and rejected before all 11 mutations.
+- Missing keys return `401 ADMIN_API_KEY_MISSING`.
+- Invalid keys return `403 ADMIN_API_KEY_INVALID`.
+- Read-only mutation attempts return `403 ADMIN_API_KEY_READ_ONLY`.
+
+Dashboard boundary:
+
+- The Dashboard exposes 18 explicit GET-only BFF resources.
+- No catch-all Admin proxy exists.
+- The Dashboard server uses only `ADMIN_READ_ONLY_API_KEY`.
+- Full-access `ADMIN_API_KEY` remains absent from Dashboard production runtime and browser surfaces.
+- Browser bundles, HTML, BFF responses, and tested logs must not contain Admin credential values.
+
+Observability preservation:
+
+- Sprint 76 changes no tracing, metrics, logging, Grafana, Loki, Alloy, or Prometheus configuration.
+- Application/Alloy-configured Loki labels remain `service`, `level`, and `event`.
+- Loki label discovery may additionally report managed `service_name`; it is not a new client-controlled or Sprint 76-configured label.
+<!-- SPRINT-76-ARCHITECTURE-END -->
