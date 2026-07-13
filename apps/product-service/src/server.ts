@@ -15,6 +15,13 @@ import {
   registerProductTracingMiddleware,
 } from "./middlewares/tracing.middleware.js";
 import {
+  buildProductShutdownFailedLogPayload,
+  buildProductShutdownLogPayload,
+  buildProductStartedLogPayload,
+  buildProductStartupCleanupFailedLogPayload,
+  buildProductStartupFailedLogPayload,
+} from "./observability/logging.js";
+import {
   createTracingRuntime,
 } from "./observability/tracing.js";
 import {
@@ -71,15 +78,15 @@ const start = async () => {
     shutdownPromise ??=
       (async () => {
         app.log.info(
-          { signal },
+          buildProductShutdownLogPayload(signal),
           "Shutting down Product Service",
         );
 
         try {
           await app.close();
-        } catch (error) {
+        } catch {
           app.log.error(
-            error,
+            buildProductShutdownFailedLogPayload(signal),
             "Failed to close Product Service cleanly",
           );
 
@@ -114,16 +121,20 @@ const start = async () => {
     });
 
     app.log.info(
-      `Product Service is running on port ${env.PORT}`,
+      buildProductStartedLogPayload(env.PORT),
+      "Product Service started",
     );
-  } catch (error) {
-    app.log.error(error);
+  } catch {
+    app.log.error(
+      buildProductStartupFailedLogPayload(),
+      "Failed to start Product Service",
+    );
 
     try {
       await app.close();
-    } catch (closeError) {
+    } catch {
       app.log.error(
-        closeError,
+        buildProductStartupCleanupFailedLogPayload(),
         "Failed to close Product Service after startup error",
       );
     }
