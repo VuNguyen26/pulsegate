@@ -75,8 +75,8 @@ footer { padding: 2rem 5vw; border-top: 1px solid #dbe4ee; background: white; }
 
 .docs-layout {
   display: grid;
-  grid-template-columns: minmax(190px, 250px) minmax(0, 1fr);
-  gap: 2rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
   align-items: start;
 }
 
@@ -96,6 +96,7 @@ footer { padding: 2rem 5vw; border-top: 1px solid #dbe4ee; background: white; }
 
 .docs-toc ul {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: .55rem;
   margin: 0;
   padding: 0;
@@ -293,6 +294,10 @@ footer { padding: 2rem 5vw; border-top: 1px solid #dbe4ee; background: white; }
 }
 
 @media (max-width: 620px) {
+  .docs-toc ul {
+    grid-template-columns: 1fr;
+  }
+
   .endpoint-detail-grid,
   .definition-grid {
     grid-template-columns: 1fr;
