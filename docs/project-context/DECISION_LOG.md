@@ -2,7 +2,7 @@
 
 ## Current Version
 
-v1.13.0
+v1.14.0
 
 Private npm workspace package versions remain `0.1.0`.
 
@@ -10,10 +10,50 @@ The annotated `v1.0.0` Git tag remains unchanged at the final Sprint 60 document
 
 ## Latest Completed Sprint
 
-Sprint 73 - OpenTelemetry tracing foundation
+Sprint 74 - Loki logging foundation
 
 ## Latest Decision
 
+<!-- SPRINT-74-DECISION-LOG-START -->
+### 2026-07-13 - Use bounded stdout collection through Alloy and Loki
+
+Decision:
+
+- Emit bounded JSON runtime logs from API Gateway and Product Service.
+- Disable automatic Fastify request logging.
+- Use fixed event names and bounded error codes.
+- Keep request ID, trace ID, and span ID in log bodies only.
+- Limit Loki labels to `service`, `level`, and `event`.
+- Collect only API Gateway and Product Service Docker stdout through Grafana Alloy.
+- Keep Loki internal to the Compose network.
+- Keep application availability independent from Loki and Alloy.
+- Treat Loki filesystem storage as local/development-only.
+- Defer Grafana Loki datasource and visualization to Sprint 75.
+- Advance product/documentation version to `v1.14.0`.
+- Keep private npm versions and protected tag `v1.0.0` unchanged.
+
+Reason:
+
+- A fixed three-label allowlist provides useful filtering without per-request cardinality.
+- Structured stdout avoids a direct application dependency on Loki.
+- Alloy isolates collection failures from request processing.
+- Internal-only exposure and local filesystem storage match the bounded local runtime without making production durability claims.
+
+Consequences:
+
+- Operators can query centralized backend logs through Loki.
+- Correlation identifiers require JSON body search rather than label selection.
+- Logging outages do not make API Gateway or Product Service unavailable.
+- Grafana integration remains Sprint 75 scope.
+- Logs remain operational diagnostics and not routing, security, quota, billing, health, or analytics truth.
+- No migration, Kubernetes manifest, npm version, or Git tag is introduced.
+
+Detailed record:
+
+- `docs/project-context/decisions/2026-07-13-loki-logging-foundation.md`
+- `docs/sdlc/sprint-history/sprint-74.md`
+- `docs/runbooks/observability-validation.md`
+<!-- SPRINT-74-DECISION-LOG-END -->
 <!-- SPRINT-73-DECISION-LOG-START -->
 ### 2026-07-12 - Use bounded manual OpenTelemetry tracing without a runtime exporter
 

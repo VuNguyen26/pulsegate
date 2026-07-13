@@ -2,29 +2,32 @@
 
 High-Traffic API Gateway & Observability Platform.
 
-## Current product/documentation version - v1.13.0
+## Current product/documentation version - v1.14.0
 
-**Latest completed sprint:** Sprint 73 - OpenTelemetry tracing foundation.
+**Latest completed sprint:** Sprint 74 - Loki logging foundation.
 
 Current validation baseline:
 
 - Admin Dashboard: 53 test files / 244 tests passed.
-- API Gateway: 158 test files / 1160 tests passed.
+- API Gateway: 162 test files / 1177 tests passed.
 - Developer Portal: 2 test files / 7 tests passed.
-- Product Service: 2 test files / 8 tests passed.
-- Root tests, typecheck, production builds, release-readiness validation, and Git diff checks passed.
-- API Gateway and Product Service production images built with direct OpenTelemetry runtime dependencies.
-- Kustomize base and local overlay renders passed without manifest changes.
-- Product Service and API Gateway migration deploy commands reported no pending migrations; the schemas retain 1 and 11 migrations respectively.
-- Docker Compose runtime returned HTTP 200 for Product Service health, API Gateway health, and Gateway-to-Product-Service proxy health.
-- A fixed inbound W3C trace ID continued through the Gateway and appeared with a bounded span ID in the structured access log.
-- Kubernetes cluster runtime was not re-applied in Sprint 73 because no Kubernetes manifest, service, port, Secret, or workload contract changed.
+- Product Service: 10 discovered test files / 36 tests passed, including compiled `dist` mirrors present during the full workspace run.
+- Full workspace tests, typecheck, production builds, Docker Compose configuration, and Git diff checks passed.
+- API Gateway and Product Service health returned HTTP 200.
+- Loki readiness returned `ready`; Alloy readiness returned `Alloy is ready`.
+- Product Service and API Gateway reported 1 and 11 migrations respectively, with no pending migrations.
+- Kustomize renders passed with 13 base, 10 local bootstrap, and 13 local application resources.
+- Kubernetes context remained `docker-desktop`, but the API server was unreachable; no cluster apply was attempted.
+- Loki streams for API Gateway and Product Service contained exactly `service`, `level`, and `event`.
+- Request ID, trace ID, and span ID remained in JSON log bodies and never became Loki labels.
+- Both backend applications remained healthy while Loki and Alloy were stopped.
+- Loki and Alloy restarted successfully.
 
 Private npm workspace versions remain `0.1.0`.
 
-The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 73 creates no Git tag.
+The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 74 creates no Git tag.
 
-Next planned sprint: **Sprint 74 - Loki logging foundation**.
+Next planned sprint: **Sprint 75 - Grafana observability integration**.
 
 ---
 ## Current Status
@@ -37,6 +40,8 @@ PulseGate currently includes:
 - PostgreSQL with Prisma
 - Redis
 - Prometheus
+- Loki
+- Grafana Alloy
 - Grafana
 - Bounded Docker-based k6 smoke validation
 - GitHub Actions CI/CD
@@ -142,6 +147,8 @@ Latest validation:
 - Prisma
 - Redis
 - Prometheus
+- Loki
+- Grafana Alloy
 - Grafana
 - GitHub Actions
 
@@ -154,7 +161,9 @@ Latest validation:
 - Grafana: 3002
 - PostgreSQL: 5432
 - Redis: 6379
-- Prometheus: 9090
+- Prometheus
+- Loki
+- Grafana Alloy: 9090
 
 ---
 
@@ -189,8 +198,11 @@ Current gateway capabilities:
 - Analytics retention repository safety primitives
 - Analytics retention execution service orchestration preview
 - OpenTelemetry backend tracing foundation with bounded W3C propagation
+- Bounded centralized backend logging through Grafana Alloy and Loki
 - Structured access logs with trace/span correlation
-- Prometheus metrics with bounded matched-route templates and fixed `__unmatched__` fallback
+- Prometheus
+- Loki
+- Grafana Alloy metrics with bounded matched-route templates and fixed `__unmatched__` fallback
 - Provisioned five-panel Grafana gateway dashboard
 - Bounded Docker-based k6 health smoke
 
@@ -302,7 +314,9 @@ Current analytics limitations:
 - Selected consumer usage, API key usage, and rejected summary APIs can opt into bounded rollup reads with raw-summary fallback; default behavior remains raw-event summary.
 - Direct command execute and guarded process-local dry-run runtime paths exist, but external scheduler runtime execution, scheduled/background execute, and an autonomous scheduler loop remain unavailable.
 - Retention operator preview exists, but no retention execute command, delete API, scheduled delete job, operator-facing `deleteCandidates`, or raw event deletion path exists.
-- Prometheus, Grafana, and rollup tables are not quota-counting sources of truth.
+- Prometheus
+- Loki
+- Grafana Alloy, Grafana, and rollup tables are not quota-counting sources of truth.
 ---
 
 ## Useful Commands
@@ -391,7 +405,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-69.md
+- docs/sdlc/sprint-history/sprint-74.md
 
 Latest observability and analytics runbooks:
 
@@ -409,7 +423,7 @@ Latest observability and analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-12-service-discovery-foundation.md
+- docs/project-context/decisions/2026-07-13-loki-logging-foundation.md
 
 ---
 
@@ -1370,3 +1384,51 @@ Product/documentation version: **v1.13.0**.
 
 Next planned sprint: **Sprint 74 - Loki logging foundation**.
 <!-- SPRINT-73-README-END -->
+
+<!-- SPRINT-74-README-START -->
+## Sprint 74 - Loki logging foundation
+
+Sprint 74 adds bounded centralized backend logging for API Gateway and Product Service through structured stdout, Grafana Alloy, and Loki.
+
+Delivered:
+
+- Normalized runtime access, error, rejection, dependency, lifecycle, retry, rate-limit, tracing, and route-loader logs around fixed events and bounded error codes.
+- Disabled automatic Fastify request logging in API Gateway and Product Service.
+- Preserved one explicit bounded `http_request_completed` event per backend request.
+- Added Loki `3.7.3` as an internal Docker Compose service without a public host port.
+- Added Grafana Alloy `1.17.1` Docker discovery for API Gateway and Product Service only.
+- Parsed JSON stdout and retained exactly `service`, `level`, and `event` as Loki labels.
+- Kept request ID, trace ID, and span ID in JSON bodies rather than labels.
+- Preserved backend availability when Loki and Alloy were stopped.
+
+Validation:
+
+- Admin Dashboard: 53 test files / 244 tests.
+- API Gateway: 162 test files / 1177 tests.
+- Developer Portal: 2 test files / 7 tests.
+- Product Service: 10 discovered test files / 36 tests, including compiled `dist` mirrors.
+- Full workspace tests, typecheck, builds, Compose configuration, and diff checks passed.
+- Gateway and Product Service health returned HTTP 200.
+- Loki and Alloy readiness passed.
+- Product Service and Gateway migrations reported no pending work.
+- Kustomize renders contained 13 base, 10 local bootstrap, and 13 local application resources.
+- Kubernetes context `docker-desktop` was unreachable, so no apply was attempted.
+- Both backend Loki streams used exactly `event`, `level`, and `service`.
+- Correlation identifiers remained in JSON bodies.
+- Both backend services remained healthy while logging services were stopped.
+- Logging services recovered successfully.
+
+Boundaries:
+
+- No Grafana Loki datasource, log dashboard, log panel, or operator log UI.
+- No browser, Dashboard, Developer Portal, or Kubernetes workload log collection.
+- No request, trace, span, raw path, URL, credential, body, query, API key, JWT, database URL, Redis credential, Kubernetes Secret, or free-form exception label.
+- No tracing exporter or tracing backend.
+- No production Loki durability, high availability, backup, restore, retention, or sizing claim.
+- No database migration, Kubernetes manifest change, npm workspace version change, or Git tag.
+- Logs remain operational diagnostics only.
+
+Product/documentation version: **v1.14.0**.
+
+Next planned sprint: **Sprint 75 - Grafana observability integration**.
+<!-- SPRINT-74-README-END -->

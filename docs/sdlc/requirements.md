@@ -6,11 +6,11 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.13.0
+v1.14.0
 
 ## Latest Completed Sprint
 
-Sprint 73 - OpenTelemetry tracing foundation
+Sprint 74 - Loki logging foundation
 
 ---
 ## Document Scope
@@ -2276,3 +2276,34 @@ Validation baseline:
 
 Next sprint: Sprint 74 - Loki logging foundation.
 <!-- SPRINT-73-REQUIREMENTS-END -->
+
+<!-- SPRINT-74-REQUIREMENTS-START -->
+## Sprint 74 acceptance requirements
+
+1. API Gateway and Product Service shall emit bounded structured JSON runtime logs.
+2. Automatic Fastify request logging shall be disabled in both backend services.
+3. Each backend shall emit one explicit bounded request-completion event.
+4. Runtime log events shall use fixed event names.
+5. Runtime failure events shall use bounded error codes and shall not include free-form exception messages.
+6. Request ID, trace ID, and span ID may appear in JSON log bodies for correlation.
+7. Request ID, trace ID, and span ID shall never become Loki labels.
+8. Loki labels shall be limited to `service`, `level`, and `event`.
+9. Raw paths, raw URLs, credentials, bodies, queries, API keys, JWTs, database URLs, Redis credentials, Kubernetes Secrets, and client-controlled values shall not become Loki labels.
+10. Alloy shall collect only API Gateway and Product Service Docker stdout.
+11. Loki shall remain internal to the Docker Compose network and shall not expose a public host port.
+12. Application startup, health, and request processing shall not depend on Loki or Alloy availability.
+13. Loki filesystem storage shall be documented as local/development-only storage.
+14. Sprint 74 shall not claim production durability, high availability, backup, restore, retention sizing, or cloud logging.
+15. Sprint 74 shall not add a Grafana Loki datasource, log dashboard, log panel, or operator log UI.
+16. Sprint 74 shall not add browser, Dashboard, Developer Portal, or Kubernetes workload log collection.
+17. Sprint 74 shall not change routing, failover, authentication, quota, cache, analytics, metrics, or tracing sources of truth.
+18. Sprint 74 shall add no database schema or migration.
+19. Sprint 74 shall add no Kubernetes manifest, ServiceAccount, RBAC, Secret, Service, or port.
+20. Private npm workspace versions shall remain `0.1.0`.
+21. Protected tag `v1.0.0` shall remain unchanged.
+22. Sprint 74 shall create no Git tag.
+23. Product/documentation version shall advance to `v1.14.0`.
+24. Full workspace tests, typecheck, production build, Compose configuration, runtime logging proof, migration status, Kustomize rendering, Git diff checks, and clean-tree checks shall pass.
+
+Next sprint: Sprint 75 - Grafana observability integration.
+<!-- SPRINT-74-REQUIREMENTS-END -->

@@ -258,3 +258,88 @@ docker compose down --remove-orphans
 - Traces are not quota, analytics, billing, routing, health, or authentication truth.
 - Kubernetes manifests are unchanged; render validation is sufficient for Sprint 73 unless an explicit cluster-runtime validation is separately approved.
 <!-- SPRINT-73-TRACING-RUNBOOK-END -->
+
+<!-- SPRINT-74-OBSERVABILITY-RUNBOOK-START -->
+## Sprint 74 Loki logging validation
+
+### Scope
+
+Sprint 74 validates structured backend stdout collection through Grafana Alloy into Loki.
+
+Collected services are limited to:
+
+- API Gateway
+- Product Service
+
+### Expected Loki labels
+
+Every accepted backend stream must contain exactly:
+
+- `service`
+- `level`
+- `event`
+
+The following values must remain in the JSON body and must not become labels:
+
+- request ID
+- trace ID
+- span ID
+
+### Runtime checks
+
+1. Start API Gateway, Product Service, Loki, and Alloy through Docker Compose.
+2. Confirm API Gateway and Product Service health return HTTP 200.
+3. Confirm Loki `/ready` returns `ready`.
+4. Confirm Alloy `/-/ready` reports ready.
+5. Send requests with explicit bounded request IDs.
+6. Query Loki by the fixed `service` label.
+7. Locate the matching JSON body by request ID.
+8. Confirm request ID, trace ID, and span ID are present in the body.
+9. Confirm stream labels are exactly `event`, `level`, and `service`.
+10. Stop Loki and Alloy.
+11. Confirm API Gateway and Product Service health still return HTTP 200.
+12. Restart Loki and Alloy and confirm both recover.
+
+### Security checks
+
+Reject validation when any stream label contains:
+
+- request ID
+- trace ID
+- span ID
+- raw request path
+- raw URL
+- API key
+- JWT
+- credential
+- database URL
+- Redis credential
+- Kubernetes Secret
+- free-form exception message
+
+### Deployment checks
+
+- Product Service migration deploy shall report 1 migration and no pending migration.
+- API Gateway migration deploy shall report 11 migrations and no pending migration.
+- Kustomize render counts shall remain 13 base, 10 local bootstrap, and 13 local applications.
+- Cluster apply is not required when the configured Kubernetes API is unreachable.
+- Do not automatically enable or reconfigure the user-owned Kubernetes cluster.
+
+### Storage boundary
+
+Loki filesystem storage is local/development-only.
+
+This validation does not establish production retention, durability, replication, backup, restore, capacity, or high availability.
+
+### Sprint 75 handoff
+
+Sprint 75 may provision Grafana access to Loki and add bounded log visualization.
+
+It must preserve:
+
+- the exact three-label allowlist
+- body-only correlation identifiers
+- application independence from logging services
+- internal-only Loki exposure
+- no observability source-of-truth expansion
+<!-- SPRINT-74-OBSERVABILITY-RUNBOOK-END -->

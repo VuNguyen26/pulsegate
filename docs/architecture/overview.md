@@ -6,25 +6,27 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.13.0
+v1.14.0
 
 ## Current Status
 
-Sprint 73 - OpenTelemetry tracing foundation Complete
+Sprint 74 - Loki logging foundation Complete
 
 Current validation:
 
 - Admin Dashboard: 53 test files / 244 tests passed.
-- API Gateway: 158 test files / 1160 tests passed.
+- API Gateway: 162 test files / 1177 tests passed.
 - Developer Portal: 2 test files / 7 tests passed.
-- Product Service: 2 test files / 8 tests passed.
-- Root tests, typecheck, production builds, release-readiness validation, and Git diff checks passed.
-- API Gateway and Product Service images built with OpenTelemetry runtime dependencies.
-- Kustomize base and local overlay renders passed with no manifest changes.
-- Product Service and API Gateway migration deploy commands reported no pending migrations.
-- Docker Compose runtime returned HTTP 200 for both service health endpoints and Gateway proxy health.
-- W3C trace continuity and bounded Gateway access-log trace/span correlation passed.
-- Kubernetes cluster runtime was not re-applied because Sprint 73 changed no deployment contract.
+- Product Service: 10 discovered test files / 36 tests passed, including compiled `dist` mirrors.
+- Full workspace tests, typecheck, production builds, Docker Compose configuration, and Git diff checks passed.
+- API Gateway and Product Service health returned HTTP 200.
+- Loki and Alloy readiness passed.
+- Product Service and Gateway migrations reported no pending work.
+- Kustomize renders contained 13 base, 10 local bootstrap, and 13 local application resources.
+- Kubernetes context `docker-desktop` was unreachable; no cluster apply was attempted.
+- Backend Loki streams contained only `service`, `level`, and `event`.
+- Correlation identifiers remained in JSON log bodies.
+- Applications remained available during a Loki and Alloy outage.
 - Private npm workspace versions remain 0.1.0.
 - Protected annotated tag v1.0.0 remains unchanged.
 PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
@@ -548,8 +550,8 @@ Core:
 - Exact host-based routing is implemented; wildcard hosts and host analytics dimensions are not implemented.
 - Bounded configured service discovery now includes process-local passive health state and retry-budget failover.
 - No active background polling, distributed health state, external registry, DNS discovery, circuit breaker, or general outlier-ejection platform is implemented.
-- OpenTelemetry tracing is not implemented yet.
-- Loki centralized logging is not implemented yet.
+- OpenTelemetry tracing is implemented as a bounded local instrumentation foundation without an exporter.
+- Loki centralized logging is implemented for API Gateway and Product Service through internal Compose services and bounded labels.
 - Only bounded local k6 health smoke validation is implemented; a production-scale load-test platform is not.
 - Kafka and RabbitMQ are not implemented yet.
 - Kubernetes and cloud deployment are planned for later.
@@ -1687,3 +1689,80 @@ Tracing does not record raw API keys, hashes, JWTs, Authorization, Cookie, sessi
 
 Sprint 73 adds no service, port, environment variable, Secret, migration, Kubernetes manifest, ServiceAccount, RBAC, Ingress, NodePort, LoadBalancer, collector, or tracing backend. Kustomize render validation passed, while cluster apply was not repeated because manifests and workload contracts were unchanged.
 <!-- SPRINT-73-ARCHITECTURE-END -->
+
+<!-- SPRINT-74-ARCHITECTURE-START -->
+## Loki logging boundary (Sprint 74)
+
+### Runtime topology
+
+    API Gateway / Product Service
+      -> bounded Pino-compatible JSON stdout
+      -> Grafana Alloy Docker discovery
+      -> JSON parsing
+      -> fixed label allowlist
+      -> Loki internal Compose endpoint
+      -> local filesystem storage
+
+### Application logging contract
+
+- API Gateway and Product Service disable automatic Fastify request logging.
+- Each backend emits one explicit bounded `http_request_completed` event per request.
+- Runtime access, error, rejection, dependency, lifecycle, retry, rate-limit, tracing, and route-loader paths use fixed events.
+- Error paths use bounded error codes rather than free-form exception messages.
+- Request ID, trace ID, and span ID remain JSON body correlation fields.
+- Application log writes remain stdout operations and do not call Loki directly.
+
+### Collection and label contract
+
+Alloy discovers Docker containers but retains only:
+
+- `pulsegate-api-gateway`
+- `pulsegate-product-service`
+
+Loki stream labels are limited to:
+
+- `service`
+- `level`
+- `event`
+
+Request identifiers, trace identifiers, span identifiers, raw paths, raw URLs, client identities, credentials, bodies, query strings, API keys, JWTs, database URLs, Redis credentials, Kubernetes Secrets, and free-form errors are not labels.
+
+### Availability boundary
+
+Loki and Alloy are independent infrastructure services.
+
+Stopping both services does not stop API Gateway or Product Service, and both `/health` endpoints continue to return HTTP 200.
+
+Loki is not exposed through a host port. The applications do not wait for Loki or Alloy during startup and do not use logging availability for request admission, routing, health, authentication, quota, or failover decisions.
+
+### Storage and deployment boundary
+
+Loki filesystem storage is local/development storage only.
+
+Sprint 74 does not claim:
+
+- durable production storage
+- backup or restore
+- high availability
+- replication
+- production retention
+- capacity sizing
+- cloud logging integration
+
+No Kubernetes logging agent, DaemonSet, Sidecar, ServiceAccount, RBAC, Secret, Service, port, or manifest was added.
+
+### Source-of-truth boundary
+
+Logs and traces remain operational diagnostics only.
+
+They are not sources of truth for:
+
+- authentication or authorization
+- routing or service discovery
+- failover health
+- quota or billing
+- successful usage analytics
+- rejected-event analytics
+
+Sprint 75 may add a Grafana Loki datasource and bounded log visualization while preserving this label, security, availability, and source-of-truth contract.
+<!-- SPRINT-74-ARCHITECTURE-END -->
