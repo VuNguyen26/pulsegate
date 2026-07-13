@@ -135,6 +135,14 @@ describe("jwtAuthMiddleware", () => {
       },
     });
     expect(request.jwtPayload).toBeUndefined();
+    expect(request.log.warn).toHaveBeenCalledWith(
+      {
+        event: "jwt_token_invalid",
+        requestId: "test-request-id",
+        errorCode: "JWT_TOKEN_INVALID",
+      },
+      "Invalid JWT token",
+    );
   });
 
   it("should attach JWT payload to request when Bearer token is valid", async () => {

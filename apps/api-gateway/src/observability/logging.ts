@@ -80,3 +80,12 @@ export function buildGatewayStartupCleanupFailedLogPayload() {
     errorCode: "GATEWAY_STARTUP_CLEANUP_FAILED" as const,
   };
 }
+export function buildJwtInvalidLogPayload(
+  requestId: string,
+) {
+  return {
+    event: "jwt_token_invalid" as const,
+    requestId,
+    errorCode: "JWT_TOKEN_INVALID" as const,
+  };
+}

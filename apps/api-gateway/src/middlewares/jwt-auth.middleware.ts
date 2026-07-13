@@ -5,6 +5,9 @@ import {
   env,
 } from "../config/env.js";
 import {
+  buildJwtInvalidLogPayload,
+} from "../observability/logging.js";
+import {
   recordRequestTracingOutcome,
 } from "./tracing.middleware.js";
 
@@ -84,17 +87,14 @@ export async function jwtAuthMiddleware(
     const payload = await verifyJwtToken(token);
 
     request.jwtPayload = payload;
-  } catch (error) {
+  } catch {
     recordRequestTracingOutcome(request, {
       errorCode: "JWT_TOKEN_INVALID",
       rejectionReason: "JWT_TOKEN_INVALID",
     });
 
     request.log.warn(
-      {
-        error,
-        requestId: request.id,
-      },
+      buildJwtInvalidLogPayload(request.id),
       "Invalid JWT token"
     );
 
