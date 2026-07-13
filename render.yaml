@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: pulsegate-public-demo-api
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: deploy/public-demo
+    dockerfilePath: ./deploy/public-demo/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PRODUCT_DATABASE_URL
+        sync: false
+      - key: GATEWAY_DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: API_KEY_HEADER
+        value: x-api-key
+      - key: API_KEYS
+        sync: false
+      - key: ADMIN_API_KEY_HEADER
+        value: x-admin-api-key
+      - key: ADMIN_API_KEY
+        sync: false
+      - key: ADMIN_READ_ONLY_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_ISSUER
+        value: pulsegate-api-gateway
+      - key: JWT_AUDIENCE
+        value: pulsegate-clients
+      - key: JWT_EXPIRES_IN_SECONDS
+        value: "900"
+      - key: DOWNSTREAM_REQUEST_TIMEOUT_MS
+        value: "3000"
+      - key: MAX_REQUEST_BODY_BYTES
+        value: "1048576"
+      - key: PRODUCT_PRODUCTS_RATE_LIMIT_MAX_REQUESTS
+        value: "5"
+      - key: PRODUCT_PRODUCTS_RATE_LIMIT_WINDOW_MS
+        value: "60000"

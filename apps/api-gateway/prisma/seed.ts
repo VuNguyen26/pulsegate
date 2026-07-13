@@ -2,6 +2,10 @@ import { Prisma, PrismaClient } from "../src/generated/prisma/index.js";
 
 const prisma = new PrismaClient();
 
+const productServiceUrl =
+  process.env.PRODUCT_SERVICE_URL?.trim().replace(/\/+$/, "") ??
+  "http://product-service:3001";
+
 type SeedGatewayRouteInput = {
   serviceName: string;
   gatewayPath: string;
@@ -79,7 +83,7 @@ async function main() {
   await upsertActiveGatewayRoute({
     serviceName: "product-service",
     gatewayPath: "/api/products",
-    downstreamUrl: "http://product-service:3001/products",
+    downstreamUrl: `${productServiceUrl}/products`,
     method: "GET",
     enabled: true,
     priority: 100,
@@ -113,7 +117,7 @@ async function main() {
   await upsertActiveGatewayRoute({
     serviceName: "product-service",
     gatewayPath: "/api/product-service/health",
-    downstreamUrl: "http://product-service:3001/health",
+    downstreamUrl: `${productServiceUrl}/health`,
     method: "GET",
     enabled: true,
     priority: 200,
