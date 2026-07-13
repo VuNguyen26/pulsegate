@@ -300,7 +300,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-77.md
+- [Sprint 78 history](docs/sdlc/sprint-history/sprint-78.md)
 
 Latest observability and analytics runbooks:
 
@@ -318,19 +318,24 @@ Latest observability and analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-13-ui-loading-empty-error-responsive-polish.md
+- [Sprint 78 end-to-end validation decision](docs/project-context/decisions/2026-07-13-end-to-end-demo-lightweight-k6-validation.md)
 
 ---
 
-## Recommended Next Sprint
+## Current Sprint and Release Boundary
 
-Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
-
-Reason:
+Current sprint: **Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup**.
 
 - Sprint 78 completed the bounded end-to-end demo and lightweight local k6 validation.
-- Sprint 79 owns v2 documentation, runbook, and architecture cleanup.
-- Sprint 79 must preserve implementation behavior and must not begin the Sprint 80 release or create `v2.0.0` early.
+- Sprint 79 owns documentation, runbook, architecture, navigation, link, and encoding cleanup only.
+- Sprint 80 remains the Product/Platform v2 release sprint.
+- The `v2.0.0` tag must not be created during Sprint 79.
+
+## Historical Sprint Summaries
+
+The sections below are retained historical snapshots. Their version, current-sprint, next-sprint, test-count, and validation statements describe the repository at the time of each sprint and are not the current canonical state.
+
+For current state, use [Current Progress](docs/project-context/CURRENT_PROGRESS.md) and [AI Handoff](docs/project-context/AI_HANDOFF.md).
 
 ## Sprint 55 Completion
 
@@ -932,7 +937,7 @@ Product/documentation version advances to `v1.6.0`. Private npm workspace versio
 Next sprint: Sprint 67 - Host-based routing foundation.
 <!-- SPRINT-66-END -->
 
-## Sprint 67 â€” Host-based routing foundation
+## Sprint 67 — Host-based routing foundation
 
 PulseGate now supports exact normalized request-host route conditions while preserving path-only routes as explicit fallbacks.
 
@@ -950,7 +955,7 @@ PulseGate now supports exact normalized request-host route conditions while pres
 
 Current product/documentation version: **v1.7.0**. Private npm workspace versions remain **0.1.0**.
 
-Next planned sprint: **Sprint 68 â€” Weighted routing foundation**.
+Next planned sprint: **Sprint 68 — Weighted routing foundation**.
 
 <!-- SPRINT-68-README-START -->
 ## Sprint 68 - Weighted routing foundation
