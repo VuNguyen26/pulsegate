@@ -4,6 +4,10 @@ import {
   isDownstreamServiceError,
 } from "../errors/downstream-service-error.js";
 import {
+  buildDownstreamErrorLogPayload,
+  buildUnhandledGatewayErrorLogPayload,
+} from "../observability/logging.js";
+import {
   recordRequestTracingOutcome,
 } from "./tracing.middleware.js";
 
@@ -30,12 +34,7 @@ export function registerErrorHandlers(app: FastifyInstance): void {
       });
 
       request.log.warn(
-        {
-          code: error.code,
-          service: error.service,
-          requestId: request.id,
-          originalError: error.originalError,
-        },
+        buildDownstreamErrorLogPayload(error, request.id),
         "Downstream service error"
       );
 
@@ -54,10 +53,7 @@ export function registerErrorHandlers(app: FastifyInstance): void {
     });
 
     request.log.error(
-      {
-        error,
-        requestId: request.id,
-      },
+      buildUnhandledGatewayErrorLogPayload(request.id),
       "Unhandled API Gateway error"
     );
 
