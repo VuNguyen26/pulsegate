@@ -1,6 +1,18 @@
 # AI Handoff
 
-PulseGate is complete through Sprint 78 - End-to-End Demo and Lightweight k6 Validation. Sprint 79 is documentation-only cleanup. Sprint 80 remains the Product/Platform v2 release sprint.
+PulseGate is complete through No sprint is defined beyond the fixed Sprint 45-80 roadmap. sprint.
+
+## Canonical Sprint 80 handoff
+
+- Product/documentation version: `v1.19.0`.
+- Latest completed sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
+- Current sprint: Sprint 80 - Product/Platform v2 Release.
+- No sprint is defined beyond the fixed Sprint 45-80 roadmap.
+- Start Sprint 80 from the final Sprint 79 documentation state.
+- Keep all private first-party workspace versions at `0.1.0` unless an explicitly audited release requirement changes them.
+- Preserve annotated tag `v1.0.0`.
+- Do not create `v2.0.0` before Sprint 80 release criteria and final validation pass.
+- Sprint 79 full validation report SHA-256: `BF578349A4281069904865CC2F10EE2061A3954AF329630878B9BE79EC477182`.
 
 ## Start here
 
@@ -15,7 +27,7 @@ PulseGate is complete through Sprint 78 - End-to-End Demo and Lightweight k6 Val
 
 - Expected branch: `main`.
 - Expected Sprint 78 baseline commit: `310806edfff40fe7e3a6dd24d1edc700e14a3143`.
-- Product/documentation version: `v1.18.0`.
+- Product/documentation version: `v1.19.0`.
 - Private first-party npm workspace versions: `0.1.0`.
 - Latest completed sprint: Sprint 78.
 - Current sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.

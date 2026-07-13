@@ -2,9 +2,9 @@
 
 ## Status
 
-Finalization preparation is in progress.
+Complete.
 
-- Product/documentation version remains `v1.18.0` during implementation checkpoints.
+- Final product/documentation version is `v1.19.0`.
 - Private first-party npm workspace versions remain `0.1.0`.
 - No Sprint 79 Git tag exists.
 - `v1.19.0` is reserved for successful Sprint 79 finalization.
@@ -105,7 +105,11 @@ Changes:
 
 ## Checkpoint 79.5 - Navigation and finalization preparation
 
-Prepared changes:
+Commit:
+
+- `46ce60eb32e66f71fd269e68512e8aeb913386b6` — `docs: prepare sprint 79 finalization`
+
+Completed changes:
 
 - Complete filename coverage for all decision records in DECISION_LOG.
 - Add the Sprint 79 documentation cleanup decision record.
@@ -124,15 +128,39 @@ Prepared changes:
   - tag object `726feb46e62a3224f7e27d55ae4f9e74dd6b1123`
   - target `407d03678674219e7228b15f0cd7a23074493f31`
 
-## Remaining finalization work
+## Final validation and completion
 
-- Update canonical state from Sprint 79 current to Sprint 79 complete.
-- Advance product/documentation version from `v1.18.0` to `v1.19.0`.
-- Keep all private workspace versions at `0.1.0`.
-- Run documentation, test, typecheck, production build, release-readiness, Compose, Git, package-lock, and protected-tag validation.
-- Create the final documentation-only Sprint 79 commit and push it.
-- Create no Sprint 79 tag.
-- Leave `v2.0.0` and Product/Platform v2 release execution to Sprint 80.
+Sprint 79 completed successfully.
+
+- Product/documentation version: `v1.19.0`.
+- Latest completed sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
+- Current sprint: Sprint 80 - Product/Platform v2 Release.
+- No sprint is defined beyond the fixed Sprint 45-80 roadmap.
+- Full validation baseline: `46ce60eb32e66f71fd269e68512e8aeb913386b6`.
+- Full validation report: `E:\pulsegate-artifacts\sprint-79-final-validation\checkpoint-79-6-full-validation-report.txt`.
+- Full validation report SHA-256: `BF578349A4281069904865CC2F10EE2061A3954AF329630878B9BE79EC477182`.
+- Admin Dashboard: 55 test files / 253 tests passed.
+- API Gateway: 163 test files / 1177 tests passed.
+- Developer Portal: 2 test files / 8 tests passed.
+- Product Service: 10 discovered test files / 36 tests passed.
+- Workspace typecheck passed.
+- Production build passed.
+- Release-readiness validation passed.
+- Compose configuration validated with 10 services.
+- Documentation validation passed for 149 Markdown files under `docs` and 150 total documentation files including README.
+- Missing relative links: 0.
+- Unindexed decision records: 0.
+- Invalid UTF-8 files: 0.
+- Mojibake findings: 0.
+- Duplicate H2 groups: 0.
+- Trailing-whitespace findings: 0.
+- Plain PowerShell `npm` commands in runbooks: 0.
+- Actionable `docker compose down -v` commands: 0.
+- Package-lock SHA-256 remained `0DC54D8748B45FDCC50DC8B5729D13838301F702AB1EB6F6C09814B3E07EEC41`.
+- Protected annotated tag `v1.0.0` remained unchanged.
+- All private first-party workspace versions remained `0.1.0`.
+- Sprint 79 created no Git tag.
+- `v2.0.0` and Product/Platform v2 release execution remain owned by Sprint 80.
 
 ## References
 

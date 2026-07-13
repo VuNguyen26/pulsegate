@@ -1,22 +1,22 @@
 # PulseGate Requirements
 
-## Current normative requirements and delivery boundary
+## Current normative state and Sprint 80 handoff
 
 This section owns the current normative delivery boundary together with `docs/project-context/CURRENT_PROGRESS.md`. Sprint-specific sections later in this document are historical acceptance records; they must not be interpreted as newer canonical state.
 
 ### Current release state
 
-- Product/documentation version: `v1.18.0`.
+- Product/documentation version: `v1.19.0`.
 - Private first-party npm workspace versions: `0.1.0`.
-- Latest completed sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+- Latest completed sprint: No sprint is defined beyond the fixed Sprint 45-80 roadmap..
 - Current sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
 - Next sprint: Sprint 80 - Product/Platform v2 Release.
 - The fixed Sprint 45-80 roadmap remains unchanged.
 - Sprint 79 creates no Git tag.
-- `v1.19.0` may be introduced only during successful Sprint 79 documentation finalization.
+- Sprint 79 finalization advanced product/documentation version to `v1.19.0` without creating a tag.
 - `v2.0.0` remains reserved for Sprint 80.
 
-### Sprint 79 permitted scope
+### Completed Sprint 79 scope
 
 - Clarify canonical current-state documentation.
 - Consolidate overlapping runbooks and correct command defects.
@@ -25,7 +25,7 @@ This section owns the current normative delivery boundary together with `docs/pr
 - Prepare an explicit Sprint 80 release handoff.
 - Preserve historical sprint and decision records unless an exact factual, heading, link, or encoding defect is confirmed.
 
-### Sprint 79 prohibited scope
+### Sprint 79 exclusions retained
 
 - Application-source or application-test-behavior changes.
 - API, database, migration, dependency, package-lock, environment, service, port, Compose, or Kubernetes changes.
@@ -34,6 +34,16 @@ This section owns the current normative delivery boundary together with `docs/pr
 - Sprint 79 tag creation.
 - Sprint 80 release execution.
 - Creation of `v2.0.0`.
+
+### Sprint 80 current handoff boundary
+
+- Treat product/documentation version `v1.19.0` as the official starting baseline.
+- Treat Sprint 79 as complete and Sprint 80 as current.
+- Audit the exact repository state before any release patch.
+- Preserve all application, security, routing, observability, database, Compose, Kubernetes, and protected-tag invariants unless an explicit Sprint 80 requirement changes them.
+- Run the complete release validation strategy before creating `v2.0.0`.
+- Create no release tag from documentation claims alone.
+- Keep Product/Platform v2 release execution inside Sprint 80.
 
 ### Required platform invariants
 

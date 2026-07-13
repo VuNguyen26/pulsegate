@@ -2,9 +2,21 @@
 
 High-Traffic API Gateway & Observability Platform.
 
-## Current product/documentation version - v1.18.0
+## Sprint 79 completion snapshot
 
-**Latest completed sprint:** Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+- Product/documentation version: `v1.19.0`.
+- Latest completed sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
+- Current sprint: Sprint 80 - Product/Platform v2 Release.
+- No sprint is defined beyond the fixed Sprint 45-80 roadmap.
+- Sprint 79 full validation passed at baseline `46ce60eb32e66f71fd269e68512e8aeb913386b6`.
+- Final validation evidence SHA-256: `BF578349A4281069904865CC2F10EE2061A3954AF329630878B9BE79EC477182`.
+- All private first-party workspace versions remain `0.1.0`.
+- Sprint 79 created no Git tag.
+- `v2.0.0` remains reserved for Sprint 80.
+
+## Current product/documentation version - v1.19.0
+
+**Latest completed sprint:** No sprint is defined beyond the fixed Sprint 45-80 roadmap..
 
 Current validation baseline:
 

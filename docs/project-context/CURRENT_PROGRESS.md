@@ -2,11 +2,29 @@
 
 This document is the canonical owner of PulseGate's current version, sprint, Git baseline, validation baseline, and immediate delivery boundary. Historical sprint-specific state remains in `docs/sdlc/sprint-history/`.
 
+## Sprint 79 completion state
+
+- Product/documentation version: `v1.19.0`.
+- Latest completed sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
+- Current sprint: Sprint 80 - Product/Platform v2 Release.
+- No sprint is defined beyond the fixed Sprint 45-80 roadmap.
+- Pre-final-documentation validation baseline: `46ce60eb32e66f71fd269e68512e8aeb913386b6`.
+- Full validation report: `E:\pulsegate-artifacts\sprint-79-final-validation\checkpoint-79-6-full-validation-report.txt`.
+- Full validation report SHA-256: `BF578349A4281069904865CC2F10EE2061A3954AF329630878B9BE79EC477182`.
+- Admin Dashboard: 55 test files / 253 tests.
+- API Gateway: 163 test files / 1177 tests.
+- Developer Portal: 2 test files / 8 tests.
+- Product Service: 10 discovered test files / 36 tests.
+- Workspace typecheck, production build, release-readiness, Compose configuration, documentation integrity, Git integrity, package-lock integrity, and protected-tag validation passed.
+- All private first-party workspace versions remain `0.1.0`.
+- Sprint 79 created no tag.
+- Sprint 80 owns Product/Platform v2 release execution and any `v2.0.0` tag.
+
 ## Canonical state after Sprint 78
 
-- Product/documentation version: `v1.18.0`.
+- Product/documentation version: `v1.19.0`.
 - Private first-party npm workspace versions: `0.1.0`.
-- Latest completed sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+- Latest completed sprint: No sprint is defined beyond the fixed Sprint 45-80 roadmap..
 - Final Sprint 78 documentation commit: `310806edfff40fe7e3a6dd24d1edc700e14a3143`.
 - Sprint 78 implementation commit: `260293efacf063487999d2473d76cc2b03c0c0b9` - `feat(demo): add bounded end-to-end validation flow`.
 - Sprint 78 implementation commit: `4cf3d2d60e5edc4a58449af7d64b3f8a14601f0a` - `test(k6): add bounded end-to-end validation`.

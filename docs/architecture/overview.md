@@ -4,12 +4,12 @@
 
 This section describes the current implementation after Sprint 78. The later sprint-specific sections are additive historical snapshots and do not replace the canonical current state in `docs/project-context/CURRENT_PROGRESS.md`.
 
-- Product/documentation version: `v1.18.0`.
+- Product/documentation version: `v1.19.0`.
 - Private first-party npm workspace versions: `0.1.0`.
-- Latest completed sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+- Latest completed sprint: No sprint is defined beyond the fixed Sprint 45-80 roadmap..
 - Current sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
 - Next sprint: Sprint 80 - Product/Platform v2 Release.
-- The product/documentation version remains `v1.18.0` during Sprint 79 implementation checkpoints. `v1.19.0` is reserved for successful Sprint 79 finalization, while `v2.0.0` remains reserved for Sprint 80.
+- Sprint 79 is complete at product/documentation version `v1.19.0`; no Sprint 79 tag was created, and `v2.0.0` remains reserved for Sprint 80.
 - All 29 Gateway Admin routes remain protected by the trusted Admin boundary and the 18-read/11-mutation authorization matrix.
 - The Admin Dashboard exposes 18 fixed GET-only BFF route files, no non-GET Admin BFF handler, and no generic Admin proxy.
 - `ADMIN_READ_ONLY_API_KEY` remains server-only. Full-access `ADMIN_API_KEY` remains absent from Dashboard runtime and browser surfaces.

@@ -2,11 +2,11 @@
 
 ## Current Version
 
-v1.18.0
+v1.19.0
 
 ## Latest Completed Sprint
 
-Sprint 78 - End-to-End Demo and Lightweight k6 Validation
+Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup
 
 ## Latest Decision
 <!-- SPRINT-78-DECISION-LOG-START -->
@@ -1635,6 +1635,22 @@ The following records existed outside the filename-based decision index or were 
 - [Analytics rollup background scheduler runtime wiring](decisions/2026-07-09-analytics-rollup-background-scheduler-runtime-wiring.md)
 - [Developer Portal API documentation and API-key foundation](decisions/2026-07-11-developer-portal-api-docs-key-foundation.md)
 - [Sprint 79 v2 documentation, runbook, and architecture cleanup](decisions/2026-07-13-v2-docs-runbooks-architecture-cleanup.md)
+
+## 2026-07-13 — Sprint 79 documentation cleanup completed
+
+Sprint 79 completed the bounded documentation, runbook, architecture, requirements, encoding, heading, navigation, and decision-index cleanup.
+
+Final state:
+
+- Product/documentation version advanced from `v1.18.0` to `v1.19.0`.
+- Latest completed sprint is Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
+- Current sprint is Sprint 80 - Product/Platform v2 Release.
+- No Sprint 79 tag was created.
+- `v2.0.0` remains reserved for Sprint 80.
+- All private first-party workspace versions remain `0.1.0`.
+- Full validation passed at baseline `46ce60eb32e66f71fd269e68512e8aeb913386b6`.
+- Validation report SHA-256: `BF578349A4281069904865CC2F10EE2061A3954AF329630878B9BE79EC477182`.
+- Application source, test behavior, dependencies, package-lock, database state, runtime topology, Compose services, Kubernetes resources, and protected tags were unchanged.
 
 ## 2026-07-11 — Sprint 64 analytics operations remain observational
 
