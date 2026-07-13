@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -14,8 +16,31 @@ describe("Admin Dashboard UI boundaries", () => {
     expect(html).toContain('role="status"');
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain('aria-busy="true"');
+    expect(
+      html.match(/aria-hidden="true"/g),
+    ).toHaveLength(2);
   });
 
+  it("keeps primary actions keyboard-visible", () => {
+    const styles = readFileSync(
+      join(process.cwd(), "src", "app", "globals.css"),
+      "utf8",
+    );
+
+    expect(styles).toContain(
+      ".primary-button:focus-visible",
+    );
+    expect(styles).toContain(
+      ".secondary-button:focus-visible",
+    );
+    expect(styles.replace(/\r\n/g, "\n")).toContain(
+      `.primary-button:focus-visible,
+.secondary-button:focus-visible {
+  outline: 2px solid #334155;
+  outline-offset: 2px;
+}`,
+    );
+  });
   it("renders a bounded alert with a safe retry action", () => {
     const html = renderToStaticMarkup(
       <ErrorPage

@@ -293,6 +293,12 @@ a {
   background: #f8fafc;
 }
 
+.primary-button:focus-visible,
+.secondary-button:focus-visible {
+  outline: 2px solid #334155;
+  outline-offset: 2px;
+}
+
 @media (max-width: 520px) {
   .runtime-panel-heading {
     align-items: stretch;
