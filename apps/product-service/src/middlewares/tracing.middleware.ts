@@ -46,6 +46,41 @@ declare module "fastify" {
   }
 }
 
+export function getProductRequestTraceIdentifiers(
+  request: FastifyRequest,
+):
+  | {
+      traceId: string;
+      spanId: string;
+    }
+  | undefined {
+  const state =
+    request.productTracingState;
+
+  if (!state) {
+    return undefined;
+  }
+
+  const {
+    traceId,
+    spanId,
+  } = state.span.spanContext();
+
+  if (
+    !/^[0-9a-f]{32}$/.test(traceId) ||
+    !/^[0-9a-f]{16}$/.test(spanId)
+  ) {
+    return undefined;
+  }
+
+  return {
+    traceId,
+    spanId,
+  };
+}
+
+
+
 function getBoundedMethod(
   request: FastifyRequest,
 ): string {

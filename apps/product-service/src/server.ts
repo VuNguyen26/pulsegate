@@ -6,6 +6,9 @@ import {
   prisma,
 } from "./database/prisma.js";
 import {
+  registerProductAccessLogMiddleware,
+} from "./middlewares/access-log.middleware.js";
+import {
   registerErrorHandlers,
 } from "./middlewares/error-handler.middleware.js";
 import {
@@ -37,6 +40,7 @@ type ShutdownSignal =
 
 const app = Fastify({
   logger: true,
+  disableRequestLogging: true,
   genReqId: generateRequestId,
 });
 
@@ -54,6 +58,10 @@ const tracing =
 registerProductTracingMiddleware(
   app,
   tracing,
+);
+
+registerProductAccessLogMiddleware(
+  app,
 );
 
 registerErrorHandlers(app);
