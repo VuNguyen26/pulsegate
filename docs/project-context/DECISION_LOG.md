@@ -628,11 +628,11 @@ Detailed decision records live in:
 
 ---
 
-## Current Version
+## Historical Version Snapshot
 
 v0.56.0
 
-## Latest Completed Sprint
+## Historical Latest Completed Sprint Snapshot
 
 Sprint 55 - Background Scheduler Runtime Wiring with guardrails
 
@@ -1627,7 +1627,7 @@ Validation:
 - Docker/PostgreSQL runtime validation passed with 7 migrations applied and 2 source-separated `service-dry-run-invoked` results.
 
 <!-- pulsegate:sprint-64:start -->
-## 2026-07-11 â€” Sprint 64 analytics operations remain observational
+## 2026-07-11 — Sprint 64 analytics operations remain observational
 
 **Decision:** expose rollup inspection, scheduler preview, and retention preview as read-only Admin Dashboard resources.
 

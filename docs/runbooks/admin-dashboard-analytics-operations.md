@@ -7,9 +7,9 @@ Version: **v1.4.0**
 
 ### Pages
 
-- /rollups â€” inspect bounded persisted usage or rejected-request rollups.
-- /scheduler â€” inspect a fixed observational scheduler plan and closed runtime gate.
-- /retention â€” inspect fixed 90-day dry-run candidate counts.
+- /rollups — inspect bounded persisted usage or rejected-request rollups.
+- /scheduler — inspect a fixed observational scheduler plan and closed runtime gate.
+- /retention — inspect fixed 90-day dry-run candidate counts.
 
 ### Gateway read endpoints
 

@@ -26,7 +26,7 @@ Implemented:
 - d318494 feat(gateway): add rollup background scheduler contract
 - f65ce85 feat, and field-visibility cases.
 
-## Commits
+## Additional Commits
 
 - d318494 feat(gateway): add rollup background scheduler contract
 - f65ce85 feat(gateway): add rollup background scheduler runner plan
