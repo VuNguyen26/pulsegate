@@ -23,13 +23,10 @@ export type AccessLogPayload = {
   traceId?: string;
   spanId?: string;
   method: string;
-  path: string;
   route: string;
   statusCode: number;
   durationMs: number;
   cacheStatus?: string;
-  userAgent?: string;
-  remoteAddress?: string;
 };
 
 function toSingleHeaderValue(
@@ -69,7 +66,7 @@ export function getRequestPath(request: FastifyRequest): string {
 }
 
 export function getRouteLabel(request: FastifyRequest): string {
-  return request.routeOptions.url ?? getRequestPath(request);
+  return request.routeOptions.url ?? "__unmatched__";
 }
 
 export function buildAccessLogPayload(params: {
@@ -96,13 +93,10 @@ export function buildAccessLogPayload(params: {
     requestId,
     ...(traceIdentifiers ?? {}),
     method: request.method,
-    path: getRequestPath(request),
     route: getRouteLabel(request),
     statusCode: reply.statusCode,
     durationMs,
     cacheStatus,
-    userAgent: toSingleHeaderValue(request.headers["user-agent"]),
-    remoteAddress: request.ip,
   };
 }
 

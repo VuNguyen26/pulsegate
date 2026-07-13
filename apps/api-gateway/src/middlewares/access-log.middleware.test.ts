@@ -15,6 +15,7 @@ import {
   calculateDurationMs,
   formatDurationHeader,
   getRequestPath,
+  getRouteLabel,
   registerAccessLogMiddleware,
 } from "./access-log.middleware.js";
 
@@ -86,13 +87,10 @@ describe("access log middleware", () => {
       event: "http_request_completed",
       requestId: "test-request-id",
       method: "GET",
-      path: "/health",
       route: "/health",
       statusCode: 200,
       durationMs: 10.25,
       cacheStatus: "HIT",
-      userAgent: "vitest",
-      remoteAddress: "127.0.0.1",
     });
 
     expect(JSON.stringify(payload)).not.toContain("secret-api-key");
@@ -194,6 +192,25 @@ describe("access log middleware", () => {
     expect(Number(responseTime)).toBeGreaterThanOrEqual(0);
   });
 
+  it("should use a bounded unmatched route label", async () => {
+    const app = Fastify({ logger: false });
+
+    app.setNotFoundHandler(async (request, reply) => {
+      return reply.status(404).send({
+        route: getRouteLabel(request),
+      });
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/unknown/user-controlled-value?secret=value",
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      route: "__unmatched__",
+    });
+  });
   it("should not break request handling when registered", async () => {
     const app = Fastify({ logger: false });
 
