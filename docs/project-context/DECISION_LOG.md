@@ -1627,6 +1627,15 @@ Validation:
 - Docker/PostgreSQL runtime validation passed with 7 migrations applied and 2 source-separated `service-dry-run-invoked` results.
 
 <!-- pulsegate:sprint-64:start -->
+## Decision Record Navigation Additions
+
+The following records existed outside the filename-based decision index or were added during Sprint 79:
+
+- [Quota-denied usage-event tracking](decisions/2026-07-04-quota-denied-usage-event-tracking.md)
+- [Analytics rollup background scheduler runtime wiring](decisions/2026-07-09-analytics-rollup-background-scheduler-runtime-wiring.md)
+- [Developer Portal API documentation and API-key foundation](decisions/2026-07-11-developer-portal-api-docs-key-foundation.md)
+- [Sprint 79 v2 documentation, runbook, and architecture cleanup](decisions/2026-07-13-v2-docs-runbooks-architecture-cleanup.md)
+
 ## 2026-07-11 — Sprint 64 analytics operations remain observational
 
 **Decision:** expose rollup inspection, scheduler preview, and retention preview as read-only Admin Dashboard resources.
