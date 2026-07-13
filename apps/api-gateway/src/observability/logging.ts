@@ -23,3 +23,19 @@ export function buildUnhandledGatewayErrorLogPayload(
     errorCode: "INTERNAL_SERVER_ERROR" as const,
   };
 }
+export function buildRuntimeRouteFallbackLogPayload(
+  fallbackRouteCount: number,
+) {
+  return {
+    event: "runtime_routes_database_fallback" as const,
+    errorCode: "DATABASE_ROUTE_LOAD_FAILED" as const,
+    fallbackRouteCount,
+  };
+}
+
+export function buildRedisClientErrorLogPayload() {
+  return {
+    event: "redis_client_error" as const,
+    errorCode: "REDIS_CLIENT_ERROR" as const,
+  };
+}

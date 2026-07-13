@@ -121,7 +121,8 @@ describe("runtime downstream route config loader", () => {
     expect(logger.warn).toHaveBeenCalledWith(
       "Failed to load database downstream route configs; falling back to static downstream route configs",
       {
-        error: databaseError,
+        event: "runtime_routes_database_fallback",
+        errorCode: "DATABASE_ROUTE_LOAD_FAILED",
         fallbackRouteCount: 1,
       },
     );

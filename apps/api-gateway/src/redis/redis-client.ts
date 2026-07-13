@@ -1,6 +1,9 @@
 import { createClient, type RedisClientType } from "redis";
 
 import { env } from "../config/env.js";
+import {
+  buildRedisClientErrorLogPayload,
+} from "../observability/logging.js";
 
 let redisClient: RedisClientType | undefined;
 
@@ -15,8 +18,12 @@ export function getRedisClient(): RedisClientType {
       },
     });
 
-    redisClient.on("error", (error) => {
-      console.error("Redis client error", error);
+    redisClient.on("error", () => {
+      console.error(
+        JSON.stringify(
+          buildRedisClientErrorLogPayload(),
+        ),
+      );
     });
   }
 

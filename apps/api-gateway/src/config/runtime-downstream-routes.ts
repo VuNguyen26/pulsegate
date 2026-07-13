@@ -4,6 +4,9 @@ import {
 } from "./downstream-routes.js";
 import { loadDatabaseDownstreamRouteConfigs } from "./database-route-config.repository.js";
 import { gatewayPrisma } from "../database/gateway-prisma.js";
+import {
+  buildRuntimeRouteFallbackLogPayload,
+} from "../observability/logging.js";
 
 export type RuntimeRouteConfigLogger = {
   info: (message: string, context?: Record<string, unknown>) => void;
@@ -53,13 +56,12 @@ export async function loadRuntimeDownstreamRouteConfigs(
     });
 
     return databaseRouteConfigs;
-  } catch (error) {
+  } catch {
     logger.warn(
       "Failed to load database downstream route configs; falling back to static downstream route configs",
-      {
-        error,
-        fallbackRouteCount: staticRouteConfigs.length,
-      },
+      buildRuntimeRouteFallbackLogPayload(
+        staticRouteConfigs.length,
+      ),
     );
 
     return staticRouteConfigs;
