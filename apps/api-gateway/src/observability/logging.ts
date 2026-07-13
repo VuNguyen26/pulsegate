@@ -138,3 +138,12 @@ export function buildAuthRejectionRecordingFailedLogPayload(
     authType,
   };
 }
+export function buildResponseCacheStoreFailedLogPayload(
+  requestId: string,
+) {
+  return {
+    event: "response_cache_store_failed" as const,
+    errorCode: "RESPONSE_CACHE_STORE_FAILED" as const,
+    requestId,
+  };
+}

@@ -23,6 +23,7 @@ import {
   buildAuthRejectionRecordingFailedLogPayload,
   buildQuotaRejectionRecordingFailedLogPayload,
   buildRateLimitRejectionRecordingFailedLogPayload,
+  buildResponseCacheStoreFailedLogPayload,
   buildUsageRecordingFailedLogPayload,
 } from "../observability/logging.js";
 import { apiKeyAuthMiddleware } from "../middlewares/api-key-auth.middleware.js";
@@ -1037,13 +1038,11 @@ recordHealthFailure(
             ttlSeconds: responseCache.ttlSeconds,
           },
         );
-      } catch (error) {
+      } catch {
         request.log.error(
-          {
-            error,
-            cacheKey,
-            requestId: request.id,
-          },
+          buildResponseCacheStoreFailedLogPayload(
+            request.id,
+          ),
           "Failed to store response cache",
         );
       }

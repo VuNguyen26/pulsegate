@@ -411,6 +411,89 @@ describe(
       ).toHaveLength(0);
     });
 
+    it("keeps the response successful when response cache storage fails", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          new Response(
+            JSON.stringify({
+              source: "downstream",
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type":
+                  "application/json",
+              },
+            },
+          ),
+        ),
+      );
+
+      const responseCacheStore:
+        ResponseCacheStore = {
+          async get() {
+            return {
+              hit: false as const,
+            };
+          },
+
+          async set() {
+            throw new Error(
+              "secret response cache exception",
+            );
+          },
+        };
+
+      await buildApp({
+        route:
+          createRoute({
+            cacheEnabled: true,
+          }),
+        responseCacheStore,
+      });
+
+      const logError = vi
+        .spyOn(app!.log, "error")
+        .mockImplementation(
+          () => undefined,
+        );
+
+      const response =
+        await app!.inject({
+          method: "GET",
+          url: "/api/products",
+        });
+
+      expect(response.statusCode).toBe(
+        200,
+      );
+      expect(response.headers["x-cache"])
+        .toBe("MISS");
+
+      expect(logError).toHaveBeenCalledWith(
+        {
+          event:
+            "response_cache_store_failed",
+          errorCode:
+            "RESPONSE_CACHE_STORE_FAILED",
+          requestId: expect.any(String),
+        },
+        "Failed to store response cache",
+      );
+
+      const serialized =
+        JSON.stringify(
+          logError.mock.calls,
+        );
+
+      expect(serialized).not.toContain(
+        "secret response cache exception",
+      );
+      expect(serialized).not.toContain(
+        "cacheKey",
+      );
+    });
     it("creates one client span per retry and marks actual service-discovery failover", async () => {
       const route =
         createRoute({

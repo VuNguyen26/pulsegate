@@ -4,6 +4,7 @@ import {
   buildAuthRejectionRecordingFailedLogPayload,
   buildQuotaRejectionRecordingFailedLogPayload,
   buildRateLimitRejectionRecordingFailedLogPayload,
+  buildResponseCacheStoreFailedLogPayload,
   buildUsageRecordingFailedLogPayload,
 } from "./logging.js";
 
@@ -64,6 +65,27 @@ describe("bounded proxy recorder failure logging", () => {
 
     expect(JSON.stringify(payload)).not.toContain(
       "secret recorder exception",
+    );
+  });
+});
+describe("bounded response cache failure logging", () => {
+  it("excludes cache keys and raw exceptions", () => {
+    const payload =
+      buildResponseCacheStoreFailedLogPayload(
+        "request-1",
+      );
+
+    expect(payload).toEqual({
+      event: "response_cache_store_failed",
+      errorCode: "RESPONSE_CACHE_STORE_FAILED",
+      requestId: "request-1",
+    });
+
+    const serialized = JSON.stringify(payload);
+
+    expect(serialized).not.toContain("cacheKey");
+    expect(serialized).not.toContain(
+      "secret response cache exception",
     );
   });
 });
