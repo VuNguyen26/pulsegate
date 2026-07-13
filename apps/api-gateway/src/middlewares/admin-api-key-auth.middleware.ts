@@ -11,6 +11,8 @@ import {
   recordRequestTracingOutcome,
 } from "./tracing.middleware.js";
 
+import { setAdminAuthContext } from "./admin-actor.js";
+
 export type AdminApiKeyAuthOptions = {
   headerName?: string;
   apiKey?: string;
@@ -112,6 +114,8 @@ export function createAdminApiKeyAuthMiddleware(
       hasComparableApiKey &&
       verifyApiKeyHash(providedApiKey, expectedApiKeyHash)
     ) {
+      setAdminAuthContext(request, "full-access");
+
       return undefined;
     }
 
@@ -125,6 +129,8 @@ export function createAdminApiKeyAuthMiddleware(
           request.method.toUpperCase(),
         )
       ) {
+        setAdminAuthContext(request, "read-only");
+
         return undefined;
       }
 

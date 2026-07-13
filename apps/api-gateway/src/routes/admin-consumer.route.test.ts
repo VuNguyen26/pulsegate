@@ -231,7 +231,7 @@ describe("adminConsumerRoute", () => {
       headers: {
         "content-type": "application/json",
         "x-admin-api-key": "test-admin-key",
-        "x-admin-actor": "test-admin",
+        "x-admin-actor": "forged-admin-actor",
       },
       payload: JSON.stringify({
         name: "Public Web App",
@@ -247,8 +247,8 @@ describe("adminConsumerRoute", () => {
         name: "Public Web App",
         description: "Website frontend consumer",
         status: "ACTIVE",
-        createdBy: "test-admin",
-        updatedBy: "test-admin",
+        createdBy: "admin-api-key",
+        updatedBy: "admin-api-key",
       },
     });
   });
@@ -308,7 +308,7 @@ describe("adminConsumerRoute", () => {
       headers: {
         "content-type": "application/json",
         "x-admin-api-key": "test-admin-key",
-        "x-admin-actor": "test-admin",
+        "x-admin-actor": "forged-admin-actor",
       },
       payload: JSON.stringify({
         name: "Mobile App v2",
@@ -326,7 +326,7 @@ describe("adminConsumerRoute", () => {
         description: null,
         status: "DISABLED",
         createdBy: "admin",
-        updatedBy: "test-admin",
+        updatedBy: "admin-api-key",
       },
     });
   });

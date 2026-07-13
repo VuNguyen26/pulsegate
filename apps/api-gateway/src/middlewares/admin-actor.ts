@@ -1,41 +1,50 @@
 import type { FastifyRequest } from "fastify";
 
 export const DEFAULT_ADMIN_ACTOR = "admin-api-key";
-export const MAX_ADMIN_ACTOR_LENGTH = 64;
+export const READ_ONLY_ADMIN_ACTOR =
+  "admin-read-only-api-key";
 
-const ADMIN_ACTOR_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:@-]*$/;
+export type AdminAccessMode =
+  | "full-access"
+  | "read-only";
 
-type AdminActorRequest = Pick<FastifyRequest, "headers">;
+export type AdminAuthContext = {
+  readonly accessMode: AdminAccessMode;
+  readonly actor: string;
+};
 
-function getSingleActorHeader(
-  value: string | string[] | undefined,
-): string | undefined {
-  if (typeof value === "string") {
-    return value;
-  }
+const adminAuthContexts =
+  new WeakMap<FastifyRequest, AdminAuthContext>();
 
-  if (Array.isArray(value) && value.length === 1) {
-    return value[0];
-  }
+export function setAdminAuthContext(
+  request: FastifyRequest,
+  accessMode: AdminAccessMode,
+): void {
+  const actor =
+    accessMode === "full-access"
+      ? DEFAULT_ADMIN_ACTOR
+      : READ_ONLY_ADMIN_ACTOR;
 
-  return undefined;
+  adminAuthContexts.set(
+    request,
+    Object.freeze({
+      accessMode,
+      actor,
+    }),
+  );
+}
+
+export function getAdminAuthContext(
+  request: FastifyRequest,
+): AdminAuthContext | undefined {
+  return adminAuthContexts.get(request);
 }
 
 export function getAdminActor(
-  request: AdminActorRequest,
+  request: FastifyRequest,
 ): string {
-  const actorHeader = getSingleActorHeader(
-    request.headers["x-admin-actor"],
+  return (
+    getAdminAuthContext(request)?.actor ??
+    DEFAULT_ADMIN_ACTOR
   );
-  const actor = actorHeader?.trim();
-
-  if (
-    !actor ||
-    actor.length > MAX_ADMIN_ACTOR_LENGTH ||
-    !ADMIN_ACTOR_PATTERN.test(actor)
-  ) {
-    return DEFAULT_ADMIN_ACTOR;
-  }
-
-  return actor;
 }

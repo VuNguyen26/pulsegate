@@ -1,4 +1,4 @@
-﻿import type { FastifyInstance } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildApiGatewayApp } from "../app.js";
@@ -366,7 +366,7 @@ describe("adminApiKeyRoute", () => {
       headers: {
         "content-type": "application/json",
         "x-admin-api-key": "test-admin-key",
-        "x-admin-actor": "test-admin",
+        "x-admin-actor": "forged-admin-actor",
       },
       payload: JSON.stringify({
         name: "Mobile Staging Key",
@@ -386,7 +386,7 @@ describe("adminApiKeyRoute", () => {
       keyPrefix: "pgk_live_raw_secret",
       status: "ACTIVE",
       expiresAt: "2026-08-01T00:00:00.000Z",
-      createdBy: "test-admin",
+      createdBy: "admin-api-key",
       rawKey: "pgk_live_raw_secret",
     });
 
@@ -544,7 +544,7 @@ describe("adminApiKeyRoute", () => {
       url: "/internal/admin/api-keys/key_mobile_prod/revoke",
       headers: {
         "x-admin-api-key": "test-admin-key",
-        "x-admin-actor": "test-admin",
+        "x-admin-actor": "forged-admin-actor",
       },
     });
 
@@ -558,7 +558,7 @@ describe("adminApiKeyRoute", () => {
         keyPrefix: "pgk_live_existing",
         status: "REVOKED",
         revokedAt: "2026-07-03T02:00:00.000Z",
-        revokedBy: "test-admin",
+        revokedBy: "admin-api-key",
       },
     });
   });

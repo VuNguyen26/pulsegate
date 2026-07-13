@@ -667,7 +667,7 @@ it("should reject route config update request when admin API key is missing", as
       url: "/internal/admin/routes/route_health",
       headers: {
         "x-admin-api-key": "test-admin-key",
-        "x-admin-actor": "test-admin",
+        "x-admin-actor": "forged-admin-actor",
       },
     });
 
@@ -678,9 +678,9 @@ it("should reject route config update request when admin API key is missing", as
         id: "route_health",
         gatewayPath: "/api/product-service/health",
         enabled: false,
-        updatedBy: "test-admin",
+        updatedBy: "admin-api-key",
         deletedAt: "2026-07-01T01:00:00.000Z",
-        deletedBy: "test-admin",
+        deletedBy: "admin-api-key",
       },
     });
   });
@@ -691,7 +691,7 @@ it("should reject route config update request when admin API key is missing", as
       url: "/internal/admin/routes/route_health",
       headers: {
         "x-admin-api-key": "test-admin-key",
-        "x-admin-actor": "test-admin",
+        "x-admin-actor": "forged-admin-actor",
       },
     });
 

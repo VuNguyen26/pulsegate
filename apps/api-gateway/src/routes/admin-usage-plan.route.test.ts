@@ -1,4 +1,4 @@
-﻿import type { FastifyInstance } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildApiGatewayApp } from "../app.js";
@@ -375,7 +375,7 @@ describe("adminUsagePlanRoute", () => {
       headers: {
         "content-type": "application/json",
         "x-admin-api-key": "test-admin-key",
-        "x-admin-actor": "test-admin",
+        "x-admin-actor": "forged-admin-actor",
       },
       payload: JSON.stringify({
         name: "Professional",
@@ -395,8 +395,8 @@ describe("adminUsagePlanRoute", () => {
         quotaLimit: 10000,
         quotaWindow: "DAILY",
         enabled: true,
-        createdBy: "test-admin",
-        updatedBy: "test-admin",
+        createdBy: "admin-api-key",
+        updatedBy: "admin-api-key",
       },
     });
   });
@@ -435,7 +435,7 @@ describe("adminUsagePlanRoute", () => {
       headers: {
         "content-type": "application/json",
         "x-admin-api-key": "test-admin-key",
-        "x-admin-actor": "test-admin",
+        "x-admin-actor": "forged-admin-actor",
       },
       payload: JSON.stringify({
         name: "Starter v2",
@@ -457,7 +457,7 @@ describe("adminUsagePlanRoute", () => {
         quotaWindow: "MONTHLY",
         enabled: false,
         createdBy: "admin",
-        updatedBy: "test-admin",
+        updatedBy: "admin-api-key",
       },
     });
   });
