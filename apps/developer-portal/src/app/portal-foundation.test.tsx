@@ -43,6 +43,10 @@ describe("Developer Portal foundation", () => {
     expect(apiDocs).toContain("Public API documentation foundation");
     expect(apiDocs).toContain("/api/product-service/health");
     expect(apiDocs).toContain("/api/products");
+    expect(apiDocs).toContain(
+      'aria-label="HTTP error reference"',
+    );
+    expect(apiDocs).toContain('tabindex="0"');
     expect(apiDocs).toContain("x-api-key");
     expect(apiDocs).toContain("JWT_TOKEN_MISSING");
     expect(apiDocs).toContain("DOWNSTREAM_TIMEOUT");
@@ -79,6 +83,20 @@ describe("Developer Portal foundation", () => {
     expect(render(<NotFound />)).toContain("Return to overview");
   });
 
+  it("keeps keyboard focus visible for links and scroll regions", () => {
+    const styles = readFileSync(
+      join(process.cwd(), "src", "app", "globals.css"),
+      "utf8",
+    );
+
+    expect(styles).toContain(".primary-link:focus-visible");
+    expect(styles).toContain(
+      ".code-example pre:focus-visible",
+    );
+    expect(styles).toContain(
+      ".error-table-wrapper:focus-visible",
+    );
+  });
   it("keeps Admin and browser-secret surfaces out of Portal source", () => {
     const source = sourceFiles(join(process.cwd(), "src"))
       .map((file) => readFileSync(file, "utf8"))

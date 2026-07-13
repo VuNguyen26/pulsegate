@@ -109,7 +109,12 @@ export function AdminResourceTable<T>({
   getRowKey: (row: T) => string;
 }) {
   return (
-    <div className="content-card admin-resource-table-wrap">
+    <div
+      className="content-card admin-resource-table-wrap"
+      role="region"
+      aria-label={`${caption} table`}
+      tabIndex={0}
+    >
       <table className="admin-resource-table">
         <caption>{caption}</caption>
         <thead>

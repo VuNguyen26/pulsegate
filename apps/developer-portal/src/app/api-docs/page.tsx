@@ -289,7 +289,7 @@ export default function ApiDocsPage() {
 
               <section className="code-example" aria-label="Request example">
                 <h3>Request example</h3>
-                <pre>
+                <pre tabIndex={0}>
                   <code>{endpoint.request}</code>
                 </pre>
               </section>
@@ -300,7 +300,7 @@ export default function ApiDocsPage() {
                   aria-label="Response shape example"
                 >
                   <h3>Response shape</h3>
-                  <pre>
+                  <pre tabIndex={0}>
                     <code>{endpoint.response}</code>
                   </pre>
                 </section>
@@ -338,7 +338,7 @@ export default function ApiDocsPage() {
             </p>
 
             <div className="code-example">
-              <pre>
+              <pre tabIndex={0}>
                 <code>{`{
   "error": {
     "code": "API_KEY_MISSING",
@@ -349,7 +349,17 @@ export default function ApiDocsPage() {
               </pre>
             </div>
 
-            <div className="error-table-wrapper">
+            <div
+
+              className="error-table-wrapper"
+
+              role="region"
+
+              aria-label="HTTP error reference"
+
+              tabIndex={0}
+
+            >
               <table className="error-table">
                 <thead>
                   <tr>

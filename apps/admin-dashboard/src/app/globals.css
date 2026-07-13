@@ -314,6 +314,11 @@ a {
   padding: 0;
 }
 
+.admin-resource-table-wrap:focus-visible {
+  outline: 2px solid #334155;
+  outline-offset: 3px;
+}
+
 .admin-resource-table {
   width: 100%;
   min-width: 860px;

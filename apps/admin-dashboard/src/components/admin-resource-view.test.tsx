@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -93,4 +95,41 @@ describe("admin resource view primitives", () => {
     expect(html).toContain("<td>Mobile App</td>");
     expect(html).toContain("<td>ACTIVE</td>");
   });
-});
+
+  it("renders a keyboard-focusable table region", () => {
+    const html = renderToStaticMarkup(
+      <AdminResourceTable
+        caption="Configured API consumers"
+        columns={[
+          {
+            key: "name",
+            header: "Name",
+            render: (row: { id: string; name: string }) =>
+              row.name,
+          },
+        ]}
+        rows={[
+          {
+            id: "consumer_1",
+            name: "Mobile App",
+          },
+        ]}
+        getRowKey={(row) => row.id}
+      />,
+    );
+
+    expect(html).toContain('role="region"');
+    expect(html).toContain(
+      'aria-label="Configured API consumers table"',
+    );
+    expect(html).toContain('tabindex="0"');
+
+    const styles = readFileSync(
+      join(process.cwd(), "src", "app", "globals.css"),
+      "utf8",
+    );
+
+    expect(styles).toContain(
+      ".admin-resource-table-wrap:focus-visible",
+    );
+  });});
