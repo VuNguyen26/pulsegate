@@ -16,6 +16,7 @@ export function AdminResourceLoading({
   return (
     <section
       className="content-card"
+      role="status"
       aria-live="polite"
       aria-busy="true"
     >
@@ -34,7 +35,11 @@ export function AdminResourceEmpty({
   description: string;
 }) {
   return (
-    <section className="content-card" aria-live="polite">
+    <section
+      className="content-card"
+      role="status"
+      aria-live="polite"
+    >
       <p className="eyebrow">Empty</p>
       <h2>{title}</h2>
       <p>{description}</p>
@@ -52,7 +57,7 @@ export function AdminResourceError({
   onRetry: () => void;
 }) {
   return (
-    <section className="content-card" aria-live="polite">
+    <section className="content-card" role="alert">
       <p className="eyebrow">Unavailable</p>
       <h2>{title}</h2>
       <p>{error.message}</p>

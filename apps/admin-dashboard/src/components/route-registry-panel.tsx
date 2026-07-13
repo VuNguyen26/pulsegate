@@ -89,7 +89,7 @@ const persistedColumns:
       render: (route) => (
         <div className="route-name-cell">
           <strong>
-            {route.method} {route.gatewayPath}{" Â· "}{formatRouteRequestHost(route.requestHost)}
+            {route.method} {route.gatewayPath}{" · "}{formatRouteRequestHost(route.requestHost)}
           </strong>
           <code>{route.id}</code>
           <small>{route.serviceName}</small>
@@ -161,7 +161,7 @@ const runtimeColumns:
       header: "Loaded route",
       render: (route) => (
         <strong>
-          {route.method} {route.gatewayPath}{" Â· "}{formatRouteRequestHost(route.requestHost)}
+          {route.method} {route.gatewayPath}{" · "}{formatRouteRequestHost(route.requestHost)}
         </strong>
       ),
     },
@@ -251,7 +251,7 @@ export function PersistedRouteDetail({
           Persisted configuration
         </p>
         <h2 id="route-detail-title">
-          {route.method} {route.gatewayPath}{" Â· "}{formatRouteRequestHost(route.requestHost)}
+          {route.method} {route.gatewayPath}{" · "}{formatRouteRequestHost(route.requestHost)}
         </h2>
         <p>
           Database-backed route configuration. This is
@@ -688,7 +688,7 @@ export function RouteRegistryPanel() {
                     key={route.id}
                     value={route.id}
                   >
-                    {route.method} {route.gatewayPath}{" Â· "}{formatRouteRequestHost(route.requestHost)}
+                    {route.method} {route.gatewayPath}{" · "}{formatRouteRequestHost(route.requestHost)}
                   </option>
                 ))}
               </select>

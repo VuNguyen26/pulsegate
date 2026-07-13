@@ -7,7 +7,7 @@ export default function ErrorPage({
   reset: () => void;
 }) {
   return (
-    <section className="page-stack">
+    <section className="page-stack" role="alert">
       <header className="page-header">
         <p className="eyebrow">Dashboard error</p>
         <h1>Unable to render this page</h1>

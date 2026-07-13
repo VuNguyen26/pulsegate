@@ -14,6 +14,8 @@ describe("admin resource view primitives", () => {
       <AdminResourceLoading title="Consumers" />,
     );
 
+    expect(html).toContain('role="status"');
+    expect(html).toContain('aria-live="polite"');
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain("Consumers");
     expect(html).toContain("read-only");
@@ -27,6 +29,7 @@ describe("admin resource view primitives", () => {
       />,
     );
 
+    expect(html).toContain('role="status"');
     expect(html).toContain("No consumers");
     expect(html).toContain(
       "No API consumers are currently configured.",
@@ -47,6 +50,7 @@ describe("admin resource view primitives", () => {
       />,
     );
 
+    expect(html).toContain('role="alert"');
     expect(html).toContain("ADMIN_DASHBOARD_FORBIDDEN");
     expect(html).toContain("request-403");
     expect(html).toContain(">Retry<");

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import ApiDocsPage from "./api-docs/page";
 import ApiKeysPage from "./api-keys/page";
+import ErrorPage from "./error";
 import GettingStartedPage from "./getting-started/page";
 import Loading from "./loading";
 import NotFound from "./not-found";
@@ -64,8 +65,17 @@ describe("Developer Portal foundation", () => {
     expect(apiKeys).not.toContain("pgk_live_");
   });
 
-  it("provides loading and not-found boundaries", () => {
-    expect(render(<Loading />)).toContain('aria-busy="true"');
+  it("provides semantic loading, error, and not-found boundaries", () => {
+    const loading = render(<Loading />);
+    const error = render(
+      <ErrorPage reset={() => undefined} />,
+    );
+
+    expect(loading).toContain('role="status"');
+    expect(loading).toContain('aria-live="polite"');
+    expect(loading).toContain('aria-busy="true"');
+    expect(error).toContain('role="alert"');
+    expect(error).toContain(">Try again<");
     expect(render(<NotFound />)).toContain("Return to overview");
   });
 
