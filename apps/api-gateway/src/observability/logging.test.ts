@@ -5,6 +5,7 @@ import {
 } from "../errors/downstream-service-error.js";
 import {
   buildDownstreamErrorLogPayload,
+  buildRateLimitIdentifierMissingLogPayload,
   buildTracingLifecycleFailedLogPayload,
   buildUnhandledGatewayErrorLogPayload,
 } from "./logging.js";
@@ -54,6 +55,20 @@ describe("bounded Gateway error logging", () => {
       errorCode:
         "TRACING_LIFECYCLE_OPERATION_FAILED",
       operation: "forceFlush",
+    });
+  });
+
+  it("uses bounded missing rate-limit identifier fields", () => {
+    expect(
+      buildRateLimitIdentifierMissingLogPayload(
+        "request-3",
+        "api-key",
+      ),
+    ).toEqual({
+      event: "rate_limit_identifier_missing",
+      errorCode: "RATE_LIMIT_IDENTIFIER_MISSING",
+      requestId: "request-3",
+      identityType: "api-key",
     });
   });
 });

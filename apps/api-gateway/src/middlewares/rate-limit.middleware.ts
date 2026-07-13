@@ -6,6 +6,9 @@ import {
   type RateLimitResult,
 } from "../rate-limit/in-memory-rate-limit-store.js";
 import {
+  buildRateLimitIdentifierMissingLogPayload,
+} from "../observability/logging.js";
+import {
   recordRequestTracingOutcome,
 } from "./tracing.middleware.js";
 
@@ -79,10 +82,10 @@ export function createRateLimitMiddleware(
       });
 
       request.log.error(
-        {
+        buildRateLimitIdentifierMissingLogPayload(
+          request.id,
           identityType,
-          requestId: request.id,
-        },
+        ),
         "Rate limit identifier is missing"
       );
 

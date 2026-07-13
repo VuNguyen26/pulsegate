@@ -158,3 +158,14 @@ export function buildTracingLifecycleFailedLogPayload(
     operation,
   };
 }
+export function buildRateLimitIdentifierMissingLogPayload(
+  requestId: string,
+  identityType: "api-key" | "ip",
+) {
+  return {
+    event: "rate_limit_identifier_missing" as const,
+    errorCode: "RATE_LIMIT_IDENTIFIER_MISSING" as const,
+    requestId,
+    identityType,
+  };
+}
