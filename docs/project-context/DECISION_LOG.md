@@ -1881,3 +1881,18 @@ Detailed record:
 
 - `docs/project-context/decisions/2026-07-13-grafana-observability-integration.md`
 <!-- SPRINT-75-DECISION-LOG-END -->
+
+## 2026-07-13 - Product/Platform v2 release preparation
+
+Sprint 80 adopts the existing v1 release convention for the final Product/Platform v2 milestone:
+
+- Prepare [PulseGate v2 release readiness](decisions/2026-07-13-v2-release-readiness.md).
+- Prepare [Sprint 80 release history](../sdlc/sprint-history/sprint-80.md).
+- Prepare [PulseGate v2.0.0 release notes](../releases/v2.0.0.md).
+- Keep product/documentation version at `v1.19.0` until static and bounded runtime validation pass.
+- Keep all private first-party npm workspace versions at `0.1.0`.
+- Preserve protected annotated tag `v1.0.0`.
+- Create annotated tag `v2.0.0` only after the pushed final Sprint 80 documentation commit passes post-commit validation.
+- Use tag annotation `PulseGate v2.0.0 - Product/Platform v2`.
+- Do not publish npm packages, container images, or a cloud deployment.
+- Do not invent Sprint 81.
