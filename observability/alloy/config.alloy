@@ -1,0 +1,62 @@
+discovery.docker "pulsegate" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "pulsegate_logs" {
+  targets = discovery.docker.pulsegate.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "^/pulsegate-(api-gateway|product-service)$"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "^/pulsegate-(api-gateway|product-service)$"
+    target_label  = "service"
+    replacement   = "$1"
+    action        = "replace"
+  }
+}
+
+loki.source.docker "pulsegate" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.relabel.pulsegate_logs.output
+  labels           = {}
+  refresh_interval = "5s"
+  forward_to       = [loki.process.pulsegate.receiver]
+}
+
+loki.process "pulsegate" {
+  stage.json {
+    expressions = {
+      level = "level",
+      event = "event",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level = "",
+      event = "",
+    }
+  }
+
+  stage.label_keep {
+    values = [
+      "service",
+      "level",
+      "event",
+    ]
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

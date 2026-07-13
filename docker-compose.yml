@@ -148,6 +148,29 @@ services:
     depends_on:
       - api-gateway
 
+  loki:
+    image: grafana/loki:3.7.3
+    container_name: pulsegate-loki
+    command:
+      - "-config.file=/etc/loki/config.yml"
+    volumes:
+      - ./observability/loki/loki-config.yml:/etc/loki/config.yml:ro
+      - pulsegate_loki_data:/loki
+
+  alloy:
+    image: grafana/alloy:v1.17.1
+    container_name: pulsegate-alloy
+    command:
+      - run
+      - "--server.http.listen-addr=0.0.0.0:12345"
+      - "--storage.path=/var/lib/alloy/data"
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - pulsegate_alloy_data:/var/lib/alloy/data
+    depends_on:
+      - loki
   grafana:
     image: grafana/grafana:latest
     container_name: pulsegate-grafana
@@ -182,3 +205,5 @@ volumes:
   pulsegate_postgres_data:
   pulsegate_prometheus_data:
   pulsegate_grafana_data:
+  pulsegate_loki_data:
+  pulsegate_alloy_data:
