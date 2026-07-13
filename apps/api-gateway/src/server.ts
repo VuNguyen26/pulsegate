@@ -1,6 +1,13 @@
 import { buildApiGatewayApp } from "./app.js";
 import { env } from "./config/env.js";
 import { loadRuntimeDownstreamRouteConfigs } from "./config/runtime-downstream-routes.js";
+import {
+  buildGatewayShutdownFailedLogPayload,
+  buildGatewayShutdownLogPayload,
+  buildGatewayStartedLogPayload,
+  buildGatewayStartupCleanupFailedLogPayload,
+  buildGatewayStartupFailedLogPayload,
+} from "./observability/logging.js";
 import { connectRedis } from "./redis/redis-client.js";
 
 type ShutdownSignal = "SIGINT" | "SIGTERM";
@@ -15,12 +22,18 @@ const start = async () => {
 
   const shutdown = (signal: ShutdownSignal): Promise<void> => {
     shutdownPromise ??= (async () => {
-      app.log.info({ signal }, "Shutting down API Gateway");
+      app.log.info(
+        buildGatewayShutdownLogPayload(signal),
+        "Shutting down API Gateway",
+      );
 
       try {
         await app.close();
-      } catch (error) {
-        app.log.error(error, "Failed to close API Gateway cleanly");
+      } catch {
+        app.log.error(
+          buildGatewayShutdownFailedLogPayload(signal),
+          "Failed to close API Gateway cleanly",
+        );
         process.exitCode = 1;
       }
     })();
@@ -44,15 +57,21 @@ const start = async () => {
       host: env.HOST,
     });
 
-    app.log.info(`API Gateway is running on port ${env.PORT}`);
-  } catch (error) {
-    app.log.error(error);
+    app.log.info(
+      buildGatewayStartedLogPayload(env.PORT),
+      "API Gateway started",
+    );
+  } catch {
+    app.log.error(
+      buildGatewayStartupFailedLogPayload(),
+      "Failed to start API Gateway",
+    );
 
     try {
       await app.close();
-    } catch (closeError) {
+    } catch {
       app.log.error(
-        closeError,
+        buildGatewayStartupCleanupFailedLogPayload(),
         "Failed to close API Gateway after startup error",
       );
     }
