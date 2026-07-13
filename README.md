@@ -2,29 +2,31 @@
 
 High-Traffic API Gateway & Observability Platform.
 
-## Current product/documentation version - v1.16.0
+## Current product/documentation version - v1.17.0
 
-**Latest completed sprint:** Sprint 76 - Admin RBAC/Platform Security Hardening.
+**Latest completed sprint:** Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
 
 Current validation baseline:
 
-- Admin Dashboard: 54 test files / 248 tests passed.
+- Admin Dashboard: 55 test files / 253 tests passed.
 - API Gateway: 163 test files / 1177 tests passed.
-- Developer Portal: 2 test files / 7 tests passed.
+- Developer Portal: 2 test files / 8 tests passed.
 - Product Service: 10 test files / 36 tests passed.
-- Root release validation, workspace typecheck, production builds, diff checks, clean-tree verification, and origin synchronization passed.
-- Runtime authorization proved missing, invalid, read-only, and full-access behavior without source or database mutation.
-- The Dashboard BFF and page returned HTTP 200 while retaining the server-only read-only credential boundary.
-- API Gateway and Dashboard responses and Gateway logs exposed no Admin credential values.
-- Prometheus, Grafana, Loki, and Alloy behavior remained available and bounded.
+- Root typecheck, production build, release validation, Compose configuration, package-lock integrity, clean-tree verification, and origin synchronization passed.
+- Admin Dashboard and Developer Portal production images built successfully.
+- Admin Dashboard and Developer Portal containers were healthy.
+- Ten Dashboard routes and four Portal routes returned HTTP 200.
+- Production CSS retained the verified keyboard-focus selectors.
+- Portal API documentation rendered six keyboard-focusable regions.
+- Tested production HTML contained no Admin credential markers, raw key prefixes, Unicode replacement characters, or mojibake delimiters.
 
 Private npm workspace versions remain `0.1.0`.
 
-The protected annotated Git tag `v1.0.0` remains unchanged: tag object `726feb46e62a3224f7e27d55ae4f9e74dd6b1123`, target `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 76 creates no Git tag.
+The protected annotated Git tag `v1.0.0` remains unchanged: tag object `726feb46e62a3224f7e27d55ae4f9e74dd6b1123`, target `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 77 creates no Git tag.
 
-Current sprint: **Sprint 77 - UI Loading/Empty/Error/Responsive Polish**.
+Current sprint: **Sprint 78 - End-to-End Demo and Lightweight k6 Validation**.
 
-Next sprint: **Sprint 78 - End-to-End Demo and Lightweight k6 Validation**.
+Next sprint: **Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup**.
 
 ## Tech Stack
 
@@ -296,7 +298,7 @@ Decision records:
 
 Latest sprint history:
 
-- docs/sdlc/sprint-history/sprint-76.md
+- docs/sdlc/sprint-history/sprint-77.md
 
 Latest observability and analytics runbooks:
 
@@ -314,19 +316,19 @@ Latest observability and analytics runbooks:
 
 Latest decision record:
 
-- docs/project-context/decisions/2026-07-13-admin-rbac-platform-security-hardening.md
+- docs/project-context/decisions/2026-07-13-ui-loading-empty-error-responsive-polish.md
 
 ---
 
 ## Recommended Next Sprint
 
-Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
+Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
 
 Reason:
 
-- Sprint 76 completed the trusted Admin identity and credential boundary hardening.
-- Sprint 77 owns UI state consistency and responsive polish only.
-- Sprint 77 must preserve the fixed GET-only Dashboard BFF model, server-only read-only credential, and all current Gateway security contracts.
+- Sprint 77 completed bounded UI state, responsive, keyboard-access, encoding, and runtime polish.
+- Sprint 78 owns the end-to-end demonstration path and lightweight k6 validation.
+- Sprint 78 must reuse the existing runtime contracts and must not become a broad performance laboratory or a new feature sprint.
 
 ## Sprint 55 Completion
 
@@ -1412,3 +1414,56 @@ Current sprint: **Sprint 77 - UI Loading/Empty/Error/Responsive Polish**.
 
 Next sprint: **Sprint 78 - End-to-End Demo and Lightweight k6 Validation**.
 <!-- SPRINT-76-README-END -->
+
+<!-- SPRINT-77-README-START -->
+## Sprint 77 - UI Loading/Empty/Error/Responsive Polish
+
+Sprint 77 improves the existing Admin Dashboard and Developer Portal interfaces without widening backend, credential, route, or runtime boundaries.
+
+Delivered behavior:
+
+- Added explicit status semantics to root loading boundaries.
+- Added explicit alert semantics to root and shared error boundaries.
+- Standardized shared Dashboard loading, empty, and error state semantics.
+- Added deterministic Admin Dashboard UI boundary tests.
+- Corrected four route-registry mojibake delimiters from `U+00C2 U+00B7` to `·`.
+- Made Dashboard table overflow regions keyboard focusable with labels and visible focus styles.
+- Made Portal code blocks and the error-reference table keyboard focusable.
+- Added visible focus treatment for Portal navigation, primary links, documentation navigation, code regions, and table regions.
+- Added a distinct visible focus ring for Dashboard primary and secondary actions.
+- Marked Dashboard skeleton decorations as hidden from assistive technology.
+- Preserved all fixed GET-only Dashboard BFF resources and the server-only read-only credential boundary.
+
+Implementation commits:
+
+- `063b25f66b8f1992b46c2932e2e25bbb87735675` - `feat(ui): polish shared interface states`
+- `1c38237a4426b8874434c2f43c49feed22e706f8` - `feat(ui): improve responsive keyboard access`
+- `63a02880c93558e87b56e48db1e21b07b80b5417` - `feat(ui): finalize dashboard accessibility polish`
+
+Validation:
+
+- Admin Dashboard: 55 test files / 253 tests.
+- API Gateway: 163 test files / 1177 tests.
+- Developer Portal: 2 test files / 8 tests.
+- Product Service: 10 test files / 36 tests.
+- Root typecheck, build, release validation, Compose configuration, package-lock integrity, and clean-tree checks passed.
+- Admin Dashboard and Developer Portal production images built successfully.
+- Both UI containers were healthy.
+- Ten Dashboard routes and four Portal routes returned HTTP 200.
+- Production CSS focus markers passed.
+- Portal rendered six `tabindex="0"` regions on the API documentation page.
+- HTTP regression checks found no mojibake or browser-visible Admin credential markers.
+
+Preserved boundaries:
+
+- No backend endpoint, database schema, migration, dependency, environment variable, service, port, Kubernetes resource, or npm workspace version change.
+- No Admin mutation, generic proxy, browser credential, developer identity, billing, marketplace, or enterprise IAM work.
+- No routing, quota, analytics, tracing, logging, metrics, scheduler, retention, or raw-event behavior change.
+- No Sprint 77 Git tag.
+
+Product/documentation version: **v1.17.0**.
+
+Current sprint: **Sprint 78 - End-to-End Demo and Lightweight k6 Validation**.
+
+Next sprint: **Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup**.
+<!-- SPRINT-77-README-END -->

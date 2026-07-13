@@ -1,75 +1,77 @@
 # Current Progress
 
-## Canonical state after Sprint 76
+## Canonical state after Sprint 77
 
-- Product/documentation version: `v1.16.0`.
+- Product/documentation version: `v1.17.0`.
 - Private npm workspace versions: `0.1.0`.
-- Latest completed sprint: Sprint 76 - Admin RBAC/Platform Security Hardening.
-- Latest implementation commit before documentation finalization: `9cd147d0565be99ddfc1c20b815f9fb230b8f67f`.
-- Sprint 75 documentation baseline commit: `e62ce96b4502ee5b71aa88185de906e0d2ed5b11`.
+- Latest completed sprint: Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
+- Latest implementation commit before documentation finalization: `63a02880c93558e87b56e48db1e21b07b80b5417`.
+- Sprint 76 documentation baseline commit: `89108d30e4371ed7feef8ae10b2cf963ee9b9536`.
 - Protected annotated tag `v1.0.0` remains unchanged.
 - Tag object: `726feb46e62a3224f7e27d55ae4f9e74dd6b1123`.
 - Tag target: `407d03678674219e7228b15f0cd7a23074493f31`.
-- Sprint 76 creates no Git tag.
-- Current sprint: Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
-- Next sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+- Sprint 77 creates no Git tag.
+- Current sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+- Next sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
 
-## Sprint 76 implementation commits
+## Sprint 77 implementation commits
 
-- `fce89f224e81335ae78024a22be89cf784c9b6cb` - `fix(security): trust authenticated admin actor context`
-- `d82af694b0642de6a2efd5771bf2dc21f1df5c9e` - `test(security): lock admin authorization matrix`
-- `9cd147d0565be99ddfc1c20b815f9fb230b8f67f` - `test(dashboard): lock admin credential boundary`
+- `063b25f66b8f1992b46c2932e2e25bbb87735675` - `feat(ui): polish shared interface states`
+- `1c38237a4426b8874434c2f43c49feed22e706f8` - `feat(ui): improve responsive keyboard access`
+- `63a02880c93558e87b56e48db1e21b07b80b5417` - `feat(ui): finalize dashboard accessibility polish`
 
 ## Delivered behavior
 
-- Admin actor attribution now derives from request-local trusted authentication context rather than `x-admin-actor`.
-- Full-access requests use actor `admin-api-key`.
-- Read-only requests use actor `admin-read-only-api-key`.
-- The exact Admin authorization matrix is locked at 29 routes: 18 read and 11 mutation routes.
-- Read-only credentials remain limited to `GET`, `HEAD`, and `OPTIONS`.
-- Dashboard production behavior is locked to 18 fixed GET-only BFF resources.
-- No catch-all Admin proxy exists.
-- Dashboard uses only the server-side read-only credential.
-- Full-access Admin credential remains absent from Dashboard production runtime and browser surfaces.
+- Root Dashboard and Portal loading boundaries use explicit polite status semantics.
+- Root and shared error states use explicit alert semantics.
+- Shared Dashboard loading and empty states expose consistent status semantics.
+- Dashboard loading skeletons are hidden from assistive technology.
+- Dashboard table overflow regions are labeled, keyboard focusable, and visibly focused.
+- Portal code regions and the HTTP error-reference table are keyboard focusable.
+- Dashboard and Portal navigation, links, buttons, documentation navigation, tables, and code regions retain visible focus treatment.
+- Four route-registry mojibake delimiters were corrected.
+- Existing responsive breakpoints, bounded horizontal scrolling, wrapping, and long-content behavior were preserved.
 
-## Runtime and validation evidence
+## Full validation evidence
 
-- Missing Admin key: `401 ADMIN_API_KEY_MISSING`.
-- Invalid Admin key: `403 ADMIN_API_KEY_INVALID`.
-- Read-only Admin GET: HTTP 200.
-- Read-only Admin mutation: `403 ADMIN_API_KEY_READ_ONLY`.
-- Full-access Admin GET: HTTP 200.
-- Dashboard BFF and page: HTTP 200.
-- Admin credential values were absent from tested HTTP responses and Gateway logs.
-- Source mutation count: zero.
-- Database mutation count: zero.
-- Admin Dashboard: 54 test files / 248 tests.
+- Admin Dashboard: 55 test files / 253 tests.
 - API Gateway: 163 test files / 1177 tests.
-- Developer Portal: 2 test files / 7 tests.
+- Developer Portal: 2 test files / 8 tests.
 - Product Service: 10 test files / 36 tests.
-- Root release validation, typecheck, production builds, diff checks, clean-tree verification, and origin synchronization passed.
+- Root typecheck passed.
+- Root production build passed.
+- Release-readiness validation passed.
+- Docker Compose configuration passed.
+- Package-lock SHA-256 remained unchanged.
+- Protected tag `v1.0.0` remained unchanged.
+- Working tree remained clean.
 
-## Observability preservation
+## Runtime evidence
 
-- API Gateway, Product Service, Prometheus, and Grafana returned HTTP 200 during validation.
-- Grafana retained Prometheus and Loki datasources and both PulseGate dashboards.
-- Loki and Alloy remained running.
-- Loki retained no public host port.
-- Application/Alloy-configured labels remain `service`, `level`, and `event`.
-- Loki label discovery may additionally report managed `service_name`; Sprint 76 added no configured label.
+- Admin Dashboard production image built successfully.
+- Developer Portal production image built successfully.
+- Admin Dashboard container was healthy.
+- Developer Portal container was healthy.
+- Ten Dashboard routes returned HTTP 200.
+- Four Portal routes returned HTTP 200.
+- Dashboard production CSS focus markers passed.
+- Portal production CSS focus markers passed.
+- Portal API documentation rendered six keyboard-focusable regions.
+- Tested production HTML contained no Admin credential marker, fake issued-key prefix, `U+00C2 U+00B7`, or Unicode replacement character.
+- Repository mutation count remained zero.
 
 ## Preserved boundaries
 
-- No database migration or schema change.
-- No dependency or npm workspace version change.
-- No new environment variable, service, public port, or Kubernetes RBAC resource.
-- No enterprise SSO, SAML, OIDC, database-backed Admin identity, organization redesign, or multi-tenant billing.
+- No backend endpoint, database schema, migration, dependency, environment variable, Compose service, public port, Kubernetes resource, or npm workspace version change.
+- No Admin mutation control, generic Admin proxy, browser credential, developer identity, billing, marketplace, or enterprise IAM work.
 - No routing, quota, analytics, tracing, logging, metrics, scheduler, retention, or raw-event behavior change.
 - No Git tag.
 
-## Sprint 77 boundary
+## Sprint 78 boundary
 
-Sprint 77 owns UI Loading/Empty/Error/Responsive Polish. It must preserve all Sprint 76 security boundaries, fixed GET-only Dashboard resources, server-only read-only credential use, and existing application behavior. It must not introduce Admin mutations, generic proxies, new identity systems, or Sprint 78 demo/load scope early.
+Sprint 78 owns End-to-End Demo and Lightweight k6 Validation.
+
+It should prove one coherent existing product flow and provide bounded load evidence without introducing new product functionality, changing runtime contracts, claiming production capacity, building a broad performance laboratory, or performing Sprint 79 documentation cleanup early.
 
 ## Fixed roadmap
 
@@ -96,7 +98,7 @@ Sprint 77 owns UI Loading/Empty/Error/Responsive Polish. It must preserve all Sp
 - Sprint 74 - Loki Logging Foundation - complete.
 - Sprint 75 - Grafana Observability Integration - complete.
 - Sprint 76 - Admin RBAC/Platform Security Hardening - complete.
-- Sprint 77 - UI Loading/Empty/Error/Responsive Polish - current.
-- Sprint 78 - End-to-End Demo and Lightweight k6 Validation - next.
-- Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup - planned.
+- Sprint 77 - UI Loading/Empty/Error/Responsive Polish - complete.
+- Sprint 78 - End-to-End Demo and Lightweight k6 Validation - current.
+- Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup - next.
 - Sprint 80 - Product/Platform v2 Release - planned; `v2.0.0` tag.

@@ -6,28 +6,29 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.16.0
+v1.17.0
 
 ## Current Status
 
-Sprint 76 - Admin RBAC/Platform Security Hardening Complete
+Sprint 77 - UI Loading/Empty/Error/Responsive Polish Complete
 
 Current validation:
 
-- Admin Dashboard: 54 test files / 248 tests passed.
+- Admin Dashboard: 55 test files / 253 tests passed.
 - API Gateway: 163 test files / 1177 tests passed.
-- Developer Portal: 2 test files / 7 tests passed.
+- Developer Portal: 2 test files / 8 tests passed.
 - Product Service: 10 test files / 36 tests passed.
-- Root release validation, typecheck, production builds, diff checks, clean-tree verification, and origin synchronization passed.
-- Runtime Admin authorization and Dashboard credential-boundary proofs passed.
-- No source or database mutation occurred during runtime security validation.
+- Root typecheck, production build, release validation, Compose configuration, package-lock integrity, clean-tree verification, and origin synchronization passed.
+- Admin Dashboard and Developer Portal production containers were healthy.
+- Ten Dashboard routes and four Portal routes returned HTTP 200.
+- Verified production CSS and keyboard-focus regions were present.
 - Private npm workspace versions remain `0.1.0`.
 - Protected annotated tag `v1.0.0` remains unchanged.
-- Sprint 76 creates no Git tag.
+- Sprint 77 creates no Git tag.
 
-Current sprint: Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
+Current sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
 
-Next sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+Next sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
 
 ## Current High-Level Architecture
 
@@ -554,13 +555,14 @@ Core:
 
 ## Recommended Next Architecture Step
 
-Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
+Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
 
 Rationale:
 
-- Sprint 76 completed the trusted request-local Admin authentication context and locked Gateway/Dashboard authorization matrices.
-- Sprint 77 should improve UI state consistency without widening methods, resources, credentials, or browser privileges.
-- The Dashboard must remain a fixed GET-only server-side BFF using only the read-only Admin credential.
+- Sprint 77 completed bounded UI-state, keyboard-access, overflow, focus, and encoding polish.
+- Sprint 78 should prove one coherent end-to-end product flow using existing contracts.
+- Lightweight k6 validation must remain bounded and must not redefine production capacity, autoscaling, or SLO claims.
+- The demo and validation path must preserve all credential, routing, quota, analytics, observability, and read-only Dashboard boundaries.
 
 ## Selected Summary Runtime Rollup Reads
 
@@ -1833,3 +1835,42 @@ Observability preservation:
 - Application/Alloy-configured Loki labels remain `service`, `level`, and `event`.
 - Loki label discovery may additionally report managed `service_name`; it is not a new client-controlled or Sprint 76-configured label.
 <!-- SPRINT-76-ARCHITECTURE-END -->
+
+<!-- SPRINT-77-ARCHITECTURE-START -->
+## Sprint 77 UI-state and responsive architecture
+
+Shared state model:
+
+~~~text
+route or resource request
+  -> visible loading state
+  -> bounded success, empty, or normalized error state
+  -> optional safe retry
+  -> no raw exception, secret, or internal configuration rendering
+~~~
+
+Accessibility properties:
+
+- Root loading boundaries use `role="status"`, `aria-live="polite"`, and `aria-busy="true"`.
+- Shared loading and empty states use polite status semantics.
+- Root and shared error states use alert semantics.
+- Decorative Dashboard loading blocks use `aria-hidden="true"`.
+- Dashboard table overflow wrappers are labeled, keyboard focusable regions.
+- Portal code examples and the HTTP error-reference table are keyboard focusable.
+- Focus indicators remain visible for navigation, links, buttons, documentation navigation, tables, and code regions.
+
+Responsive properties:
+
+- Existing breakpoints, grid collapse, wrapping, long-text behavior, and horizontal table scrolling remain authoritative.
+- Sprint 77 does not introduce a new design system, responsive framework, or component dependency.
+- Wide semantic tables and code examples retain bounded horizontal scrolling instead of forcing page-level overflow.
+- Keyboard focus makes those scroll regions reachable without changing their semantic captions or table structure.
+
+Security preservation:
+
+- The Dashboard remains limited to 18 fixed GET-only BFF resources.
+- `ADMIN_READ_ONLY_API_KEY` remains server-only.
+- Full-access `ADMIN_API_KEY` remains absent from Dashboard runtime and browser surfaces.
+- Portal source remains free of Admin routes, Admin credentials, fake issued-key values, and browser secret storage.
+- Sprint 77 changes no backend, database, routing, policy, analytics, or observability architecture.
+<!-- SPRINT-77-ARCHITECTURE-END -->

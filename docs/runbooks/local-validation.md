@@ -470,3 +470,36 @@ Sprint 76 release baseline:
 - Typecheck and production builds passed for all four workspaces.
 - Diff checks, clean-tree verification, and origin synchronization passed.
 <!-- SPRINT-76-LOCAL-VALIDATION-END -->
+
+<!-- SPRINT-77-LOCAL-VALIDATION-START -->
+## Sprint 77 UI validation
+
+Full validation baseline:
+
+- Admin Dashboard: 55 test files / 253 tests.
+- API Gateway: 163 test files / 1177 tests.
+- Developer Portal: 2 test files / 8 tests.
+- Product Service: 10 test files / 36 tests.
+- Root typecheck, build, release validation, and Compose configuration passed.
+- Package-lock hash and protected tag remained unchanged.
+- Detailed logs are stored outside the repository under `E:\pulsegate-artifacts\sprint-77-full-validation`.
+
+Bounded runtime validation:
+
+1. Confirm API Gateway is already running.
+2. Build only `admin-dashboard` and `developer-portal`.
+3. Recreate only those UI services with `--no-deps`.
+4. Wait for both healthchecks to become healthy.
+5. Request all ten Dashboard routes and four Portal routes.
+6. Verify production CSS focus selectors.
+7. Verify keyboard-focusable Portal code and table regions.
+8. Reject HTML containing Admin credential markers, fake issued-key prefixes, mojibake, or `U+FFFD`.
+9. Capture container logs outside the repository.
+10. Confirm Git refs and the working tree remain unchanged.
+
+PowerShell 5.1 native-command rule:
+
+- Docker BuildKit may write successful progress output to stderr.
+- Use the native process exit code as the pass/fail source.
+- Read optional JSON properties through property-existence checks under `Set-StrictMode`.
+<!-- SPRINT-77-LOCAL-VALIDATION-END -->

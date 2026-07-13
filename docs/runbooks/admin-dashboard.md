@@ -659,3 +659,41 @@ Runtime proof:
 
 Any Sprint 77 UI polish must preserve these 18 fixed resources and must not add mutation controls, a generic proxy, browser credentials, or full-access Dashboard configuration.
 <!-- SPRINT-76-DASHBOARD-SECURITY-END -->
+
+<!-- SPRINT-77-DASHBOARD-UI-START -->
+## Sprint 77 Dashboard UI-state and keyboard validation
+
+Expected state semantics:
+
+- Root loading uses `role="status"`, `aria-live="polite"`, and `aria-busy="true"`.
+- Shared loading and empty states use polite status semantics.
+- Root and shared error states use bounded alert semantics and safe retry actions.
+- Decorative skeleton elements use `aria-hidden="true"`.
+
+Expected table behavior:
+
+- Tables retain captions and scoped headers.
+- `.admin-resource-table-wrap` remains horizontally scrollable.
+- Each wrapper is a labeled, keyboard-focusable region.
+- Each wrapper retains a visible `:focus-visible` outline.
+
+Expected action behavior:
+
+- Primary and secondary actions retain visible keyboard focus rings.
+- Primary focus styling must preserve the primary button background.
+- Disabled controls remain visually and functionally disabled.
+
+Security preservation:
+
+- Do not add a generic BFF route or mutation control.
+- Do not expose `ADMIN_API_KEY` or `ADMIN_READ_ONLY_API_KEY` to browser code or HTML.
+- Preserve the 18 fixed GET-only Dashboard resources.
+
+Sprint 77 runtime proof:
+
+- The production image built successfully.
+- The Dashboard container became healthy.
+- Ten Dashboard routes returned HTTP 200.
+- Production CSS contained the verified focus selectors.
+- Tested HTML contained no mojibake or Admin credential markers.
+<!-- SPRINT-77-DASHBOARD-UI-END -->

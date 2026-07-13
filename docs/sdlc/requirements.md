@@ -6,19 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.16.0
+v1.17.0
 
 ## Latest Completed Sprint
 
-Sprint 76 - Admin RBAC/Platform Security Hardening
+Sprint 77 - UI Loading/Empty/Error/Responsive Polish
 
 ## Current Sprint
 
-Sprint 77 - UI Loading/Empty/Error/Responsive Polish
+Sprint 78 - End-to-End Demo and Lightweight k6 Validation
 
 ## Next Sprint
 
-Sprint 78 - End-to-End Demo and Lightweight k6 Validation
+Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup
 
 ---
 ## Document Scope
@@ -2402,3 +2402,54 @@ Current sprint: Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
 
 Next sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
 <!-- SPRINT-76-REQUIREMENTS-END -->
+
+<!-- SPRINT-77-REQUIREMENTS-START -->
+## Sprint 77 acceptance requirements
+
+1. Existing Dashboard and Portal loading, empty, error, retry, layout, overflow, and focus behavior shall be audited before patching.
+2. Root loading boundaries shall expose visible loading content and bounded status semantics.
+3. Decorative loading blocks shall be hidden from assistive technology.
+4. Root and shared error boundaries shall expose bounded alert semantics without raw exception or configuration disclosure.
+5. Shared Dashboard loading and empty states shall use consistent polite status semantics.
+6. Existing normalized Admin resource errors and retry actions shall remain unchanged.
+7. The four confirmed route-registry mojibake delimiters shall be corrected without altering route data.
+8. UTF-8 validation shall find no `U+00C2 U+00B7` delimiter or Unicode replacement character in tracked UI source.
+9. Dashboard semantic tables shall retain captions and column scopes.
+10. Horizontally scrollable Dashboard table regions shall be keyboard focusable, labeled, and visibly focused.
+11. Portal code examples shall remain horizontally scrollable and become keyboard focusable.
+12. The Portal HTTP error-reference table shall be a labeled, keyboard-focusable region.
+13. Navigation, primary links, primary actions, secondary actions, documentation navigation, code regions, and table regions shall retain visible keyboard-focus treatment.
+14. Existing responsive breakpoints and bounded table/code scrolling shall be preserved unless a concrete defect requires change.
+15. The Dashboard shall retain exactly 18 fixed GET-only BFF resources and no catch-all Admin proxy.
+16. Dashboard and Portal source and production HTML shall expose no Admin credential values, Admin credential markers, fake issued-key prefixes, or browser secret storage.
+17. Sprint 77 shall add no backend endpoint, database migration, dependency, environment variable, Compose service, public port, Kubernetes resource, npm workspace version, or Git tag.
+18. Routing, quota, analytics, tracing, logging, metrics, scheduler, retention, and raw-event behavior shall remain unchanged.
+19. Full workspace tests, typecheck, production build, release validation, Compose configuration, diff checks, package-lock integrity, clean-tree checks, and origin synchronization shall pass.
+20. Production runtime validation shall prove healthy UI containers, HTTP 200 for ten Dashboard routes and four Portal routes, verified CSS markers, focusable Portal regions, clean encoding, and browser-secret preservation.
+21. Product/documentation version shall advance to `v1.17.0`.
+22. Private npm workspace versions shall remain `0.1.0`.
+
+Implementation status: Complete.
+
+Implementation commits:
+
+- `063b25f66b8f1992b46c2932e2e25bbb87735675` - `feat(ui): polish shared interface states`
+- `1c38237a4426b8874434c2f43c49feed22e706f8` - `feat(ui): improve responsive keyboard access`
+- `63a02880c93558e87b56e48db1e21b07b80b5417` - `feat(ui): finalize dashboard accessibility polish`
+
+Validation baseline:
+
+- Admin Dashboard: 55 test files / 253 tests.
+- API Gateway: 163 test files / 1177 tests.
+- Developer Portal: 2 test files / 8 tests.
+- Product Service: 10 test files / 36 tests.
+- Root typecheck, build, release validation, Compose configuration, package-lock integrity, diff checks, clean-tree verification, and origin synchronization passed.
+- Admin Dashboard and Developer Portal containers were healthy.
+- Ten Dashboard routes and four Portal routes returned HTTP 200.
+- Production CSS and focusable scroll-region checks passed.
+- Mojibake and browser-secret HTTP regression checks passed.
+
+Current sprint: Sprint 78 - End-to-End Demo and Lightweight k6 Validation.
+
+Next sprint: Sprint 79 - v2 Docs, Runbooks and Architecture Cleanup.
+<!-- SPRINT-77-REQUIREMENTS-END -->

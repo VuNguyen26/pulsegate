@@ -2,13 +2,61 @@
 
 ## Current Version
 
-v1.16.0
+v1.17.0
 
 ## Latest Completed Sprint
 
-Sprint 76 - Admin RBAC/Platform Security Hardening
+Sprint 77 - UI Loading/Empty/Error/Responsive Polish
 
 ## Latest Decision
+<!-- SPRINT-77-DECISION-LOG-START -->
+### 2026-07-13 - Reuse existing UI primitives and make overflow regions keyboard reachable
+
+Decision:
+
+- Reuse the existing Dashboard loading, empty, error, table, filter, pagination, and responsive primitives.
+- Add explicit status and alert semantics without introducing a new UI framework.
+- Keep wide semantic tables and code examples horizontally scrollable.
+- Make scroll regions keyboard focusable, labeled, and visibly focused.
+- Correct the four confirmed route-registry mojibake delimiters without changing route data.
+- Preserve the fixed GET-only Dashboard BFF and server-only read-only credential boundaries.
+- Add no backend endpoint, dependency, database change, environment variable, service, port, Kubernetes resource, or Git tag.
+- Advance product/documentation version to `v1.17.0`.
+- Keep first-party npm workspace versions at `0.1.0`.
+
+Reason:
+
+- Existing UI foundations already covered most state and responsive behavior.
+- A bounded semantic and keyboard-access pass reduced risk and duplication.
+- Keyboard users require reachable focus targets for horizontally scrollable content.
+- Confirmed mojibake required source correction rather than console-code-page assumptions.
+
+Consequences:
+
+- Loading and empty updates are announced politely.
+- Error states remain immediate, bounded, and retryable.
+- Decorative skeleton elements do not add assistive-technology noise.
+- Dashboard tables and Portal code/table regions are keyboard reachable.
+- Existing application contracts and responsive breakpoints remain unchanged.
+
+Validation:
+
+- Admin Dashboard: 55 test files / 253 tests.
+- API Gateway: 163 test files / 1177 tests.
+- Developer Portal: 2 test files / 8 tests.
+- Product Service: 10 test files / 36 tests.
+- Root typecheck, build, release validation, Compose configuration, package-lock integrity, and clean-tree checks passed.
+- Both UI production containers were healthy.
+- Ten Dashboard routes and four Portal routes returned HTTP 200.
+- Production CSS, focusable-region, encoding, and browser-secret checks passed.
+
+Detailed records:
+
+- `docs/project-context/decisions/2026-07-13-ui-loading-empty-error-responsive-polish.md`
+- `docs/sdlc/sprint-history/sprint-77.md`
+- `docs/runbooks/admin-dashboard.md`
+- `docs/runbooks/local-validation.md`
+<!-- SPRINT-77-DECISION-LOG-END -->
 
 <!-- SPRINT-76-DECISION-LOG-START -->
 ### 2026-07-13 - Derive Admin identity from trusted authentication context
