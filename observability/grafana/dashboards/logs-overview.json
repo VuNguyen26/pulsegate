@@ -1,0 +1,282 @@
+{
+    "annotations":  {
+                        "list":  [
+                                     {
+                                         "builtIn":  1,
+                                         "datasource":  {
+                                                            "type":  "grafana",
+                                                            "uid":  "-- Grafana --"
+                                                        },
+                                         "enable":  true,
+                                         "hide":  true,
+                                         "iconColor":  "rgba(0, 211, 255, 1)",
+                                         "name":  "Annotations \u0026 Alerts",
+                                         "type":  "dashboard"
+                                     }
+                                 ]
+                    },
+    "editable":  true,
+    "fiscalYearStartMonth":  0,
+    "graphTooltip":  0,
+    "id":  null,
+    "links":  [
+
+              ],
+    "liveNow":  false,
+    "panels":  [
+                   {
+                       "datasource":  {
+                                          "type":  "loki",
+                                          "uid":  "pulsegate-loki"
+                                      },
+                       "description":  "Counts bounded Loki log entries over the selected interval and groups only by the approved service label.",
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "short"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  24,
+                                       "x":  0,
+                                       "y":  0
+                                   },
+                       "id":  1,
+                       "options":  {
+                                       "legend":  {
+                                                      "calcs":  [
+
+                                                                ],
+                                                      "displayMode":  "list",
+                                                      "placement":  "bottom",
+                                                      "showLegend":  true
+                                                  },
+                                       "tooltip":  {
+                                                       "mode":  "multi",
+                                                       "sort":  "desc"
+                                                   }
+                                   },
+                       "targets":  [
+                                       {
+                                           "datasource":  {
+                                                              "type":  "loki",
+                                                              "uid":  "pulsegate-loki"
+                                                          },
+                                           "editorMode":  "code",
+                                           "expr":  "sum by (service) (count_over_time({service=~\"${service:regex}\",level=~\"${level:regex}\",event=~\"${event:regex}\"}[$__auto]))",
+                                           "legendFormat":  "{{service}}",
+                                           "queryType":  "range",
+                                           "range":  true,
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "title":  "Log Volume by Service",
+                       "type":  "timeseries"
+                   },
+                   {
+                       "datasource":  {
+                                          "type":  "loki",
+                                          "uid":  "pulsegate-loki"
+                                      },
+                       "description":  "Shows at most 100 recent entries whose bounded level label is 40, 50, or 60.",
+                       "gridPos":  {
+                                       "h":  12,
+                                       "w":  12,
+                                       "x":  0,
+                                       "y":  8
+                                   },
+                       "id":  2,
+                       "maxDataPoints":  100,
+                       "options":  {
+                                       "dedupStrategy":  "none",
+                                       "enableLogDetails":  true,
+                                       "prettifyLogMessage":  true,
+                                       "showCommonLabels":  false,
+                                       "showLabels":  false,
+                                       "showTime":  true,
+                                       "sortOrder":  "Descending",
+                                       "wrapLogMessage":  true
+                                   },
+                       "targets":  [
+                                       {
+                                           "datasource":  {
+                                                              "type":  "loki",
+                                                              "uid":  "pulsegate-loki"
+                                                          },
+                                           "editorMode":  "code",
+                                           "expr":  "{service=~\"${service:regex}\",level=~\"40|50|60\",event=~\"${event:regex}\"}",
+                                           "maxLines":  100,
+                                           "queryType":  "range",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "title":  "Recent Higher-Severity Logs",
+                       "type":  "logs"
+                   },
+                   {
+                       "datasource":  {
+                                          "type":  "loki",
+                                          "uid":  "pulsegate-loki"
+                                      },
+                       "description":  "Shows at most 100 recent structured log lines selected only by service, level, and event.",
+                       "gridPos":  {
+                                       "h":  12,
+                                       "w":  12,
+                                       "x":  12,
+                                       "y":  8
+                                   },
+                       "id":  3,
+                       "maxDataPoints":  100,
+                       "options":  {
+                                       "dedupStrategy":  "none",
+                                       "enableLogDetails":  true,
+                                       "prettifyLogMessage":  true,
+                                       "showCommonLabels":  false,
+                                       "showLabels":  false,
+                                       "showTime":  true,
+                                       "sortOrder":  "Descending",
+                                       "wrapLogMessage":  true
+                                   },
+                       "targets":  [
+                                       {
+                                           "datasource":  {
+                                                              "type":  "loki",
+                                                              "uid":  "pulsegate-loki"
+                                                          },
+                                           "editorMode":  "code",
+                                           "expr":  "{service=~\"${service:regex}\",level=~\"${level:regex}\",event=~\"${event:regex}\"}",
+                                           "maxLines":  100,
+                                           "queryType":  "range",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "title":  "Recent Structured Logs",
+                       "type":  "logs"
+                   },
+                   {
+                       "description":  "Documents the safe bounded workflow for searching correlation identifiers stored in JSON bodies.",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  24,
+                                       "x":  0,
+                                       "y":  20
+                                   },
+                       "id":  4,
+                       "options":  {
+                                       "content":  "Use this dashboard for bounded operational log inspection only.\n\n- Indexed Loki labels are limited to `service`, `level`, and `event`.\n- `requestId`, `traceId`, and `spanId` remain JSON body fields and are not dashboard variables or Loki labels.\n- For correlation searches, open the Loki datasource in Grafana Explore, retain a bounded service selector, use a short time range, and add a body filter such as `{service=\"api-gateway\"} |= \"\u003crequestId\u003e\"`.\n- Do not search for or expose API keys, JWTs, authorization headers, cookies, request bodies, response bodies, database URLs, Redis credentials, Secret values, raw exception objects, or arbitrary header maps.\n- Logs are operational evidence only. They are not authentication, authorization, quota, billing, analytics, routing, health-registry, or audit sources of truth.",
+                                       "mode":  "markdown"
+                                   },
+                       "title":  "Correlation and Security Boundary",
+                       "type":  "text"
+                   }
+               ],
+    "refresh":  "10s",
+    "schemaVersion":  39,
+    "tags":  [
+                 "pulsegate",
+                 "observability",
+                 "logs"
+             ],
+    "templating":  {
+                       "list":  [
+                                    {
+                                        "allValue":  ".*",
+                                        "current":  {
+                                                        "selected":  true,
+                                                        "text":  "All",
+                                                        "value":  "$__all"
+                                                    },
+                                        "hide":  0,
+                                        "includeAll":  true,
+                                        "label":  "Service",
+                                        "multi":  true,
+                                        "name":  "service",
+                                        "options":  [
+                                                        {
+                                                            "selected":  true,
+                                                            "text":  "All",
+                                                            "value":  "$__all"
+                                                        },
+                                                        {
+                                                            "selected":  false,
+                                                            "text":  "api-gateway",
+                                                            "value":  "api-gateway"
+                                                        },
+                                                        {
+                                                            "selected":  false,
+                                                            "text":  "product-service",
+                                                            "value":  "product-service"
+                                                        }
+                                                    ],
+                                        "query":  "api-gateway,product-service",
+                                        "skipUrlSync":  false,
+                                        "type":  "custom"
+                                    },
+                                    {
+                                        "allValue":  ".*",
+                                        "current":  {
+                                                        "selected":  true,
+                                                        "text":  "All",
+                                                        "value":  "$__all"
+                                                    },
+                                        "datasource":  {
+                                                           "type":  "loki",
+                                                           "uid":  "pulsegate-loki"
+                                                       },
+                                        "definition":  "label_values({service=~\"${service:regex}\"}, level)",
+                                        "hide":  0,
+                                        "includeAll":  true,
+                                        "label":  "Level",
+                                        "multi":  true,
+                                        "name":  "level",
+                                        "options":  [
+
+                                                    ],
+                                        "query":  "label_values({service=~\"${service:regex}\"}, level)",
+                                        "refresh":  2,
+                                        "regex":  "",
+                                        "skipUrlSync":  false,
+                                        "sort":  1,
+                                        "type":  "query"
+                                    },
+                                    {
+                                        "allValue":  ".*",
+                                        "current":  {
+                                                        "selected":  true,
+                                                        "text":  "All",
+                                                        "value":  "$__all"
+                                                    },
+                                        "datasource":  {
+                                                           "type":  "loki",
+                                                           "uid":  "pulsegate-loki"
+                                                       },
+                                        "definition":  "label_values({service=~\"${service:regex}\",level=~\"${level:regex}\"}, event)",
+                                        "hide":  0,
+                                        "includeAll":  true,
+                                        "label":  "Event",
+                                        "multi":  true,
+                                        "name":  "event",
+                                        "options":  [
+
+                                                    ],
+                                        "query":  "label_values({service=~\"${service:regex}\",level=~\"${level:regex}\"}, event)",
+                                        "refresh":  2,
+                                        "regex":  "",
+                                        "skipUrlSync":  false,
+                                        "sort":  1,
+                                        "type":  "query"
+                                    }
+                                ]
+                   },
+    "time":  {
+                 "from":  "now-15m",
+                 "to":  "now"
+             },
+    "timezone":  "browser",
+    "title":  "PulseGate Logs Overview",
+    "uid":  "pulsegate-logs-overview",
+    "version":  1
+}
