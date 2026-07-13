@@ -2,138 +2,52 @@
 
 High-Traffic API Gateway & Observability Platform.
 
-## Current product/documentation version - v1.14.0
+## Current product/documentation version - v1.15.0
 
-**Latest completed sprint:** Sprint 74 - Loki logging foundation.
+**Latest completed sprint:** Sprint 75 - Grafana observability integration.
 
 Current validation baseline:
 
 - Admin Dashboard: 53 test files / 244 tests passed.
 - API Gateway: 162 test files / 1177 tests passed.
 - Developer Portal: 2 test files / 7 tests passed.
-- Product Service: 10 discovered test files / 36 tests passed, including compiled `dist` mirrors present during the full workspace run.
-- Full workspace tests, typecheck, production builds, Docker Compose configuration, and Git diff checks passed.
-- API Gateway and Product Service health returned HTTP 200.
-- Loki readiness returned `ready`; Alloy readiness returned `Alloy is ready`.
-- Product Service and API Gateway reported 1 and 11 migrations respectively, with no pending migrations.
-- Kustomize renders passed with 13 base, 10 local bootstrap, and 13 local application resources.
-- Kubernetes context remained `docker-desktop`, but the API server was unreachable; no cluster apply was attempted.
-- Loki streams for API Gateway and Product Service contained exactly `service`, `level`, and `event`.
-- Request ID, trace ID, and span ID remained in JSON log bodies and never became Loki labels.
-- Both backend applications remained healthy while Loki and Alloy were stopped.
-- Loki and Alloy restarted successfully.
+- Product Service: 10 test files / 36 tests passed.
+- Root release validation, typecheck, production builds, diff checks, Docker Compose validation, bounded k6 smoke, and three Kustomize renders passed.
+- Grafana 13.1.0 provisioned the existing Prometheus datasource and metrics dashboard plus the bounded Loki datasource and logs dashboard.
+- Loki/Alloy outage and recovery validation passed without restarting the application, Grafana, or Prometheus containers.
 
 Private npm workspace versions remain `0.1.0`.
 
-The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 74 creates no Git tag.
+The protected annotated Git tag `v1.0.0` remains unchanged at commit `407d03678674219e7228b15f0cd7a23074493f31`. Sprint 75 creates no Git tag.
 
-Next planned sprint: **Sprint 75 - Grafana observability integration**.
+Next planned sprint: **Sprint 76 - Admin RBAC/Platform Security Hardening**.
 
 ---
 ## Current Status
 
-PulseGate currently includes:
+Sprint 75 - Grafana observability integration is complete and pushed.
 
-- Fastify API Gateway
-- Product Service
-- Docker Compose runtime
-- PostgreSQL with Prisma
-- Redis
-- Prometheus
-- Loki
-- Grafana Alloy
-- Grafana
-- Bounded Docker-based k6 smoke validation
-- GitHub Actions CI/CD
-- Admin Dashboard foundation
-- Server-only read-only Admin API boundary
-- Dashboard runtime connectivity status
-- Dashboard Docker Compose runtime on port 3003
-- Dashboard consumer registry read view
-- Dashboard consumer-scoped API key metadata view
-- Dashboard usage plan read view
-- Dashboard persisted/runtime route registry read view
-- Dashboard consumer and API key usage summary views
-- Dashboard API key quota state view
-- Dashboard usage-plan current-window summary view
-- Dashboard successful usage event investigation with bounded filters and cursor navigation
-- Dashboard rejected request summary and event drilldown- Dynamic route config
-- Runtime route registry
-- Catch-all dynamic router
-- API consumer management
-- DB-backed issued API keys
-- API usage tracking
-- Filtered successful usage summary APIs
-- Successful usage events raw listing with cursor pagination
-- Usage plans and quotas
-- Runtime quota enforcement
-- Quota observability endpoints
-- Rejected request tracking
-- Rejected events summary
-- Rejected events raw listing with cursor pagination
-- Filterable rejected event drilldown
-- Analytics rollup calculation foundation
-- Analytics rollup persistence foundation
-- Analytics rollup manual backfill command
-- Analytics rollup read model foundation
-- Analytics rollup scheduling foundation
-- Analytics rollup schedule preview command
-- Analytics rollup scheduler runner contract
-- Analytics rollup scheduler preview command
-- Analytics rollup scheduler execution wiring review
-- Analytics rollup scheduler command dry-run design review
-- Analytics rollup scheduler command dry-run invocation contract and readiness review
-- Analytics rollup scheduler command dry-run invocation design review
-- Analytics rollup scheduler command dry-run service invocation implementation design
-- Analytics rollup scheduler command dry-run service invocation wiring readiness review
-- Analytics rollup scheduler command dry-run service invocation fail-closed error model
-- Analytics rollup scheduler command dry-run service invocation wiring contract
-- Analytics rollup scheduler dry-run backfill request mapper
-- Analytics rollup scheduler command dry-run service invocation request mapper design
-- Analytics rollup scheduler dry-run service adapter boundary
-- Analytics rollup scheduler command dry-run service adapter boundary design
-- Analytics rollup scheduler command dry-run service adapter preview output integration
-- Analytics rollup scheduler command dry-run runtime service invocation
-- Analytics rollup scheduler command dry-run runtime consistency output
-- Analytics rollup scheduler command dry-run runtime blocked-path tests
-- Analytics rollup scheduler command execute contract review
-- Analytics rollup scheduler command execute readiness review
-- Analytics rollup scheduler command execute operator output review
-- Analytics rollup scheduler command execute wiring preview
-- Analytics rollup background scheduler contract/runner output
-- Analytics rollup summary API switch preview
-- Rollup summary preview exposed on selected summary APIs behind explicit flag
-- Selected summary runtime reads can use rollup read model behind explicit flag with raw-summary fallback
-- Internal analytics rollup read endpoint
-- Analytics retention dry-run safety foundation
-- Analytics retention dry-run command
-- Analytics retention execution guardrails foundation
-- Analytics retention execution preview command
-- Analytics retention delete batch plan model
-- Analytics retention repository safety contract
-- Analytics retention delete repository port and operation planner
-- Analytics retention Prisma delete repository implementation behind guardrails
-- Analytics retention execution service orchestration preview
-- Analytics retention execution service summary model
-- Analytics retention execution candidate count loader
-- Analytics retention candidate-read execution preview composition
-- Analytics retention operator preview output model
-- Analytics retention operator preview command runner
-- DB-backed analytics retention operator preview command
-- Analytics retention operator preview safety and CLI hardening
+- Product/documentation version: `v1.15.0`.
+- Private npm workspace versions remain `0.1.0`.
+- Latest implementation commit before documentation finalization: `3750bb8a30c0a5fb3a0a871523472113b21c9561`.
+- Grafana provisions Prometheus as the default datasource and Loki as the non-default read-only datasource.
+- The existing five-panel metrics dashboard remains unchanged.
+- The bounded four-panel logs dashboard uses only `service`, `level`, and `event` variables.
+- Loki labels remain exactly `service`, `level`, and `event`.
+- `requestId`, `traceId`, and `spanId` remain JSON body fields only.
+- Loki has no public host-port binding.
+- Loki/Alloy outage isolation and recovery validation passed.
+- Admin Dashboard: 53 test files / 244 tests.
+- API Gateway: 162 test files / 1177 tests.
+- Developer Portal: 2 test files / 7 tests.
+- Product Service: 10 test files / 36 tests.
+- Root release validation, typecheck, builds, bounded k6 smoke, Compose validation, and three Kustomize renders passed.
+- Protected annotated tag `v1.0.0` remains unchanged.
+- Sprint 75 creates no Git tag.
 
-Latest validation:
+Current sprint: **Sprint 76 - Admin RBAC/Platform Security Hardening**.
 
-- Admin Dashboard: 38 test files / 200 tests passed
-- API Gateway: 136 test files / 988 tests passed
-- npm run typecheck passed
-- npm run build passed
-- docker compose config --quiet passed
-- git diff checks passed
-- Sprint 62 runtime parity and read-only security checks passed
-- Successful runtime mutation count remained zero
-
----
+Next sprint: **Sprint 77 - UI Loading/Empty/Error/Responsive Polish**.
 
 ## Tech Stack
 
@@ -1432,3 +1346,41 @@ Product/documentation version: **v1.14.0**.
 
 Next planned sprint: **Sprint 75 - Grafana observability integration**.
 <!-- SPRINT-74-README-END -->
+
+<!-- SPRINT-75-README-START -->
+## Sprint 75 - Grafana observability integration
+
+Sprint 75 connects the Sprint 74 Loki logging foundation to the existing Grafana observability runtime.
+
+Delivered behavior:
+
+- Provisioned Loki datasource `pulsegate-loki` at the internal URL `http://loki:3100`.
+- Kept Loki non-default and provisioned read-only.
+- Preserved Prometheus as the default datasource.
+- Added `PulseGate Logs Overview` with UID `pulsegate-logs-overview`.
+- Added four bounded panels and only the variables `service`, `level`, and `event`.
+- Bounded logs panels to 100 lines and a 15-minute default time range.
+- Changed dashboard file detection to a 30-second polling interval for Docker Desktop bind mounts.
+- Preserved Loki labels exactly as `service`, `level`, and `event`.
+- Kept `requestId`, `traceId`, and `spanId` in JSON bodies only.
+- Preserved the existing five-panel Prometheus dashboard.
+- Proved Loki/Alloy outage isolation and end-to-end recovery.
+
+Preserved boundaries:
+
+- No database migration.
+- No npm dependency or private npm version change.
+- No environment variable, service, or port change.
+- No public Loki endpoint.
+- No Admin Dashboard or Developer Portal log explorer.
+- No browser or Kubernetes workload log collection.
+- No trace backend, cloud observability vendor, alerting platform, or production HA claim.
+- No application source-of-truth change.
+- No Sprint 75 Git tag.
+
+Product/documentation version: **v1.15.0**.
+
+Current sprint: **Sprint 76 - Admin RBAC/Platform Security Hardening**.
+
+Next sprint: **Sprint 77 - UI Loading/Empty/Error/Responsive Polish**.
+<!-- SPRINT-75-README-END -->

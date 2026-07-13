@@ -6,34 +6,33 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.14.0
+v1.15.0
 
 ## Current Status
 
-Sprint 74 - Loki logging foundation Complete
+Sprint 75 - Grafana observability integration Complete
 
 Current validation:
 
 - Admin Dashboard: 53 test files / 244 tests passed.
 - API Gateway: 162 test files / 1177 tests passed.
 - Developer Portal: 2 test files / 7 tests passed.
-- Product Service: 10 discovered test files / 36 tests passed, including compiled `dist` mirrors.
-- Full workspace tests, typecheck, production builds, Docker Compose configuration, and Git diff checks passed.
-- API Gateway and Product Service health returned HTTP 200.
-- Loki and Alloy readiness passed.
-- Product Service and Gateway migrations reported no pending work.
-- Kustomize renders contained 13 base, 10 local bootstrap, and 13 local application resources.
-- Kubernetes context `docker-desktop` was unreachable; no cluster apply was attempted.
-- Backend Loki streams contained only `service`, `level`, and `event`.
-- Correlation identifiers remained in JSON log bodies.
-- Applications remained available during a Loki and Alloy outage.
-- Private npm workspace versions remain 0.1.0.
-- Protected annotated tag v1.0.0 remains unchanged.
-PulseGate is a local-first API Gateway, API Management, and Observability Platform inspired by Kong, Apache APISIX, Tyk, Apigee, and AWS API Gateway.
+- Product Service: 10 test files / 36 tests passed.
+- Root release validation, typecheck, production builds, Docker Compose validation, bounded k6 smoke, Git diff checks, and three Kustomize renders passed.
+- Grafana provisioned the existing Prometheus datasource and metrics dashboard plus the bounded Loki datasource and logs dashboard.
+- Prometheus remains the default datasource.
+- Loki remains internal, non-default, read-only, and without a public host-port binding.
+- Loki labels remain exactly `service`, `level`, and `event`.
+- Correlation identifiers remain in JSON log bodies only.
+- Applications, Grafana, and Prometheus remained available during a Loki and Alloy outage.
+- Fresh logs reached Loki after Loki and Alloy recovery without restarting unaffected services.
+- Private npm workspace versions remain `0.1.0`.
+- Protected annotated tag `v1.0.0` remains unchanged.
+- Sprint 75 creates no Git tag.
 
-PulseGate demonstrates backend engineering around API Gateway routing, dynamic route configuration, API consumer management, DB-backed API keys, usage plans, quota enforcement, successful usage analytics, rejected request analytics, observability, analytics rollup foundations, analytics retention dry-run, execution guardrail, repository safety foundations, service-level retention execution preview orchestration, DB-backed non-destructive retention operator preview hardening, non-destructive rollup schedule preview planning, non-destructive rollup scheduler runner preview planning, non-destructive rollup scheduler execution boundary preview planning, non-destructive rollup scheduler execution wiring review, non-destructive rollup scheduler command dry-run design review, non-destructive rollup scheduler command dry-run invocation contract and readiness review, non-destructive rollup scheduler command dry-run invocation design review, non-destructive rollup scheduler command dry-run service invocation contract review, non-destructive rollup scheduler command dry-run service invocation implementation design, non-destructive rollup scheduler command dry-run service invocation wiring readiness review, non-destructive rollup scheduler command dry-run service invocation fail-closed error model, non-destructive rollup scheduler command dry-run service invocation wiring contract, non-destructive rollup scheduler command dry-run service invocation request mapper design, non-destructive rollup scheduler command dry-run service adapter boundary design, non-destructive rollup scheduler command dry-run service adapter preview output integration, command dry-run runtime service invocation, runtime consistency output, blocked-path runtime tests, non-destructive rollup scheduler command execute contract review, non-destructive command execute readiness review, non-destructive command execute operator output review, non-destructive blocked-by-default command execute wiring preview, selected summary runtime rollup read switching behind explicit flag with raw-summary fallback, and CI/CD.
+Current sprint: Sprint 76 - Admin RBAC/Platform Security Hardening.
 
----
+Next sprint: Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
 
 ## Current High-Level Architecture
 
@@ -1766,3 +1765,37 @@ They are not sources of truth for:
 
 Sprint 75 may add a Grafana Loki datasource and bounded log visualization while preserving this label, security, availability, and source-of-truth contract.
 <!-- SPRINT-74-ARCHITECTURE-END -->
+
+<!-- SPRINT-75-ARCHITECTURE-START -->
+## Grafana and Loki integration boundary (Sprint 75)
+
+Grafana preserves two provisioned datasource roles:
+
+- `pulsegate-prometheus` remains the default Prometheus datasource at `http://prometheus:9090`.
+- `pulsegate-loki` is the non-default, read-only Loki datasource at `http://loki:3100`.
+
+Loki remains internal to the Compose network and has no host mapping for port 3100.
+
+The `PulseGate Logs Overview` dashboard is provisioned in the existing `PulseGate` folder. It contains:
+
+1. Log Volume by Service.
+2. Recent Higher-Severity Logs.
+3. Recent Structured Logs.
+4. Correlation and Security Boundary.
+
+The bounded query contract is:
+
+- Stored labels: `service`, `level`, `event`.
+- Dashboard variables: `service`, `level`, `event`.
+- Correlation fields: `requestId`, `traceId`, `spanId` in JSON bodies only.
+- Log result limit: 100 lines.
+- Default dashboard range: 15 minutes.
+- Dashboard refresh: 10 seconds.
+- Dashboard file-provider polling: 30 seconds.
+
+Application logs continue through structured stdout when Loki or Alloy is unavailable. Grafana and Prometheus remain available during a logging-backend outage. Restarting Loki and Alloy restores log transport without recreating their containers.
+
+Logs and dashboards remain operational evidence only. They are not sources of truth for authentication, authorization, quota counting, billing, analytics persistence, routing, failover, or audit records.
+
+Sprint 75 adds no database schema, Kubernetes workload collection, public Loki service, trace backend, cloud vendor, product-facing log explorer, alerting platform, or production durability claim.
+<!-- SPRINT-75-ARCHITECTURE-END -->

@@ -2,15 +2,11 @@
 
 ## Current Version
 
-v1.14.0
-
-Private npm workspace package versions remain `0.1.0`.
-
-The annotated `v1.0.0` Git tag remains unchanged at the final Sprint 60 documentation commit.
+v1.15.0
 
 ## Latest Completed Sprint
 
-Sprint 74 - Loki logging foundation
+Sprint 75 - Grafana observability integration
 
 ## Latest Decision
 
@@ -1704,3 +1700,24 @@ Detailed record:
 
 - `docs/project-context/decisions/2026-07-12-service-discovery-health-failover-hardening.md`
 <!-- SPRINT-70-DECISION-LOG-END -->
+
+<!-- SPRINT-75-DECISION-LOG-START -->
+## 2026-07-13 - Provision bounded Grafana access to Loki
+
+Decision:
+
+- Provision Loki as `pulsegate-loki` at `http://loki:3100`.
+- Keep Prometheus as the default Grafana datasource.
+- Keep Loki non-default and provisioned read-only.
+- Add a separate four-panel logs dashboard in the existing `PulseGate` folder.
+- Restrict labels and dashboard variables to `service`, `level`, and `event`.
+- Keep correlation identifiers in JSON bodies only.
+- Bound log panels to 100 lines and a 15-minute default range.
+- Use 30-second dashboard file polling for Docker Desktop bind mounts.
+- Keep application availability independent from Loki and Alloy.
+- Preserve the existing metrics dashboard and all application sources of truth.
+
+Detailed record:
+
+- `docs/project-context/decisions/2026-07-13-grafana-observability-integration.md`
+<!-- SPRINT-75-DECISION-LOG-END -->

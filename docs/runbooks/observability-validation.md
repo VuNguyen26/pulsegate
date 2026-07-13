@@ -331,15 +331,75 @@ Loki filesystem storage is local/development-only.
 
 This validation does not establish production retention, durability, replication, backup, restore, capacity, or high availability.
 
-### Sprint 75 handoff
+<!-- SPRINT-75-RUNBOOK-START -->
+## Sprint 75 Grafana and Loki validation
 
-Sprint 75 may provision Grafana access to Loki and add bounded log visualization.
+### Provisioned resources
 
-It must preserve:
+Grafana provisions:
 
-- the exact three-label allowlist
-- body-only correlation identifiers
-- application independence from logging services
-- internal-only Loki exposure
-- no observability source-of-truth expansion
-<!-- SPRINT-74-OBSERVABILITY-RUNBOOK-END -->
+- Prometheus datasource UID `pulsegate-prometheus`.
+- Loki datasource UID `pulsegate-loki`.
+- Metrics dashboard UID `pulsegate-api-gateway-overview`.
+- Logs dashboard UID `pulsegate-logs-overview`.
+- Folder `PulseGate`.
+
+The Loki datasource uses proxy access to `http://loki:3100`, is non-default, and is read-only because it is provisioned from source control. Loki has no public host port.
+
+### Logs dashboard
+
+The dashboard contains four panels:
+
+1. Log Volume by Service.
+2. Recent Higher-Severity Logs.
+3. Recent Structured Logs.
+4. Correlation and Security Boundary.
+
+Variables are limited to `service`, `level`, and `event`. The two logs panels use a maximum of 100 lines. The default dashboard range is 15 minutes.
+
+### Label and correlation boundary
+
+The exact stored label allowlist is `service`, `level`, and `event`.
+
+`requestId`, `traceId`, and `spanId` remain JSON body fields and must not become labels or dashboard variables.
+
+For a bounded correlation search in Grafana Explore, select one fixed service, use a short time range, and apply a body filter containing the exact correlation identifier.
+
+### Dashboard polling
+
+The provider uses `updateIntervalSeconds: 30`. This forces polling rather than relying on filesystem watch events that may not propagate through Docker Desktop bind mounts.
+
+After changing provider configuration, restart only Grafana. Later dashboard additions, updates, and deletions should be detected by polling without another restart.
+
+### Outage and recovery validation
+
+1. Record container IDs and start times.
+2. Stop only Alloy and Loki.
+3. Confirm API Gateway, Product Service, Grafana, and Prometheus remain running.
+4. Confirm application health remains HTTP 200.
+5. Confirm Prometheus queries still work.
+6. Confirm the Loki datasource becomes unavailable.
+7. Confirm structured stdout still contains fresh request IDs.
+8. Start Loki and wait for datasource health.
+9. Start Alloy and confirm its process is running.
+10. Generate fresh requests and verify their logs reach Loki through Alloy.
+11. Confirm unaffected containers were not restarted or recreated.
+
+Use process state plus fresh end-to-end log transport as the authoritative Alloy recovery proof. Do not depend on a guessed readiness string.
+
+### Security boundary
+
+Do not expose API keys, JWTs, authorization headers, cookies, request or response bodies, database or Redis credentials, Secret values, arbitrary header maps, or raw exception objects.
+
+Grafana and Loki remain operational tooling. They are not authentication, authorization, quota, billing, analytics, routing, failover, or audit sources of truth.
+
+### Kubernetes boundary
+
+Sprint 75 changes no Kubernetes manifest and collects no Kubernetes workload logs. Static Kustomize rendering proves deployment compatibility.
+
+### Sprint 76 handoff
+
+Sprint 76 may harden Admin RBAC and platform security after auditing the current authentication, authorization, credential, actor-attribution, browser-exposure, and fail-closed boundaries.
+
+Do not change Grafana, Loki, Alloy, Prometheus, tracing, routing, quota, or analytics behavior merely to implement Admin security.
+<!-- SPRINT-75-RUNBOOK-END -->

@@ -6,11 +6,19 @@ PulseGate - High-Traffic API Gateway & Observability Platform
 
 ## Current Version
 
-v1.14.0
+v1.15.0
 
 ## Latest Completed Sprint
 
-Sprint 74 - Loki logging foundation
+Sprint 75 - Grafana observability integration
+
+## Current Sprint
+
+Sprint 76 - Admin RBAC/Platform Security Hardening
+
+## Next Sprint
+
+Sprint 77 - UI Loading/Empty/Error/Responsive Polish
 
 ---
 ## Document Scope
@@ -2307,3 +2315,40 @@ Next sprint: Sprint 74 - Loki logging foundation.
 
 Next sprint: Sprint 75 - Grafana observability integration.
 <!-- SPRINT-74-REQUIREMENTS-END -->
+
+<!-- SPRINT-75-REQUIREMENTS-START -->
+## Sprint 75 acceptance requirements
+
+1. Grafana shall provision one Loki datasource with UID `pulsegate-loki`.
+2. The Loki datasource shall use proxy access to `http://loki:3100`.
+3. Loki shall remain non-default and provisioned read-only.
+4. Prometheus shall remain the default datasource with UID `pulsegate-prometheus`.
+5. Loki shall expose no host port.
+6. Grafana shall provision logs dashboard UID `pulsegate-logs-overview` in folder `PulseGate`.
+7. The existing metrics dashboard shall retain UID `pulsegate-api-gateway-overview` and five panels.
+8. The logs dashboard shall contain four bounded panels.
+9. Dashboard variables shall be limited to `service`, `level`, and `event`.
+10. Loki stored labels shall remain exactly `service`, `level`, and `event`.
+11. `requestId`, `traceId`, and `spanId` shall remain JSON body fields and shall not become labels.
+12. Logs panels shall limit returned lines to 100.
+13. The default logs dashboard range shall be 15 minutes.
+14. Dashboard file provisioning shall use a 30-second polling interval.
+15. Gateway and Product Service correlation searches shall work through JSON body matching.
+16. Existing Prometheus health and query behavior shall remain available.
+17. Application structured stdout shall continue when Loki and Alloy are unavailable.
+18. Stopping Loki and Alloy shall not restart or make unavailable API Gateway, Product Service, Grafana, or Prometheus.
+19. Restarting Loki and Alloy shall restore fresh end-to-end log transport.
+20. Sprint 75 shall add no database migration, npm dependency, environment variable, Compose service, or public port.
+21. Private npm versions shall remain `0.1.0`.
+22. Sprint 75 shall add no browser, product-facing, or Kubernetes workload log collection.
+23. Sprint 75 shall add no trace backend, cloud vendor, alerting platform, or production HA claim.
+24. Sprint 75 shall not expose credentials, authorization data, payload bodies, arbitrary headers, or raw exceptions.
+25. Sprint 75 shall not change application sources of truth.
+26. Root release validation, typecheck, builds, k6 smoke, Compose validation, and Kustomize renders shall pass.
+27. Product/documentation version shall advance to `v1.15.0`.
+28. Sprint 75 shall create no Git tag.
+
+Current sprint: Sprint 76 - Admin RBAC/Platform Security Hardening.
+
+Next sprint: Sprint 77 - UI Loading/Empty/Error/Responsive Polish.
+<!-- SPRINT-75-REQUIREMENTS-END -->
