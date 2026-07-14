@@ -9,7 +9,8 @@ export const metadata: Metadata = {
     default: "PulseGate Developer Portal",
     template: "%s | PulseGate Developer Portal",
   },
-  description: "Public developer-facing foundation for PulseGate.",
+  description:
+    "Public documentation and integration guidance for the PulseGate API Gateway.",
 };
 
 export default function RootLayout({
@@ -23,7 +24,23 @@ export default function RootLayout({
           <PortalNavigation />
         </header>
         <main>{children}</main>
-        <footer>PulseGate Developer Portal - Public Demo v2.0.0</footer>
+        <footer className="site-footer">
+          <div>
+            <strong>PulseGate</strong>
+            <span>Public portfolio demo Â· v2.0.0</span>
+          </div>
+          <nav aria-label="Public demo links">
+            <a href="https://pulsegate-admin-dashboard.netlify.app">
+              Admin Dashboard
+            </a>
+            <a href="https://pulsegate-public-demo-api.onrender.com/health">
+              API health
+            </a>
+            <a href="https://github.com/VuNguyen26/pulsegate">
+              Source code
+            </a>
+          </nav>
+        </footer>
       </body>
     </html>
   );

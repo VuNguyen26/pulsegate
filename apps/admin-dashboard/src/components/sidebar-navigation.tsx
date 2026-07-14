@@ -9,7 +9,12 @@ export function SidebarNavigation() {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Admin Dashboard">
+    <nav
+      className="sidebar-navigation"
+      aria-label="Admin Dashboard"
+    >
+      <p className="navigation-label">Explore</p>
+
       <ul className="navigation-list">
         {dashboardNavigation.map((item) => {
           const active = pathname === item.href;
@@ -23,14 +28,15 @@ export function SidebarNavigation() {
                 aria-current={active ? "page" : undefined}
               >
                 <span>{item.label}</span>
-                {item.plannedSprint > 61 ? (
-                  <small>Read-only</small>
-                ) : null}
               </Link>
             </li>
           );
         })}
       </ul>
+
+      <p className="navigation-note">
+        Read-only public demo. Privileged credentials remain server-side.
+      </p>
     </nav>
   );
 }

@@ -9,7 +9,8 @@ export const metadata: Metadata = {
     default: "PulseGate Admin",
     template: "%s | PulseGate Admin",
   },
-  description: "Secure administration interface for PulseGate.",
+  description:
+    "Read-only public administration interface for PulseGate.",
 };
 
 export default function RootLayout({
@@ -22,13 +23,20 @@ export default function RootLayout({
       <body>
         <div className="application-shell">
           <header className="top-bar">
-            <div>
+            <div className="product-lockup">
               <span className="product-name">PulseGate</span>
               <span className="product-area">Admin Dashboard</span>
             </div>
-            <span className="foundation-badge">
-              v2.0.0
-            </span>
+
+            <div className="top-bar-actions">
+              <a
+                className="top-bar-link"
+                href="https://pulsegate-developer-portal.netlify.app"
+              >
+                Developer Portal
+              </a>
+              <span className="foundation-badge">v2.0.0</span>
+            </div>
           </header>
 
           <aside className="sidebar">
