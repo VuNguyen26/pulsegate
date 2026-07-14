@@ -22,7 +22,7 @@ export default function GettingStartedPage() {
             authentication requirements, and error responses.
           </p>
           <Link className="text-link" href="/api-docs">
-            Open API docs â†’
+            Open API docs →
           </Link>
         </article>
 
@@ -37,7 +37,7 @@ export default function GettingStartedPage() {
             className="text-link"
             href="https://pulsegate-public-demo-api.onrender.com/health"
           >
-            Open Gateway health â†’
+            Open Gateway health →
           </a>
         </article>
 
@@ -52,7 +52,7 @@ export default function GettingStartedPage() {
             className="text-link"
             href="https://pulsegate-admin-dashboard.netlify.app"
           >
-            Open Admin Dashboard â†’
+            Open Admin Dashboard →
           </a>
         </article>
       </div>

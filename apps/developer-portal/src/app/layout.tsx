@@ -27,7 +27,7 @@ export default function RootLayout({
         <footer className="site-footer">
           <div>
             <strong>PulseGate</strong>
-            <span>Public portfolio demo Â· v2.0.0</span>
+            <span>Public portfolio demo · v2.0.0</span>
           </div>
           <nav aria-label="Public demo links">
             <a href="https://pulsegate-admin-dashboard.netlify.app">

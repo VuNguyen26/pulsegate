@@ -51,7 +51,7 @@ export default function OverviewPage() {
             Inspect persisted and runtime routes, host conditions, weighted
             upstreams, service discovery, and health-aware routing metadata.
           </p>
-          <span className="card-link">Open routes â†’</span>
+          <span className="card-link">Open routes →</span>
         </Link>
 
         <Link
@@ -64,7 +64,7 @@ export default function OverviewPage() {
             Explore successful requests, quota summaries, rejected traffic,
             and bounded event filters through read-only views.
           </p>
-          <span className="card-link">Open analytics â†’</span>
+          <span className="card-link">Open analytics →</span>
         </Link>
 
         <Link className="content-card overview-card" href="/rollups">
@@ -74,7 +74,7 @@ export default function OverviewPage() {
             Review persisted analytics rollups plus scheduler and retention
             previews without executing destructive operations.
           </p>
-          <span className="card-link">Open rollups â†’</span>
+          <span className="card-link">Open rollups →</span>
         </Link>
       </div>
     </section>

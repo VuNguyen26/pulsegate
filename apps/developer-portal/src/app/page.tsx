@@ -53,7 +53,7 @@ export default function OverviewPage() {
             Follow a short path through public health checks, API contracts,
             and the read-only operator experience.
           </p>
-          <span className="card-link">Start the tour â†’</span>
+          <span className="card-link">Start the tour →</span>
         </Link>
 
         <Link className="feature-card" href="/api-docs">
@@ -63,7 +63,7 @@ export default function OverviewPage() {
             Review live endpoints, required headers, authentication rules,
             and the normalized downstream error model.
           </p>
-          <span className="card-link">Read the contracts â†’</span>
+          <span className="card-link">Read the contracts →</span>
         </Link>
 
         <Link className="feature-card" href="/api-keys">
@@ -73,7 +73,7 @@ export default function OverviewPage() {
             Understand the current authentication model and why public key
             issuance remains intentionally outside this portfolio demo.
           </p>
-          <span className="card-link">Review the boundary â†’</span>
+          <span className="card-link">Review the boundary →</span>
         </Link>
       </div>
     </section>

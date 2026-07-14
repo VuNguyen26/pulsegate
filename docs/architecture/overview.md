@@ -1127,9 +1127,9 @@ Sprint 59 keeps observability lightweight and reproducible:
 
 Sprint 64 extends the Admin Dashboard with three source-separated, read-only analytics operations paths:
 
-1. **Rollup inspection:** browser â†’ Dashboard BFF GET /api/admin/analytics/rollups â†’ Gateway GET /internal/admin/analytics/rollups â†’ existing rollup read service/repositories.
-2. **Scheduler preview:** browser â†’ Dashboard BFF GET /api/admin/analytics/scheduler-preview â†’ Gateway pure preview builder. The path does not start jobs, resolve runtime factories, invoke adapters, or execute backfill.
-3. **Retention preview:** browser â†’ Dashboard BFF GET /api/admin/analytics/retention-preview â†’ Gateway fixed dry-run service â†’ existing candidate-count repository. The path imports no delete repository and performs no retention execution.
+1. **Rollup inspection:** browser → Dashboard BFF GET /api/admin/analytics/rollups → Gateway GET /internal/admin/analytics/rollups → existing rollup read service/repositories.
+2. **Scheduler preview:** browser → Dashboard BFF GET /api/admin/analytics/scheduler-preview → Gateway pure preview builder. The path does not start jobs, resolve runtime factories, invoke adapters, or execute backfill.
+3. **Retention preview:** browser → Dashboard BFF GET /api/admin/analytics/retention-preview → Gateway fixed dry-run service → existing candidate-count repository. The path imports no delete repository and performs no retention execution.
 
 All three Dashboard DTO boundaries use strict allowlists and fail closed on extra or unsafe fields. Browser-supplied execution, deletion, scheduler, or policy controls are rejected.
 <!-- pulsegate:sprint-64:end -->
@@ -1514,11 +1514,11 @@ The repository uses the Kustomize version embedded in `kubectl`. Helm, Terraform
 Base application resources:
 
 ```text
-Admin Dashboard :3003 â”€â”€server-onlyâ”€â”€> API Gateway :3000
+Admin Dashboard :3003 ──server-only──> API Gateway :3000
 Developer Portal :3004
-API Gateway :3000 â”€â”€> Product Service :3001
-API Gateway â”€â”€> PostgreSQL / Redis
-Product Service â”€â”€> PostgreSQL
+API Gateway :3000 ──> Product Service :3001
+API Gateway ──> PostgreSQL / Redis
+Product Service ──> PostgreSQL
 ```
 
 Each application has:
