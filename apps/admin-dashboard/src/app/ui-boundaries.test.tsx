@@ -56,6 +56,37 @@ describe("Admin Dashboard UI boundaries", () => {
 }`,
     );
   });
+
+  it("provides a bounded mobile navigation disclosure", () => {
+    const navigation = readFileSync(
+      join(
+        process.cwd(),
+        "src",
+        "components",
+        "sidebar-navigation.tsx",
+      ),
+      "utf8",
+    );
+    const styles = readFileSync(
+      join(process.cwd(), "src", "app", "visual-system.css"),
+      "utf8",
+    );
+
+    expect(navigation).toContain(
+      'className="sidebar-mobile-toggle"',
+    );
+    expect(navigation).toContain(
+      "aria-expanded={mobileOpen}",
+    );
+    expect(navigation).toContain(
+      'data-visual-system="p7-mobile-navigation"',
+    );
+    expect(styles).toContain(
+      '.sidebar-navigation[data-mobile-open="true"]',
+    );
+    expect(styles).toContain("overflow-x: hidden");
+  });
+
   it("renders a bounded alert with a safe retry action", () => {
     const html = renderToStaticMarkup(
       <ErrorPage

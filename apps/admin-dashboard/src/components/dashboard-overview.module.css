@@ -884,3 +884,30 @@
     transition: none;
   }
 }
+
+
+/* P7 mobile visual QA corrections */
+.page,
+.hero,
+.heroCopy,
+.preview,
+.runtimeSurface,
+.flowSection {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.hero h1,
+.heroLead {
+  max-width: 100%;
+}
+
+@media (max-width: 560px) {
+  .hero h1 {
+    font-size: clamp(2.25rem, 12vw, 3.1rem);
+    letter-spacing: -0.052em;
+    line-height: 0.97;
+    overflow-wrap: break-word;
+    text-wrap: balance;
+  }
+}

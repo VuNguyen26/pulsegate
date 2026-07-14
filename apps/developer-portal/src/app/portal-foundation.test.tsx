@@ -104,6 +104,49 @@ describe("Developer Portal foundation", () => {
       ".error-table-wrapper:focus-visible",
     );
   });
+
+  it("provides a compact mobile navigation disclosure", () => {
+    const navigation = readFileSync(
+      join(
+        process.cwd(),
+        "src",
+        "components",
+        "portal-navigation.tsx",
+      ),
+      "utf8",
+    );
+    const styles = readFileSync(
+      join(process.cwd(), "src", "app", "visual-system.css"),
+      "utf8",
+    );
+    const overviewStyles = readFileSync(
+      join(
+        process.cwd(),
+        "src",
+        "components",
+        "portal-overview.module.css",
+      ),
+      "utf8",
+    );
+
+    expect(navigation).toContain(
+      'className="portal-navigation-toggle"',
+    );
+    expect(navigation).toContain("aria-expanded={open}");
+    expect(navigation).toContain(
+      'data-visual-system="p7-mobile-navigation"',
+    );
+    expect(styles).toContain(
+      '.portal-navigation[data-open="true"]',
+    );
+    expect(styles).toContain(
+      "width: min(1180px, calc(100% - 24px));",
+    );
+    expect(overviewStyles).toContain(
+      "width: min(1240px, calc(100% - 24px));",
+    );
+  });
+
   it("keeps Admin and browser-secret surfaces out of Portal source", () => {
     const source = sourceFiles(join(process.cwd(), "src"))
       .map((file) => readFileSync(file, "utf8"))

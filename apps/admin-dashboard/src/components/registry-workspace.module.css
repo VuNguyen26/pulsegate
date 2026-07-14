@@ -977,3 +977,25 @@
     transition: none;
   }
 }
+
+
+/* P7 mobile visual QA corrections */
+.page,
+.hero,
+.heroCopy,
+.preview,
+.resourceSurface,
+.boundary {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 560px) {
+  .hero h1 {
+    max-width: 100%;
+    font-size: clamp(2.2rem, 11vw, 3rem);
+    letter-spacing: -0.05em;
+    overflow-wrap: break-word;
+    text-wrap: balance;
+  }
+}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 import {
   dashboardNavigation,
@@ -42,19 +43,65 @@ const navigationGroups: readonly NavigationGroup[] = [
 
 export function SidebarNavigation() {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const currentItem = dashboardNavigation.find(
+    (item) => item.href === pathname,
+  );
+  const currentHref = currentItem?.href ?? "/";
+  const currentLabel = currentItem?.label ?? "Overview";
 
   return (
     <nav
       className="sidebar-navigation"
       aria-label="Admin Dashboard"
+      data-mobile-open={mobileOpen}
+      data-visual-system="p7-mobile-navigation"
     >
+      <button
+        className="sidebar-mobile-toggle"
+        type="button"
+        aria-expanded={mobileOpen}
+        aria-controls="dashboard-navigation-groups"
+        aria-label={
+          mobileOpen
+            ? "Close Dashboard navigation"
+            : "Open Dashboard navigation"
+        }
+        onClick={() => setMobileOpen((open) => !open)}
+      >
+        <span className="sidebar-mobile-toggle-current">
+          <NavigationIcon href={currentHref} />
+          <span className="sidebar-mobile-toggle-copy">
+            <small>Current workspace</small>
+            <strong>{currentLabel}</strong>
+          </span>
+        </span>
+
+        <span
+          className="sidebar-mobile-toggle-action"
+          aria-hidden="true"
+        >
+          <span>{mobileOpen ? "Close" : "Menu"}</span>
+          <svg viewBox="0 0 20 20" role="img">
+            {mobileOpen ? (
+              <path d="m6 6 8 8m0-8-8 8" />
+            ) : (
+              <path d="M4 6h12M4 10h12M4 14h12" />
+            )}
+          </svg>
+        </span>
+      </button>
+
       <div className="sidebar-intro">
         <p className="navigation-label">Workspace</p>
         <strong>Gateway operations</strong>
         <span>Live, bounded and safe to inspect.</span>
       </div>
 
-      <div className="navigation-groups">
+      <div
+        className="navigation-groups"
+        id="dashboard-navigation-groups"
+      >
         {navigationGroups.map((group) => (
           <section className="navigation-group" key={group.label}>
             <p className="navigation-group-label">{group.label}</p>
@@ -70,6 +117,7 @@ export function SidebarNavigation() {
                       data-active={active}
                       href={item.href}
                       aria-current={active ? "page" : undefined}
+                      onClick={() => setMobileOpen(false)}
                     >
                       <NavigationIcon href={item.href} />
                       <span className="navigation-link-copy">
