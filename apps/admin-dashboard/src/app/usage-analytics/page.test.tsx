@@ -41,6 +41,12 @@ describe("UsageAnalyticsPage", () => {
     expect(html).toContain(
       "Offset pagination and rollup switches are not exposed",
     );
+    expect(html).toContain(
+      "Move from request identity to quota evidence",
+    );
+    expect(html).toContain(
+      "usage / request model",
+    );
     expect(html).not.toContain(
       "Public demo placeholder",
     );

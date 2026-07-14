@@ -27,13 +27,19 @@ describe("RejectedEventsPage", () => {
       "remain separate from successful usage totals",
     );
     expect(html).toContain(
-      "raw rejection metadata is never rendered",
+      "raw rejection metadata is never",
     );
     expect(html).toContain(
       "Offset pagination",
     );
     expect(html).toContain(
       "mutation controls are not exposed",
+    );
+    expect(html).toContain(
+      "Understand why the gateway refused traffic",
+    );
+    expect(html).toContain(
+      "gateway / rejection path",
     );
     expect(html).not.toContain(
       "Public demo placeholder",
