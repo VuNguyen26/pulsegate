@@ -1,6 +1,6 @@
 # PulseGate
 
-**A product-oriented API Gateway and observability platform built with TypeScript, Fastify, PostgreSQL, Redis, Next.js, OpenTelemetry, Loki, Prometheus, Grafana, Docker Compose, and Kubernetes.**
+**A product-oriented API Gateway and API management platform built with TypeScript, Fastify, PostgreSQL, Redis, Next.js, OpenTelemetry, Loki, Prometheus, Grafana, Docker Compose, and Kubernetes.**
 
 [Developer Portal](https://pulsegate-developer-portal.netlify.app) |
 [Admin Dashboard](https://pulsegate-admin-dashboard.netlify.app) |
@@ -8,69 +8,72 @@
 [Product Service through Gateway](https://pulsegate-public-demo-api.onrender.com/api/product-service/health) |
 [v2.0.0 release notes](docs/releases/v2.0.0.md)
 
-PulseGate demonstrates how an API gateway can combine dynamic routing, authentication, traffic policies, analytics, operations, and observability behind explicit security boundaries. The repository is designed as a portfolio-grade engineering system rather than a production SaaS claim.
+> **Project status:** Product/Platform v2.0.0 is released, the fixed Sprint 45-80 roadmap is complete, and the post-release visual product redesign is complete in source on `main`. The public UI sites use free-tier hosting and may be temporarily unavailable or lag the latest source when hosting credits are exhausted.
 
-> The public demo runs on free-tier infrastructure. The API may take up to about a minute to wake after inactivity. Retry once when the first health request is unavailable.
+PulseGate demonstrates how an API gateway can combine traffic routing, authentication, rate and quota enforcement, resilience, analytics, operations, and observability behind explicit security boundaries. It is presented as a portfolio-grade engineering system, not as a production SaaS or capacity-certified service.
 
-![PulseGate Developer Portal overview](docs/assets/portfolio/portal-overview.webp)
+## Why PulseGate
 
-## What PulseGate demonstrates
+Most gateway demos stop at reverse proxying. PulseGate follows a request across the full operational path:
 
-| Area | Implemented capabilities |
+```text
+consumer request
+  -> authentication and request boundaries
+  -> rate, quota, cache, and policy evaluation
+  -> route registry and target selection
+  -> service discovery, health selection, failover, and retry
+  -> downstream response
+  -> usage, rejection, metric, trace, and log evidence
+```
+
+The repository includes the runtime, data model, read-only operator experience, developer-facing documentation, observability stack, deployment assets, validation scripts, and architecture records needed to explain that path end to end.
+
+## Explore the system
+
+| Surface | Purpose |
 | --- | --- |
-| Gateway runtime | Dynamic route registry, path and host matching, weighted upstreams, service discovery, health-aware failover, bounded retries, request IDs, transforms, timeouts, and downstream proxying |
-| Security | Database-backed and environment-fallback API keys, JWT authentication, security headers, request-size limits, rate limiting, quota enforcement, Admin RBAC, and server-only credential boundaries |
-| API management | Consumers, API keys, usage plans, route configuration, runtime route inspection, quota state, and fixed read-only Admin Dashboard BFF resources |
-| Analytics and operations | Successful usage events, rejected/security events, filtered summaries, raw event inspection, rollup reads, scheduler previews, retention previews, and bounded execution guardrails |
-| Observability | Structured logs, trace and span correlation, OpenTelemetry propagation, Grafana Alloy, Loki, Prometheus metrics, provisioned Grafana dashboards, and bounded k6 smoke validation |
-| Delivery | npm workspaces, strict TypeScript, Vitest, multi-stage containers, Docker Compose, GitHub Actions, Kubernetes Kustomize overlays, runbooks, decision records, and release evidence |
+| [Developer Portal](https://pulsegate-developer-portal.netlify.app) | Public onboarding, API contracts, error guidance, and API-key boundary documentation |
+| [Admin Dashboard](https://pulsegate-admin-dashboard.netlify.app) | Read-only inspection of routes, consumers, credentials, plans, analytics, rollups, scheduler previews, and retention previews |
+| [Gateway health](https://pulsegate-public-demo-api.onrender.com/health) | Public API Gateway health check |
+| [Product Service through Gateway](https://pulsegate-public-demo-api.onrender.com/api/product-service/health) | Downstream health request routed through PulseGate |
+| [v2.0.0 release notes](docs/releases/v2.0.0.md) | Immutable Product/Platform v2 release evidence |
 
-## Public demo
+The public API may need up to about a minute to wake after inactivity. Retry the first request once when the free-tier runtime is cold.
 
-The public deployment is intentionally separated into two product surfaces:
+## Product surfaces
 
-### Developer Portal
+### API Gateway
 
-Use the [Developer Portal](https://pulsegate-developer-portal.netlify.app) to:
-
-- Read the public getting-started flow.
-- Review curated API documentation.
-- Inspect request, response, cache, rate-limit, quota, and downstream error guidance.
-- Review the non-operational API-key self-service boundary.
-- Navigate to the read-only Admin Dashboard.
-
-The Portal is static-first and unprivileged. It has no developer account, session, billing workflow, secret storage, or privileged Admin API access.
+The Fastify gateway owns request admission, authentication, traffic policy, dynamic routing, resilience, analytics events, and observability correlation.
 
 ### Admin Dashboard
 
-Use the [Admin Dashboard](https://pulsegate-admin-dashboard.netlify.app) to inspect:
+The Next.js Dashboard is a read-only operator control plane. It uses fixed server-side BFF routes and a server-only read credential. The browser never receives an Admin credential and the public interface exposes no mutation controls.
 
-- Consumers and API-key metadata.
-- Usage plans and quota summaries.
-- Persisted routes and the runtime route registry.
-- Host routing, weighted upstream, service discovery, and health metadata.
-- Successful usage and rejected/security analytics.
-- Persisted rollups, scheduler previews, and retention previews.
+### Developer Portal
 
-The browser calls fixed Dashboard BFF routes. The Dashboard server adds a read-only Admin credential when calling the Gateway. The browser never receives the credential, and the public Dashboard exposes no mutation controls.
+The Developer Portal is a static-first, unprivileged product surface for onboarding and API documentation. It has no developer account, session, billing workflow, secret storage, or privileged Admin API access.
 
-<table>
-  <tr>
-    <td width="50%">
-      <img src="docs/assets/portfolio/dashboard-routes.webp" alt="PulseGate Admin Dashboard route registry" />
-    </td>
-    <td width="50%">
-      <img src="docs/assets/portfolio/dashboard-analytics.webp" alt="PulseGate Admin Dashboard usage analytics" />
-    </td>
-  </tr>
-</table>
+## Implemented capabilities
+
+| Area | Capabilities |
+| --- | --- |
+| Gateway runtime | Dynamic route registry, path and host matching, weighted upstreams, service discovery, health-aware failover, bounded retries, request IDs, transforms, timeouts, and downstream proxying |
+| Security | Database-backed and environment-fallback API keys, JWT authentication, security headers, request-size limits, rate limiting, quota enforcement, Admin RBAC, and server-only credential boundaries |
+| API management | Consumers, API keys, usage plans, route configuration, runtime route inspection, quota state, and fixed read-only Dashboard BFF resources |
+| Analytics | Successful usage events, rejected and security events, bounded filters, summaries, cursor pagination, quota views, and raw event inspection |
+| Operations | Persisted rollup reads, scheduler previews, retention previews, explicit execution modes, bounded limits, and fail-closed destructive-operation guards |
+| Observability | Structured logs, request and trace correlation, OpenTelemetry propagation, Grafana Alloy, Loki, Prometheus metrics, Grafana dashboards, and bounded k6 smoke validation |
+| Delivery | npm workspaces, strict TypeScript, Vitest, multi-stage containers, Docker Compose, GitHub Actions, Kubernetes Kustomize overlays, runbooks, decision records, and release evidence |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    Client[API consumer] --> Gateway[API Gateway]
-    Portal[Developer Portal] --> Client
+    Consumer[API consumer] --> Gateway[API Gateway]
+
+    Portal[Developer Portal] --> Consumer
+
     Browser[Dashboard browser] --> BFF[Admin Dashboard BFF]
     BFF -->|fixed GET-only Admin calls| Gateway
 
@@ -89,83 +92,91 @@ flowchart LR
     Loki --> Grafana
 ```
 
-The main runtime path is:
+### Sources of truth
 
-```text
-client
-  -> API Gateway
-  -> request and security boundaries
-  -> route registry and target selection
-  -> resilience policies
-  -> Product Service
-  -> usage, rejection, metric, trace, and log evidence
-```
+- PostgreSQL stores route configuration, consumers, API keys, usage plans, successful usage events, rejected events, and analytics rollups.
+- Redis backs rate limiting and response caching.
+- Raw successful usage events remain the source of truth for usage analytics and quota counting.
+- Rejected and security events remain separate from successful usage.
+- Rollups are read models and do not replace quota-counting sources.
 
-## Key engineering decisions
+## Security and operational boundaries
 
 ### Read-only public control plane
 
-The public Admin Dashboard uses a server-only read-only credential. It exposes fixed GET-only BFF resources instead of a generic Admin proxy. Full-access Admin credentials remain outside the Dashboard runtime and browser surface.
-
-### Explicit sources of truth
-
-- PostgreSQL stores route configuration, consumers, API keys, usage plans, usage events, rejected events, and analytics rollups.
-- Redis backs rate limiting and response caching.
-- Raw successful usage events remain the source of truth for usage analytics and quota counting.
-- Rejected/security events remain separate from successful usage.
-- Rollups are read models and do not replace quota-counting sources.
+The public Dashboard exposes fixed GET-only BFF resources instead of a generic Admin proxy. Its server adds a read-only credential when calling the Gateway. Full-access Admin credentials remain outside the Dashboard runtime and browser surface.
 
 ### Bounded destructive operations
 
-Scheduler and retention functionality is guarded by preview contracts, explicit execution modes, operator confirmation, event limits, bucket bounds, and fail-closed behavior. Public product surfaces expose inspection and previews, not destructive controls.
+Scheduler and retention functionality is guarded by preview contracts, explicit execution modes, operator confirmation, event limits, bucket bounds, runtime gates, and fail-closed behavior. Public product surfaces expose inspection and previews, not destructive controls.
 
 ### Bounded observability
 
-Prometheus labels use bounded route templates. Logs keep correlation identifiers in structured bodies rather than unbounded Loki labels. The included k6 scenario is a lightweight health smoke, not a capacity, soak, SLA, or SLO certification.
+Prometheus labels use bounded route templates. Correlation identifiers remain in structured log bodies instead of unbounded Loki labels. The included k6 scenario is a lightweight health smoke, not a capacity, soak, SLA, or SLO certification.
+
+## Visual product design
+
+The post-release interface hardening adds a shared visual system across the Dashboard and Portal:
+
+- Branded application shells and clear product hierarchy.
+- Responsive mobile navigation instead of overflowing desktop menus.
+- Operator-focused route, consumer, API-key, usage-plan, analytics, rollup, scheduler, and retention workspaces.
+- Explicit read-only, safety, and credential-boundary messaging.
+- Responsive tables, cards, filters, status treatments, and overflow guards.
+- Reduced-motion handling and source-level UI boundary tests.
+
+The visual redesign changes presentation and information hierarchy without expanding the public security boundary or adding backend behavior.
 
 ## Release and validation
 
-The official Product/Platform v2 release is tagged `v2.0.0` from the final Sprint 80 release commit:
+### Official Product/Platform v2 release
+
+The immutable `v2.0.0` tag points to the final Sprint 80 release commit:
 
 ```text
 7a3d36574d2400086395d2206c1fa881b874a099
 ```
 
-Final v2 release validation passed:
+Official v2 release validation:
 
 | Workspace | Test files | Tests |
 | --- | ---: | ---: |
 | Admin Dashboard | 55 | 253 |
-| API Gateway | 163 | 1177 |
+| API Gateway | 163 | 1,177 |
 | Developer Portal | 2 | 8 |
 | Product Service | 10 | 36 |
-| **Total** | **230** | **1474** |
+| **Total** | **230** | **1,474** |
 
-Additional release evidence:
+Additional v2 release evidence:
 
 - All workspace typechecks passed.
 - All production builds passed.
-- Release-readiness and documentation integrity checks passed.
+- Release-readiness and documentation-integrity checks passed.
 - Docker Compose configuration passed with 10 services.
-- All existing Kubernetes Kustomize targets rendered successfully.
+- All Kubernetes Kustomize targets rendered successfully.
 - The bounded end-to-end demo passed.
 - The bounded k6 smoke passed.
 - Runtime cleanup completed without named-volume deletion.
 
-The public demo is deployed from `deploy/public-demo`, which keeps deployment wiring and public UI hardening separate from the protected official `main` release line. The currently verified public demo commit is:
+### Post-release UI hardening
 
-```text
-c7a4c70ca7ad6f50b9bedb085c7a799ae6b28459
-```
+The latest frontend validation after the visual and mobile redesign passed:
 
-## Technology stack
+| Workspace | Test files | Tests | Typecheck | Production build |
+| --- | ---: | ---: | --- | --- |
+| Admin Dashboard | 55 | 255 | Pass | Pass |
+| Developer Portal | 2 | 9 | Pass | Pass |
 
-- **Runtime:** Node.js 20+, TypeScript, Fastify
-- **Web applications:** Next.js, React
-- **Data:** PostgreSQL, Prisma, Redis
-- **Testing:** Vitest, k6
-- **Observability:** OpenTelemetry, Prometheus, Grafana Alloy, Loki, Grafana
-- **Delivery:** npm workspaces, Docker Compose, GitHub Actions, Kubernetes Kustomize
+The official v2 tag remains unchanged. Post-release portfolio hardening is maintained on `main`; no Sprint 81 is defined.
+
+## Public demo availability
+
+The public UI and API use free-tier infrastructure:
+
+- Netlify UI deployments may pause when monthly team credits are exhausted.
+- The Render API may cold-start after inactivity.
+- A temporarily unavailable public site does not change the immutable release tag, source history, local validation evidence, or deployment runbooks.
+- After hosting credits reset, the current `main` branch can be redeployed without changing application code.
 
 ## Local development
 
@@ -174,7 +185,7 @@ c7a4c70ca7ad6f50b9bedb085c7a799ae6b28459
 - Node.js 20 or newer
 - npm
 - Docker Desktop with Docker Compose
-- PowerShell on Windows for the documented validation workflow
+- PowerShell for the documented Windows validation workflow
 
 ### Install and validate
 
@@ -187,16 +198,14 @@ npm.cmd run build
 
 ### Start the Compose stack
 
-A full local stack requires separate full-access and read-only Admin keys. Configure them according to the [Admin Dashboard runbook](docs/runbooks/admin-dashboard.md), then start Compose:
+A full local stack requires separate full-access and read-only Admin keys. Configure them according to the [Admin Dashboard runbook](docs/runbooks/admin-dashboard.md), then run:
 
 ```powershell
 docker compose up -d --build
 docker compose ps
 ```
 
-Local product surfaces:
-
-| Service | URL |
+| Service | Local URL |
 | --- | --- |
 | API Gateway | `http://127.0.0.1:3000` |
 | Product Service | `http://127.0.0.1:3001` |
@@ -207,7 +216,7 @@ Local product surfaces:
 
 Keep credentials out of source code and browser-visible environment variables.
 
-### Run the bounded end-to-end demo and smoke
+### Run the bounded demo and smoke test
 
 ```powershell
 powershell.exe `
@@ -219,7 +228,7 @@ powershell.exe `
 npm.cmd run test:k6:smoke
 ```
 
-The k6 test is intentionally small and bounded.
+The k6 scenario is intentionally small and bounded.
 
 ## Repository guide
 
