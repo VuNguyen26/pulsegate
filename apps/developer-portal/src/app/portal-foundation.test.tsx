@@ -30,8 +30,15 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe("Developer Portal foundation", () => {
-  it("renders the public demo overview and existing getting-started content", () => {
-    expect(render(<OverviewPage />)).toContain("Public Demo v2.0.0");
+  it("renders the product overview and existing getting-started content", () => {
+    const overview = render(<OverviewPage />);
+
+    expect(overview).toContain("Public demo v2.0.0");
+    expect(overview).toContain("One gateway.");
+    expect(overview).toContain("Every request visible.");
+    expect(overview).toContain("1,474");
+    expect(overview).toContain("Gateway request preview");
+    expect(overview).toContain("Request lifecycle");
     expect(render(<GettingStartedPage />)).toContain(
       "does not create developer accounts",
     );
