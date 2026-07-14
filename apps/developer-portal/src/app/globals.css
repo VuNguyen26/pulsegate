@@ -119,6 +119,15 @@ footer { padding: 2rem 5vw; border-top: 1px solid #dbe4ee; background: white; }
   min-width: 0;
 }
 
+.docs-layout,
+.docs-layout > *,
+.endpoint-stack > *,
+.docs-section,
+.endpoint-card,
+.code-example {
+  min-width: 0;
+}
+
 .docs-section,
 .endpoint-card {
   padding: 1.6rem;
@@ -217,6 +226,7 @@ footer { padding: 2rem 5vw; border-top: 1px solid #dbe4ee; background: white; }
 }
 
 .code-example pre {
+  max-width: 100%;
   margin: 0;
   overflow-x: auto;
   padding: 1rem;
