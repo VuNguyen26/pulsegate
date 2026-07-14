@@ -6,8 +6,23 @@ import { describe, expect, it } from "vitest";
 import ErrorPage from "./error";
 import Loading from "./loading";
 import NotFound from "./not-found";
+import OverviewPage from "./page";
 
 describe("Admin Dashboard UI boundaries", () => {
+  it("renders the redesigned operator overview", () => {
+    const html = renderToStaticMarkup(<OverviewPage />);
+
+    expect(html).toContain(
+      "Operate the gateway from one guarded surface.",
+    );
+    expect(html).toContain("PulseGate control plane request flow");
+    expect(html).toContain("Runtime evidence, without browser secrets.");
+    expect(html).toContain("Open routes →");
+    expect(html).toContain("Open analytics →");
+    expect(html).toContain("Open rollups →");
+    expect(html).toContain("Gateway connectivity");
+  });
+
   it("renders a semantic loading boundary", () => {
     const html = renderToStaticMarkup(
       <Loading />,

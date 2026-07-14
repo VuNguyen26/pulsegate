@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import {
   loadDashboardRuntimeStatus,
   type DashboardRuntimeStatusState,
-} from "@/lib/runtime-status";
+} from "../lib/runtime-status";
 
 type RuntimePanelState =
   | {
