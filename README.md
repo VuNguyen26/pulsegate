@@ -1,20 +1,46 @@
+<div align="center">
+
 # PulseGate
 
-**A product-oriented API Gateway and API management platform built with TypeScript, Fastify, PostgreSQL, Redis, Next.js, OpenTelemetry, Loki, Prometheus, Grafana, Docker Compose, and Kubernetes.**
+### Product-oriented API Gateway & API Management Platform
 
-[Developer Portal](https://pulsegate-developer-portal.netlify.app) |
-[Admin Dashboard](https://pulsegate-admin-dashboard.netlify.app) |
-[API health](https://pulsegate-public-demo-api.onrender.com/health) |
-[Product Service through Gateway](https://pulsegate-public-demo-api.onrender.com/api/product-service/health) |
-[v2.0.0 release notes](docs/releases/v2.0.0.md)
+**Routing · Security · Resilience · Analytics · Operations · Observability**
 
-> **Project status:** Product/Platform v2.0.0 is released, the fixed Sprint 45-80 roadmap is complete, and the post-release visual product redesign is complete in source on `main`. The public UI sites use free-tier hosting and may be temporarily unavailable or lag the latest source when hosting credits are exhausted.
+<p>
+  <a href="docs/releases/v2.0.0.md"><img alt="Release v2.0.0" src="https://img.shields.io/badge/release-v2.0.0-5B5BD6?style=for-the-badge"></a>
+  <img alt="Roadmap complete" src="https://img.shields.io/badge/roadmap-Sprints_45--80_complete-16A34A?style=for-the-badge">
+  <img alt="Release tests" src="https://img.shields.io/badge/release_tests-1%2C474_passed-0284C7?style=for-the-badge">
+  <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white">
+</p>
 
-PulseGate demonstrates how an API gateway can combine traffic routing, authentication, rate and quota enforcement, resilience, analytics, operations, and observability behind explicit security boundaries. It is presented as a portfolio-grade engineering system, not as a production SaaS or capacity-certified service.
+<p>
+  <a href="https://pulsegate-developer-portal.netlify.app"><img alt="Open Developer Portal" src="https://img.shields.io/badge/Open-Developer_Portal-4F46E5?style=for-the-badge&logo=netlify&logoColor=white"></a>
+  <a href="https://pulsegate-admin-dashboard.netlify.app"><img alt="Open Admin Dashboard" src="https://img.shields.io/badge/Open-Admin_Dashboard-111827?style=for-the-badge&logo=netlify&logoColor=white"></a>
+  <a href="https://pulsegate-public-demo-api.onrender.com/health"><img alt="Check API health" src="https://img.shields.io/badge/Check-API_Health-059669?style=for-the-badge&logo=render&logoColor=white"></a>
+  <a href="docs/architecture/overview.md"><img alt="Read architecture" src="https://img.shields.io/badge/Read-Architecture-0F766E?style=for-the-badge"></a>
+</p>
+
+A portfolio-grade platform that follows an API request from admission and policy enforcement<br>
+through runtime routing, downstream delivery, analytics, traces, metrics, and logs.
+
+</div>
+
+<p align="center">
+  <img
+    src="docs/assets/portfolio/portal-overview-v2.webp"
+    alt="PulseGate Developer Portal product overview"
+    width="100%"
+  >
+</p>
+
+> [!IMPORTANT]
+> The full post-release visual redesign is complete in source on `main`. The public UI uses free-tier Netlify hosting and may temporarily remain on an older deploy or go offline when monthly team credits are exhausted. The Render API may also cold-start after inactivity.
+
+---
 
 ## Why PulseGate
 
-Most gateway demos stop at reverse proxying. PulseGate follows a request across the full operational path:
+Many API gateway demos stop at reverse proxying. PulseGate demonstrates the broader system around that proxy:
 
 ```text
 consumer request
@@ -26,52 +52,103 @@ consumer request
   -> usage, rejection, metric, trace, and log evidence
 ```
 
-The repository includes the runtime, data model, read-only operator experience, developer-facing documentation, observability stack, deployment assets, validation scripts, and architecture records needed to explain that path end to end.
+<table>
+  <tr>
+    <td width="25%"><strong>Traffic control</strong><br><sub>Dynamic routes, host rules, weighted upstreams, discovery, health selection, retries, timeouts, and transforms.</sub></td>
+    <td width="25%"><strong>Security boundary</strong><br><sub>API keys, JWT, rate limits, quotas, request limits, Admin RBAC, and server-only credentials.</sub></td>
+    <td width="25%"><strong>Operational evidence</strong><br><sub>Usage analytics, rejected events, rollups, scheduler previews, retention previews, and guarded execution contracts.</sub></td>
+    <td width="25%"><strong>Observability</strong><br><sub>OpenTelemetry, Prometheus, Grafana Alloy, Loki, Grafana, structured logs, and bounded k6 smoke validation.</sub></td>
+  </tr>
+</table>
 
-## Explore the system
+---
 
-| Surface | Purpose |
-| --- | --- |
-| [Developer Portal](https://pulsegate-developer-portal.netlify.app) | Public onboarding, API contracts, error guidance, and API-key boundary documentation |
-| [Admin Dashboard](https://pulsegate-admin-dashboard.netlify.app) | Read-only inspection of routes, consumers, credentials, plans, analytics, rollups, scheduler previews, and retention previews |
-| [Gateway health](https://pulsegate-public-demo-api.onrender.com/health) | Public API Gateway health check |
-| [Product Service through Gateway](https://pulsegate-public-demo-api.onrender.com/api/product-service/health) | Downstream health request routed through PulseGate |
-| [v2.0.0 release notes](docs/releases/v2.0.0.md) | Immutable Product/Platform v2 release evidence |
-
-The public API may need up to about a minute to wake after inactivity. Retry the first request once when the free-tier runtime is cold.
-
-## Product surfaces
-
-### API Gateway
-
-The Fastify gateway owns request admission, authentication, traffic policy, dynamic routing, resilience, analytics events, and observability correlation.
-
-### Admin Dashboard
-
-The Next.js Dashboard is a read-only operator control plane. It uses fixed server-side BFF routes and a server-only read credential. The browser never receives an Admin credential and the public interface exposes no mutation controls.
+## Product experience
 
 ### Developer Portal
 
-The Developer Portal is a static-first, unprivileged product surface for onboarding and API documentation. It has no developer account, session, billing workflow, secret storage, or privileged Admin API access.
+A static-first, unprivileged product surface for onboarding, curated API contracts, public error guidance, and explanation of the API-key boundary.
+
+- No developer account or session.
+- No browser secret storage.
+- No privileged Admin API access.
+- Direct navigation to the public Dashboard and API health surfaces.
+
+### Admin control plane
+
+<p align="center">
+  <img
+    src="docs/assets/portfolio/dashboard-overview-v2.webp"
+    alt="PulseGate Admin Dashboard operator control plane"
+    width="100%"
+  >
+</p>
+
+The Next.js Dashboard is a **read-only operator control plane**:
+
+- Fixed GET-only BFF resources instead of a generic Admin proxy.
+- A server-held read-only credential that is never delivered to the browser.
+- Route, consumer, API-key, usage-plan, analytics, rollup, scheduler, and retention inspection.
+- No browser mutation controls and no exposure of issued API-key secrets.
+
+---
+
+## Technology stack
+
+<div align="center">
+
+### Runtime & Web
+
+![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Fastify](https://img.shields.io/badge/Fastify-5-111111?style=for-the-badge&logo=fastify&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-19-087EA4?style=for-the-badge&logo=react&logoColor=white)
+
+### Data & Policy
+
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+
+### Observability
+
+![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-000000?style=for-the-badge&logo=opentelemetry&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)
+![Loki](https://img.shields.io/badge/Loki-1F60C4?style=for-the-badge&logo=grafana&logoColor=white)
+
+### Delivery & Validation
+
+![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
+![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)
+![k6](https://img.shields.io/badge/k6-7D64FF?style=for-the-badge&logo=k6&logoColor=white)
+
+</div>
+
+---
 
 ## Implemented capabilities
 
 | Area | Capabilities |
 | --- | --- |
-| Gateway runtime | Dynamic route registry, path and host matching, weighted upstreams, service discovery, health-aware failover, bounded retries, request IDs, transforms, timeouts, and downstream proxying |
-| Security | Database-backed and environment-fallback API keys, JWT authentication, security headers, request-size limits, rate limiting, quota enforcement, Admin RBAC, and server-only credential boundaries |
-| API management | Consumers, API keys, usage plans, route configuration, runtime route inspection, quota state, and fixed read-only Dashboard BFF resources |
-| Analytics | Successful usage events, rejected and security events, bounded filters, summaries, cursor pagination, quota views, and raw event inspection |
-| Operations | Persisted rollup reads, scheduler previews, retention previews, explicit execution modes, bounded limits, and fail-closed destructive-operation guards |
-| Observability | Structured logs, request and trace correlation, OpenTelemetry propagation, Grafana Alloy, Loki, Prometheus metrics, Grafana dashboards, and bounded k6 smoke validation |
-| Delivery | npm workspaces, strict TypeScript, Vitest, multi-stage containers, Docker Compose, GitHub Actions, Kubernetes Kustomize overlays, runbooks, decision records, and release evidence |
+| **Gateway runtime** | Dynamic route registry, path and host matching, weighted upstreams, service discovery, health-aware failover, bounded retries, request IDs, transforms, timeouts, and downstream proxying |
+| **Security** | Database-backed and environment-fallback API keys, JWT authentication, security headers, request-size limits, rate limiting, quota enforcement, Admin RBAC, and server-only credential boundaries |
+| **API management** | Consumers, API keys, usage plans, route configuration, runtime route inspection, quota state, and fixed read-only Dashboard BFF resources |
+| **Analytics** | Successful usage events, rejected/security events, bounded filters, summaries, cursor pagination, quota views, and raw event inspection |
+| **Operations** | Persisted rollup reads, scheduler previews, retention previews, explicit execution modes, bounded limits, and fail-closed destructive-operation guards |
+| **Observability** | Structured logs, trace/span correlation, OpenTelemetry propagation, Grafana Alloy, Loki, Prometheus metrics, Grafana dashboards, and bounded k6 smoke validation |
+| **Delivery** | npm workspaces, strict TypeScript, Vitest, multi-stage containers, Docker Compose, GitHub Actions, Kubernetes Kustomize overlays, runbooks, decision records, and release evidence |
+
+---
 
 ## Architecture
 
 ```mermaid
 flowchart LR
     Consumer[API consumer] --> Gateway[API Gateway]
-
     Portal[Developer Portal] --> Consumer
 
     Browser[Dashboard browser] --> BFF[Admin Dashboard BFF]
@@ -97,47 +174,35 @@ flowchart LR
 - PostgreSQL stores route configuration, consumers, API keys, usage plans, successful usage events, rejected events, and analytics rollups.
 - Redis backs rate limiting and response caching.
 - Raw successful usage events remain the source of truth for usage analytics and quota counting.
-- Rejected and security events remain separate from successful usage.
-- Rollups are read models and do not replace quota-counting sources.
+- Rejected/security events remain separate from successful usage.
+- Rollups are read models and never replace quota-counting sources.
+
+---
 
 ## Security and operational boundaries
 
-### Read-only public control plane
+| Boundary | Guarantee |
+| --- | --- |
+| **Public Dashboard** | Read-only BFF resources; no generic Admin proxy |
+| **Admin credentials** | Server-side only; never browser-visible |
+| **API-key material** | Issued secrets are not returned by public read surfaces |
+| **Scheduler & retention** | Preview-first, bounded, explicit, fail-closed |
+| **Quota source** | Raw successful usage events remain canonical |
+| **Rejected traffic** | Recorded separately from successful usage |
+| **Observability labels** | Bounded route templates; correlation IDs remain in structured bodies |
+| **k6 evidence** | Lightweight smoke only; not capacity, soak, SLA, or SLO certification |
 
-The public Dashboard exposes fixed GET-only BFF resources instead of a generic Admin proxy. Its server adds a read-only credential when calling the Gateway. Full-access Admin credentials remain outside the Dashboard runtime and browser surface.
-
-### Bounded destructive operations
-
-Scheduler and retention functionality is guarded by preview contracts, explicit execution modes, operator confirmation, event limits, bucket bounds, runtime gates, and fail-closed behavior. Public product surfaces expose inspection and previews, not destructive controls.
-
-### Bounded observability
-
-Prometheus labels use bounded route templates. Correlation identifiers remain in structured log bodies instead of unbounded Loki labels. The included k6 scenario is a lightweight health smoke, not a capacity, soak, SLA, or SLO certification.
-
-## Visual product design
-
-The post-release interface hardening adds a shared visual system across the Dashboard and Portal:
-
-- Branded application shells and clear product hierarchy.
-- Responsive mobile navigation instead of overflowing desktop menus.
-- Operator-focused route, consumer, API-key, usage-plan, analytics, rollup, scheduler, and retention workspaces.
-- Explicit read-only, safety, and credential-boundary messaging.
-- Responsive tables, cards, filters, status treatments, and overflow guards.
-- Reduced-motion handling and source-level UI boundary tests.
-
-The visual redesign changes presentation and information hierarchy without expanding the public security boundary or adding backend behavior.
+---
 
 ## Release and validation
 
 ### Official Product/Platform v2 release
 
-The immutable `v2.0.0` tag points to the final Sprint 80 release commit:
+The immutable `v2.0.0` tag points to:
 
 ```text
 7a3d36574d2400086395d2206c1fa881b874a099
 ```
-
-Official v2 release validation:
 
 | Workspace | Test files | Tests |
 | --- | ---: | ---: |
@@ -147,38 +212,40 @@ Official v2 release validation:
 | Product Service | 10 | 36 |
 | **Total** | **230** | **1,474** |
 
-Additional v2 release evidence:
+Additional release evidence:
 
-- All workspace typechecks passed.
-- All production builds passed.
+- All workspace typechecks and production builds passed.
 - Release-readiness and documentation-integrity checks passed.
-- Docker Compose configuration passed with 10 services.
+- Docker Compose validated with 10 services.
 - All Kubernetes Kustomize targets rendered successfully.
-- The bounded end-to-end demo passed.
-- The bounded k6 smoke passed.
+- The bounded end-to-end demo and bounded k6 smoke passed.
 - Runtime cleanup completed without named-volume deletion.
 
-### Post-release UI hardening
-
-The latest frontend validation after the visual and mobile redesign passed:
+### Post-release visual product hardening
 
 | Workspace | Test files | Tests | Typecheck | Production build |
 | --- | ---: | ---: | --- | --- |
 | Admin Dashboard | 55 | 255 | Pass | Pass |
 | Developer Portal | 2 | 9 | Pass | Pass |
 
-The official v2 tag remains unchanged. Post-release portfolio hardening is maintained on `main`; no Sprint 81 is defined.
+The visual redesign changes presentation, navigation, responsive behavior, and information hierarchy without expanding the public security boundary or adding backend behavior.
+
+---
 
 ## Public demo availability
 
-The public UI and API use free-tier infrastructure:
+| Surface | URL | Notes |
+| --- | --- | --- |
+| Developer Portal | [Open Portal](https://pulsegate-developer-portal.netlify.app) | May pause when Netlify free credits are exhausted |
+| Admin Dashboard | [Open Dashboard](https://pulsegate-admin-dashboard.netlify.app) | Read-only; may temporarily serve an older deploy until credits reset |
+| Gateway health | [Check health](https://pulsegate-public-demo-api.onrender.com/health) | Render free-tier cold starts are possible |
+| Product Service through Gateway | [Check downstream health](https://pulsegate-public-demo-api.onrender.com/api/product-service/health) | Demonstrates routing through PulseGate |
 
-- Netlify UI deployments may pause when monthly team credits are exhausted.
-- The Render API may cold-start after inactivity.
-- A temporarily unavailable public site does not change the immutable release tag, source history, local validation evidence, or deployment runbooks.
-- After hosting credits reset, the current `main` branch can be redeployed without changing application code.
+After Netlify credits reset, redeploy the latest `main` commit once for each UI project and run the final public visual QA again.
 
-## Local development
+---
+
+## Run locally
 
 ### Prerequisites
 
@@ -196,9 +263,9 @@ npm.cmd run typecheck
 npm.cmd run build
 ```
 
-### Start the Compose stack
+### Start the platform
 
-A full local stack requires separate full-access and read-only Admin keys. Configure them according to the [Admin Dashboard runbook](docs/runbooks/admin-dashboard.md), then run:
+Configure separate full-access and read-only Admin keys according to the [Admin Dashboard runbook](docs/runbooks/admin-dashboard.md), then run:
 
 ```powershell
 docker compose up -d --build
@@ -228,9 +295,12 @@ powershell.exe `
 npm.cmd run test:k6:smoke
 ```
 
-The k6 scenario is intentionally small and bounded.
+---
 
-## Repository guide
+## Repository map
+
+<details>
+<summary><strong>Open repository guide</strong></summary>
 
 | Path | Purpose |
 | --- | --- |
@@ -246,9 +316,9 @@ The k6 scenario is intentionally small and bounded.
 | `docs/project-context/decisions` | Architecture and product decision records |
 | `docs/sdlc/sprint-history` | Historical delivery evidence |
 
-## Documentation
+</details>
 
-Start with:
+## Documentation
 
 - [Architecture overview](docs/architecture/overview.md)
 - [Current canonical state](docs/project-context/CURRENT_PROGRESS.md)
@@ -259,6 +329,8 @@ Start with:
 - [Developer Portal runbook](docs/runbooks/developer-portal.md)
 - [End-to-end demo and k6 runbook](docs/runbooks/end-to-end-demo-and-k6.md)
 - [Observability validation runbook](docs/runbooks/observability-validation.md)
+
+---
 
 ## Scope boundaries
 
@@ -273,7 +345,7 @@ PulseGate is an engineering portfolio platform and public demonstration. It does
 - Production secret management for the local Kubernetes overlay.
 - Destructive retention controls in the public Dashboard.
 
-The fixed Sprint 45-80 roadmap is complete. No Sprint 81 is defined.
+The fixed Sprint 45-80 roadmap is complete. **No Sprint 81 is defined.**
 
 ## License
 
